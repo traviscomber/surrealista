@@ -362,8 +362,8 @@ export default function GoogleDriveIntegration() {
             <FolderOpen className="h-16 w-16 mx-auto text-gray-400 mb-4" />
             <h3 className="text-lg font-medium mb-2">API No Configurada</h3>
             <p className="text-gray-600 mb-6">
-              La integración con Google Drive está planificada para la Etapa 2 del proyecto. Actualmente estamos en la
-              fase de organización de datos locales.
+              La integración con Google Drive está pendiente de entrega por parte de Sur-Realista. Actualmente estamos
+              en la fase de organización de datos locales y esperando las credenciales de API.
             </p>
             <Button
               onClick={connectToDrive}

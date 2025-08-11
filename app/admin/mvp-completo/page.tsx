@@ -7,20 +7,33 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Database, FileText, Users, Calendar, CheckCircle, AlertTriangle, Target, TrendingUp, FolderOpen, Palette, MessageSquare, Mail, Phone, Globe } from 'lucide-react'
+import {
+  Database,
+  Users,
+  Calendar,
+  CheckCircle,
+  AlertTriangle,
+  Target,
+  TrendingUp,
+  FolderOpen,
+  Palette,
+  MessageSquare,
+  Mail,
+  Globe,
+} from "lucide-react"
 
 interface MVPStage {
   id: string
   name: string
   description: string
   duration: string
-  status: 'pending' | 'in-progress' | 'completed'
+  status: "pending" | "in-progress" | "completed"
   progress: number
   tasks: Array<{
     id: string
     name: string
-    status: 'pending' | 'in-progress' | 'completed'
-    priority: 'high' | 'medium' | 'low'
+    status: "pending" | "in-progress" | "completed"
+    priority: "high" | "medium" | "low"
   }>
 }
 
@@ -41,7 +54,7 @@ export default function MVPCompletoPage() {
     overallProgress: 0,
     currentStage: "",
     estimatedCompletion: "",
-    resourcesAllocated: 0
+    resourcesAllocated: 0,
   })
   const [activeTab, setActiveTab] = useState("overview")
   const [loading, setLoading] = useState(true)
@@ -52,10 +65,10 @@ export default function MVPCompletoPage() {
 
   const loadMVPData = async () => {
     setLoading(true)
-    
+
     // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+
     const mvpStages: MVPStage[] = [
       {
         id: "stage-1",
@@ -68,28 +81,28 @@ export default function MVPCompletoPage() {
           {
             id: "api-integration",
             name: "API de Integración con Google Drive",
-            status: "completed",
-            priority: "high"
+            status: "pending",
+            priority: "high",
           },
           {
             id: "web-interface",
             name: "Construcción de Interfaz Web",
             status: "in-progress",
-            priority: "high"
+            priority: "high",
           },
           {
             id: "migration",
             name: "Migración y Estandarización",
             status: "in-progress",
-            priority: "medium"
+            priority: "medium",
           },
           {
             id: "testing-training",
             name: "Pruebas y Capacitación",
             status: "pending",
-            priority: "medium"
-          }
-        ]
+            priority: "medium",
+          },
+        ],
       },
       {
         id: "stage-2",
@@ -103,27 +116,27 @@ export default function MVPCompletoPage() {
             id: "templates",
             name: "Plantillas Estandarizadas",
             status: "pending",
-            priority: "high"
+            priority: "high",
           },
           {
             id: "resource-organization",
             name: "Organización de Recursos",
             status: "pending",
-            priority: "medium"
+            priority: "medium",
           },
           {
             id: "flexible-editing",
             name: "Edición Flexible",
             status: "pending",
-            priority: "medium"
+            priority: "medium",
           },
           {
             id: "content-automation",
             name: "Automatización de Contenido",
             status: "pending",
-            priority: "low"
-          }
-        ]
+            priority: "low",
+          },
+        ],
       },
       {
         id: "stage-3",
@@ -137,33 +150,34 @@ export default function MVPCompletoPage() {
             id: "gmail-integration",
             name: "Integración con Gmail",
             status: "pending",
-            priority: "high"
+            priority: "high",
           },
           {
             id: "social-monitoring",
             name: "Monitoreo de Redes Sociales",
             status: "pending",
-            priority: "medium"
+            priority: "medium",
           },
           {
             id: "message-analysis",
             name: "Análisis de Mensajería",
             status: "pending",
-            priority: "medium"
+            priority: "medium",
           },
           {
             id: "data-centralization",
             name: "Centralización de Datos",
             status: "pending",
-            priority: "high"
-          }
-        ]
-      }
+            priority: "high",
+          },
+        ],
+      },
     ]
 
     const totalTasks = mvpStages.reduce((sum, stage) => sum + stage.tasks.length, 0)
-    const completedTasks = mvpStages.reduce((sum, stage) => 
-      sum + stage.tasks.filter(task => task.status === 'completed').length, 0
+    const completedTasks = mvpStages.reduce(
+      (sum, stage) => sum + stage.tasks.filter((task) => task.status === "completed").length,
+      0,
     )
 
     setStages(mvpStages)
@@ -173,9 +187,9 @@ export default function MVPCompletoPage() {
       overallProgress: Math.round((completedTasks / totalTasks) * 100),
       currentStage: "Etapa 1",
       estimatedCompletion: "3 meses",
-      resourcesAllocated: 85
+      resourcesAllocated: 85,
     })
-    
+
     setLoading(false)
   }
 
@@ -183,12 +197,12 @@ export default function MVPCompletoPage() {
     const statusConfig = {
       pending: { color: "bg-gray-100 text-gray-800", text: "Pendiente", icon: AlertTriangle },
       "in-progress": { color: "bg-blue-100 text-blue-800", text: "En Progreso", icon: TrendingUp },
-      completed: { color: "bg-green-100 text-green-800", text: "Completado", icon: CheckCircle }
+      completed: { color: "bg-green-100 text-green-800", text: "Completado", icon: CheckCircle },
     }
-    
+
     const config = statusConfig[status as keyof typeof statusConfig]
     const Icon = config.icon
-    
+
     return (
       <Badge className={`${config.color} flex items-center gap-1`}>
         <Icon className="h-3 w-3" />
@@ -201,9 +215,9 @@ export default function MVPCompletoPage() {
     const priorityConfig = {
       high: { color: "bg-red-100 text-red-800", text: "Alta" },
       medium: { color: "bg-yellow-100 text-yellow-800", text: "Media" },
-      low: { color: "bg-green-100 text-green-800", text: "Baja" }
+      low: { color: "bg-green-100 text-green-800", text: "Baja" },
     }
-    
+
     const config = priorityConfig[priority as keyof typeof priorityConfig]
     return <Badge className={config.color}>{config.text}</Badge>
   }
@@ -272,8 +286,8 @@ export default function MVPCompletoPage() {
               <Alert>
                 <Target className="h-4 w-4" />
                 <AlertDescription>
-                  <strong>Estado Actual:</strong> {metrics.currentStage} en progreso. 
-                  Recursos asignados: {metrics.resourcesAllocated}%
+                  <strong>Estado Actual:</strong> {metrics.currentStage} en progreso. Recursos asignados:{" "}
+                  {metrics.resourcesAllocated}%
                 </AlertDescription>
               </Alert>
             </div>
@@ -306,7 +320,7 @@ export default function MVPCompletoPage() {
                       <span className="text-sm font-medium">Duración: {stage.duration}</span>
                       {getStatusBadge(stage.status)}
                     </div>
-                    
+
                     <div>
                       <div className="flex justify-between items-center mb-2">
                         <span className="text-sm">Progreso</span>
@@ -316,15 +330,11 @@ export default function MVPCompletoPage() {
                     </div>
 
                     <div className="text-sm text-gray-600">
-                      <strong>Tareas:</strong> {stage.tasks.filter(t => t.status === 'completed').length} / {stage.tasks.length} completadas
+                      <strong>Tareas:</strong> {stage.tasks.filter((t) => t.status === "completed").length} /{" "}
+                      {stage.tasks.length} completadas
                     </div>
 
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => setActiveTab(stage.id)}
-                      className="w-full"
-                    >
+                    <Button variant="outline" size="sm" onClick={() => setActiveTab(stage.id)} className="w-full">
                       Ver Detalles
                     </Button>
                   </div>
@@ -359,9 +369,9 @@ export default function MVPCompletoPage() {
                           <div className="font-medium">API de Integración</div>
                           <div className="text-sm text-gray-600">Conexión con Google Drive</div>
                         </div>
-                        <CheckCircle className="h-5 w-5 text-green-600" />
+                        <AlertTriangle className="h-5 w-5 text-gray-600" />
                       </div>
-                      
+
                       <div className="flex items-center gap-3 p-3 border rounded-lg">
                         <Globe className="h-5 w-5 text-blue-600" />
                         <div>
@@ -370,7 +380,7 @@ export default function MVPCompletoPage() {
                         </div>
                         <TrendingUp className="h-5 w-5 text-blue-600" />
                       </div>
-                      
+
                       <div className="flex items-center gap-3 p-3 border rounded-lg">
                         <Database className="h-5 w-5 text-blue-600" />
                         <div>
@@ -385,12 +395,24 @@ export default function MVPCompletoPage() {
                   <div>
                     <h4 className="font-medium mb-3">Especificaciones Técnicas</h4>
                     <div className="space-y-2 text-sm">
-                      <div><strong>API:</strong> Google Drive API v3</div>
-                      <div><strong>Sincronización:</strong> Bidireccional en tiempo real</div>
-                      <div><strong>Filtros:</strong> Dinámicos por tipo, fecha, estado</div>
-                      <div><strong>Funcionalidades:</strong> Edición, descarga directa</div>
-                      <div><strong>Nomenclatura:</strong> Sistema estandarizado</div>
-                      <div><strong>Scripts:</strong> Automatización de migración</div>
+                      <div>
+                        <strong>API:</strong> Google Drive API v3
+                      </div>
+                      <div>
+                        <strong>Sincronización:</strong> Bidireccional en tiempo real
+                      </div>
+                      <div>
+                        <strong>Filtros:</strong> Dinámicos por tipo, fecha, estado
+                      </div>
+                      <div>
+                        <strong>Funcionalidades:</strong> Edición, descarga directa
+                      </div>
+                      <div>
+                        <strong>Nomenclatura:</strong> Sistema estandarizado
+                      </div>
+                      <div>
+                        <strong>Scripts:</strong> Automatización de migración
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -399,30 +421,28 @@ export default function MVPCompletoPage() {
                 <div>
                   <h4 className="font-medium mb-3">Tareas de la Etapa 1</h4>
                   <div className="space-y-3">
-                    {stages.find(s => s.id === 'stage-1')?.tasks.map((task) => (
-                      <div key={task.id} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <div>
-                            <div className="font-medium">{task.name}</div>
+                    {stages
+                      .find((s) => s.id === "stage-1")
+                      ?.tasks.map((task) => (
+                        <div key={task.id} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <div>
+                              <div className="font-medium">{task.name}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {getPriorityBadge(task.priority)}
+                            {getStatusBadge(task.status)}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {getPriorityBadge(task.priority)}
-                          {getStatusBadge(task.status)}
-                        </div>
-                      </div>
-                    ))}
+                      ))}
                   </div>
                 </div>
 
                 {/* Action Buttons */}
                 <div className="flex gap-2">
-                  <Button onClick={() => setActiveTab("overview")}>
-                    Ir a Fase 1 Actual
-                  </Button>
-                  <Button variant="outline">
-                    Ver Documentación Técnica
-                  </Button>
+                  <Button onClick={() => setActiveTab("overview")}>Ir a Fase 1 Actual</Button>
+                  <Button variant="outline">Ver Documentación Técnica</Button>
                 </div>
               </div>
             </CardContent>
@@ -437,9 +457,7 @@ export default function MVPCompletoPage() {
                 <Palette className="h-5 w-5" />
                 Etapa 2: Estandarización de Material de Producto
               </CardTitle>
-              <CardDescription>
-                Desarrollo de plantillas profesionales y automatización de contenido
-              </CardDescription>
+              <CardDescription>Desarrollo de plantillas profesionales y automatización de contenido</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
@@ -476,22 +494,22 @@ export default function MVPCompletoPage() {
                       <div className="p-3 bg-gray-50 rounded-lg">
                         <div className="font-medium">Requisitos del Sistema</div>
                         <div className="text-sm text-gray-600 mt-1">
-                          • Adobe InDesign/Microsoft Publisher<br/>
-                          • PDF interactivo/HTML<br/>
-                          • Multi-dispositivo compatible<br/>
-                          • Integrado con Google Drive
+                          • Adobe InDesign/Microsoft Publisher
+                          <br />• PDF interactivo/HTML
+                          <br />• Multi-dispositivo compatible
+                          <br />• Integrado con Google Drive
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="space-y-3">
                       <div className="p-3 bg-gray-50 rounded-lg">
                         <div className="font-medium">Elementos de Diseño</div>
                         <div className="text-sm text-gray-600 mt-1">
-                          • Biblioteca de componentes<br/>
-                          • Paleta de colores corporativos<br/>
-                          • Tipografías autorizadas<br/>
-                          • Sistema de iconografía
+                          • Biblioteca de componentes
+                          <br />• Paleta de colores corporativos
+                          <br />• Tipografías autorizadas
+                          <br />• Sistema de iconografía
                         </div>
                       </div>
                     </div>
@@ -502,19 +520,21 @@ export default function MVPCompletoPage() {
                 <div>
                   <h4 className="font-medium mb-3">Tareas de la Etapa 2</h4>
                   <div className="space-y-3">
-                    {stages.find(s => s.id === 'stage-2')?.tasks.map((task) => (
-                      <div key={task.id} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <div>
-                            <div className="font-medium">{task.name}</div>
+                    {stages
+                      .find((s) => s.id === "stage-2")
+                      ?.tasks.map((task) => (
+                        <div key={task.id} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <div>
+                              <div className="font-medium">{task.name}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {getPriorityBadge(task.priority)}
+                            {getStatusBadge(task.status)}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {getPriorityBadge(task.priority)}
-                          {getStatusBadge(task.status)}
-                        </div>
-                      </div>
-                    ))}
+                      ))}
                   </div>
                 </div>
               </div>
@@ -548,7 +568,7 @@ export default function MVPCompletoPage() {
                           <div className="text-sm text-gray-600">Análisis de conversaciones</div>
                         </div>
                       </div>
-                      
+
                       <div className="flex items-center gap-3 p-3 border rounded-lg">
                         <Globe className="h-5 w-5 text-blue-600" />
                         <div>
@@ -556,7 +576,7 @@ export default function MVPCompletoPage() {
                           <div className="text-sm text-gray-600">Monitoreo de interacciones</div>
                         </div>
                       </div>
-                      
+
                       <div className="flex items-center gap-3 p-3 border rounded-lg">
                         <MessageSquare className="h-5 w-5 text-green-600" />
                         <div>
@@ -586,9 +606,9 @@ export default function MVPCompletoPage() {
                   <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                     <div className="font-medium text-blue-900 mb-2">Base de Datos Unificada</div>
                     <div className="text-sm text-blue-800">
-                      Sistema que unifica toda la información recopilada de múltiples canales, 
-                      creando perfiles completos de clientes vinculados con productos relevantes 
-                      y generando recomendaciones basadas en historial e interacciones.
+                      Sistema que unifica toda la información recopilada de múltiples canales, creando perfiles
+                      completos de clientes vinculados con productos relevantes y generando recomendaciones basadas en
+                      historial e interacciones.
                     </div>
                   </div>
                 </div>
@@ -597,8 +617,8 @@ export default function MVPCompletoPage() {
                 <Alert>
                   <AlertTriangle className="h-4 w-4" />
                   <AlertDescription>
-                    <strong>Privacidad:</strong> Todas las integraciones respetan las políticas de 
-                    privacidad y requieren consentimiento explícito del usuario.
+                    <strong>Privacidad:</strong> Todas las integraciones respetan las políticas de privacidad y
+                    requieren consentimiento explícito del usuario.
                   </AlertDescription>
                 </Alert>
 
@@ -606,19 +626,21 @@ export default function MVPCompletoPage() {
                 <div>
                   <h4 className="font-medium mb-3">Tareas de la Etapa 3</h4>
                   <div className="space-y-3">
-                    {stages.find(s => s.id === 'stage-3')?.tasks.map((task) => (
-                      <div key={task.id} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="flex items-center gap-3">
-                          <div>
-                            <div className="font-medium">{task.name}</div>
+                    {stages
+                      .find((s) => s.id === "stage-3")
+                      ?.tasks.map((task) => (
+                        <div key={task.id} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <div>
+                              <div className="font-medium">{task.name}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {getPriorityBadge(task.priority)}
+                            {getStatusBadge(task.status)}
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {getPriorityBadge(task.priority)}
-                          {getStatusBadge(task.status)}
-                        </div>
-                      </div>
-                    ))}
+                      ))}
                   </div>
                 </div>
               </div>
@@ -634,9 +656,7 @@ export default function MVPCompletoPage() {
                 <Calendar className="h-5 w-5" />
                 Cronograma de Implementación
               </CardTitle>
-              <CardDescription>
-                Calendario detallado de 3 meses para la implementación completa del MVP
-              </CardDescription>
+              <CardDescription>Calendario detallado de 3 meses para la implementación completa del MVP</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
@@ -668,28 +688,31 @@ export default function MVPCompletoPage() {
                         <h3 className="text-lg font-semibold">{stage.name}</h3>
                         {getStatusBadge(stage.status)}
                       </div>
-                      
+
                       <div className="text-sm text-gray-600 mb-3">
                         <strong>Duración:</strong> {stage.duration}
                       </div>
-                      
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                           <h4 className="font-medium mb-2">Objetivos Principales</h4>
-                          <div className="text-sm text-gray-600">
-                            {stage.description}
-                          </div>
+                          <div className="text-sm text-gray-600">{stage.description}</div>
                         </div>
-                        
+
                         <div>
                           <h4 className="font-medium mb-2">Entregables</h4>
                           <div className="space-y-1">
                             {stage.tasks.map((task) => (
                               <div key={task.id} className="flex items-center gap-2 text-sm">
-                                <div className={`w-2 h-2 rounded-full ${
-                                  task.status === 'completed' ? 'bg-green-500' :
-                                  task.status === 'in-progress' ? 'bg-blue-500' : 'bg-gray-300'
-                                }`}></div>
+                                <div
+                                  className={`w-2 h-2 rounded-full ${
+                                    task.status === "completed"
+                                      ? "bg-green-500"
+                                      : task.status === "in-progress"
+                                        ? "bg-blue-500"
+                                        : "bg-gray-300"
+                                  }`}
+                                ></div>
                                 {task.name}
                               </div>
                             ))}
@@ -704,8 +727,8 @@ export default function MVPCompletoPage() {
                 <Alert>
                   <Target className="h-4 w-4" />
                   <AlertDescription>
-                    <strong>Implementación Secuencial:</strong> Cada etapa construye sobre los logros 
-                    de la anterior, minimizando riesgos y permitiendo ajustes según se requiera.
+                    <strong>Implementación Secuencial:</strong> Cada etapa construye sobre los logros de la anterior,
+                    minimizando riesgos y permitiendo ajustes según se requiera.
                   </AlertDescription>
                 </Alert>
               </div>
