@@ -2,8 +2,8 @@
  * Analizador de datos SII y SIRENE con IA
  */
 
-import { generateText } from "ai"
-import { openai } from "@ai-sdk/openai"
+// import { generateText } from "ai"
+// import { openai } from "@ai-sdk/openai"
 
 export interface SIIData {
   avaluoFiscal: number
@@ -59,64 +59,9 @@ export async function analyzeSIISIRENEData(
   sireneData: SIRENEData,
   propertyData: any,
 ): Promise<MarketAnalysis> {
-  const prompt = `
-Analiza los siguientes datos del mercado inmobiliario chileno:
-
-DATOS SII:
-- Avalúo Fiscal: $${siiData.avaluoFiscal.toLocaleString()}
-- Contribuciones: $${siiData.contribuciones.toLocaleString()}
-- Superficie Construida: ${siiData.superficieConstruida}m²
-- Superficie Terreno: ${siiData.superficieTerreno}m²
-- Año Construcción: ${siiData.anoConstruction}
-- Comuna: ${siiData.comuna}
-- Destino: ${siiData.destinoInmueble}
-- Transacciones recientes: ${siiData.transacciones.length} en los últimos 12 meses
-
-DATOS SIRENE:
-- Empresas inmobiliarias activas: ${sireneData.empresasInmobiliarias.length}
-- Permisos de construcción en la comuna: ${sireneData.permisosConstruction.find((p) => p.comuna === siiData.comuna)?.cantidad || 0}
-- Inversión total sector: $${sireneData.inversionSector[0]?.montoTotal.toLocaleString() || 0}
-
-DATOS PROPIEDAD:
-- Precio actual: $${propertyData.price?.toLocaleString() || "No disponible"}
-- Tipo: ${propertyData.property_type || "No especificado"}
-- Estado: ${propertyData.status || "No especificado"}
-
-Proporciona un análisis detallado que incluya:
-
-1. VALORACIÓN DE MERCADO:
-   - ¿El precio actual está alineado con el avalúo fiscal?
-   - ¿Hay sobrevaloración o subvaloración?
-   - Comparación con transacciones similares
-
-2. TENDENCIAS Y PROYECCIONES:
-   - Tendencia de precios en la zona
-   - Impacto de nuevos proyectos
-   - Proyección a 12-24 meses
-
-3. OPORTUNIDADES DE INVERSIÓN:
-   - Potencial de revalorización
-   - Factores de riesgo
-   - Momento óptimo para compra/venta
-
-4. INSIGHTS ESPECÍFICOS:
-   - Análisis de la actividad empresarial en la zona
-   - Impacto de permisos de construcción
-   - Recomendaciones estratégicas
-
-Responde en formato JSON con la estructura MarketAnalysis.
-`
-
   try {
-    const { text } = await generateText({
-      model: openai("gpt-4o"),
-      prompt,
-      temperature: 0.3,
-    })
-
-    // Parsear la respuesta y extraer insights
-    const analysis = parseAIResponse(text, siiData, sireneData, propertyData)
-
+    // Calcular métricas básicas sin IA por ahora
+    const analysis = parseAIResponse("", siiData, sireneData, propertyData)
     return analysis
   } catch (error) {
     console.error("Error analyzing SII/SIRENE data:", error)
@@ -299,43 +244,42 @@ export async function generateMarketReport(
 ): Promise<string> {
   const analysis = await analyzeSIISIRENEData(siiData, sireneData, propertyData)
 
-  const prompt = `
-Genera un reporte ejecutivo detallado basado en el siguiente análisis de mercado:
+  // Generar reporte básico sin IA
+  const report = `
+REPORTE DE ANÁLISIS DE MERCADO INMOBILIARIO
 
-ANÁLISIS:
-- Precio promedio zona: $${analysis.precioPromedio.toLocaleString()}
-- Tendencia: ${analysis.tendenciaPrecio}
-- Factor crecimiento: ${analysis.factorCrecimiento}
-- Oportunidad inversión: ${analysis.oportunidadInversion}/100
-- Riesgo: ${analysis.riesgoMercado}
-
-DATOS CONTEXTUALES:
+RESUMEN EJECUTIVO:
 - Comuna: ${siiData.comuna}
-- Tipo propiedad: ${propertyData.property_type}
-- Avalúo fiscal: $${siiData.avaluoFiscal.toLocaleString()}
+- Avalúo Fiscal: $${siiData.avaluoFiscal.toLocaleString()}
+- Precio Promedio Zona: $${analysis.precioPromedio.toLocaleString()}
+- Tendencia: ${analysis.tendenciaPrecio}
+- Oportunidad de Inversión: ${analysis.oportunidadInversion}/100
+- Riesgo de Mercado: ${analysis.riesgoMercado}
 
-Crea un reporte profesional que incluya:
-1. Resumen ejecutivo
-2. Análisis de valoración
-3. Contexto de mercado
-4. Proyecciones
-5. Recomendaciones estratégicas
-6. Factores de riesgo
-7. Conclusiones
+ANÁLISIS DE VALORACIÓN:
+La propiedad presenta un avalúo fiscal de $${siiData.avaluoFiscal.toLocaleString()} en la comuna de ${siiData.comuna}.
+Con base en las transacciones recientes (${siiData.transacciones.length} en los últimos 12 meses), 
+el precio promedio de la zona es de $${analysis.precioPromedio.toLocaleString()}.
 
-El reporte debe ser comprensible para inversionistas y profesionales inmobiliarios.
+CONTEXTO DE MERCADO:
+- Empresas inmobiliarias activas: ${sireneData.empresasInmobiliarias.length}
+- Permisos de construcción: ${sireneData.permisosConstruction.find((p) => p.comuna === siiData.comuna)?.cantidad || 0}
+- Factor de crecimiento: ${analysis.factorCrecimiento}
+
+RECOMENDACIONES:
+${analysis.recomendaciones.map((r) => `- ${r}`).join("\n")}
+
+FACTORES DE RIESGO:
+- Riesgo evaluado como: ${analysis.riesgoMercado}
+- Edad de la propiedad: ${new Date().getFullYear() - siiData.anoConstruction} años
+
+CONCLUSIONES:
+Este análisis se basa en datos oficiales del SII y SIRENE. 
+Se recomienda monitorear las tendencias del mercado y considerar 
+los factores específicos de la ubicación antes de tomar decisiones de inversión.
+
+Nota: Análisis generado con datos actualizados al ${new Date().toLocaleDateString()}.
 `
 
-  try {
-    const { text } = await generateText({
-      model: openai("gpt-4o"),
-      prompt,
-      temperature: 0.4,
-    })
-
-    return text
-  } catch (error) {
-    console.error("Error generating market report:", error)
-    throw new Error("Failed to generate market report")
-  }
+  return report
 }

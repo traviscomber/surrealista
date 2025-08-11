@@ -53,8 +53,9 @@ export async function POST(request: Request) {
         report,
       },
     })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error in SII integration:", error)
-    return NextResponse.json({ error: error.message || "Error al procesar datos SII/SIRENE" }, { status: 500 })
+    const errorMessage = error instanceof Error ? error.message : "Error al procesar datos SII/SIRENE"
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
   }
 }
