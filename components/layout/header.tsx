@@ -1,0 +1,478 @@
+"use client"
+
+import { useState } from "react"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import {
+  NavigationMenu,
+  NavigationMenuContent,
+  NavigationMenuItem,
+  NavigationMenuLink,
+  NavigationMenuList,
+  NavigationMenuTrigger,
+} from "@/components/ui/navigation-menu"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import {
+  Building2,
+  Menu,
+  Phone,
+  Calculator,
+  Bot,
+  Brain,
+  MapPin,
+  Users,
+  FileText,
+  TrendingUp,
+  Rocket,
+  BookOpen,
+  GitBranch,
+  Activity,
+  Settings,
+  BarChart3,
+  Shield,
+  FolderOpen,
+} from "lucide-react"
+
+const navigationItems = [
+  {
+    title: "Propiedades",
+    href: "/propiedades",
+    icon: Building2,
+    description: "Explora nuestra selección de propiedades exclusivas",
+  },
+  {
+    title: "Nosotros",
+    href: "/nosotros",
+    icon: Users,
+    description: "Conoce nuestro equipo y experiencia",
+  },
+  {
+    title: "Contacto",
+    href: "/contacto",
+    icon: Phone,
+    description: "Ponte en contacto con nuestros expertos",
+  },
+]
+
+const toolsItems = [
+  {
+    title: "Cotizador",
+    href: "/cotizador",
+    icon: Calculator,
+    description: "Calcula el valor de tu propiedad",
+    badge: "Gratis",
+  },
+  {
+    title: "Asistente IA",
+    href: "/asistente-ia",
+    icon: Bot,
+    description: "Consulta inteligente sobre propiedades",
+    badge: "IA",
+  },
+  {
+    title: "Tecnología IA",
+    href: "/tecnologia-ia",
+    icon: Brain,
+    description: "Descubre nuestras capacidades de IA",
+    badge: "Nuevo",
+  },
+  {
+    title: "Mapas Interactivos",
+    href: "/mapas",
+    icon: MapPin,
+    description: "Explora ubicaciones en mapas detallados",
+  },
+  {
+    title: "Organización Carpetas",
+    href: "/admin/organizacion-carpetas-demo",
+    icon: FolderOpen,
+    description: "Demo de organización profesional de carpetas",
+    badge: "Demo",
+  },
+]
+
+const mvpItems = [
+  {
+    title: "MVP Dashboard",
+    href: "/admin/mvp-completo",
+    icon: Rocket,
+    description: "Panel principal del MVP - Fase 1",
+    badge: "Live",
+    badgeColor: "bg-green-500",
+  },
+  {
+    title: "Seguimiento MVP",
+    href: "/mvp/seguimiento",
+    icon: Activity,
+    description: "Estado actual y progreso del desarrollo",
+    badge: "11%",
+    badgeColor: "bg-blue-500",
+  },
+  {
+    title: "Google Drive Integration",
+    href: "/admin/google-drive-integration",
+    icon: FolderOpen,
+    description: "Integración completa con Google Drive",
+    badge: "Etapa 1",
+    badgeColor: "bg-orange-500",
+  },
+  {
+    title: "Updates & Releases",
+    href: "/mvp/updates",
+    icon: GitBranch,
+    description: "Historial de actualizaciones y nuevas funciones",
+    badge: "v1.2",
+    badgeColor: "bg-purple-500",
+  },
+  {
+    title: "Roadmap",
+    href: "/mvp/roadmap",
+    icon: TrendingUp,
+    description: "Hoja de ruta y próximas funcionalidades",
+  },
+]
+
+const docsItems = [
+  {
+    title: "Documentación Técnica",
+    href: "/docs/tecnica",
+    icon: BookOpen,
+    description: "Arquitectura, APIs y especificaciones técnicas",
+  },
+  {
+    title: "Guías de Usuario",
+    href: "/docs/usuario",
+    icon: FileText,
+    description: "Manuales y tutoriales para usuarios",
+  },
+  {
+    title: "Documentación IA",
+    href: "/docs/ia",
+    icon: Brain,
+    description: "Modelos, algoritmos y capacidades de IA",
+    badge: "IA",
+  },
+  {
+    title: "API Reference",
+    href: "/docs/api",
+    icon: Settings,
+    description: "Documentación completa de APIs",
+  },
+]
+
+export function Header() {
+  const pathname = usePathname()
+  const [isOpen, setIsOpen] = useState(false)
+
+  const isActive = (href: string) => {
+    if (href === "/") {
+      return pathname === href
+    }
+    return pathname.startsWith(href)
+  }
+
+  return (
+    <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+      <div className="container flex h-16 items-center justify-between">
+        {/* Logo */}
+        <Link href="/" className="flex items-center space-x-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-purple-600">
+            <Building2 className="h-4 w-4 text-white" />
+          </div>
+          <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            Sur-Realista
+          </span>
+        </Link>
+
+        {/* Desktop Navigation */}
+        <NavigationMenu className="hidden lg:flex">
+          <NavigationMenuList className="space-x-1">
+            {/* Main Navigation */}
+            {navigationItems.map((item) => (
+              <NavigationMenuItem key={item.title}>
+                <Link href={item.href} legacyBehavior passHref>
+                  <NavigationMenuLink
+                    className={cn(
+                      "group inline-flex h-10 w-max items-center justify-center rounded-md bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none disabled:pointer-events-none disabled:opacity-50 data-[active]:bg-accent/50 data-[state=open]:bg-accent/50",
+                      isActive(item.href) && "bg-accent text-accent-foreground",
+                    )}
+                  >
+                    <item.icon className="mr-2 h-4 w-4" />
+                    {item.title}
+                  </NavigationMenuLink>
+                </Link>
+              </NavigationMenuItem>
+            ))}
+
+            {/* Tools Dropdown */}
+            <NavigationMenuItem>
+              <NavigationMenuTrigger className="h-10">
+                <Calculator className="mr-2 h-4 w-4" />
+                Herramientas
+              </NavigationMenuTrigger>
+              <NavigationMenuContent>
+                <div className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
+                  {toolsItems.map((item) => (
+                    <Link
+                      key={item.title}
+                      href={item.href}
+                      className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+                    >
+                      <div className="flex items-center gap-2">
+                        <item.icon className="h-4 w-4" />
+                        <div className="text-sm font-medium leading-none">{item.title}</div>
+                        {item.badge && (
+                          <Badge variant="secondary" className="text-xs">
+                            {item.badge}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">{item.description}</p>
+                    </Link>
+                  ))}
+                </div>
+              </NavigationMenuContent>
+            </NavigationMenuItem>
+
+            {/* MVP Dropdown */}
+            <NavigationMenuItem>
+              <NavigationMenuTrigger className="h-10">
+                <Rocket className="mr-2 h-4 w-4" />
+                MVP
+                <Badge variant="default" className="ml-2 text-xs bg-green-500">
+                  Live
+                </Badge>
+              </NavigationMenuTrigger>
+              <NavigationMenuContent>
+                <div className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-1 lg:w-[600px]">
+                  {mvpItems.map((item) => (
+                    <Link
+                      key={item.title}
+                      href={item.href}
+                      className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+                    >
+                      <div className="flex items-center gap-2">
+                        <item.icon className="h-4 w-4" />
+                        <div className="text-sm font-medium leading-none">{item.title}</div>
+                        {item.badge && (
+                          <Badge className={cn("text-xs text-white", item.badgeColor || "bg-blue-500")}>
+                            {item.badge}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">{item.description}</p>
+                    </Link>
+                  ))}
+                </div>
+              </NavigationMenuContent>
+            </NavigationMenuItem>
+
+            {/* Documentation Dropdown */}
+            <NavigationMenuItem>
+              <NavigationMenuTrigger className="h-10">
+                <BookOpen className="mr-2 h-4 w-4" />
+                Documentación
+              </NavigationMenuTrigger>
+              <NavigationMenuContent>
+                <div className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
+                  {docsItems.map((item) => (
+                    <Link
+                      key={item.title}
+                      href={item.href}
+                      className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+                    >
+                      <div className="flex items-center gap-2">
+                        <item.icon className="h-4 w-4" />
+                        <div className="text-sm font-medium leading-none">{item.title}</div>
+                        {item.badge && (
+                          <Badge variant="secondary" className="text-xs">
+                            {item.badge}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">{item.description}</p>
+                    </Link>
+                  ))}
+                </div>
+              </NavigationMenuContent>
+            </NavigationMenuItem>
+          </NavigationMenuList>
+        </NavigationMenu>
+
+        {/* Admin Access */}
+        <div className="flex items-center space-x-4">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="hidden md:flex bg-transparent">
+                <Shield className="mr-2 h-4 w-4" />
+                Admin
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56" align="end">
+              <DropdownMenuLabel>Panel de Administración</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/admin" className="flex items-center">
+                  <BarChart3 className="mr-2 h-4 w-4" />
+                  <span>Dashboard</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/mvp-completo" className="flex items-center">
+                  <Rocket className="mr-2 h-4 w-4" />
+                  <span>MVP Dashboard</span>
+                  <Badge className="ml-auto bg-green-500 text-white text-xs">Live</Badge>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/propiedades" className="flex items-center">
+                  <Building2 className="mr-2 h-4 w-4" />
+                  <span>Propiedades</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/ia-workspace" className="flex items-center">
+                  <Brain className="mr-2 h-4 w-4" />
+                  <span>IA Workspace</span>
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Mobile Menu */}
+          <Sheet open={isOpen} onOpenChange={setIsOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="sm" className="lg:hidden">
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">Toggle menu</span>
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-80">
+              <div className="flex flex-col space-y-4 mt-4">
+                <div className="flex items-center space-x-2 pb-4 border-b">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-purple-600">
+                    <Building2 className="h-4 w-4 text-white" />
+                  </div>
+                  <span className="text-lg font-bold">Sur-Realista</span>
+                </div>
+
+                {/* Mobile Navigation Items */}
+                <div className="space-y-2">
+                  {navigationItems.map((item) => (
+                    <Link
+                      key={item.title}
+                      href={item.href}
+                      className={cn(
+                        "flex items-center space-x-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent",
+                        isActive(item.href) && "bg-accent",
+                      )}
+                      onClick={() => setIsOpen(false)}
+                    >
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  ))}
+                </div>
+
+                {/* Mobile Tools */}
+                <div className="space-y-2 pt-4 border-t">
+                  <h3 className="text-sm font-semibold text-muted-foreground px-3">Herramientas</h3>
+                  {toolsItems.map((item) => (
+                    <Link
+                      key={item.title}
+                      href={item.href}
+                      className="flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </div>
+                      {item.badge && (
+                        <Badge variant="secondary" className="text-xs">
+                          {item.badge}
+                        </Badge>
+                      )}
+                    </Link>
+                  ))}
+                </div>
+
+                {/* Mobile MVP */}
+                <div className="space-y-2 pt-4 border-t">
+                  <h3 className="text-sm font-semibold text-muted-foreground px-3 flex items-center gap-2">
+                    MVP
+                    <Badge className="bg-green-500 text-white text-xs">Live</Badge>
+                  </h3>
+                  {mvpItems.map((item) => (
+                    <Link
+                      key={item.title}
+                      href={item.href}
+                      className="flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </div>
+                      {item.badge && (
+                        <Badge className={cn("text-xs text-white", item.badgeColor || "bg-blue-500")}>
+                          {item.badge}
+                        </Badge>
+                      )}
+                    </Link>
+                  ))}
+                </div>
+
+                {/* Mobile Documentation */}
+                <div className="space-y-2 pt-4 border-t">
+                  <h3 className="text-sm font-semibold text-muted-foreground px-3">Documentación</h3>
+                  {docsItems.map((item) => (
+                    <Link
+                      key={item.title}
+                      href={item.href}
+                      className="flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </div>
+                      {item.badge && (
+                        <Badge variant="secondary" className="text-xs">
+                          {item.badge}
+                        </Badge>
+                      )}
+                    </Link>
+                  ))}
+                </div>
+
+                {/* Mobile Admin */}
+                <div className="space-y-2 pt-4 border-t">
+                  <Link
+                    href="/admin"
+                    className="flex items-center space-x-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <Shield className="h-4 w-4" />
+                    <span>Panel Admin</span>
+                  </Link>
+                </div>
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+      </div>
+    </header>
+  )
+}
