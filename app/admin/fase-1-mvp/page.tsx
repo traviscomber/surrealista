@@ -7,7 +7,17 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Database, Upload, CheckCircle, AlertTriangle, BarChart3, FileText, Download, Settings, Target, TrendingUp } from 'lucide-react'
+import {
+  Database,
+  Upload,
+  CheckCircle,
+  AlertTriangle,
+  BarChart3,
+  Download,
+  Settings,
+  Target,
+  TrendingUp,
+} from "lucide-react"
 import GoogleDriveImporter from "@/components/data-management/google-drive-importer"
 import DataStandardizer from "@/components/data-management/data-standardizer"
 import QualityController from "@/components/data-management/quality-controller"
@@ -33,7 +43,7 @@ export default function Phase1MVPPage() {
     qualityScore: 0,
     completionPercentage: 0,
     pendingTasks: 0,
-    dataQualityDistribution: { high: 0, medium: 0, low: 0 }
+    dataQualityDistribution: { high: 0, medium: 0, low: 0 },
   })
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("overview")
@@ -46,8 +56,8 @@ export default function Phase1MVPPage() {
     setLoading(true)
     try {
       // Simulate API call to get Phase 1 statistics
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+
       setStats({
         totalProperties: 47,
         standardizedProperties: 23,
@@ -57,8 +67,8 @@ export default function Phase1MVPPage() {
         dataQualityDistribution: {
           high: 15,
           medium: 18,
-          low: 14
-        }
+          low: 14,
+        },
       })
     } catch (error) {
       console.error("Error loading Phase 1 stats:", error)
@@ -77,12 +87,12 @@ export default function Phase1MVPPage() {
     const colors = {
       high: "bg-green-100 text-green-800",
       medium: "bg-yellow-100 text-yellow-800",
-      low: "bg-red-100 text-red-800"
+      low: "bg-red-100 text-red-800",
     }
-    
+
     return (
       <Badge className={colors[level as keyof typeof colors]}>
-        {level === 'high' ? 'Alta' : level === 'medium' ? 'Media' : 'Baja'}: {count}
+        {level === "high" ? "Alta" : level === "medium" ? "Media" : "Baja"}: {count}
       </Badge>
     )
   }
@@ -141,9 +151,9 @@ export default function Phase1MVPPage() {
               </div>
 
               <div className="flex gap-2">
-                {getQualityBadge('high', stats.dataQualityDistribution.high)}
-                {getQualityBadge('medium', stats.dataQualityDistribution.medium)}
-                {getQualityBadge('low', stats.dataQualityDistribution.low)}
+                {getQualityBadge("high", stats.dataQualityDistribution.high)}
+                {getQualityBadge("medium", stats.dataQualityDistribution.medium)}
+                {getQualityBadge("low", stats.dataQualityDistribution.low)}
               </div>
             </div>
           </CardContent>
@@ -225,7 +235,7 @@ export default function Phase1MVPPage() {
                       <strong>En Progreso:</strong> {stats.pendingTasks} propiedades requieren estandarización manual.
                     </AlertDescription>
                   </Alert>
-                  
+
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
                       <strong>Campos Completos:</strong>
@@ -237,8 +247,8 @@ export default function Phase1MVPPage() {
                     <div>
                       <strong>Formato Estándar:</strong>
                       <div className="mt-1">
-                        <Progress value={65} className="h-2" />
-                        <span className="text-xs text-gray-600">65%</span>
+                        <Progress value={35} className="h-2" />
+                        <span className="text-xs text-gray-600">35%</span>
                       </div>
                     </div>
                   </div>
@@ -254,8 +264,8 @@ export default function Phase1MVPPage() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Button 
-                  onClick={() => setActiveTab("import")} 
+                <Button
+                  onClick={() => setActiveTab("import")}
                   className="flex items-center gap-2 h-auto p-4 flex-col"
                   variant="outline"
                 >
@@ -265,9 +275,9 @@ export default function Phase1MVPPage() {
                     <div className="text-xs text-gray-600">Subir archivos de Google Drive</div>
                   </div>
                 </Button>
-                
-                <Button 
-                  onClick={() => setActiveTab("standardize")} 
+
+                <Button
+                  onClick={() => setActiveTab("standardize")}
                   className="flex items-center gap-2 h-auto p-4 flex-col"
                   variant="outline"
                 >
@@ -277,9 +287,9 @@ export default function Phase1MVPPage() {
                     <div className="text-xs text-gray-600">Aplicar reglas de formato</div>
                   </div>
                 </Button>
-                
-                <Button 
-                  onClick={() => setActiveTab("quality")} 
+
+                <Button
+                  onClick={() => setActiveTab("quality")}
                   className="flex items-center gap-2 h-auto p-4 flex-col"
                   variant="outline"
                 >
@@ -320,9 +330,7 @@ export default function Phase1MVPPage() {
                 <Settings className="h-5 w-5" />
                 Estandarización de Datos
               </CardTitle>
-              <CardDescription>
-                Aplica reglas de estandarización para uniformar el formato de los datos
-              </CardDescription>
+              <CardDescription>Aplica reglas de estandarización para uniformar el formato de los datos</CardDescription>
             </CardHeader>
             <CardContent>
               <DataStandardizer onStandardizationComplete={loadPhase1Stats} />
@@ -338,9 +346,7 @@ export default function Phase1MVPPage() {
                 <CheckCircle className="h-5 w-5" />
                 Control de Calidad
               </CardTitle>
-              <CardDescription>
-                Revisa y mejora la calidad de los datos importados
-              </CardDescription>
+              <CardDescription>Revisa y mejora la calidad de los datos importados</CardDescription>
             </CardHeader>
             <CardContent>
               <QualityController onQualityUpdate={loadPhase1Stats} />
@@ -356,9 +362,7 @@ export default function Phase1MVPPage() {
                 <Download className="h-5 w-5" />
                 Exportar Datos Estandarizados
               </CardTitle>
-              <CardDescription>
-                Exporta la base de datos organizada en diferentes formatos
-              </CardDescription>
+              <CardDescription>Exporta la base de datos organizada en diferentes formatos</CardDescription>
             </CardHeader>
             <CardContent>
               <StandardizedExporter stats={stats} />

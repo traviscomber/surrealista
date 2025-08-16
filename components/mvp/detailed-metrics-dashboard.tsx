@@ -1,10 +1,24 @@
 "use client"
 
+import type React from "react"
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts'
-import { TrendingUp, TrendingDown, Activity, Code, Bug, Zap, Users, Database, Globe, Shield } from 'lucide-react'
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts"
+import { TrendingUp, TrendingDown, Activity, Code, Bug, Zap, Users, Database, Globe, Shield } from "lucide-react"
 
 interface MetricCardProps {
   title: string
@@ -19,7 +33,7 @@ const MetricCard = ({ title, value, change, changeType, icon: Icon, description 
   const isPositive = changeType === "increase"
   const TrendIcon = isPositive ? TrendingUp : TrendingDown
   const trendColor = isPositive ? "text-green-500" : "text-red-500"
-  
+
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -32,9 +46,7 @@ const MetricCard = ({ title, value, change, changeType, icon: Icon, description 
           <TrendIcon className="h-3 w-3 mr-1" />
           {Math.abs(change)}% desde la semana pasada
         </div>
-        {description && (
-          <p className="text-xs text-muted-foreground mt-1">{description}</p>
-        )}
+        {description && <p className="text-xs text-muted-foreground mt-1">{description}</p>}
       </CardContent>
     </Card>
   )
@@ -42,25 +54,25 @@ const MetricCard = ({ title, value, change, changeType, icon: Icon, description 
 
 // Datos realistas para Etapa 1 - Proyecto inicial
 const performanceData = [
-  { name: 'Día 1', setup: 15, components: 3, tests: 0 },
-  { name: 'Día 2', setup: 35, components: 8, tests: 2 },
-  { name: 'Día 3', setup: 52, components: 15, tests: 5 },
-  { name: 'Día 4', setup: 68, components: 23, tests: 12 },
-  { name: 'Día 5', setup: 78, components: 31, tests: 18 },
+  { name: "Día 1", setup: 15, components: 3, tests: 0 },
+  { name: "Día 2", setup: 35, components: 8, tests: 2 },
+  { name: "Día 3", setup: 52, components: 15, tests: 5 },
+  { name: "Día 4", setup: 68, components: 23, tests: 12 },
+  { name: "Día 5", setup: 78, components: 31, tests: 18 },
 ]
 
 const teamProductivityData = [
-  { team: 'Setup', commits: 12, files: 45, hours: 8 },
-  { team: 'UI Base', commits: 8, files: 23, hours: 6 },
-  { team: 'Data Org', commits: 5, files: 12, hours: 4 },
-  { team: 'Config', commits: 3, files: 8, hours: 2 },
+  { team: "Setup", commits: 12, files: 45, hours: 8 },
+  { team: "UI Base", commits: 8, files: 23, hours: 6 },
+  { team: "Data Org", commits: 5, files: 12, hours: 4 },
+  { team: "Config", commits: 3, files: 8, hours: 2 },
 ]
 
 const projectStatusData = [
-  { name: 'Completado', value: 25, color: '#10B981' },
-  { name: 'En Progreso', value: 45, color: '#3B82F6' },
-  { name: 'Planificado', value: 20, color: '#F59E0B' },
-  { name: 'Pendiente', value: 10, color: '#EF4444' },
+  { name: "Completado", value: 25, color: "#10B981" },
+  { name: "En Progreso", value: 45, color: "#3B82F6" },
+  { name: "Planificado", value: 20, color: "#F59E0B" },
+  { name: "Pendiente", value: 10, color: "#EF4444" },
 ]
 
 export function DetailedMetricsDashboard() {
@@ -70,7 +82,7 @@ export function DetailedMetricsDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
           title="Setup Progreso"
-          value="78%"
+          value="35%"
           change={15.2}
           changeType="increase"
           icon={Zap}
@@ -110,9 +122,7 @@ export function DetailedMetricsDashboard() {
               <Activity className="h-5 w-5" />
               Progreso Diario - Etapa 1
             </CardTitle>
-            <CardDescription>
-              Evolución del setup y desarrollo inicial
-            </CardDescription>
+            <CardDescription>Evolución del setup y desarrollo inicial</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -121,20 +131,8 @@ export function DetailedMetricsDashboard() {
                 <XAxis dataKey="name" />
                 <YAxis />
                 <Tooltip />
-                <Line 
-                  type="monotone" 
-                  dataKey="setup" 
-                  stroke="#3B82F6" 
-                  strokeWidth={2}
-                  name="Setup %"
-                />
-                <Line 
-                  type="monotone" 
-                  dataKey="components" 
-                  stroke="#10B981" 
-                  strokeWidth={2}
-                  name="Componentes"
-                />
+                <Line type="monotone" dataKey="setup" stroke="#3B82F6" strokeWidth={2} name="Setup %" />
+                <Line type="monotone" dataKey="components" stroke="#10B981" strokeWidth={2} name="Componentes" />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
@@ -146,9 +144,7 @@ export function DetailedMetricsDashboard() {
               <Users className="h-5 w-5" />
               Productividad por Área
             </CardTitle>
-            <CardDescription>
-              Commits y archivos por área de trabajo
-            </CardDescription>
+            <CardDescription>Commits y archivos por área de trabajo</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -197,10 +193,7 @@ export function DetailedMetricsDashboard() {
               {projectStatusData.map((item) => (
                 <div key={item.name} className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-2">
-                    <div 
-                      className="w-3 h-3 rounded-full" 
-                      style={{ backgroundColor: item.color }}
-                    />
+                    <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
                     <span>{item.name}</span>
                   </div>
                   <span className="font-medium">{item.value}%</span>
@@ -315,9 +308,7 @@ export function DetailedMetricsDashboard() {
       <Card>
         <CardHeader>
           <CardTitle>Estado Detallado por Módulo - Etapa 1</CardTitle>
-          <CardDescription>
-            Progreso específico de cada componente del setup inicial
-          </CardDescription>
+          <CardDescription>Progreso específico de cada componente del setup inicial</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

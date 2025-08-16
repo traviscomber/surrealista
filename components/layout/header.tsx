@@ -92,7 +92,7 @@ const mvpItems = [
     href: "/mvp/seguimiento",
     icon: Activity,
     description: "Estado actual y progreso completo del desarrollo",
-    badge: "78%",
+    badge: "35%",
     badgeColor: "bg-blue-500",
   },
   {
@@ -304,7 +304,7 @@ export function Header() {
                 <Link href="/mvp/seguimiento" className="flex items-center">
                   <Activity className="mr-2 h-4 w-4" />
                   <span>Seguimiento MVP</span>
-                  <Badge className="ml-auto bg-blue-500 text-white text-xs">78%</Badge>
+                  <Badge className="ml-auto bg-blue-500 text-white text-xs">35%</Badge>
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
