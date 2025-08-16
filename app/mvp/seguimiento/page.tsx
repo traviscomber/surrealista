@@ -30,7 +30,29 @@ import {
   Plus,
   Minus,
   ArrowUp,
+  Database,
+  FolderOpen,
+  Globe,
+  Palette,
+  MessageSquare,
+  Mail,
+  AlertTriangle,
 } from "lucide-react"
+
+interface MVPStage {
+  id: string
+  name: string
+  description: string
+  duration: string
+  status: "pending" | "in-progress" | "completed"
+  progress: number
+  tasks: Array<{
+    id: string
+    name: string
+    status: "pending" | "in-progress" | "completed"
+    priority: "high" | "medium" | "low"
+  }>
+}
 
 interface Milestone {
   id: number
@@ -69,6 +91,111 @@ interface TeamProductivity {
   reviewsCompleted: number
   bugsFixed: number
 }
+
+const mvpStages: MVPStage[] = [
+  {
+    id: "stage-1",
+    name: "Etapa 1: Ordenamiento del Repositorio",
+    description: "Desarrollo de API de integración, interfaz web, migración y estandarización",
+    duration: "Mes 1",
+    status: "in-progress",
+    progress: 78,
+    tasks: [
+      {
+        id: "api-integration",
+        name: "API de Integración con Google Drive",
+        status: "completed",
+        priority: "high",
+      },
+      {
+        id: "web-interface",
+        name: "Construcción de Interfaz Web",
+        status: "completed",
+        priority: "high",
+      },
+      {
+        id: "migration",
+        name: "Migración y Estandarización",
+        status: "completed",
+        priority: "medium",
+      },
+      {
+        id: "testing-training",
+        name: "Pruebas y Capacitación",
+        status: "in-progress",
+        priority: "medium",
+      },
+    ],
+  },
+  {
+    id: "stage-2",
+    name: "Etapa 2: Estandarización de Material",
+    description: "Plantillas estandarizadas, organización de recursos y automatización",
+    duration: "Mes 2",
+    status: "pending",
+    progress: 0,
+    tasks: [
+      {
+        id: "templates",
+        name: "Plantillas Estandarizadas",
+        status: "pending",
+        priority: "high",
+      },
+      {
+        id: "resource-organization",
+        name: "Organización de Recursos",
+        status: "pending",
+        priority: "medium",
+      },
+      {
+        id: "flexible-editing",
+        name: "Edición Flexible",
+        status: "pending",
+        priority: "medium",
+      },
+      {
+        id: "content-automation",
+        name: "Automatización de Contenido",
+        status: "pending",
+        priority: "low",
+      },
+    ],
+  },
+  {
+    id: "stage-3",
+    name: "Etapa 3: Vinculación de Compradores",
+    description: "Integración con Gmail, redes sociales, análisis de mensajería y centralización",
+    duration: "Mes 3",
+    status: "pending",
+    progress: 0,
+    tasks: [
+      {
+        id: "gmail-integration",
+        name: "Integración con Gmail",
+        status: "pending",
+        priority: "high",
+      },
+      {
+        id: "social-monitoring",
+        name: "Monitoreo de Redes Sociales",
+        status: "pending",
+        priority: "medium",
+      },
+      {
+        id: "message-analysis",
+        name: "Análisis de Mensajería",
+        status: "pending",
+        priority: "medium",
+      },
+      {
+        id: "data-centralization",
+        name: "Centralización de Datos",
+        status: "pending",
+        priority: "high",
+      },
+    ],
+  },
+]
 
 const milestones: Milestone[] = [
   {
@@ -238,6 +365,35 @@ const teamProductivity: TeamProductivity[] = [
   },
 ]
 
+const getStatusBadge = (status: string) => {
+  const statusConfig = {
+    pending: { color: "bg-gray-100 text-gray-800", text: "Pendiente", icon: AlertTriangle },
+    "in-progress": { color: "bg-blue-100 text-blue-800", text: "En Progreso", icon: TrendingUp },
+    completed: { color: "bg-green-100 text-green-800", text: "Completado", icon: CheckCircle },
+  }
+
+  const config = statusConfig[status as keyof typeof statusConfig]
+  const Icon = config.icon
+
+  return (
+    <Badge className={`${config.color} flex items-center gap-1`}>
+      <Icon className="h-3 w-3" />
+      {config.text}
+    </Badge>
+  )
+}
+
+const getPriorityBadge = (priority: string) => {
+  const priorityConfig = {
+    high: { color: "bg-red-100 text-red-800", text: "Alta" },
+    medium: { color: "bg-yellow-100 text-yellow-800", text: "Media" },
+    low: { color: "bg-green-100 text-green-800", text: "Baja" },
+  }
+
+  const config = priorityConfig[priority as keyof typeof priorityConfig]
+  return <Badge className={config.color}>{config.text}</Badge>
+}
+
 const getStatusIcon = (status: string) => {
   switch (status) {
     case "completed":
@@ -311,10 +467,10 @@ export default function MVPSeguimientoPage() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
             <Activity className="h-8 w-8 text-blue-600" />
-            Seguimiento MVP - Métricas Detalladas
+            MVP Sur-Realista - Seguimiento Completo
           </h1>
           <p className="text-gray-600 mt-2">
-            Estado actual del desarrollo con análisis profundo de métricas y rendimiento
+            Sistema integral de gestión de repositorio, estandarización y vinculación de compradores
           </p>
         </div>
         <div className="flex items-center gap-4">
@@ -399,10 +555,22 @@ export default function MVPSeguimientoPage() {
 
       {/* Detailed Metrics Dashboard */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview" className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4" />
-            Overview
+            Resumen
+          </TabsTrigger>
+          <TabsTrigger value="stage-1" className="flex items-center gap-2">
+            <Database className="h-4 w-4" />
+            Etapa 1
+          </TabsTrigger>
+          <TabsTrigger value="stage-2" className="flex items-center gap-2">
+            <Palette className="h-4 w-4" />
+            Etapa 2
+          </TabsTrigger>
+          <TabsTrigger value="stage-3" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            Etapa 3
           </TabsTrigger>
           <TabsTrigger value="milestones" className="flex items-center gap-2">
             <Target className="h-4 w-4" />
@@ -412,17 +580,45 @@ export default function MVPSeguimientoPage() {
             <Code className="h-4 w-4" />
             Desarrollo
           </TabsTrigger>
-          <TabsTrigger value="performance" className="flex items-center gap-2">
-            <Cpu className="h-4 w-4" />
-            Performance
-          </TabsTrigger>
-          <TabsTrigger value="team" className="flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            Equipo
+          <TabsTrigger value="timeline" className="flex items-center gap-2">
+            <Calendar className="h-4 w-4" />
+            Cronograma
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {mvpStages.map((stage) => (
+              <Card key={stage.id}>
+                <CardHeader>
+                  <CardTitle className="text-lg">{stage.name}</CardTitle>
+                  <CardDescription>{stage.description}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Duración: {stage.duration}</span>
+                      {getStatusBadge(stage.status)}
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm">Progreso</span>
+                        <span className="text-sm text-gray-600">{stage.progress}%</span>
+                      </div>
+                      <Progress value={stage.progress} className="h-2" />
+                    </div>
+
+                    <div className="text-sm text-gray-600">
+                      <strong>Tareas:</strong> {stage.tasks.filter((t) => t.status === "completed").length} /{" "}
+                      {stage.tasks.length} completadas
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Development Health */}
             <Card>
@@ -526,6 +722,339 @@ export default function MVPSeguimientoPage() {
                     {Math.round((totalActualHours / totalEstimatedHours) * 100)}%
                   </div>
                   <p className="text-sm text-purple-700">Precisión Estimación</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="stage-1" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="h-5 w-5" />
+                Etapa 1: Ordenamiento del Repositorio de Clientes
+              </CardTitle>
+              <CardDescription>
+                Implementación técnica del repositorio, desarrollo de API y construcción de interfaz web
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {/* Progress Overview */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="font-medium mb-3">Componentes Principales</h4>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3 p-3 border rounded-lg">
+                        <FolderOpen className="h-5 w-5 text-blue-600" />
+                        <div>
+                          <div className="font-medium">API de Integración</div>
+                          <div className="text-sm text-gray-600">Conexión con Google Drive</div>
+                        </div>
+                        <CheckCircle className="h-5 w-5 text-green-600" />
+                      </div>
+
+                      <div className="flex items-center gap-3 p-3 border rounded-lg">
+                        <Globe className="h-5 w-5 text-blue-600" />
+                        <div>
+                          <div className="font-medium">Interfaz Web</div>
+                          <div className="text-sm text-gray-600">Panel de control intuitivo</div>
+                        </div>
+                        <CheckCircle className="h-5 w-5 text-green-600" />
+                      </div>
+
+                      <div className="flex items-center gap-3 p-3 border rounded-lg">
+                        <Database className="h-5 w-5 text-blue-600" />
+                        <div>
+                          <div className="font-medium">Migración de Datos</div>
+                          <div className="text-sm text-gray-600">Reorganización automatizada</div>
+                        </div>
+                        <CheckCircle className="h-5 w-5 text-green-600" />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-medium mb-3">Especificaciones Técnicas</h4>
+                    <div className="space-y-2 text-sm">
+                      <div>
+                        <strong>API:</strong> Google Drive API v3
+                      </div>
+                      <div>
+                        <strong>API Key:</strong> Configurada (Sur-Realista)
+                      </div>
+                      <div>
+                        <strong>Sincronización:</strong> Bidireccional en tiempo real
+                      </div>
+                      <div>
+                        <strong>Casos de Éxito:</strong> 5 identificados y procesados
+                      </div>
+                      <div>
+                        <strong>Funcionalidades:</strong> Edición, descarga directa
+                      </div>
+                      <div>
+                        <strong>Nomenclatura:</strong> Sistema estandarizado
+                      </div>
+                      <div>
+                        <strong>Scripts:</strong> Listos para migración real
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tasks List */}
+                <div>
+                  <h4 className="font-medium mb-3">Tareas de la Etapa 1</h4>
+                  <div className="space-y-3">
+                    {mvpStages
+                      .find((s) => s.id === "stage-1")
+                      ?.tasks.map((task) => (
+                        <div key={task.id} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <div>
+                              <div className="font-medium">{task.name}</div>
+                              {task.id === "api-integration" && task.status === "completed" && (
+                                <div className="text-sm text-green-600">API key configurada y funcionando</div>
+                              )}
+                              {task.id === "web-interface" && task.status === "completed" && (
+                                <div className="text-sm text-green-600">Interfaz completa con datos reales</div>
+                              )}
+                              {task.id === "migration" && task.status === "completed" && (
+                                <div className="text-sm text-green-600">Sistema de migración preparado</div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {getPriorityBadge(task.priority)}
+                            {getStatusBadge(task.status)}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="stage-2" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Palette className="h-5 w-5" />
+                Etapa 2: Estandarización de Material de Producto
+              </CardTitle>
+              <CardDescription>Desarrollo de plantillas profesionales y automatización de contenido</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {/* Components */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="font-medium mb-3">Plantillas Estandarizadas</h4>
+                    <div className="space-y-2 text-sm">
+                      <div>• Elementos gráficos consistentes</div>
+                      <div>• Diagramación profesional</div>
+                      <div>• Tipografía de marca</div>
+                      <div>• Identidad visual unificada</div>
+                      <div>• Base para materiales de cliente</div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-medium mb-3">Organización de Recursos</h4>
+                    <div className="space-y-2 text-sm">
+                      <div>• Sistema de carpetas estructurado</div>
+                      <div>• Categorización de fotografías</div>
+                      <div>• Biblioteca de gráficos</div>
+                      <div>• Recursos visuales organizados</div>
+                      <div>• Localización rápida de assets</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tasks */}
+                <div>
+                  <h4 className="font-medium mb-3">Tareas de la Etapa 2</h4>
+                  <div className="space-y-3">
+                    {mvpStages
+                      .find((s) => s.id === "stage-2")
+                      ?.tasks.map((task) => (
+                        <div key={task.id} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <div>
+                              <div className="font-medium">{task.name}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {getPriorityBadge(task.priority)}
+                            {getStatusBadge(task.status)}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="stage-3" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Etapa 3: Vinculación de Compradores con Productos
+              </CardTitle>
+              <CardDescription>
+                Integración multicanal y análisis inteligente de comportamiento de clientes
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {/* Integration Channels */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h4 className="font-medium mb-3">Canales de Integración</h4>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3 p-3 border rounded-lg">
+                        <Mail className="h-5 w-5 text-red-600" />
+                        <div>
+                          <div className="font-medium">Gmail</div>
+                          <div className="text-sm text-gray-600">Análisis de conversaciones</div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 p-3 border rounded-lg">
+                        <Globe className="h-5 w-5 text-blue-600" />
+                        <div>
+                          <div className="font-medium">Redes Sociales</div>
+                          <div className="text-sm text-gray-600">Monitoreo de interacciones</div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3 p-3 border rounded-lg">
+                        <MessageSquare className="h-5 w-5 text-green-600" />
+                        <div>
+                          <div className="font-medium">WhatsApp</div>
+                          <div className="text-sm text-gray-600">Procesamiento de mensajes</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-medium mb-3">Análisis Inteligente</h4>
+                    <div className="space-y-2 text-sm">
+                      <div>• Identificación de intereses</div>
+                      <div>• Patrones de comunicación</div>
+                      <div>• Tendencias y preferencias</div>
+                      <div>• Oportunidades de conexión</div>
+                      <div>• Recomendaciones personalizadas</div>
+                      <div>• Timing óptimo de contacto</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Tasks */}
+                <div>
+                  <h4 className="font-medium mb-3">Tareas de la Etapa 3</h4>
+                  <div className="space-y-3">
+                    {mvpStages
+                      .find((s) => s.id === "stage-3")
+                      ?.tasks.map((task) => (
+                        <div key={task.id} className="flex items-center justify-between p-3 border rounded-lg">
+                          <div className="flex items-center gap-3">
+                            <div>
+                              <div className="font-medium">{task.name}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {getPriorityBadge(task.priority)}
+                            {getStatusBadge(task.status)}
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="timeline" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                Cronograma de Implementación
+              </CardTitle>
+              <CardDescription>Calendario detallado de 3 meses para la implementación completa del MVP</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {/* Timeline Overview */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="text-center p-4 bg-blue-50 rounded-lg">
+                    <div className="text-2xl font-bold text-blue-600">Mes 1</div>
+                    <div className="text-sm text-gray-600">Repositorio de Clientes</div>
+                    <Progress value={78} className="mt-2 h-2" />
+                  </div>
+                  <div className="text-center p-4 bg-orange-50 rounded-lg">
+                    <div className="text-2xl font-bold text-orange-600">Mes 2</div>
+                    <div className="text-sm text-gray-600">Material de Producto</div>
+                    <Progress value={0} className="mt-2 h-2" />
+                  </div>
+                  <div className="text-center p-4 bg-purple-50 rounded-lg">
+                    <div className="text-2xl font-bold text-purple-600">Mes 3</div>
+                    <div className="text-sm text-gray-600">Vinculación Compradores</div>
+                    <Progress value={0} className="mt-2 h-2" />
+                  </div>
+                </div>
+
+                {/* Detailed Timeline */}
+                <div className="space-y-6">
+                  {mvpStages.map((stage, index) => (
+                    <div key={stage.id} className="border-l-4 border-blue-200 pl-6 pb-6">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="w-3 h-3 bg-blue-600 rounded-full -ml-8"></div>
+                        <h3 className="text-lg font-semibold">{stage.name}</h3>
+                        {getStatusBadge(stage.status)}
+                      </div>
+
+                      <div className="text-sm text-gray-600 mb-3">
+                        <strong>Duración:</strong> {stage.duration}
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <h4 className="font-medium mb-2">Objetivos Principales</h4>
+                          <div className="text-sm text-gray-600">{stage.description}</div>
+                        </div>
+
+                        <div>
+                          <h4 className="font-medium mb-2">Entregables</h4>
+                          <div className="space-y-1">
+                            {stage.tasks.map((task) => (
+                              <div key={task.id} className="flex items-center gap-2 text-sm">
+                                <div
+                                  className={`w-2 h-2 rounded-full ${
+                                    task.status === "completed"
+                                      ? "bg-green-500"
+                                      : task.status === "in-progress"
+                                        ? "bg-blue-500"
+                                        : "bg-gray-300"
+                                  }`}
+                                ></div>
+                                {task.name}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </CardContent>
