@@ -26,6 +26,7 @@ import {
   Hash,
   Calendar,
   MapPin,
+  ExternalLink,
 } from "lucide-react"
 import type { DriveFile, CompanyFolder, SyncSettings } from "@/types/drive-file"
 
@@ -349,43 +350,148 @@ export default function GoogleDriveIntegration() {
 
   if (!connected) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FolderOpen className="h-5 w-5" />
-            Integración con Google Drive
-          </CardTitle>
-          <CardDescription>La API de Google Drive será configurada en la siguiente etapa del proyecto</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8">
-            <FolderOpen className="h-16 w-16 mx-auto text-gray-400 mb-4" />
-            <h3 className="text-lg font-medium mb-2">API No Configurada</h3>
-            <p className="text-gray-600 mb-6">
-              La integración con Google Drive está pendiente de entrega por parte de Sur-Realista. Actualmente estamos
-              en la fase de organización de datos locales y esperando las credenciales de API.
-            </p>
-            <Button
-              onClick={connectToDrive}
-              disabled={syncing}
-              className="flex items-center gap-2 bg-transparent"
-              variant="outline"
-            >
-              {syncing ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
-                  Verificando...
-                </>
-              ) : (
-                <>
-                  <FolderOpen className="h-4 w-4" />
-                  Ver Demo de Integración
-                </>
-              )}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="space-y-6">
+        <Card className="border-green-200 bg-green-50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-green-800">
+              <CheckCircle className="h-5 w-5" />
+              API Key Recibida - Lista para Configurar
+            </CardTitle>
+            <CardDescription className="text-green-700">
+              Se ha recibido la API key de Google Drive de Sur-Realista. Lista para configuración.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+              <div className="text-center p-4 bg-white rounded-lg border border-green-200">
+                <div className="text-2xl font-bold text-green-600">5</div>
+                <div className="text-sm text-green-600">Casos de Éxito</div>
+                <div className="text-xs text-green-500 mt-1">Identificados</div>
+              </div>
+              <div className="text-center p-4 bg-white rounded-lg border border-green-200">
+                <div className="text-2xl font-bold text-orange-600">0/5</div>
+                <div className="text-sm text-orange-600">Números de Rol</div>
+                <div className="text-xs text-orange-500 mt-1">Por extraer</div>
+              </div>
+              <div className="text-center p-4 bg-white rounded-lg border border-green-200">
+                <div className="text-2xl font-bold text-blue-600">Etapa 1</div>
+                <div className="text-sm text-blue-600">Fase Actual</div>
+                <div className="text-xs text-blue-500 mt-1">Configuración</div>
+              </div>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle className="h-4 w-4 text-blue-600" />
+                <span className="font-medium text-blue-800">API Key Disponible</span>
+              </div>
+              <div className="text-sm text-blue-700 mb-2">
+                <strong>API Key:</strong>{" "}
+                <code className="bg-white px-2 py-1 rounded text-xs">AIzaSyB6AVo8HT0RyEmiu8YRKj3skR3ujXyjHTU</code>
+              </div>
+              <p className="text-sm text-blue-700">
+                La API key de Google Drive ha sido proporcionada por Sur-Realista. Ahora se puede proceder con la
+                configuración de la integración para acceder a los casos de éxito reales.
+              </p>
+            </div>
+
+            <div className="bg-white border border-green-200 rounded-lg p-4">
+              <h4 className="font-medium text-green-800 mb-2">Documentos Disponibles:</h4>
+              <ul className="text-sm text-green-700 space-y-1">
+                <li>• Inscripciones de propiedades con números de rol</li>
+                <li>• Mandatos de venta con información legal</li>
+                <li>• Tasaciones oficiales con datos técnicos</li>
+                <li>• Documentos complementarios por clasificar</li>
+              </ul>
+              <p className="text-xs text-green-600 mt-2">
+                Con la API key disponible, los agentes podrán acceder y extraer automáticamente los números de rol de
+                cada documento.
+              </p>
+            </div>
+
+            <div className="flex gap-2 mt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  window.open(
+                    "https://drive.google.com/drive/folders/1JVEAuqfl4slpHDDf5dqtpYSliexrcn0w?usp=drive_link",
+                    "_blank",
+                  )
+                }
+                className="flex items-center gap-2"
+              >
+                <ExternalLink className="w-4 h-4" />
+                Ver Casos de Éxito
+              </Button>
+              <Button
+                onClick={connectToDrive}
+                disabled={syncing}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+              >
+                {syncing ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Configurando...
+                  </>
+                ) : (
+                  <>
+                    <Settings className="h-4 w-4" />
+                    Configurar Integración
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Settings className="h-5 w-5 text-blue-500" />
+              API de Google Drive - Lista para Configurar
+            </CardTitle>
+            <CardDescription>API key recibida de Sur-Realista - Proceder con configuración</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-center py-8">
+              <Settings className="h-16 w-16 mx-auto text-blue-500 mb-4" />
+              <h3 className="text-lg font-medium mb-2">API Key Disponible</h3>
+              <p className="text-gray-600 mb-6">
+                La API key de Google Drive ha sido proporcionada por Sur-Realista. Tenemos 5 casos de éxito reales
+                identificados y listos para procesar. La integración puede ser configurada ahora.
+              </p>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle className="h-4 w-4 text-blue-600" />
+                  <span className="font-medium text-blue-800">Próximos Pasos</span>
+                </div>
+                <p className="text-sm text-blue-700">
+                  Con la API key disponible, se puede configurar la conexión para extraer automáticamente los números de
+                  rol y organizar la información de los casos de éxito.
+                </p>
+              </div>
+              <Button
+                onClick={connectToDrive}
+                disabled={syncing}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+              >
+                {syncing ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Configurando...
+                  </>
+                ) : (
+                  <>
+                    <Settings className="h-4 w-4" />
+                    Iniciar Configuración
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     )
   }
 

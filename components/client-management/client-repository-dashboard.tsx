@@ -582,51 +582,96 @@ export function ClientRepositoryDashboard() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FolderOpen className="w-5 h-5" />
-            Integración con Google Drive
+            Integración con Google Drive - API Key Disponible
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                <span className="font-medium text-blue-800">API Key Recibida - Lista para Configurar</span>
+              </div>
+              <div className="text-sm text-blue-700 mb-2">
+                <strong>API Key:</strong>{" "}
+                <code className="bg-white px-2 py-1 rounded text-xs">AIzaSyB6AVo8HT0RyEmiu8YRKj3skR3ujXyjHTU</code>
+              </div>
+              <p className="text-sm text-blue-700">
+                La API key de Google Drive ha sido proporcionada por Sur-Realista. Se han identificado 5 carpetas de
+                casos de éxito reales que pueden ser procesadas ahora.
+              </p>
+            </div>
+
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                <span className="font-medium text-green-800">Casos de Éxito Disponibles</span>
+              </div>
+              <p className="text-sm text-green-700">
+                Cada carpeta contiene documentos con números de rol que pueden ser extraídos automáticamente una vez
+                configurada la integración.
+              </p>
+            </div>
+
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-3 h-3 bg-gray-400 rounded-full"></div>
-                <span className="font-medium">Estado de conexión</span>
+                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                <span className="font-medium">Estado de conexión API</span>
               </div>
-              <Badge className="bg-gray-100 text-gray-800">
-                <FolderOpen className="w-3 h-3 mr-1" />
-                No Configurado - Etapa 2
+              <Badge className="bg-blue-100 text-blue-800">
+                <Settings className="w-3 h-3 mr-1" />
+                API Disponible - Lista para Configurar
               </Badge>
             </div>
+
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <div className="text-2xl font-bold text-gray-600">0</div>
-                <div className="text-sm text-gray-600">Documentos</div>
+              <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
+                <div className="text-2xl font-bold text-green-600">5</div>
+                <div className="text-sm text-green-600">Casos de Éxito</div>
+                <div className="text-xs text-green-500 mt-1">Identificados</div>
               </div>
-              <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <div className="text-2xl font-bold text-gray-600">0</div>
-                <div className="text-sm text-gray-600">Carpetas</div>
+              <div className="text-center p-4 bg-orange-50 rounded-lg border border-orange-200">
+                <div className="text-2xl font-bold text-orange-600">0/5</div>
+                <div className="text-sm text-orange-600">Números de Rol</div>
+                <div className="text-xs text-orange-500 mt-1">Por extraer</div>
               </div>
-              <div className="text-center p-4 bg-purple-50 rounded-lg">
-                <div className="text-2xl font-bold text-purple-600">100%</div>
-                <div className="text-sm text-purple-600">Sincronización</div>
+              <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="text-2xl font-bold text-blue-600">Disponible</div>
+                <div className="text-sm text-blue-600">API Google Drive</div>
+                <div className="text-xs text-blue-500 mt-1">Lista para configurar</div>
               </div>
-              <div className="text-center p-4 bg-orange-50 rounded-lg">
-                <div className="text-2xl font-bold text-orange-600">2.3GB</div>
-                <div className="text-sm text-orange-600">Almacenamiento</div>
+              <div className="text-center p-4 bg-purple-50 rounded-lg border border-purple-200">
+                <div className="text-2xl font-bold text-purple-600">Etapa 1</div>
+                <div className="text-sm text-purple-600">Fase Actual</div>
+                <div className="text-xs text-purple-500 mt-1">Configuración</div>
               </div>
             </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h4 className="font-medium text-blue-800 mb-2">Documentos por Procesar:</h4>
+              <ul className="text-sm text-blue-700 space-y-1">
+                <li>• Inscripciones de propiedades</li>
+                <li>• Mandatos de venta</li>
+                <li>• Tasaciones oficiales</li>
+                <li>• Documentos legales complementarios</li>
+              </ul>
+              <p className="text-xs text-blue-600 mt-2">
+                Con la API key disponible, los números de rol pueden ser extraídos automáticamente de cada documento.
+              </p>
+            </div>
+
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={handleRefresh}>
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Sincronizar ahora
+              <Button variant="outline" size="sm" className="bg-blue-600 text-white hover:bg-blue-700">
+                <Settings className="w-4 h-4 mr-2" />
+                Configurar API
               </Button>
               <Button variant="outline" size="sm">
-                <Settings className="w-4 h-4 mr-2" />
-                Configurar
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Probar Conexión
               </Button>
               <Button variant="outline" size="sm">
                 <Activity className="w-4 h-4 mr-2" />
-                Ver actividad
+                Ver Casos de Éxito
               </Button>
             </div>
           </div>

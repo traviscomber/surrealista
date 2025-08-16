@@ -331,26 +331,111 @@ function FolderOrganizationDemo() {
     <div className="space-y-6">
       {/* Header Principal */}
       <div className="text-center space-y-4 mb-8">
-        <div className="inline-flex items-center gap-2 bg-blue-50 px-4 py-2 rounded-full">
-          <FolderOpen className="w-5 h-5 text-blue-600" />
-          <span className="text-sm font-medium text-blue-700">Etapa 1 - Setup Inicial</span>
+        <div className="inline-flex items-center gap-2 bg-green-50 px-4 py-2 rounded-full border border-green-200">
+          <CheckCircle className="w-5 h-5 text-green-600" />
+          <span className="text-sm font-medium text-green-700">Etapa 1 - 5 Casos de Éxito Identificados</span>
         </div>
         <h1 className="text-4xl font-bold text-gray-900">Organización Profesional de Carpetas</h1>
         <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-          Sistema de organización recomendado para Google Drive mientras configuramos la integración API
+          Sistema de organización recomendado para los casos de éxito reales identificados en Google Drive
         </p>
         <div className="flex items-center justify-center gap-4 text-sm text-gray-500">
           <div className="flex items-center gap-1">
-            <Clock className="w-4 h-4" />
-            <span>Demo Interactivo</span>
+            <CheckCircle className="w-4 h-4 text-green-500" />
+            <span>5 Casos Reales</span>
           </div>
           <div className="flex items-center gap-1">
             <Target className="w-4 h-4" />
             <span>Mejores Prácticas</span>
           </div>
           <div className="flex items-center gap-1">
-            <CheckCircle className="w-4 h-4" />
-            <span>Templates Incluidos</span>
+            <Clock className="w-4 h-4 text-orange-500" />
+            <span>API Pendiente</span>
+          </div>
+        </div>
+
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 max-w-4xl mx-auto">
+          <div className="flex items-center gap-2 mb-2">
+            <CheckCircle className="h-5 w-5 text-green-600" />
+            <span className="font-medium text-green-800">Casos de Éxito Reales Disponibles</span>
+          </div>
+          <p className="text-sm text-green-700 mb-3">
+            Juan Navarro ha compartido 5 carpetas de casos de éxito reales que contienen inscripciones, mandatos de
+            venta y tasaciones. Los números de rol están contenidos en estos documentos y serán extraídos una vez
+            configurada la API de Google Drive.
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+            <div className="bg-white p-2 rounded border">
+              <strong>Fotos:</strong> 3 carpetas organizadas
+            </div>
+            <div className="bg-white p-2 rounded border">
+              <strong>Ubicación:</strong> Archivo KMZ
+            </div>
+            <div className="bg-white p-2 rounded border">
+              <strong>Documentos:</strong> Fundo + Órdenes
+            </div>
+            <div className="bg-white p-2 rounded border">
+              <strong>Referencias:</strong> PDFs fotográficos
+            </div>
+          </div>
+          <div className="mt-3">
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-green-700 border-green-300 hover:bg-green-100 bg-transparent"
+              onClick={() =>
+                window.open(
+                  "https://drive.google.com/drive/folders/1JVEAuqfl4slpHDDf5dqtpYSliexrcn0w?usp=drive_link",
+                  "_blank",
+                )
+              }
+            >
+              <FolderOpen className="w-4 h-4 mr-2" />
+              Ver Casos de Éxito en Drive
+            </Button>
+          </div>
+        </div>
+
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 max-w-4xl mx-auto">
+          <div className="flex items-center gap-2 mb-2">
+            <CheckCircle className="h-5 w-5 text-green-600" />
+            <span className="font-medium text-green-800">Estructura Real: Valdivia 142 has Teresa F...</span>
+          </div>
+          <p className="text-sm text-green-700 mb-3">
+            Estructura real identificada: carpetas de fotos organizadas por fecha (fotos, fotos cel, Fotos enero 2024),
+            archivos KMZ para ubicación (Campo Iñipulli 140_has.kmz), documentos de fundo comprimidos, órdenes de venta
+            en diferentes formatos (.docx y .pdf), y referencias fotográficas. Esta estructura servirá como template
+            para organizar futuros casos.
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+            <div className="bg-white p-2 rounded border">
+              <strong>Fotos:</strong> 3 carpetas organizadas
+            </div>
+            <div className="bg-white p-2 rounded border">
+              <strong>Ubicación:</strong> Archivo KMZ
+            </div>
+            <div className="bg-white p-2 rounded border">
+              <strong>Documentos:</strong> Fundo + Órdenes
+            </div>
+            <div className="bg-white p-2 rounded border">
+              <strong>Referencias:</strong> PDFs fotográficos
+            </div>
+          </div>
+          <div className="mt-3">
+            <Button
+              size="sm"
+              variant="outline"
+              className="text-green-700 border-green-300 hover:bg-green-100 bg-transparent"
+              onClick={() =>
+                window.open(
+                  "https://drive.google.com/drive/folders/1JVEAuqfl4slpHDDf5dqtpYSliexrcn0w?usp=drive_link",
+                  "_blank",
+                )
+              }
+            >
+              <FolderOpen className="w-4 h-4 mr-2" />
+              Ver Estructura Real en Drive
+            </Button>
           </div>
         </div>
       </div>
@@ -399,7 +484,7 @@ function FolderOrganizationDemo() {
                   <div>
                     <div className="text-2xl font-bold text-red-600">2</div>
                     <div className="text-sm text-gray-600">Clientes Calientes</div>
-                    <div className="text-xs text-gray-400">0-30 días</div>
+                    <div className="text-xs text-gray-400">De casos reales</div>
                   </div>
                 </div>
               </CardContent>
@@ -411,9 +496,9 @@ function FolderOrganizationDemo() {
                     <Target className="w-5 h-5 text-yellow-500" />
                   </div>
                   <div>
-                    <div className="text-2xl font-bold text-yellow-600">1</div>
+                    <div className="text-2xl font-bold text-yellow-600">2</div>
                     <div className="text-sm text-gray-600">Clientes Tibios</div>
-                    <div className="text-xs text-gray-400">30-90 días</div>
+                    <div className="text-xs text-gray-400">De casos reales</div>
                   </div>
                 </div>
               </CardContent>
@@ -427,7 +512,7 @@ function FolderOrganizationDemo() {
                   <div>
                     <div className="text-2xl font-bold text-blue-600">1</div>
                     <div className="text-sm text-gray-600">Clientes Fríos</div>
-                    <div className="text-xs text-gray-400">+90 días</div>
+                    <div className="text-xs text-gray-400">De casos reales</div>
                   </div>
                 </div>
               </CardContent>
@@ -439,9 +524,9 @@ function FolderOrganizationDemo() {
                     <FolderOpen className="w-5 h-5 text-green-500" />
                   </div>
                   <div>
-                    <div className="text-2xl font-bold text-green-600">4</div>
-                    <div className="text-sm text-gray-600">Total Clientes</div>
-                    <div className="text-xs text-gray-400">Organizados</div>
+                    <div className="text-2xl font-bold text-green-600">5</div>
+                    <div className="text-sm text-gray-600">Casos de Éxito</div>
+                    <div className="text-xs text-gray-400">Identificados</div>
                   </div>
                 </div>
               </CardContent>

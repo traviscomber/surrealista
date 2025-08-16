@@ -20,7 +20,6 @@ import {
   BarChart3,
   Zap,
   Shield,
-  Brain,
   Code,
   Bug,
   Star,
@@ -88,17 +87,20 @@ const milestones: MilestoneStatus[] = [
   {
     id: "data-organization",
     title: "Organización de Datos",
-    description: "Sistema de importación y estandarización de datos desde Google Drive",
-    status: "pending",
-    progress: 15,
-    dueDate: "2024-03-15",
+    description:
+      "Sistema de importación y estandarización de datos desde Google Drive - 5 casos de éxito identificados",
+    status: "in-progress",
+    progress: 45,
+    dueDate: "2025-08-25",
     priority: "high",
     assignee: "Equipo Backend",
     tasks: [
-      { id: "1", title: "Configurar Google Drive API", completed: false, estimatedHours: 16, actualHours: 0 },
+      { id: "1", title: "Configurar Google Drive API", completed: false, estimatedHours: 16, actualHours: 4 },
       { id: "2", title: "Diseñar estructura de datos", completed: true, estimatedHours: 12, actualHours: 8 },
-      { id: "3", title: "Sistema de templates", completed: false, estimatedHours: 20, actualHours: 0 },
-      { id: "4", title: "Validación básica", completed: false, estimatedHours: 8, actualHours: 0 },
+      { id: "3", title: "Identificar casos de éxito", completed: true, estimatedHours: 8, actualHours: 6 },
+      { id: "4", title: "Extraer números de rol", completed: false, estimatedHours: 20, actualHours: 0 },
+      { id: "5", title: "Sistema de templates", completed: false, estimatedHours: 20, actualHours: 0 },
+      { id: "6", title: "Validación básica", completed: false, estimatedHours: 8, actualHours: 0 },
     ],
     metrics: {
       linesOfCode: 89,
@@ -113,7 +115,7 @@ const milestones: MilestoneStatus[] = [
     description: "CRUD completo para propiedades con imágenes y metadatos",
     status: "pending",
     progress: 5,
-    dueDate: "2024-03-20",
+    dueDate: "2025-08-30",
     priority: "high",
     assignee: "Equipo Frontend",
     tasks: [
@@ -135,7 +137,7 @@ const milestones: MilestoneStatus[] = [
     description: "Asistente inteligente y análisis automatizado de propiedades",
     status: "pending",
     progress: 0,
-    dueDate: "2024-04-01",
+    dueDate: "2025-09-15",
     priority: "medium",
     assignee: "Equipo IA",
     tasks: [
@@ -157,7 +159,7 @@ const milestones: MilestoneStatus[] = [
     description: "Interface optimizada y responsive para todos los dispositivos",
     status: "in-progress",
     progress: 25,
-    dueDate: "2024-03-05",
+    dueDate: "2025-08-10",
     priority: "medium",
     assignee: "Equipo UX/UI",
     tasks: [
@@ -179,7 +181,7 @@ const milestones: MilestoneStatus[] = [
     description: "Conexiones con fuentes gubernamentales y oficiales",
     status: "pending",
     progress: 0,
-    dueDate: "2024-04-10",
+    dueDate: "2025-09-30",
     priority: "low",
     assignee: "Equipo Integraciones",
     tasks: [
@@ -201,7 +203,7 @@ const milestones: MilestoneStatus[] = [
     description: "Pruebas automatizadas y despliegue en producción",
     status: "in-progress",
     progress: 20,
-    dueDate: "2024-02-25",
+    dueDate: "2025-08-05",
     priority: "high",
     assignee: "Equipo DevOps",
     tasks: [
@@ -965,17 +967,62 @@ export default function MVPSeguimientoPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            <div className="flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5" />
+            <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
               <div className="flex-1">
-                <h4 className="font-medium text-red-800">Optimización Consultas IA - Crítico</h4>
-                <p className="text-sm text-red-700 mt-1">
-                  Reducir tiempo de respuesta de 3.2s a menos de 2s para consultas complejas
+                <h4 className="font-medium text-green-800">Casos de Éxito Identificados - Completado</h4>
+                <p className="text-sm text-green-700 mt-1">
+                  Se han identificado 5 carpetas de casos de éxito reales en Google Drive con documentos completos
                 </p>
-                <div className="flex items-center gap-4 mt-2 text-xs text-red-600">
-                  <span>Fecha límite: 15 Feb 2024</span>
-                  <span>Progreso: 65%</span>
-                  <span>Asignado: Equipo IA</span>
+                <div className="flex items-center gap-4 mt-2 text-xs text-green-600">
+                  <span>Completado: 16 Ago 2025</span>
+                  <span>Progreso: 100%</span>
+                  <span>Asignado: Juan Navarro</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <CheckCircle className="h-5 w-5 text-blue-600 mt-0.5" />
+              <div className="flex-1">
+                <h4 className="font-medium text-blue-800">API Key Google Drive - Recibida</h4>
+                <p className="text-sm text-blue-700 mt-1">
+                  API key proporcionada por Sur-Realista. Lista para configurar integración con casos de éxito.
+                </p>
+                <div className="flex items-center gap-4 mt-2 text-xs text-blue-600">
+                  <span>Recibida: 16 Ago 2025</span>
+                  <span>Progreso: 25%</span>
+                  <span>Próximo: Configuración</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 p-4 bg-purple-50 border border-purple-200 rounded-lg">
+              <Rocket className="h-5 w-5 text-purple-600 mt-0.5" />
+              <div className="flex-1">
+                <h4 className="font-medium text-purple-800">Demo Organización Carpetas</h4>
+                <p className="text-sm text-purple-700 mt-1">
+                  Completar demo interactivo de organización profesional de carpetas para Etapa 1
+                </p>
+                <div className="flex items-center gap-4 mt-2 text-xs text-purple-600">
+                  <span>Fecha límite: 25 Ago 2025</span>
+                  <span>Progreso: 85%</span>
+                  <span>Asignado: Equipo Frontend</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-3 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+              <AlertTriangle className="h-5 w-5 text-orange-600 mt-0.5" />
+              <div className="flex-1">
+                <h4 className="font-medium text-orange-800">Configuración Google Drive API - Pendiente</h4>
+                <p className="text-sm text-orange-700 mt-1">
+                  Esperando entrega de credenciales API por parte de Sur-Realista para procesar casos de éxito
+                </p>
+                <div className="flex items-center gap-4 mt-2 text-xs text-orange-600">
+                  <span>Fecha estimada: Por definir</span>
+                  <span>Progreso: 0%</span>
+                  <span>Bloqueado por: Sur-Realista</span>
                 </div>
               </div>
             </div>
@@ -983,44 +1030,14 @@ export default function MVPSeguimientoPage() {
             <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <Target className="h-5 w-5 text-blue-600 mt-0.5" />
               <div className="flex-1">
-                <h4 className="font-medium text-blue-800">Tests de Integración Completos</h4>
+                <h4 className="font-medium text-blue-800">Extracción Números de Rol</h4>
                 <p className="text-sm text-blue-700 mt-1">
-                  Completar suite de tests de integración para todas las APIs externas
+                  Procesar inscripciones, mandatos de venta y tasaciones para extraer números de rol
                 </p>
                 <div className="flex items-center gap-4 mt-2 text-xs text-blue-600">
-                  <span>Fecha límite: 18 Feb 2024</span>
-                  <span>Progreso: 40%</span>
-                  <span>Asignado: Equipo DevOps</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
-              <Rocket className="h-5 w-5 text-green-600 mt-0.5" />
-              <div className="flex-1">
-                <h4 className="font-medium text-green-800">Deploy Beta Público</h4>
-                <p className="text-sm text-green-700 mt-1">
-                  Lanzamiento para 50 usuarios beta seleccionados con métricas de uso
-                </p>
-                <div className="flex items-center gap-4 mt-2 text-xs text-green-600">
-                  <span>Fecha límite: 22 Feb 2024</span>
-                  <span>Progreso: 80%</span>
-                  <span>Asignado: Todo el equipo</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3 p-4 bg-purple-50 border border-purple-200 rounded-lg">
-              <Brain className="h-5 w-5 text-purple-600 mt-0.5" />
-              <div className="flex-1">
-                <h4 className="font-medium text-purple-800">Análisis Predictivo MVP</h4>
-                <p className="text-sm text-purple-700 mt-1">
-                  Implementar modelo básico de predicción de precios con 80% de precisión
-                </p>
-                <div className="flex items-center gap-4 mt-2 text-xs text-purple-600">
-                  <span>Fecha límite: 28 Feb 2024</span>
-                  <span>Progreso: 25%</span>
-                  <span>Asignado: Equipo IA</span>
+                  <span>Fecha límite: Post API</span>
+                  <span>Progreso: 0%</span>
+                  <span>Asignado: Equipo Backend</span>
                 </div>
               </div>
             </div>

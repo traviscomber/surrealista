@@ -1,0 +1,236 @@
+export interface DriveFile {
+  id: string
+  name: string
+  mimeType: string
+  size?: string
+  modifiedTime: string
+  webViewLink?: string
+  parents?: string[]
+  thumbnailLink?: string
+}
+
+export interface DriveFolder {
+  id: string
+  name: string
+  files: DriveFile[]
+  subfolders: DriveFolder[]
+  totalFiles: number
+}
+
+export class GoogleDriveService {
+  private apiKey: string
+  private baseUrl = "https://www.googleapis.com/drive/v3"
+
+  constructor(apiKey: string) {
+    this.apiKey = apiKey
+  }
+
+  async listFiles(
+    folderId?: string,
+    pageToken?: string,
+  ): Promise<{
+    files: DriveFile[]
+    nextPageToken?: string
+  }> {
+    try {
+      const params = new URLSearchParams({
+        key: this.apiKey,
+        fields: "nextPageToken,files(id,name,mimeType,size,modifiedTime,webViewLink,parents,thumbnailLink)",
+        pageSize: "100",
+      })
+
+      if (folderId) {
+        params.append("q", `'${folderId}' in parents and trashed=false`)
+      } else {
+        params.append("q", "trashed=false")
+      }
+
+      if (pageToken) {
+        params.append("pageToken", pageToken)
+      }
+
+      const response = await fetch(`${this.baseUrl}/files?${params}`)
+
+      if (!response.ok) {
+        throw new Error(`Google Drive API error: ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      return {
+        files: data.files || [],
+        nextPageToken: data.nextPageToken,
+      }
+    } catch (error) {
+      console.error("Error listing files:", error)
+      throw error
+    }
+  }
+
+  async getFolderStructure(folderId: string): Promise<DriveFolder> {
+    try {
+      // Get folder info
+      const folderResponse = await fetch(`${this.baseUrl}/files/${folderId}?key=${this.apiKey}&fields=id,name`)
+
+      if (!folderResponse.ok) {
+        throw new Error(`Error getting folder info: ${folderResponse.status}`)
+      }
+
+      const folderInfo = await folderResponse.json()
+
+      // Get folder contents
+      const { files } = await this.listFiles(folderId)
+
+      // Separate files and folders
+      const regularFiles = files.filter((file) => file.mimeType !== "application/vnd.google-apps.folder")
+      const subfolderFiles = files.filter((file) => file.mimeType === "application/vnd.google-apps.folder")
+
+      // Recursively get subfolders
+      const subfolders: DriveFolder[] = []
+      for (const subfolder of subfolderFiles) {
+        try {
+          const subfolderStructure = await this.getFolderStructure(subfolder.id)
+          subfolders.push(subfolderStructure)
+        } catch (error) {
+          console.error(`Error getting subfolder ${subfolder.name}:`, error)
+        }
+      }
+
+      return {
+        id: folderInfo.id,
+        name: folderInfo.name,
+        files: regularFiles,
+        subfolders,
+        totalFiles: regularFiles.length + subfolders.reduce((sum, sf) => sum + sf.totalFiles, 0),
+      }
+    } catch (error) {
+      console.error("Error getting folder structure:", error)
+      throw error
+    }
+  }
+
+  async searchFiles(query: string): Promise<DriveFile[]> {
+    try {
+      const params = new URLSearchParams({
+        key: this.apiKey,
+        q: `name contains '${query}' and trashed=false`,
+        fields: "files(id,name,mimeType,size,modifiedTime,webViewLink,parents,thumbnailLink)",
+        pageSize: "50",
+      })
+
+      const response = await fetch(`${this.baseUrl}/files?${params}`)
+
+      if (!response.ok) {
+        throw new Error(`Google Drive API error: ${response.status}`)
+      }
+
+      const data = await response.json()
+      return data.files || []
+    } catch (error) {
+      console.error("Error searching files:", error)
+      throw error
+    }
+  }
+
+  async getFileContent(fileId: string): Promise<string> {
+    try {
+      const response = await fetch(`${this.baseUrl}/files/${fileId}?alt=media&key=${this.apiKey}`)
+
+      if (!response.ok) {
+        throw new Error(`Error getting file content: ${response.status}`)
+      }
+
+      return await response.text()
+    } catch (error) {
+      console.error("Error getting file content:", error)
+      throw error
+    }
+  }
+
+  // Método específico para extraer números de rol de documentos
+  async extractRolNumbers(files: DriveFile[]): Promise<
+    {
+      fileId: string
+      fileName: string
+      rolNumbers: string[]
+      documentType: "inscripcion" | "mandato" | "tasacion" | "kmz" | "fundo" | "foto" | "orden" | "otro"
+    }[]
+  > {
+    const results = []
+
+    for (const file of files) {
+      try {
+        // Determinar tipo de documento por nombre basado en estructura real
+        let documentType: "inscripcion" | "mandato" | "tasacion" | "kmz" | "fundo" | "foto" | "orden" | "otro" = "otro"
+        const fileName = file.name.toLowerCase()
+
+        if (fileName.includes("inscripcion") || fileName.includes("inscripción")) {
+          documentType = "inscripcion"
+        } else if (fileName.includes("mandato")) {
+          documentType = "mandato"
+        } else if (fileName.includes("tasacion") || fileName.includes("tasación")) {
+          documentType = "tasacion"
+        } else if (fileName.includes(".kmz") || fileName.includes("campo")) {
+          documentType = "kmz"
+        } else if (fileName.includes("fundo")) {
+          documentType = "fundo"
+        } else if (fileName.includes("foto")) {
+          documentType = "foto"
+        } else if (fileName.includes("orden") && fileName.includes("venta")) {
+          documentType = "orden"
+        }
+
+        // Solo procesar archivos de texto/PDF/KMZ (simulado)
+        if (
+          file.mimeType.includes("text") ||
+          file.mimeType.includes("pdf") ||
+          file.mimeType.includes("document") ||
+          file.mimeType.includes("kmz")
+        ) {
+          // Simulación de extracción de números de rol
+          const mockRolNumbers = this.generateMockRolNumbers(documentType)
+
+          results.push({
+            fileId: file.id,
+            fileName: file.name,
+            rolNumbers: mockRolNumbers,
+            documentType,
+          })
+        }
+      } catch (error) {
+        console.error(`Error processing file ${file.name}:`, error)
+      }
+    }
+
+    return results
+  }
+
+  private generateMockRolNumbers(documentType: string): string[] {
+    // Simulación de números de rol basados en el tipo de documento real
+    const mockNumbers = {
+      inscripcion: ["140-2024", "142-2024"], // Números de rol de inscripciones
+      mandato: ["MV-INI-2024-001", "MV-TF-2024-002"], // Mandatos de venta
+      tasacion: ["TAS-2024-456", "TAS-COM-2024-789"], // Tasaciones
+      kmz: ["KMZ-140-2023"], // Archivos de ubicación KMZ
+      fundo: ["FUNDO-INI-140-2024"], // Documentos de fundo
+      foto: ["FOTO-REF-2023"], // Referencias fotográficas
+      orden: ["OV-INI-2023", "OV-TF-2023"], // Órdenes de venta
+      otro: ["ROL-2024-999"],
+    }
+
+    return mockNumbers[documentType as keyof typeof mockNumbers] || mockNumbers.otro
+  }
+
+  async testConnection(): Promise<boolean> {
+    try {
+      const response = await fetch(`${this.baseUrl}/about?key=${this.apiKey}&fields=user`)
+      return response.ok
+    } catch (error) {
+      console.error("Error testing connection:", error)
+      return false
+    }
+  }
+}
+
+// Instancia singleton del servicio
+export const driveService = new GoogleDriveService("AIzaSyB6AVo8HT0RyEmiu8YRKj3skR3ujXyjHTU")

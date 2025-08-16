@@ -1,13 +1,27 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Switch } from "@/components/ui/switch"
-import { AlertTriangle, Bell, CheckCircle, Clock, XCircle, Zap, Bug, TrendingDown, TrendingUp, Shield, Database, Globe, Users, Code, Activity, Mail, Slack, MessageSquare } from 'lucide-react'
+import {
+  AlertTriangle,
+  Bell,
+  CheckCircle,
+  Clock,
+  XCircle,
+  Zap,
+  TrendingUp,
+  Shield,
+  Database,
+  Globe,
+  Code,
+  Activity,
+  Mail,
+  Slack,
+} from "lucide-react"
 
 interface AlertItem {
   id: string
@@ -57,16 +71,17 @@ const mockAlerts: AlertItem[] = [
     type: "warning",
     category: "apis",
     title: "Google Drive API No Configurada",
-    description: "La API de Google Drive necesita ser configurada para la funcionalidad de importación de datos de la Etapa 1.",
-    timestamp: "2024-02-08T14:30:00Z",
+    description:
+      "La API de Google Drive necesita ser configurada para la funcionalidad de importación de datos de la Etapa 1.",
+    timestamp: new Date().toISOString(),
     resolved: false,
     assignee: "Equipo Backend",
     priority: "high",
     actions: [
       { label: "Configurar API", action: "setup-gdrive-api" },
       { label: "Ver Documentación", action: "view-docs" },
-      { label: "Crear Credenciales", action: "create-credentials" }
-    ]
+      { label: "Crear Credenciales", action: "create-credentials" },
+    ],
   },
   {
     id: "alert-002",
@@ -74,52 +89,54 @@ const mockAlerts: AlertItem[] = [
     category: "database",
     title: "Tablas de Base de Datos Incompletas",
     description: "Faltan 4 tablas por crear en la base de datos. Necesarias para completar el setup de la Etapa 1.",
-    timestamp: "2024-02-08T13:15:00Z",
+    timestamp: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
     resolved: false,
     assignee: "Equipo Backend",
     priority: "medium",
     actions: [
       { label: "Ejecutar Scripts", action: "run-db-scripts" },
       { label: "Verificar Schema", action: "verify-schema" },
-      { label: "Ver Progreso", action: "check-progress" }
+      { label: "Ver Progreso", action: "check-progress" },
     ],
     metrics: {
       current: 8,
       threshold: 12,
-      unit: "tablas"
-    }
+      unit: "tablas",
+    },
   },
   {
     id: "alert-003",
     type: "info",
     category: "setup",
     title: "Progreso Setup al 78%",
-    description: "El setup inicial va bien encaminado. Quedan algunas configuraciones de APIs y finalizar la estructura de datos.",
-    timestamp: "2024-02-08T12:00:00Z",
+    description:
+      "El setup inicial va bien encaminado. Quedan algunas configuraciones de APIs y finalizar la estructura de datos.",
+    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
     resolved: false,
     assignee: "Todo el equipo",
     priority: "low",
     metrics: {
       current: 78,
       threshold: 100,
-      unit: "%"
-    }
+      unit: "%",
+    },
   },
   {
     id: "alert-004",
     type: "critical",
     category: "config",
     title: "Variables de Entorno Faltantes",
-    description: "Faltan 4 variables de entorno críticas: OPENAI_API_KEY, GOOGLE_DRIVE_CLIENT_ID, SII_API_KEY, BANCO_CENTRAL_API_KEY.",
-    timestamp: "2024-02-08T11:45:00Z",
+    description:
+      "Faltan 4 variables de entorno críticas: OPENAI_API_KEY, GOOGLE_DRIVE_CLIENT_ID, SII_API_KEY, BANCO_CENTRAL_API_KEY.",
+    timestamp: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
     resolved: false,
     assignee: "DevOps",
     priority: "high",
     actions: [
       { label: "Configurar Variables", action: "setup-env-vars" },
       { label: "Verificar Deploy", action: "check-deployment" },
-      { label: "Documentar Setup", action: "document-setup" }
-    ]
+      { label: "Documentar Setup", action: "document-setup" },
+    ],
   },
   {
     id: "alert-005",
@@ -127,9 +144,9 @@ const mockAlerts: AlertItem[] = [
     category: "deployment",
     title: "Deploy Inicial Exitoso",
     description: "La aplicación base se desplegó correctamente en Vercel. Frontend básico funcionando.",
-    timestamp: "2024-02-08T10:20:00Z",
+    timestamp: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
     resolved: true,
-    priority: "low"
+    priority: "low",
   },
   {
     id: "alert-006",
@@ -137,10 +154,10 @@ const mockAlerts: AlertItem[] = [
     category: "database",
     title: "Conexión Supabase Establecida",
     description: "La conexión con Supabase está funcionando correctamente. Base de datos lista para desarrollo.",
-    timestamp: "2024-02-08T09:10:00Z",
+    timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
     resolved: true,
-    priority: "low"
-  }
+    priority: "low",
+  },
 ]
 
 const getAlertIcon = (type: string) => {
@@ -219,30 +236,28 @@ export function AlertsNotificationsSystem() {
       database: true,
       deployment: true,
       apis: true,
-      development: true
+      development: true,
     },
     thresholds: {
       setupProgress: 80,
       dbConnections: 10,
       deploymentTime: 300,
-      testCoverage: 70
-    }
+      testCoverage: 70,
+    },
   })
 
-  const filteredAlerts = alerts.filter(alert => {
+  const filteredAlerts = alerts.filter((alert) => {
     if (!showResolved && alert.resolved) return false
     if (selectedCategory !== "all" && alert.category !== selectedCategory) return false
     return true
   })
 
-  const criticalAlerts = alerts.filter(alert => alert.type === "critical" && !alert.resolved)
-  const warningAlerts = alerts.filter(alert => alert.type === "warning" && !alert.resolved)
-  const unresolvedCount = alerts.filter(alert => !alert.resolved).length
+  const criticalAlerts = alerts.filter((alert) => alert.type === "critical" && !alert.resolved)
+  const warningAlerts = alerts.filter((alert) => alert.type === "warning" && !alert.resolved)
+  const unresolvedCount = alerts.filter((alert) => !alert.resolved).length
 
   const handleResolveAlert = (alertId: string) => {
-    setAlerts(prev => prev.map(alert => 
-      alert.id === alertId ? { ...alert, resolved: true } : alert
-    ))
+    setAlerts((prev) => prev.map((alert) => (alert.id === alertId ? { ...alert, resolved: true } : alert)))
   }
 
   const handleActionClick = (action: string, alertId: string) => {
@@ -251,9 +266,9 @@ export function AlertsNotificationsSystem() {
   }
 
   const updateNotificationSettings = (key: string, value: any) => {
-    setNotificationSettings(prev => ({
+    setNotificationSettings((prev) => ({
       ...prev,
-      [key]: value
+      [key]: value,
     }))
   }
 
@@ -268,9 +283,7 @@ export function AlertsNotificationsSystem() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-red-600">{criticalAlerts.length}</div>
-            <p className="text-xs text-muted-foreground">
-              Configuraciones pendientes
-            </p>
+            <p className="text-xs text-muted-foreground">Configuraciones pendientes</p>
           </CardContent>
         </Card>
 
@@ -281,9 +294,7 @@ export function AlertsNotificationsSystem() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-yellow-600">{warningAlerts.length}</div>
-            <p className="text-xs text-muted-foreground">
-              Setup en progreso
-            </p>
+            <p className="text-xs text-muted-foreground">Setup en progreso</p>
           </CardContent>
         </Card>
 
@@ -294,9 +305,7 @@ export function AlertsNotificationsSystem() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600">{unresolvedCount}</div>
-            <p className="text-xs text-muted-foreground">
-              Total pendientes
-            </p>
+            <p className="text-xs text-muted-foreground">Total pendientes</p>
           </CardContent>
         </Card>
 
@@ -307,9 +316,7 @@ export function AlertsNotificationsSystem() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">78%</div>
-            <p className="text-xs text-muted-foreground">
-              Configuración inicial
-            </p>
+            <p className="text-xs text-muted-foreground">Configuración inicial</p>
           </CardContent>
         </Card>
       </div>
@@ -355,10 +362,7 @@ export function AlertsNotificationsSystem() {
                   </select>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Switch
-                    checked={showResolved}
-                    onCheckedChange={setShowResolved}
-                  />
+                  <Switch checked={showResolved} onCheckedChange={setShowResolved} />
                   <label className="text-sm font-medium">Mostrar resueltas</label>
                 </div>
                 <Button variant="outline" size="sm">
@@ -375,12 +379,8 @@ export function AlertsNotificationsSystem() {
               <Card>
                 <CardContent className="text-center py-8">
                   <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    ¡Setup en buen camino!
-                  </h3>
-                  <p className="text-gray-600">
-                    No hay alertas activas que coincidan con los filtros seleccionados.
-                  </p>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">¡Setup en buen camino!</h3>
+                  <p className="text-gray-600">No hay alertas activas que coincidan con los filtros seleccionados.</p>
                 </CardContent>
               </Card>
             ) : (
@@ -393,17 +393,13 @@ export function AlertsNotificationsSystem() {
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
                             <CardTitle className="text-lg">{alert.title}</CardTitle>
-                            <Badge className={getPriorityColor(alert.priority)}>
-                              {alert.priority}
-                            </Badge>
+                            <Badge className={getPriorityColor(alert.priority)}>{alert.priority}</Badge>
                             <Badge variant="outline" className="flex items-center gap-1">
                               {getCategoryIcon(alert.category)}
                               {alert.category}
                             </Badge>
                           </div>
-                          <CardDescription className="text-base">
-                            {alert.description}
-                          </CardDescription>
+                          <CardDescription className="text-base">{alert.description}</CardDescription>
                         </div>
                       </div>
                       {!alert.resolved && (
@@ -421,16 +417,18 @@ export function AlertsNotificationsSystem() {
                   <CardContent className="space-y-4">
                     <div className="flex items-center justify-between text-sm text-muted-foreground">
                       <span>
-                        {new Date(alert.timestamp).toLocaleString('es-ES', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
+                        {new Date(alert.timestamp).toLocaleString("es-ES", {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
                         })}
                       </span>
                       {alert.assignee && (
-                        <span>Asignado a: <strong>{alert.assignee}</strong></span>
+                        <span>
+                          Asignado a: <strong>{alert.assignee}</strong>
+                        </span>
                       )}
                     </div>
 
@@ -477,9 +475,7 @@ export function AlertsNotificationsSystem() {
           <Card>
             <CardHeader>
               <CardTitle>Configuración de Notificaciones</CardTitle>
-              <CardDescription>
-                Personaliza cómo y cuándo recibir alertas del setup
-              </CardDescription>
+              <CardDescription>Personaliza cómo y cuándo recibir alertas del setup</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Notification Channels */}
@@ -493,7 +489,7 @@ export function AlertsNotificationsSystem() {
                     </div>
                     <Switch
                       checked={notificationSettings.email}
-                      onCheckedChange={(checked) => updateNotificationSettings('email', checked)}
+                      onCheckedChange={(checked) => updateNotificationSettings("email", checked)}
                     />
                   </div>
                   <div className="flex items-center justify-between">
@@ -503,7 +499,7 @@ export function AlertsNotificationsSystem() {
                     </div>
                     <Switch
                       checked={notificationSettings.slack}
-                      onCheckedChange={(checked) => updateNotificationSettings('slack', checked)}
+                      onCheckedChange={(checked) => updateNotificationSettings("slack", checked)}
                     />
                   </div>
                   <div className="flex items-center justify-between">
@@ -513,7 +509,7 @@ export function AlertsNotificationsSystem() {
                     </div>
                     <Switch
                       checked={notificationSettings.inApp}
-                      onCheckedChange={(checked) => updateNotificationSettings('inApp', checked)}
+                      onCheckedChange={(checked) => updateNotificationSettings("inApp", checked)}
                     />
                   </div>
                 </div>
@@ -531,10 +527,10 @@ export function AlertsNotificationsSystem() {
                       </div>
                       <Switch
                         checked={enabled}
-                        onCheckedChange={(checked) => 
-                          updateNotificationSettings('categories', {
+                        onCheckedChange={(checked) =>
+                          updateNotificationSettings("categories", {
                             ...notificationSettings.categories,
-                            [category]: checked
+                            [category]: checked,
                           })
                         }
                       />
@@ -552,10 +548,12 @@ export function AlertsNotificationsSystem() {
                     <input
                       type="number"
                       value={notificationSettings.thresholds.setupProgress}
-                      onChange={(e) => updateNotificationSettings('thresholds', {
-                        ...notificationSettings.thresholds,
-                        setupProgress: parseInt(e.target.value)
-                      })}
+                      onChange={(e) =>
+                        updateNotificationSettings("thresholds", {
+                          ...notificationSettings.thresholds,
+                          setupProgress: Number.parseInt(e.target.value),
+                        })
+                      }
                       className="w-full mt-1 px-3 py-2 border rounded-md text-sm"
                       min="0"
                       max="100"
@@ -566,10 +564,12 @@ export function AlertsNotificationsSystem() {
                     <input
                       type="number"
                       value={notificationSettings.thresholds.dbConnections}
-                      onChange={(e) => updateNotificationSettings('thresholds', {
-                        ...notificationSettings.thresholds,
-                        dbConnections: parseInt(e.target.value)
-                      })}
+                      onChange={(e) =>
+                        updateNotificationSettings("thresholds", {
+                          ...notificationSettings.thresholds,
+                          dbConnections: Number.parseInt(e.target.value),
+                        })
+                      }
                       className="w-full mt-1 px-3 py-2 border rounded-md text-sm"
                       min="0"
                     />
@@ -579,10 +579,12 @@ export function AlertsNotificationsSystem() {
                     <input
                       type="number"
                       value={notificationSettings.thresholds.deploymentTime}
-                      onChange={(e) => updateNotificationSettings('thresholds', {
-                        ...notificationSettings.thresholds,
-                        deploymentTime: parseInt(e.target.value)
-                      })}
+                      onChange={(e) =>
+                        updateNotificationSettings("thresholds", {
+                          ...notificationSettings.thresholds,
+                          deploymentTime: Number.parseInt(e.target.value),
+                        })
+                      }
                       className="w-full mt-1 px-3 py-2 border rounded-md text-sm"
                       min="0"
                     />
@@ -592,10 +594,12 @@ export function AlertsNotificationsSystem() {
                     <input
                       type="number"
                       value={notificationSettings.thresholds.testCoverage}
-                      onChange={(e) => updateNotificationSettings('thresholds', {
-                        ...notificationSettings.thresholds,
-                        testCoverage: parseInt(e.target.value)
-                      })}
+                      onChange={(e) =>
+                        updateNotificationSettings("thresholds", {
+                          ...notificationSettings.thresholds,
+                          testCoverage: Number.parseInt(e.target.value),
+                        })
+                      }
                       className="w-full mt-1 px-3 py-2 border rounded-md text-sm"
                       min="0"
                       max="100"
@@ -616,29 +620,29 @@ export function AlertsNotificationsSystem() {
           <Card>
             <CardHeader>
               <CardTitle>Historial de Alertas</CardTitle>
-              <CardDescription>
-                Registro de alertas resueltas durante el setup
-              </CardDescription>
+              <CardDescription>Registro de alertas resueltas durante el setup</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {alerts.filter(alert => alert.resolved).map((alert) => (
-                  <div key={alert.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium">{alert.title}</span>
-                        <Badge variant="outline" className="text-xs">
-                          {alert.category}
-                        </Badge>
+                {alerts
+                  .filter((alert) => alert.resolved)
+                  .map((alert) => (
+                    <div key={alert.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                      <CheckCircle className="h-5 w-5 text-green-500" />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium">{alert.title}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {alert.category}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground">{alert.description}</p>
                       </div>
-                      <p className="text-sm text-muted-foreground">{alert.description}</p>
+                      <div className="text-xs text-muted-foreground">
+                        {new Date(alert.timestamp).toLocaleDateString("es-ES")}
+                      </div>
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      {new Date(alert.timestamp).toLocaleDateString('es-ES')}
-                    </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             </CardContent>
           </Card>
