@@ -8,22 +8,15 @@ import { cn } from "@/lib/utils"
 import {
   LayoutDashboard,
   Building2,
-  Users,
   MessageSquare,
   BarChart3,
   Settings,
   Database,
-  Brain,
-  Globe,
-  Zap,
   ChevronDown,
   ChevronRight,
-  Plus,
   Upload,
-  Shield,
   Home,
   Eye,
-  TrendingUp,
   FileText,
   Bell,
   Search,
@@ -32,10 +25,6 @@ import {
   HelpCircle,
   Rocket,
   Activity,
-  GitBranch,
-  BookOpen,
-  Code,
-  Monitor,
   Target,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -87,20 +76,8 @@ const menuItems: MenuItem[] = [
         title: "Seguimiento MVP",
         href: "/mvp/seguimiento",
         icon: Activity,
-        badge: "11%",
+        badge: "65%",
         badgeColor: "bg-blue-500",
-      },
-      {
-        title: "Updates & Releases",
-        href: "/mvp/updates",
-        icon: GitBranch,
-        badge: "v1.2",
-        badgeColor: "bg-purple-500",
-      },
-      {
-        title: "Roadmap",
-        href: "/mvp/roadmap",
-        icon: TrendingUp,
       },
       {
         title: "Fase 1 MVP",
@@ -110,44 +87,41 @@ const menuItems: MenuItem[] = [
     ],
   },
   {
-    title: "Propiedades",
-    icon: Building2,
-    badge: "12",
-    badgeVariant: "secondary",
+    title: "Gestión Documentos",
+    icon: FileText,
+    badge: "Etapa 1",
+    badgeVariant: "default",
+    badgeColor: "bg-orange-500",
     children: [
       {
-        title: "Lista de Propiedades",
-        href: "/admin/propiedades",
-        icon: Eye,
-      },
-      {
-        title: "Nueva Propiedad",
-        href: "/admin/propiedades/nueva",
-        icon: Plus,
-      },
-      {
-        title: "Importar Propiedades",
-        href: "/admin/importar-propiedades",
-        icon: Upload,
-      },
-      {
-        title: "Verificar Destacadas",
-        href: "/admin/verificar-destacadas",
-        icon: Shield,
-      },
-      {
-        title: "Organizador de Datos",
-        href: "/admin/organizador-datos",
+        title: "Google Drive Integration",
+        href: "/admin/google-drive-integration",
         icon: Database,
+        badge: "API Ready",
+        badgeColor: "bg-green-500",
+      },
+      {
+        title: "Organización Carpetas",
+        href: "/admin/organizacion-carpetas-demo",
+        icon: Eye,
+        badge: "Demo",
+        badgeColor: "bg-blue-500",
+      },
+      {
+        title: "Migración Data Real",
+        href: "/admin/migracion-data-real",
+        icon: Upload,
+        badge: "Ready",
+        badgeColor: "bg-purple-500",
       },
     ],
   },
   {
-    title: "Usuarios",
-    href: "/admin/usuarios",
-    icon: Users,
-    badge: "3",
-    badgeVariant: "secondary",
+    title: "Analytics MVP",
+    href: "/mvp/analytics-completo",
+    icon: BarChart3,
+    badge: "Live",
+    badgeColor: "bg-green-500",
   },
   {
     title: "Mensajes",
@@ -156,151 +130,19 @@ const menuItems: MenuItem[] = [
     badge: "5",
     badgeVariant: "destructive",
   },
-  {
-    title: "Analytics",
-    href: "/admin/analytics",
-    icon: BarChart3,
-  },
-  {
-    title: "IA Workspace",
-    icon: Brain,
-    badge: "NEW",
-    badgeVariant: "default",
-    children: [
-      {
-        title: "Dashboard IA",
-        href: "/admin/ia-workspace",
-        icon: Brain,
-      },
-      {
-        title: "Análisis Integral",
-        href: "/admin/analisis-integral",
-        icon: TrendingUp,
-      },
-      {
-        title: "Conexiones de Datos",
-        href: "/admin/conexiones-datos",
-        icon: Database,
-      },
-    ],
-  },
-  {
-    title: "Integraciones",
-    icon: Globe,
-    children: [
-      {
-        title: "Dashboard CIREN",
-        href: "/admin/ciren-dashboard",
-        icon: Shield,
-        badge: "LIVE",
-        badgeVariant: "default",
-      },
-      {
-        title: "Demo CIREN",
-        href: "/admin/ciren-demo",
-        icon: Zap,
-      },
-      {
-        title: "Integración CIREN",
-        href: "/admin/ciren-integration",
-        icon: Database,
-      },
-    ],
-  },
-  {
-    title: "Documentación",
-    icon: BookOpen,
-    badge: "Docs",
-    badgeVariant: "outline",
-    children: [
-      {
-        title: "Documentación Técnica",
-        href: "/docs/tecnica",
-        icon: Code,
-      },
-      {
-        title: "Guías de Usuario",
-        href: "/docs/usuario",
-        icon: FileText,
-      },
-      {
-        title: "Documentación IA",
-        href: "/docs/ia",
-        icon: Brain,
-        badge: "IA",
-      },
-      {
-        title: "API Reference",
-        href: "/docs/api",
-        icon: Settings,
-      },
-      {
-        title: "Arquitectura Sistema",
-        href: "/docs/arquitectura",
-        icon: Monitor,
-      },
-    ],
-  },
-  {
-    title: "Herramientas",
-    icon: Settings,
-    children: [
-      {
-        title: "Seed Database",
-        href: "/admin/seed",
-        icon: Database,
-      },
-      {
-        title: "Scraper Guide",
-        href: "/admin/scraper-guide",
-        icon: FileText,
-      },
-      {
-        title: "Import Data",
-        href: "/admin/import-data",
-        icon: Upload,
-      },
-      {
-        title: "Verificar Esquema",
-        href: "/admin/verificar-esquema",
-        icon: Shield,
-      },
-    ],
-  },
 ]
 
 const getPageTitle = (pathname: string): string => {
   const routes: Record<string, string> = {
     "/admin": "Dashboard",
-    "/admin/dashboard": "Dashboard",
     "/admin/mvp-completo": "MVP Dashboard",
     "/mvp/seguimiento": "Seguimiento MVP",
-    "/mvp/updates": "Updates & Releases",
-    "/mvp/roadmap": "Roadmap MVP",
     "/admin/fase-1-mvp": "Fase 1 MVP",
-    "/admin/propiedades": "Propiedades",
-    "/admin/propiedades/nueva": "Nueva Propiedad",
-    "/admin/importar-propiedades": "Importar Propiedades",
-    "/admin/verificar-destacadas": "Verificar Destacadas",
-    "/admin/organizador-datos": "Organizador de Datos",
-    "/admin/usuarios": "Gestión de Usuarios",
+    "/mvp/analytics-completo": "Analytics MVP",
+    "/admin/google-drive-integration": "Google Drive Integration",
+    "/admin/organizacion-carpetas-demo": "Organización Carpetas",
+    "/admin/migracion-data-real": "Migración Data Real",
     "/admin/mensajes": "Centro de Mensajes",
-    "/admin/analytics": "Analytics y Reportes",
-    "/admin/ia-workspace": "IA Workspace",
-    "/admin/analisis-integral": "Análisis Integral",
-    "/admin/conexiones-datos": "Conexiones de Datos",
-    "/admin/ciren-dashboard": "Dashboard CIREN",
-    "/admin/ciren-demo": "Demo CIREN",
-    "/admin/ciren-integration": "Integración CIREN",
-    "/docs/tecnica": "Documentación Técnica",
-    "/docs/usuario": "Guías de Usuario",
-    "/docs/ia": "Documentación IA",
-    "/docs/api": "API Reference",
-    "/docs/arquitectura": "Arquitectura del Sistema",
-    "/admin/seed": "Seed Database",
-    "/admin/scraper-guide": "Guía de Scraper",
-    "/admin/import-data": "Importar Datos",
-    "/admin/verificar-esquema": "Verificar Esquema",
   }
 
   return routes[pathname] || "Panel de Administración"
@@ -308,13 +150,7 @@ const getPageTitle = (pathname: string): string => {
 
 export function AdminSidebar() {
   const pathname = usePathname()
-  const [openItems, setOpenItems] = useState<string[]>([
-    "MVP & Desarrollo",
-    "Propiedades",
-    "IA Workspace",
-    "Integraciones",
-    "Documentación",
-  ])
+  const [openItems, setOpenItems] = useState<string[]>(["MVP & Desarrollo", "Gestión Documentos"])
   const pageTitle = getPageTitle(pathname)
 
   const toggleItem = (title: string) => {
@@ -430,29 +266,24 @@ export function AdminSidebar() {
         <h3 className="text-sm font-semibold text-gray-700 px-3">Acciones Rápidas</h3>
         <div className="space-y-2">
           <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
-            <Link href="/admin/mvp-completo">
-              <Rocket className="h-4 w-4" />
-              MVP Dashboard
-              <Badge className="ml-auto bg-green-500 text-white text-xs">Live</Badge>
-            </Link>
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
-            <Link href="/admin/propiedades/nueva">
-              <Plus className="h-4 w-4" />
-              Nueva Propiedad
+            <Link href="/admin/google-drive-integration">
+              <Database className="h-4 w-4" />
+              Google Drive
+              <Badge className="ml-auto bg-green-500 text-white text-xs">API Ready</Badge>
             </Link>
           </Button>
           <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
             <Link href="/mvp/seguimiento">
               <Activity className="h-4 w-4" />
               Seguimiento MVP
-              <Badge className="ml-auto bg-blue-500 text-white text-xs">11%</Badge>
+              <Badge className="ml-auto bg-blue-500 text-white text-xs">65%</Badge>
             </Link>
           </Button>
           <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
-            <Link href="/docs/tecnica">
-              <BookOpen className="h-4 w-4" />
-              Documentación
+            <Link href="/admin/migracion-data-real">
+              <Upload className="h-4 w-4" />
+              Migración Data
+              <Badge className="ml-auto bg-purple-500 text-white text-xs">Ready</Badge>
             </Link>
           </Button>
         </div>

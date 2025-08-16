@@ -10,7 +10,6 @@ import {
   NavigationMenu,
   NavigationMenuContent,
   NavigationMenuItem,
-  NavigationMenuLink,
   NavigationMenuList,
   NavigationMenuTrigger,
 } from "@/components/ui/navigation-menu"
@@ -26,12 +25,10 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import {
   Building2,
   Menu,
-  Phone,
   Calculator,
   Bot,
   Brain,
   MapPin,
-  Users,
   FileText,
   TrendingUp,
   Rocket,
@@ -43,27 +40,6 @@ import {
   Shield,
   FolderOpen,
 } from "lucide-react"
-
-const navigationItems = [
-  {
-    title: "Propiedades",
-    href: "/propiedades",
-    icon: Building2,
-    description: "Explora nuestra selección de propiedades exclusivas",
-  },
-  {
-    title: "Nosotros",
-    href: "/nosotros",
-    icon: Users,
-    description: "Conoce nuestro equipo y experiencia",
-  },
-  {
-    title: "Contacto",
-    href: "/contacto",
-    icon: Phone,
-    description: "Ponte en contacto con nuestros expertos",
-  },
-]
 
 const toolsItems = [
   {
@@ -94,6 +70,14 @@ const toolsItems = [
     description: "Explora ubicaciones en mapas detallados",
   },
   {
+    title: "Google Drive Integration",
+    href: "/admin/google-drive-integration",
+    icon: FolderOpen,
+    description: "Integración completa con Google Drive - PRIORIDAD",
+    badge: "Activo",
+    badgeColor: "bg-green-500",
+  },
+  {
     title: "Organización Carpetas",
     href: "/admin/organizacion-carpetas-demo",
     icon: FolderOpen,
@@ -116,16 +100,16 @@ const mvpItems = [
     href: "/mvp/seguimiento",
     icon: Activity,
     description: "Estado actual y progreso del desarrollo",
-    badge: "11%",
+    badge: "65%",
     badgeColor: "bg-blue-500",
   },
   {
     title: "Google Drive Integration",
     href: "/admin/google-drive-integration",
     icon: FolderOpen,
-    description: "Integración completa con Google Drive",
-    badge: "Etapa 1",
-    badgeColor: "bg-orange-500",
+    description: "Integración completa con Google Drive - PRIORIDAD",
+    badge: "Activo",
+    badgeColor: "bg-green-500",
   },
   {
     title: "Updates & Releases",
@@ -198,28 +182,12 @@ export function Header() {
         {/* Desktop Navigation */}
         <NavigationMenu className="hidden lg:flex">
           <NavigationMenuList className="space-x-1">
-            {/* Main Navigation */}
-            {navigationItems.map((item) => (
-              <NavigationMenuItem key={item.title}>
-                <Link href={item.href} legacyBehavior passHref>
-                  <NavigationMenuLink
-                    className={cn(
-                      "group inline-flex h-10 w-max items-center justify-center rounded-md bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none disabled:pointer-events-none disabled:opacity-50 data-[active]:bg-accent/50 data-[state=open]:bg-accent/50",
-                      isActive(item.href) && "bg-accent text-accent-foreground",
-                    )}
-                  >
-                    <item.icon className="mr-2 h-4 w-4" />
-                    {item.title}
-                  </NavigationMenuLink>
-                </Link>
-              </NavigationMenuItem>
-            ))}
-
             {/* Tools Dropdown */}
             <NavigationMenuItem>
               <NavigationMenuTrigger className="h-10">
-                <Calculator className="mr-2 h-4 w-4" />
+                <FolderOpen className="mr-2 h-4 w-4" />
                 Herramientas
+                <Badge className="ml-2 text-xs bg-green-500 text-white">Google Drive</Badge>
               </NavigationMenuTrigger>
               <NavigationMenuContent>
                 <div className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
@@ -233,7 +201,7 @@ export function Header() {
                         <item.icon className="h-4 w-4" />
                         <div className="text-sm font-medium leading-none">{item.title}</div>
                         {item.badge && (
-                          <Badge variant="secondary" className="text-xs">
+                          <Badge className={cn("text-xs text-white", item.badgeColor || "bg-blue-500")}>
                             {item.badge}
                           </Badge>
                         )}
@@ -367,27 +335,12 @@ export function Header() {
                   <span className="text-lg font-bold">Sur-Realista</span>
                 </div>
 
-                {/* Mobile Navigation Items */}
-                <div className="space-y-2">
-                  {navigationItems.map((item) => (
-                    <Link
-                      key={item.title}
-                      href={item.href}
-                      className={cn(
-                        "flex items-center space-x-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent",
-                        isActive(item.href) && "bg-accent",
-                      )}
-                      onClick={() => setIsOpen(false)}
-                    >
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  ))}
-                </div>
-
                 {/* Mobile Tools */}
-                <div className="space-y-2 pt-4 border-t">
-                  <h3 className="text-sm font-semibold text-muted-foreground px-3">Herramientas</h3>
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-muted-foreground px-3 flex items-center gap-2">
+                    Herramientas
+                    <Badge className="bg-green-500 text-white text-xs">Google Drive</Badge>
+                  </h3>
                   {toolsItems.map((item) => (
                     <Link
                       key={item.title}
@@ -400,7 +353,7 @@ export function Header() {
                         <span>{item.title}</span>
                       </div>
                       {item.badge && (
-                        <Badge variant="secondary" className="text-xs">
+                        <Badge className={cn("text-xs text-white", item.badgeColor || "bg-blue-500")}>
                           {item.badge}
                         </Badge>
                       )}

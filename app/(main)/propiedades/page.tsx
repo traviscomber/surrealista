@@ -3,7 +3,7 @@ import PropertiesClient from "./properties-client"
 import { createClient } from "@/lib/supabase/server"
 
 async function getProperties() {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   try {
     const { data: properties, error } = await supabase

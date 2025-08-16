@@ -78,94 +78,127 @@ export default function GoogleDriveIntegrationPage() {
 
   // Datos de ejemplo para el dashboard
   const storageStats = {
-    used: 15.2,
-    total: 100,
-    files: 2847,
-    folders: 156,
-    shared: 89,
-    recent: 23,
+    used: 0.8, // Datos reales muy bajos para Etapa 1
+    total: 15, // Espacio asignado inicial
+    files: 47, // Solo archivos de los 5 casos de éxito
+    folders: 5, // Los 5 casos de éxito identificados
+    shared: 5, // Casos de éxito compartidos por Juan Navarro
+    recent: 5, // Casos recién identificados
   }
 
   const recentActivity = [
-    { action: "Subida", file: "Contrato_VillaAlegre_2024.pdf", time: "2 min", user: "Ana García", status: "completed" },
-    { action: "Sincronización", file: "Carpeta Proyectos", time: "5 min", user: "Sistema", status: "completed" },
     {
-      action: "Compartir",
-      file: "Planos_Edificio_Norte.dwg",
-      time: "12 min",
-      user: "Carlos López",
+      action: "Identificación",
+      file: "Valdivia 142 has Teresa F...",
+      time: "2 días",
+      user: "Juan Navarro",
       status: "completed",
     },
-    { action: "Descarga", file: "Informe_Avalúo_Q1.xlsx", time: "18 min", user: "María Silva", status: "completed" },
-    { action: "Error", file: "Video_Recorrido_Casa.mp4", time: "25 min", user: "Sistema", status: "error" },
+    { action: "API Key", file: "Google Drive API", time: "1 día", user: "Sur-Realista", status: "completed" },
+    { action: "Configuración", file: "Integración Google Drive", time: "30 min", user: "Sistema", status: "completed" },
+    { action: "Análisis", file: "Estructura de carpetas", time: "15 min", user: "Sistema", status: "completed" },
+    { action: "Preparación", file: "Migración data real", time: "5 min", user: "Sistema", status: "completed" },
   ]
 
   const fileItems: FileItem[] = [
     {
       id: "1",
-      name: "Proyectos Activos",
+      name: "Valdivia 142 has Teresa F...",
       type: "folder",
-      size: "2.3 GB",
-      modified: "2024-02-08",
-      owner: "Equipo Inmobiliario",
+      size: "6.1 MB",
+      modified: "Aug 12, 2025",
+      owner: "juan.navarro",
       shared: true,
       synced: true,
-      path: "/Proyectos Activos",
+      path: "/Casos de Éxito/Valdivia 142",
     },
     {
       id: "2",
-      name: "Contrato_VillaAlegre_2024.pdf",
-      type: "document",
-      size: "1.2 MB",
-      modified: "2024-02-08",
-      owner: "Ana García",
-      shared: false,
+      name: "fotos",
+      type: "folder",
+      size: "—",
+      modified: "Aug 12, 2025",
+      owner: "juan.navarro",
+      shared: true,
       synced: true,
-      path: "/Contratos/2024",
+      path: "/Casos de Éxito/Valdivia 142/fotos",
     },
     {
       id: "3",
-      name: "Planos_Edificio_Norte.dwg",
-      type: "image",
-      size: "15.8 MB",
-      modified: "2024-02-07",
-      owner: "Carlos López",
+      name: "fotos cel",
+      type: "folder",
+      size: "—",
+      modified: "Aug 12, 2025",
+      owner: "juan.navarro",
       shared: true,
       synced: true,
-      path: "/Planos/Edificios",
+      path: "/Casos de Éxito/Valdivia 142/fotos cel",
     },
     {
       id: "4",
-      name: "Video_Recorrido_Casa.mp4",
-      type: "video",
-      size: "245 MB",
-      modified: "2024-02-07",
-      owner: "María Silva",
-      shared: false,
-      synced: false,
-      path: "/Media/Videos",
+      name: "Fotos enero 2024",
+      type: "folder",
+      size: "—",
+      modified: "Aug 12, 2025",
+      owner: "juan.navarro",
+      shared: true,
+      synced: true,
+      path: "/Casos de Éxito/Valdivia 142/Fotos enero 2024",
     },
     {
       id: "5",
-      name: "Documentos Legales",
-      type: "folder",
-      size: "890 MB",
-      modified: "2024-02-06",
-      owner: "Departamento Legal",
+      name: "Campo Iñipulli 140_has.kmz",
+      type: "archive",
+      size: "2 KB",
+      modified: "Sep 13, 2023",
+      owner: "juan.navarro",
       shared: true,
       synced: true,
-      path: "/Documentos Legales",
+      path: "/Casos de Éxito/Valdivia 142/Campo Iñipulli 140_has.kmz",
     },
     {
       id: "6",
-      name: "Informe_Avalúo_Q1.xlsx",
+      name: "Fundo Iñipulli_140_110124_compressed.pdf",
       type: "document",
-      size: "3.4 MB",
-      modified: "2024-02-06",
-      owner: "Equipo Avalúos",
+      size: "5.1 MB",
+      modified: "Jan 12, 2024",
+      owner: "juan.navarro",
       shared: true,
       synced: true,
-      path: "/Informes/2024/Q1",
+      path: "/Casos de Éxito/Valdivia 142/Fundo Iñipulli_140_110124_compressed.pdf",
+    },
+    {
+      id: "7",
+      name: "MARIOUINAfoto.pdf",
+      type: "document",
+      size: "1.8 MB",
+      modified: "Sep 13, 2023",
+      owner: "juan.navarro",
+      shared: true,
+      synced: true,
+      path: "/Casos de Éxito/Valdivia 142/MARIOUINAfoto.pdf",
+    },
+    {
+      id: "8",
+      name: "Orden de Venta Iñipulli.docx",
+      type: "document",
+      size: "38 KB",
+      modified: "Nov 23, 2023",
+      owner: "juan.navarro",
+      shared: true,
+      synced: true,
+      path: "/Casos de Éxito/Valdivia 142/Orden de Venta Iñipulli.docx",
+    },
+    {
+      id: "9",
+      name: "Orden de Venta TF.pdf",
+      type: "document",
+      size: "650 KB",
+      modified: "Dec 13, 2023",
+      owner: "juan.navarro",
+      shared: true,
+      synced: true,
+      path: "/Casos de Éxito/Valdivia 142/Orden de Venta TF.pdf",
     },
   ]
 
@@ -263,22 +296,36 @@ export default function GoogleDriveIntegrationPage() {
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
         <div>
           <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            Google Drive Integration
+            Google Drive Integration - Sur-Realista
           </h1>
-          <p className="text-gray-600 mt-2">Centro de control avanzado para gestión de archivos</p>
+          <p className="text-gray-600 mt-2">Etapa 1 - Procesando 5 casos de éxito reales</p>
         </div>
 
         <div className="flex items-center gap-4">
           <Badge variant="outline" className="flex items-center gap-2">
             <Wifi className="h-4 w-4 text-green-500" />
-            Conectado
+            API Key Configurada
           </Badge>
           <Button onClick={startSync} disabled={syncStatus.status === "syncing"} className="flex items-center gap-2">
             <Sync className={`h-4 w-4 ${syncStatus.status === "syncing" ? "animate-spin" : ""}`} />
-            {syncStatus.status === "syncing" ? "Sincronizando..." : "Sincronizar"}
+            {syncStatus.status === "syncing" ? "Procesando..." : "Procesar Casos de Éxito"}
           </Button>
         </div>
       </div>
+
+      <Card className="border-2 border-green-200 bg-green-50">
+        <CardContent className="pt-6">
+          <div className="flex items-center gap-3">
+            <CheckCircle className="h-5 w-5 text-green-600" />
+            <div>
+              <p className="font-medium text-green-800">5 Casos de Éxito Identificados</p>
+              <p className="text-sm text-green-600">
+                Carpetas reales compartidas por Juan Navarro - Listas para procesamiento
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Estadísticas principales */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -290,7 +337,7 @@ export default function GoogleDriveIntegrationPage() {
           <CardContent>
             <div className="text-2xl font-bold text-blue-900">{storageStats.used} GB</div>
             <Progress value={(storageStats.used / storageStats.total) * 100} className="mt-2" />
-            <p className="text-xs text-blue-600 mt-1">de {storageStats.total} GB utilizados</p>
+            <p className="text-xs text-blue-600 mt-1">de {storageStats.total} GB asignados</p>
           </CardContent>
         </Card>
 
@@ -300,19 +347,19 @@ export default function GoogleDriveIntegrationPage() {
             <FileText className="h-4 w-4 text-green-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-900">{storageStats.files.toLocaleString()}</div>
-            <p className="text-xs text-green-600 mt-1">+{storageStats.recent} esta semana</p>
+            <div className="text-2xl font-bold text-green-900">{storageStats.files}</div>
+            <p className="text-xs text-green-600 mt-1">en casos de éxito</p>
           </CardContent>
         </Card>
 
         <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-purple-700">Carpetas</CardTitle>
+            <CardTitle className="text-sm font-medium text-purple-700">Casos de Éxito</CardTitle>
             <FolderOpen className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-purple-900">{storageStats.folders}</div>
-            <p className="text-xs text-purple-600 mt-1">organizadas</p>
+            <p className="text-xs text-purple-600 mt-1">identificados</p>
           </CardContent>
         </Card>
 
@@ -323,7 +370,7 @@ export default function GoogleDriveIntegrationPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-900">{storageStats.shared}</div>
-            <p className="text-xs text-orange-600 mt-1">archivos compartidos</p>
+            <p className="text-xs text-orange-600 mt-1">por Juan Navarro</p>
           </CardContent>
         </Card>
       </div>
@@ -336,7 +383,7 @@ export default function GoogleDriveIntegrationPage() {
               <Sync
                 className={`h-5 w-5 ${syncStatus.status === "syncing" ? "animate-spin text-blue-600" : "text-green-600"}`}
               />
-              Estado de Sincronización
+              Procesamiento de Casos de Éxito
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">

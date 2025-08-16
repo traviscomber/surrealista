@@ -384,10 +384,7 @@ function FolderOrganizationDemo() {
               variant="outline"
               className="text-green-700 border-green-300 hover:bg-green-100 bg-transparent"
               onClick={() =>
-                window.open(
-                  "https://drive.google.com/drive/folders/1JVEAuqfl4slpHDDf5dqtpYSliexrcn0w?usp=drive_link",
-                  "_blank",
-                )
+                window.open("https://drive.google.com/drive/folders/11JY7ME6h72wrjud9bYwduqYSbFRcH7i5", "_blank")
               }
             >
               <FolderOpen className="w-4 h-4 mr-2" />
@@ -427,10 +424,7 @@ function FolderOrganizationDemo() {
               variant="outline"
               className="text-green-700 border-green-300 hover:bg-green-100 bg-transparent"
               onClick={() =>
-                window.open(
-                  "https://drive.google.com/drive/folders/1JVEAuqfl4slpHDDf5dqtpYSliexrcn0w?usp=drive_link",
-                  "_blank",
-                )
+                window.open("https://drive.google.com/drive/folders/11JY7ME6h72wrjud9bYwduqYSbFRcH7i5", "_blank")
               }
             >
               <FolderOpen className="w-4 h-4 mr-2" />

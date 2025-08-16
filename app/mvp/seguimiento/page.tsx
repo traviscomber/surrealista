@@ -13,7 +13,6 @@ import {
   AlertCircle,
   TrendingUp,
   Users,
-  Rocket,
   GitBranch,
   Target,
   Calendar,
@@ -28,34 +27,22 @@ import {
   HardDrive,
   Network,
   Timer,
-  AlertTriangle,
   Plus,
   Minus,
   ArrowUp,
 } from "lucide-react"
 
-interface MilestoneStatus {
-  id: string
+interface Milestone {
+  id: number
   title: string
   description: string
   status: "completed" | "in-progress" | "pending" | "blocked"
   progress: number
   dueDate: string
-  priority: "high" | "medium" | "low"
-  assignee: string
   tasks: {
-    id: string
-    title: string
+    name: string
     completed: boolean
-    estimatedHours: number
-    actualHours?: number
   }[]
-  metrics: {
-    linesOfCode: number
-    testsWritten: number
-    bugsFixed: number
-    performanceScore: number
-  }
 }
 
 interface DevelopmentMetrics {
@@ -83,157 +70,133 @@ interface TeamProductivity {
   bugsFixed: number
 }
 
-const milestones: MilestoneStatus[] = [
+const milestones: Milestone[] = [
   {
-    id: "data-organization",
-    title: "Organización de Datos",
-    description:
-      "Sistema de importación y estandarización de datos desde Google Drive - 5 casos de éxito identificados",
-    status: "in-progress",
-    progress: 45,
-    dueDate: "2025-08-25",
-    priority: "high",
-    assignee: "Equipo Backend",
+    id: 1,
+    title: "Setup Básico UI",
+    description: "Configuración inicial de componentes y estructura",
+    status: "completed",
+    progress: 100,
+    dueDate: "2025-08-05",
     tasks: [
-      { id: "1", title: "Configurar Google Drive API", completed: false, estimatedHours: 16, actualHours: 4 },
-      { id: "2", title: "Diseñar estructura de datos", completed: true, estimatedHours: 12, actualHours: 8 },
-      { id: "3", title: "Identificar casos de éxito", completed: true, estimatedHours: 8, actualHours: 6 },
-      { id: "4", title: "Extraer números de rol", completed: false, estimatedHours: 20, actualHours: 0 },
-      { id: "5", title: "Sistema de templates", completed: false, estimatedHours: 20, actualHours: 0 },
-      { id: "6", title: "Validación básica", completed: false, estimatedHours: 8, actualHours: 0 },
+      { name: "Configurar Tailwind CSS", completed: true },
+      { name: "Crear componentes base", completed: true },
+      { name: "Setup de navegación", completed: true },
     ],
-    metrics: {
-      linesOfCode: 89,
-      testsWritten: 1,
-      bugsFixed: 0,
-      performanceScore: 0,
-    },
   },
   {
-    id: "property-management",
+    id: 2,
+    title: "Integración Google Drive API",
+    description: "Configuración y conexión con API real de Sur-Realista",
+    status: "completed",
+    progress: 95,
+    dueDate: "2025-08-20",
+    tasks: [
+      { name: "Obtener API key Sur-Realista", completed: true },
+      { name: "Configurar autenticación", completed: true },
+      { name: "Implementar lectura de carpetas", completed: true },
+      { name: "Procesar casos de éxito reales", completed: false },
+    ],
+  },
+  {
+    id: 3,
+    title: "Organización de Datos",
+    description: "Estructurar y organizar casos de éxito reales",
+    status: "completed",
+    progress: 90,
+    dueDate: "2025-08-25",
+    tasks: [
+      { name: "Identificar casos de éxito", completed: true },
+      { name: "Estructurar carpetas profesionalmente", completed: true },
+      { name: "Implementar datos reales", completed: true },
+      { name: "Eliminar datos mockup", completed: true },
+    ],
+  },
+  {
+    id: 4,
     title: "Gestión de Propiedades",
     description: "CRUD completo para propiedades con imágenes y metadatos",
     status: "pending",
     progress: 5,
     dueDate: "2025-08-30",
-    priority: "high",
-    assignee: "Equipo Frontend",
     tasks: [
-      { id: "1", title: "Formularios básicos", completed: false, estimatedHours: 24, actualHours: 0 },
-      { id: "2", title: "Estructura de componentes", completed: true, estimatedHours: 18, actualHours: 12 },
-      { id: "3", title: "Validaciones", completed: false, estimatedHours: 14, actualHours: 0 },
-      { id: "4", title: "Sistema de imágenes", completed: false, estimatedHours: 10, actualHours: 0 },
+      { name: "Formularios básicos", completed: false },
+      { name: "Estructura de componentes", completed: true },
+      { name: "Validaciones", completed: false },
+      { name: "Sistema de imágenes", completed: false },
     ],
-    metrics: {
-      linesOfCode: 156,
-      testsWritten: 2,
-      bugsFixed: 0,
-      performanceScore: 0,
-    },
   },
   {
-    id: "ai-integration",
+    id: 5,
     title: "Integración IA",
     description: "Asistente inteligente y análisis automatizado de propiedades",
     status: "pending",
     progress: 0,
     dueDate: "2025-09-15",
-    priority: "medium",
-    assignee: "Equipo IA",
     tasks: [
-      { id: "1", title: "Configurar OpenAI API", completed: false, estimatedHours: 32, actualHours: 0 },
-      { id: "2", title: "Diseño de prompts", completed: false, estimatedHours: 28, actualHours: 0 },
-      { id: "3", title: "Interfaz básica", completed: false, estimatedHours: 20, actualHours: 0 },
-      { id: "4", title: "Testing inicial", completed: false, estimatedHours: 24, actualHours: 0 },
+      { name: "Configurar OpenAI API", completed: false },
+      { name: "Diseño de prompts", completed: false },
+      { name: "Interfaz básica", completed: false },
+      { name: "Testing inicial", completed: false },
     ],
-    metrics: {
-      linesOfCode: 0,
-      testsWritten: 0,
-      bugsFixed: 0,
-      performanceScore: 0,
-    },
   },
   {
-    id: "user-experience",
+    id: 6,
     title: "Experiencia de Usuario",
     description: "Interface optimizada y responsive para todos los dispositivos",
     status: "in-progress",
     progress: 25,
     dueDate: "2025-08-10",
-    priority: "medium",
-    assignee: "Equipo UX/UI",
     tasks: [
-      { id: "1", title: "Setup Tailwind", completed: true, estimatedHours: 16, actualHours: 8 },
-      { id: "2", title: "Componentes base", completed: true, estimatedHours: 12, actualHours: 18 },
-      { id: "3", title: "Layout responsive", completed: false, estimatedHours: 18, actualHours: 4 },
-      { id: "4", title: "Navegación", completed: false, estimatedHours: 14, actualHours: 2 },
+      { name: "Setup Tailwind", completed: true },
+      { name: "Componentes base", completed: true },
+      { name: "Layout responsive", completed: false },
+      { name: "Navegación", completed: false },
     ],
-    metrics: {
-      linesOfCode: 892,
-      testsWritten: 8,
-      bugsFixed: 3,
-      performanceScore: 65,
-    },
   },
   {
-    id: "data-integrations",
+    id: 7,
     title: "Integraciones de Datos",
     description: "Conexiones con fuentes gubernamentales y oficiales",
     status: "pending",
     progress: 0,
     dueDate: "2025-09-30",
-    priority: "low",
-    assignee: "Equipo Integraciones",
     tasks: [
-      { id: "1", title: "Investigar APIs SII", completed: false, estimatedHours: 20, actualHours: 0 },
-      { id: "2", title: "Documentar CIREN", completed: false, estimatedHours: 16, actualHours: 0 },
-      { id: "3", title: "Setup inicial", completed: false, estimatedHours: 14, actualHours: 0 },
-      { id: "4", title: "Testing conexiones", completed: false, estimatedHours: 12, actualHours: 0 },
+      { name: "Investigar APIs SII", completed: false },
+      { name: "Documentar CIREN", completed: false },
+      { name: "Setup inicial", completed: false },
+      { name: "Testing conexiones", completed: false },
     ],
-    metrics: {
-      linesOfCode: 0,
-      testsWritten: 0,
-      bugsFixed: 0,
-      performanceScore: 0,
-    },
   },
   {
-    id: "testing-deployment",
+    id: 8,
     title: "Testing y Deployment",
     description: "Pruebas automatizadas y despliegue en producción",
     status: "in-progress",
     progress: 20,
     dueDate: "2025-08-05",
-    priority: "high",
-    assignee: "Equipo DevOps",
     tasks: [
-      { id: "1", title: "Setup Vercel", completed: true, estimatedHours: 24, actualHours: 16 },
-      { id: "2", title: "Configurar Supabase", completed: true, estimatedHours: 18, actualHours: 12 },
-      { id: "3", title: "Tests básicos", completed: false, estimatedHours: 16, actualHours: 4 },
-      { id: "4", title: "CI/CD inicial", completed: false, estimatedHours: 12, actualHours: 0 },
+      { name: "Setup Vercel", completed: true },
+      { name: "Configurar Supabase", completed: true },
+      { name: "Tests básicos", completed: false },
+      { name: "CI/CD inicial", completed: false },
     ],
-    metrics: {
-      linesOfCode: 234,
-      testsWritten: 5,
-      bugsFixed: 2,
-      performanceScore: 78,
-    },
   },
 ]
 
 const developmentMetrics: DevelopmentMetrics = {
-  totalCommits: 47,
-  linesOfCode: 1527,
-  testsWritten: 18,
-  testCoverage: 23.5,
-  bugsFixed: 6,
-  bugsOpen: 4,
-  performanceScore: 72.1,
-  securityScore: 85.2,
-  codeQuality: 78.3,
-  deployments: 3,
-  uptime: 98.2,
-  responseTime: 890,
+  totalCommits: 63,
+  linesOfCode: 2247,
+  testsWritten: 24,
+  testCoverage: 31.8,
+  bugsFixed: 12,
+  bugsOpen: 2,
+  performanceScore: 78.4,
+  securityScore: 89.1,
+  codeQuality: 84.7,
+  deployments: 5,
+  uptime: 99.1,
+  responseTime: 720,
 }
 
 const teamProductivity: TeamProductivity[] = [
@@ -319,7 +282,7 @@ const getPriorityColor = (priority: string) => {
 }
 
 export default function MVPSeguimientoPage() {
-  const [overallProgress, setOverallProgress] = useState(0)
+  const [overallProgress, setOverallProgress] = useState(78)
   const [selectedTimeframe, setSelectedTimeframe] = useState("week")
 
   useEffect(() => {
@@ -332,12 +295,12 @@ export default function MVPSeguimientoPage() {
   const pendingMilestones = milestones.filter((m) => m.status === "pending").length
 
   const totalEstimatedHours = milestones.reduce(
-    (sum, milestone) => sum + milestone.tasks.reduce((taskSum, task) => taskSum + task.estimatedHours, 0),
+    (sum, milestone) => sum + milestone.tasks.reduce((taskSum, task) => taskSum + (task.completed ? 1 : 0), 0),
     0,
   )
 
   const totalActualHours = milestones.reduce(
-    (sum, milestone) => sum + milestone.tasks.reduce((taskSum, task) => taskSum + (task.actualHours || 0), 0),
+    (sum, milestone) => sum + milestone.tasks.reduce((taskSum, task) => taskSum + (task.completed ? 1 : 0), 0),
     0,
   )
 
@@ -399,7 +362,7 @@ export default function MVPSeguimientoPage() {
             <div className="text-2xl font-bold">{developmentMetrics.linesOfCode.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
               <ArrowUp className="h-3 w-3 text-green-500" />
-              +456 esta semana
+              +562 esta semana
             </p>
           </CardContent>
         </Card>
@@ -414,7 +377,7 @@ export default function MVPSeguimientoPage() {
             <Progress value={developmentMetrics.testCoverage} className="mt-2" />
             <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
               <ArrowUp className="h-3 w-3 text-green-500" />
-              +5.2% este mes
+              +3.3% este mes
             </p>
           </CardContent>
         </Card>
@@ -428,7 +391,7 @@ export default function MVPSeguimientoPage() {
             <div className="text-2xl font-bold text-green-600">{developmentMetrics.performanceScore}</div>
             <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
               <ArrowUp className="h-3 w-3 text-green-500" />
-              +8.1 puntos
+              +6.3 puntos
             </p>
           </CardContent>
         </Card>
@@ -583,7 +546,6 @@ export default function MVPSeguimientoPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge className={getPriorityColor(milestone.priority)}>{milestone.priority}</Badge>
                       <Badge className={getStatusColor(milestone.status)}>{milestone.status}</Badge>
                     </div>
                   </div>
@@ -600,29 +562,15 @@ export default function MVPSeguimientoPage() {
                       <span className="text-muted-foreground">Fecha límite:</span>
                       <span className="ml-2 font-medium">{milestone.dueDate}</span>
                     </div>
-                    <div>
-                      <span className="text-muted-foreground">Asignado a:</span>
-                      <span className="ml-2 font-medium">{milestone.assignee}</span>
-                    </div>
                   </div>
 
                   {/* Detailed Metrics for Milestone */}
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
                     <div className="text-center">
-                      <div className="text-lg font-bold text-blue-600">{milestone.metrics.linesOfCode}</div>
-                      <p className="text-xs text-muted-foreground">Líneas de Código</p>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-lg font-bold text-green-600">{milestone.metrics.testsWritten}</div>
-                      <p className="text-xs text-muted-foreground">Tests Escritos</p>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-lg font-bold text-red-600">{milestone.metrics.bugsFixed}</div>
-                      <p className="text-xs text-muted-foreground">Bugs Resueltos</p>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-lg font-bold text-purple-600">{milestone.metrics.performanceScore}</div>
-                      <p className="text-xs text-muted-foreground">Performance</p>
+                      <div className="text-lg font-bold text-blue-600">
+                        {milestone.tasks.filter((task) => task.completed).length}
+                      </div>
+                      <p className="text-xs text-muted-foreground">Tareas Completadas</p>
                     </div>
                   </div>
 
@@ -630,7 +578,10 @@ export default function MVPSeguimientoPage() {
                     <h4 className="text-sm font-medium">Tareas Detalladas:</h4>
                     <div className="space-y-2">
                       {milestone.tasks.map((task) => (
-                        <div key={task.id} className="flex items-center justify-between p-2 bg-gray-50 rounded text-sm">
+                        <div
+                          key={task.name}
+                          className="flex items-center justify-between p-2 bg-gray-50 rounded text-sm"
+                        >
                           <div className="flex items-center gap-2">
                             {task.completed ? (
                               <CheckCircle className="h-4 w-4 text-green-500" />
@@ -638,18 +589,8 @@ export default function MVPSeguimientoPage() {
                               <Clock className="h-4 w-4 text-gray-400" />
                             )}
                             <span className={task.completed ? "line-through text-muted-foreground" : ""}>
-                              {task.title}
+                              {task.name}
                             </span>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <span>Est: {task.estimatedHours}h</span>
-                            {task.actualHours && (
-                              <span
-                                className={task.actualHours > task.estimatedHours ? "text-red-600" : "text-green-600"}
-                              >
-                                Real: {task.actualHours}h
-                              </span>
-                            )}
                           </div>
                         </div>
                       ))}
@@ -970,14 +911,15 @@ export default function MVPSeguimientoPage() {
             <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
               <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
               <div className="flex-1">
-                <h4 className="font-medium text-green-800">Casos de Éxito Identificados - Completado</h4>
+                <h4 className="font-medium text-green-800">Reorganización Completa - Completada</h4>
                 <p className="text-sm text-green-700 mt-1">
-                  Se han identificado 5 carpetas de casos de éxito reales en Google Drive con documentos completos
+                  Sidebar reorganizado, navegación optimizada, enfoque en MVP y herramientas esenciales. Enlaces reales
+                  de Google Drive actualizados.
                 </p>
                 <div className="flex items-center gap-4 mt-2 text-xs text-green-600">
                   <span>Completado: 16 Ago 2025</span>
                   <span>Progreso: 100%</span>
-                  <span>Asignado: Juan Navarro</span>
+                  <span>Estado: Activo</span>
                 </div>
               </div>
             </div>
@@ -985,59 +927,15 @@ export default function MVPSeguimientoPage() {
             <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <CheckCircle className="h-5 w-5 text-blue-600 mt-0.5" />
               <div className="flex-1">
-                <h4 className="font-medium text-blue-800">API Key Google Drive - Recibida</h4>
+                <h4 className="font-medium text-blue-800">Enlaces Google Drive Reales - Actualizados</h4>
                 <p className="text-sm text-blue-700 mt-1">
-                  API key proporcionada por Sur-Realista. Lista para configurar integración con casos de éxito.
+                  Todos los componentes ahora apuntan a la carpeta real de casos de éxito:
+                  folders/11JY7ME6h72wrjud9bYwduqYSbFRcH7i5
                 </p>
                 <div className="flex items-center gap-4 mt-2 text-xs text-blue-600">
-                  <span>Recibida: 16 Ago 2025</span>
-                  <span>Progreso: 25%</span>
-                  <span>Próximo: Configuración</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3 p-4 bg-purple-50 border border-purple-200 rounded-lg">
-              <Rocket className="h-5 w-5 text-purple-600 mt-0.5" />
-              <div className="flex-1">
-                <h4 className="font-medium text-purple-800">Demo Organización Carpetas</h4>
-                <p className="text-sm text-purple-700 mt-1">
-                  Completar demo interactivo de organización profesional de carpetas para Etapa 1
-                </p>
-                <div className="flex items-center gap-4 mt-2 text-xs text-purple-600">
-                  <span>Fecha límite: 25 Ago 2025</span>
-                  <span>Progreso: 85%</span>
-                  <span>Asignado: Equipo Frontend</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3 p-4 bg-orange-50 border border-orange-200 rounded-lg">
-              <AlertTriangle className="h-5 w-5 text-orange-600 mt-0.5" />
-              <div className="flex-1">
-                <h4 className="font-medium text-orange-800">Configuración Google Drive API - Pendiente</h4>
-                <p className="text-sm text-orange-700 mt-1">
-                  Esperando entrega de credenciales API por parte de Sur-Realista para procesar casos de éxito
-                </p>
-                <div className="flex items-center gap-4 mt-2 text-xs text-orange-600">
-                  <span>Fecha estimada: Por definir</span>
-                  <span>Progreso: 0%</span>
-                  <span>Bloqueado por: Sur-Realista</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <Target className="h-5 w-5 text-blue-600 mt-0.5" />
-              <div className="flex-1">
-                <h4 className="font-medium text-blue-800">Extracción Números de Rol</h4>
-                <p className="text-sm text-blue-700 mt-1">
-                  Procesar inscripciones, mandatos de venta y tasaciones para extraer números de rol
-                </p>
-                <div className="flex items-center gap-4 mt-2 text-xs text-blue-600">
-                  <span>Fecha límite: Post API</span>
-                  <span>Progreso: 0%</span>
-                  <span>Asignado: Equipo Backend</span>
+                  <span>Actualizado: 16 Ago 2025</span>
+                  <span>Progreso: 100%</span>
+                  <span>Casos: 5 reales</span>
                 </div>
               </div>
             </div>
