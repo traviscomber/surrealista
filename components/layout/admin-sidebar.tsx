@@ -76,7 +76,7 @@ const menuItems: MenuItem[] = [
         title: "Seguimiento MVP",
         href: "/mvp/seguimiento",
         icon: Activity,
-        badge: "65%",
+        badge: "78%",
         badgeColor: "bg-blue-500",
       },
       {
@@ -276,7 +276,7 @@ export function AdminSidebar() {
             <Link href="/mvp/seguimiento">
               <Activity className="h-4 w-4" />
               Seguimiento MVP
-              <Badge className="ml-auto bg-blue-500 text-white text-xs">65%</Badge>
+              <Badge className="ml-auto bg-blue-500 text-white text-xs">78%</Badge>
             </Link>
           </Button>
           <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>

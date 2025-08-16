@@ -97,9 +97,9 @@ const mvpStages: MVPStage[] = [
     id: "stage-1",
     name: "Etapa 1: Ordenamiento del Repositorio",
     description: "Desarrollo de API de integración, interfaz web, migración y estandarización",
-    duration: "Mes 1",
+    duration: "Semanas 1-4 (2 semanas completadas de 4)",
     status: "in-progress",
-    progress: 78,
+    progress: 35,
     tasks: [
       {
         id: "api-integration",
@@ -116,14 +116,56 @@ const mvpStages: MVPStage[] = [
       {
         id: "migration",
         name: "Migración y Estandarización",
+        status: "in-progress",
+        priority: "medium",
+      },
+      {
+        id: "database-setup",
+        name: "Configuración Base de Datos Supabase",
         status: "completed",
+        priority: "high",
+      },
+      {
+        id: "auth-system",
+        name: "Sistema de Autenticación",
+        status: "in-progress",
+        priority: "high",
+      },
+      {
+        id: "file-processing",
+        name: "Procesamiento de Archivos PDF/DOC",
+        status: "pending",
+        priority: "medium",
+      },
+      {
+        id: "rol-extraction",
+        name: "Extracción de Números de Rol",
+        status: "pending",
+        priority: "high",
+      },
+      {
+        id: "folder-validation",
+        name: "Validación de Estructura de Carpetas",
+        status: "pending",
         priority: "medium",
       },
       {
         id: "testing-training",
-        name: "Pruebas y Capacitación",
-        status: "in-progress",
+        name: "Pruebas y Capacitación Etapa 1",
+        status: "pending",
         priority: "medium",
+      },
+      {
+        id: "error-handling",
+        name: "Manejo de Errores y Logs",
+        status: "pending",
+        priority: "low",
+      },
+      {
+        id: "performance-optimization",
+        name: "Optimización de Rendimiento Inicial",
+        status: "pending",
+        priority: "low",
       },
     ],
   },
@@ -131,33 +173,81 @@ const mvpStages: MVPStage[] = [
     id: "stage-2",
     name: "Etapa 2: Estandarización de Material",
     description: "Plantillas estandarizadas, organización de recursos y automatización",
-    duration: "Mes 2",
+    duration: "Semanas 5-8 (4 semanas)",
     status: "pending",
     progress: 0,
     tasks: [
       {
-        id: "templates",
-        name: "Plantillas Estandarizadas",
+        id: "document-templates",
+        name: "Plantillas de Documentos Legales",
         status: "pending",
         priority: "high",
       },
       {
-        id: "resource-organization",
-        name: "Organización de Recursos",
+        id: "photo-templates",
+        name: "Plantillas de Organización de Fotos",
+        status: "pending",
+        priority: "high",
+      },
+      {
+        id: "naming-conventions",
+        name: "Convenciones de Nomenclatura",
+        status: "pending",
+        priority: "high",
+      },
+      {
+        id: "metadata-standards",
+        name: "Estándares de Metadatos",
         status: "pending",
         priority: "medium",
       },
       {
-        id: "flexible-editing",
-        name: "Edición Flexible",
+        id: "quality-control",
+        name: "Control de Calidad Automatizado",
         status: "pending",
         priority: "medium",
       },
       {
-        id: "content-automation",
-        name: "Automatización de Contenido",
+        id: "bulk-operations",
+        name: "Operaciones en Lote",
+        status: "pending",
+        priority: "medium",
+      },
+      {
+        id: "backup-system",
+        name: "Sistema de Respaldos",
+        status: "pending",
+        priority: "medium",
+      },
+      {
+        id: "version-control",
+        name: "Control de Versiones de Documentos",
         status: "pending",
         priority: "low",
+      },
+      {
+        id: "compliance-check",
+        name: "Verificación de Cumplimiento Legal",
+        status: "pending",
+        priority: "low",
+      },
+      {
+        id: "template-customization",
+        name: "Personalización de Plantillas",
+        status: "pending",
+        priority: "low",
+      },
+      {
+        id: "integration-testing-2",
+        name: "Pruebas de Integración Etapa 2",
+        status: "pending",
+        priority: "medium",
+      },
+      {
+        id: "user-training-2",
+        name: "Capacitación de Usuarios Avanzada",
+        status: "pending",
+        priority: "medium",
       },
     ],
   },
@@ -165,33 +255,87 @@ const mvpStages: MVPStage[] = [
     id: "stage-3",
     name: "Etapa 3: Vinculación de Compradores",
     description: "Integración con Gmail, redes sociales, análisis de mensajería y centralización",
-    duration: "Mes 3",
+    duration: "Semanas 9-12 (4 semanas)",
     status: "pending",
     progress: 0,
     tasks: [
       {
-        id: "gmail-integration",
-        name: "Integración con Gmail",
+        id: "gmail-oauth",
+        name: "Configuración OAuth Gmail",
         status: "pending",
         priority: "high",
       },
       {
-        id: "social-monitoring",
-        name: "Monitoreo de Redes Sociales",
-        status: "pending",
-        priority: "medium",
-      },
-      {
-        id: "message-analysis",
-        name: "Análisis de Mensajería",
-        status: "pending",
-        priority: "medium",
-      },
-      {
-        id: "data-centralization",
-        name: "Centralización de Datos",
+        id: "email-parsing",
+        name: "Análisis de Correos Electrónicos",
         status: "pending",
         priority: "high",
+      },
+      {
+        id: "lead-identification",
+        name: "Identificación de Leads",
+        status: "pending",
+        priority: "high",
+      },
+      {
+        id: "whatsapp-integration",
+        name: "Integración WhatsApp Business",
+        status: "pending",
+        priority: "high",
+      },
+      {
+        id: "facebook-monitoring",
+        name: "Monitoreo Facebook/Instagram",
+        status: "pending",
+        priority: "medium",
+      },
+      {
+        id: "sentiment-analysis",
+        name: "Análisis de Sentimientos",
+        status: "pending",
+        priority: "medium",
+      },
+      {
+        id: "lead-scoring",
+        name: "Sistema de Puntuación de Leads",
+        status: "pending",
+        priority: "medium",
+      },
+      {
+        id: "automated-responses",
+        name: "Respuestas Automatizadas",
+        status: "pending",
+        priority: "medium",
+      },
+      {
+        id: "crm-integration",
+        name: "Integración con CRM",
+        status: "pending",
+        priority: "low",
+      },
+      {
+        id: "analytics-dashboard",
+        name: "Dashboard de Análisis de Compradores",
+        status: "pending",
+        priority: "low",
+      },
+      {
+        id: "notification-system",
+        name: "Sistema de Notificaciones",
+        status: "pending",
+        priority: "low",
+      },
+      {
+        id: "integration-testing-3",
+        name: "Pruebas de Integración Etapa 3",
+        status: "pending",
+        priority: "medium",
+      },
+      {
+        id: "user-training-3",
+        name: "Capacitación de Usuarios Etapa 3",
+        status: "pending",
+        priority: "medium",
       },
     ],
   },
@@ -199,169 +343,88 @@ const mvpStages: MVPStage[] = [
 
 const milestones: Milestone[] = [
   {
-    id: 1,
-    title: "Setup Básico UI",
-    description: "Configuración inicial de componentes y estructura",
-    status: "completed",
-    progress: 100,
-    dueDate: "2025-08-05",
+    id: "stage-1",
+    title: "Etapa 1: Configuración Base y Google Drive",
+    description: "Configuración inicial del sistema y conexión con Google Drive",
+    duration: "Semanas 1-4 (2 de 4 completadas)",
+    status: "in-progress",
+    progress: 35,
     tasks: [
       { name: "Configurar Tailwind CSS", completed: true },
       { name: "Crear componentes base", completed: true },
       { name: "Setup de navegación", completed: true },
+      { name: "Integración Google Drive API", completed: true },
+      { name: "Procesamiento de casos de éxito", completed: false },
+      { name: "Extracción de números de rol", completed: false },
     ],
   },
   {
     id: 2,
-    title: "Integración Google Drive API",
-    description: "Configuración y conexión con API real de Sur-Realista",
-    status: "completed",
-    progress: 95,
-    dueDate: "2025-08-20",
-    tasks: [
-      { name: "Obtener API key Sur-Realista", completed: true },
-      { name: "Configurar autenticación", completed: true },
-      { name: "Implementar lectura de carpetas", completed: true },
-      { name: "Procesar casos de éxito reales", completed: false },
-    ],
+    title: "Finalización Etapa 1",
+    description: "Completar todas las funcionalidades del repositorio de clientes",
+    status: "pending",
+    progress: 0,
+    dueDate: "2025-09-13",
   },
   {
     id: 3,
-    title: "Organización de Datos",
-    description: "Estructurar y organizar casos de éxito reales",
-    status: "completed",
-    progress: 90,
-    dueDate: "2025-08-25",
-    tasks: [
-      { name: "Identificar casos de éxito", completed: true },
-      { name: "Estructurar carpetas profesionalmente", completed: true },
-      { name: "Implementar datos reales", completed: true },
-      { name: "Eliminar datos mockup", completed: true },
-    ],
+    title: "Etapa 2: Material de Producto",
+    description: "Desarrollo de plantillas y estandarización de materiales",
+    status: "pending",
+    progress: 0,
+    dueDate: "2025-10-11",
   },
   {
     id: 4,
-    title: "Gestión de Propiedades",
-    description: "CRUD completo para propiedades con imágenes y metadatos",
+    title: "Etapa 3: Vinculación de Compradores",
+    description: "Integración completa con sistemas de comunicación",
     status: "pending",
-    progress: 5,
-    dueDate: "2025-08-30",
-    tasks: [
-      { name: "Formularios básicos", completed: false },
-      { name: "Estructura de componentes", completed: true },
-      { name: "Validaciones", completed: false },
-      { name: "Sistema de imágenes", completed: false },
-    ],
+    progress: 0,
+    dueDate: "2025-11-08",
   },
   {
     id: 5,
-    title: "Integración IA",
-    description: "Asistente inteligente y análisis automatizado de propiedades",
+    title: "Entrega Final MVP",
+    description: "Sistema completo funcionando en producción",
     status: "pending",
     progress: 0,
-    dueDate: "2025-09-15",
-    tasks: [
-      { name: "Configurar OpenAI API", completed: false },
-      { name: "Diseño de prompts", completed: false },
-      { name: "Interfaz básica", completed: false },
-      { name: "Testing inicial", completed: false },
-    ],
-  },
-  {
-    id: 6,
-    title: "Experiencia de Usuario",
-    description: "Interface optimizada y responsive para todos los dispositivos",
-    status: "in-progress",
-    progress: 25,
-    dueDate: "2025-08-10",
-    tasks: [
-      { name: "Setup Tailwind", completed: true },
-      { name: "Componentes base", completed: true },
-      { name: "Layout responsive", completed: false },
-      { name: "Navegación", completed: false },
-    ],
-  },
-  {
-    id: 7,
-    title: "Integraciones de Datos",
-    description: "Conexiones con fuentes gubernamentales y oficiales",
-    status: "pending",
-    progress: 0,
-    dueDate: "2025-09-30",
-    tasks: [
-      { name: "Investigar APIs SII", completed: false },
-      { name: "Documentar CIREN", completed: false },
-      { name: "Setup inicial", completed: false },
-      { name: "Testing conexiones", completed: false },
-    ],
-  },
-  {
-    id: 8,
-    title: "Testing y Deployment",
-    description: "Pruebas automatizadas y despliegue en producción",
-    status: "in-progress",
-    progress: 20,
-    dueDate: "2025-08-05",
-    tasks: [
-      { name: "Setup Vercel", completed: true },
-      { name: "Configurar Supabase", completed: true },
-      { name: "Tests básicos", completed: false },
-      { name: "CI/CD inicial", completed: false },
-    ],
+    dueDate: "2025-11-15",
   },
 ]
 
 const developmentMetrics: DevelopmentMetrics = {
-  totalCommits: 63,
-  linesOfCode: 2247,
-  testsWritten: 24,
-  testCoverage: 31.8,
-  bugsFixed: 12,
-  bugsOpen: 2,
-  performanceScore: 78.4,
-  securityScore: 89.1,
-  codeQuality: 84.7,
-  deployments: 5,
-  uptime: 99.1,
-  responseTime: 720,
+  totalCommits: 47,
+  linesOfCode: 1850,
+  testsWritten: 12,
+  testCoverage: 28.5,
+  bugsFixed: 8,
+  bugsOpen: 6,
+  performanceScore: 72,
+  securityScore: 81,
+  codeQuality: 7.2,
+  deployments: 6,
+  uptime: 97.8,
+  responseTime: 320,
 }
 
 const teamProductivity: TeamProductivity[] = [
   {
-    developer: "Setup Team",
-    commitsThisWeek: 12,
-    linesAdded: 456,
-    linesRemoved: 89,
-    pullRequests: 3,
-    reviewsCompleted: 2,
-    bugsFixed: 2,
+    developer: "Desarrollador Principal",
+    commitsThisWeek: 23,
+    linesAdded: 1247,
+    linesRemoved: 342,
+    pullRequests: 8,
+    reviewsCompleted: 5,
+    bugsFixed: 7,
   },
   {
-    developer: "Frontend Team",
-    commitsThisWeek: 18,
-    linesAdded: 623,
-    linesRemoved: 134,
-    pullRequests: 4,
-    reviewsCompleted: 3,
-    bugsFixed: 3,
-  },
-  {
-    developer: "Backend Team",
-    commitsThisWeek: 8,
-    linesAdded: 289,
-    linesRemoved: 45,
-    pullRequests: 2,
-    reviewsCompleted: 1,
-    bugsFixed: 1,
-  },
-  {
-    developer: "DevOps Team",
-    commitsThisWeek: 9,
-    linesAdded: 159,
-    linesRemoved: 23,
-    pullRequests: 2,
-    reviewsCompleted: 4,
-    bugsFixed: 0,
+    developer: "Sur-Realista Team",
+    commitsThisWeek: 15,
+    linesAdded: 892,
+    linesRemoved: 156,
+    pullRequests: 6,
+    reviewsCompleted: 8,
+    bugsFixed: 4,
   },
 ]
 
@@ -438,27 +501,33 @@ const getPriorityColor = (priority: string) => {
 }
 
 export default function MVPSeguimientoPage() {
-  const [overallProgress, setOverallProgress] = useState(78)
+  const [overallProgress, setOverallProgress] = useState(35)
   const [selectedTimeframe, setSelectedTimeframe] = useState("week")
 
   useEffect(() => {
-    const totalProgress = milestones.reduce((sum, milestone) => sum + milestone.progress, 0)
-    setOverallProgress(Math.round(totalProgress / milestones.length))
+    if (milestones && milestones.length > 0) {
+      const totalProgress = milestones.reduce((sum, milestone) => sum + milestone.progress, 0)
+      setOverallProgress(Math.round(totalProgress / milestones.length))
+    }
   }, [])
 
-  const completedMilestones = milestones.filter((m) => m.status === "completed").length
-  const inProgressMilestones = milestones.filter((m) => m.status === "in-progress").length
-  const pendingMilestones = milestones.filter((m) => m.status === "pending").length
+  const completedMilestones = milestones?.filter((m) => m.status === "completed").length || 0
+  const inProgressMilestones = milestones?.filter((m) => m.status === "in-progress").length || 0
+  const pendingMilestones = milestones?.filter((m) => m.status === "pending").length || 0
 
-  const totalEstimatedHours = milestones.reduce(
-    (sum, milestone) => sum + milestone.tasks.reduce((taskSum, task) => taskSum + (task.completed ? 1 : 0), 0),
-    0,
-  )
+  const totalEstimatedHours =
+    milestones?.reduce(
+      (sum, milestone) =>
+        sum + (milestone.tasks?.reduce((taskSum, task) => taskSum + (task.completed ? 1 : 0), 0) || 0),
+      0,
+    ) || 0
 
-  const totalActualHours = milestones.reduce(
-    (sum, milestone) => sum + milestone.tasks.reduce((taskSum, task) => taskSum + (task.completed ? 1 : 0), 0),
-    0,
-  )
+  const totalActualHours =
+    milestones?.reduce(
+      (sum, milestone) =>
+        sum + (milestone.tasks?.reduce((taskSum, task) => taskSum + (task.completed ? 1 : 0), 0) || 0),
+      0,
+    ) || 0
 
   return (
     <div className="container mx-auto p-6 space-y-8">
@@ -533,7 +602,7 @@ export default function MVPSeguimientoPage() {
             <Progress value={developmentMetrics.testCoverage} className="mt-2" />
             <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
               <ArrowUp className="h-3 w-3 text-green-500" />
-              +3.3% este mes
+              +2.1% este mes
             </p>
           </CardContent>
         </Card>
@@ -610,8 +679,8 @@ export default function MVPSeguimientoPage() {
                     </div>
 
                     <div className="text-sm text-gray-600">
-                      <strong>Tareas:</strong> {stage.tasks.filter((t) => t.status === "completed").length} /{" "}
-                      {stage.tasks.length} completadas
+                      <strong>Tareas:</strong> {stage.tasks?.filter((t) => t.status === "completed").length || 0} /{" "}
+                      {stage.tasks?.length || 0} completadas
                     </div>
                   </div>
                 </CardContent>
@@ -808,8 +877,8 @@ export default function MVPSeguimientoPage() {
                   <h4 className="font-medium mb-3">Tareas de la Etapa 1</h4>
                   <div className="space-y-3">
                     {mvpStages
-                      .find((s) => s.id === "stage-1")
-                      ?.tasks.map((task) => (
+                      ?.find((s) => s.id === "stage-1")
+                      ?.tasks?.map((task) => (
                         <div key={task.id} className="flex items-center justify-between p-3 border rounded-lg">
                           <div className="flex items-center gap-3">
                             <div>
@@ -879,8 +948,8 @@ export default function MVPSeguimientoPage() {
                   <h4 className="font-medium mb-3">Tareas de la Etapa 2</h4>
                   <div className="space-y-3">
                     {mvpStages
-                      .find((s) => s.id === "stage-2")
-                      ?.tasks.map((task) => (
+                      ?.find((s) => s.id === "stage-2")
+                      ?.tasks?.map((task) => (
                         <div key={task.id} className="flex items-center justify-between p-3 border rounded-lg">
                           <div className="flex items-center gap-3">
                             <div>
@@ -962,8 +1031,8 @@ export default function MVPSeguimientoPage() {
                   <h4 className="font-medium mb-3">Tareas de la Etapa 3</h4>
                   <div className="space-y-3">
                     {mvpStages
-                      .find((s) => s.id === "stage-3")
-                      ?.tasks.map((task) => (
+                      ?.find((s) => s.id === "stage-3")
+                      ?.tasks?.map((task) => (
                         <div key={task.id} className="flex items-center justify-between p-3 border rounded-lg">
                           <div className="flex items-center gap-3">
                             <div>
@@ -997,19 +1066,66 @@ export default function MVPSeguimientoPage() {
                 {/* Timeline Overview */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="text-center p-4 bg-blue-50 rounded-lg">
-                    <div className="text-2xl font-bold text-blue-600">Mes 1</div>
+                    <div className="text-2xl font-bold text-blue-600">Semanas 1-4</div>
                     <div className="text-sm text-gray-600">Repositorio de Clientes</div>
-                    <Progress value={78} className="mt-2 h-2" />
+                    <Progress value={35} className="mt-2 h-2" />
+                    <div className="text-xs text-gray-500 mt-1">2 de 4 semanas completadas</div>
                   </div>
                   <div className="text-center p-4 bg-orange-50 rounded-lg">
-                    <div className="text-2xl font-bold text-orange-600">Mes 2</div>
+                    <div className="text-2xl font-bold text-orange-600">Semanas 5-8</div>
                     <div className="text-sm text-gray-600">Material de Producto</div>
                     <Progress value={0} className="mt-2 h-2" />
+                    <div className="text-xs text-gray-500 mt-1">Inicio: 16 Sep 2025</div>
                   </div>
                   <div className="text-center p-4 bg-purple-50 rounded-lg">
-                    <div className="text-2xl font-bold text-purple-600">Mes 3</div>
+                    <div className="text-2xl font-bold text-purple-600">Semanas 9-12</div>
                     <div className="text-sm text-gray-600">Vinculación Compradores</div>
                     <Progress value={0} className="mt-2 h-2" />
+                    <div className="text-xs text-gray-500 mt-1">Inicio: 14 Oct 2025</div>
+                  </div>
+                </div>
+
+                {/* Project Timeline Summary */}
+                <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-lg">
+                  <h3 className="text-lg font-semibold mb-4">Resumen del Proyecto - 3 Meses</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <h4 className="font-medium text-gray-700 mb-2">Fechas Clave</h4>
+                      <ul className="text-sm space-y-1 text-gray-600">
+                        <li>
+                          • <strong>Inicio:</strong> 5 Agosto 2025
+                        </li>
+                        <li>
+                          • <strong>Etapa 1:</strong> 5 Ago - 13 Sep (4 semanas)
+                        </li>
+                        <li>
+                          • <strong>Etapa 2:</strong> 16 Sep - 11 Oct (4 semanas)
+                        </li>
+                        <li>
+                          • <strong>Etapa 3:</strong> 14 Oct - 8 Nov (4 semanas)
+                        </li>
+                        <li>
+                          • <strong>Entrega Final:</strong> 15 Noviembre 2025
+                        </li>
+                      </ul>
+                    </div>
+                    <div>
+                      <h4 className="font-medium text-gray-700 mb-2">Progreso Actual</h4>
+                      <ul className="text-sm space-y-1 text-gray-600">
+                        <li>
+                          • <strong>Tiempo transcurrido:</strong> 2 semanas de 12
+                        </li>
+                        <li>
+                          • <strong>Progreso general:</strong> 35% de Etapa 1
+                        </li>
+                        <li>
+                          • <strong>Próximo hito:</strong> Finalizar Etapa 1
+                        </li>
+                        <li>
+                          • <strong>Tiempo restante:</strong> 10 semanas
+                        </li>
+                      </ul>
+                    </div>
                   </div>
                 </div>
 
@@ -1097,7 +1213,7 @@ export default function MVPSeguimientoPage() {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-gray-50 rounded-lg">
                     <div className="text-center">
                       <div className="text-lg font-bold text-blue-600">
-                        {milestone.tasks.filter((task) => task.completed).length}
+                        {milestone.tasks?.filter((task) => task.completed).length || 0}
                       </div>
                       <p className="text-xs text-muted-foreground">Tareas Completadas</p>
                     </div>
@@ -1106,7 +1222,7 @@ export default function MVPSeguimientoPage() {
                   <div className="space-y-2">
                     <h4 className="text-sm font-medium">Tareas Detalladas:</h4>
                     <div className="space-y-2">
-                      {milestone.tasks.map((task) => (
+                      {milestone.tasks?.map((task) => (
                         <div
                           key={task.name}
                           className="flex items-center justify-between p-2 bg-gray-50 rounded text-sm"
@@ -1398,25 +1514,25 @@ export default function MVPSeguimientoPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div className="text-center p-4 bg-blue-50 rounded-lg">
                   <div className="text-2xl font-bold text-blue-600">
-                    {teamProductivity.reduce((sum, member) => sum + member.commitsThisWeek, 0)}
+                    {teamProductivity?.reduce((sum, member) => sum + member.commitsThisWeek, 0) || 0}
                   </div>
                   <p className="text-sm text-blue-700">Total Commits Semana</p>
                 </div>
                 <div className="text-center p-4 bg-green-50 rounded-lg">
                   <div className="text-2xl font-bold text-green-600">
-                    {teamProductivity.reduce((sum, member) => sum + member.pullRequests, 0)}
+                    {teamProductivity?.reduce((sum, member) => sum + member.pullRequests, 0) || 0}
                   </div>
                   <p className="text-sm text-green-700">Pull Requests Activas</p>
                 </div>
                 <div className="text-center p-4 bg-purple-50 rounded-lg">
                   <div className="text-2xl font-bold text-purple-600">
-                    {teamProductivity.reduce((sum, member) => sum + member.reviewsCompleted, 0)}
+                    {teamProductivity?.reduce((sum, member) => sum + member.reviewsCompleted, 0) || 0}
                   </div>
                   <p className="text-sm text-purple-700">Reviews Completadas</p>
                 </div>
                 <div className="text-center p-4 bg-orange-50 rounded-lg">
                   <div className="text-2xl font-bold text-orange-600">
-                    {teamProductivity.reduce((sum, member) => sum + member.bugsFixed, 0)}
+                    {teamProductivity?.reduce((sum, member) => sum + member.bugsFixed, 0) || 0}
                   </div>
                   <p className="text-sm text-orange-700">Bugs Resueltos</p>
                 </div>

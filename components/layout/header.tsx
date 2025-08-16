@@ -88,19 +88,11 @@ const toolsItems = [
 
 const mvpItems = [
   {
-    title: "MVP Dashboard",
-    href: "/admin/mvp-completo",
-    icon: Rocket,
-    description: "Panel principal del MVP - Fase 1",
-    badge: "Live",
-    badgeColor: "bg-green-500",
-  },
-  {
     title: "Seguimiento MVP",
     href: "/mvp/seguimiento",
     icon: Activity,
-    description: "Estado actual y progreso del desarrollo",
-    badge: "65%",
+    description: "Estado actual y progreso completo del desarrollo",
+    badge: "78%",
     badgeColor: "bg-blue-500",
   },
   {
@@ -297,13 +289,6 @@ export function Header() {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
-                <Link href="/admin/mvp-completo" className="flex items-center">
-                  <Rocket className="mr-2 h-4 w-4" />
-                  <span>MVP Dashboard</span>
-                  <Badge className="ml-auto bg-green-500 text-white text-xs">Live</Badge>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
                 <Link href="/admin/propiedades" className="flex items-center">
                   <Building2 className="mr-2 h-4 w-4" />
                   <span>Propiedades</span>
@@ -313,6 +298,13 @@ export function Header() {
                 <Link href="/admin/ia-workspace" className="flex items-center">
                   <Brain className="mr-2 h-4 w-4" />
                   <span>IA Workspace</span>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/mvp/seguimiento" className="flex items-center">
+                  <Activity className="mr-2 h-4 w-4" />
+                  <span>Seguimiento MVP</span>
+                  <Badge className="ml-auto bg-blue-500 text-white text-xs">78%</Badge>
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
