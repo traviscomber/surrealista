@@ -37,7 +37,7 @@ interface FolderStructure {
 }
 
 const clientFolderStructure: FolderStructure = {
-  name: "📁 CLIENTES - NEURALIA INMOBILIARIA",
+  name: "📁 CLIENTES - SUR-REALISTA",
   type: "folder",
   icon: <FolderOpen className="w-4 h-4 text-blue-600" />,
   status: "parcial",
@@ -51,91 +51,98 @@ const clientFolderStructure: FolderStructure = {
       description: "Clientes con alta probabilidad de cierre (próximos 30 días)",
       children: [
         {
-          name: "🏢 CARLOS_MENDOZA_INVERSIONES_DEL_SUR",
+          name: "🏢 VALDIVIA_142_TERESA_F_CASO_EXITO",
           type: "folder",
-          icon: <Building className="w-4 h-4 text-gray-600" />,
+          icon: <Building className="w-4 h-4 text-green-600" />,
           status: "completo",
-          description: "Inversionista - Busca departamentos para arriendo",
+          description: "✅ CASO DE ÉXITO - Estructura completa identificada",
           children: [
             {
-              name: "📋 01_FICHA_CLIENTE",
+              name: "📸 fotos",
               type: "folder",
-              icon: <FolderOpen className="w-4 h-4 text-blue-500" />,
+              icon: <ImageIcon className="w-4 h-4 text-green-500" />,
               status: "completo",
               children: [
                 {
-                  name: "FichaCliente_CarlosMendoza_2024-02-08_v1.pdf",
-                  type: "file",
-                  icon: <FileText className="w-4 h-4 text-red-500" />,
-                  lastModified: "8 Feb 2024",
-                  size: "2.3 MB",
-                },
-                {
-                  name: "CertificadoIngresos_CarlosMendoza_2024-02-05.pdf",
-                  type: "file",
-                  icon: <FileText className="w-4 h-4 text-red-500" />,
-                  lastModified: "5 Feb 2024",
-                  size: "1.8 MB",
-                },
-              ],
-            },
-            {
-              name: "🏠 02_PROPIEDADES_INTERES",
-              type: "folder",
-              icon: <FolderOpen className="w-4 h-4 text-green-500" />,
-              status: "completo",
-              children: [
-                {
-                  name: "Depto_LasConde_Av.Apoquindo_2024-02-08.pdf",
-                  type: "file",
-                  icon: <FileText className="w-4 h-4 text-red-500" />,
-                  lastModified: "8 Feb 2024",
-                  size: "4.2 MB",
-                },
-                {
-                  name: "Fotos_Depto_LasConde_2024-02-08.zip",
+                  name: "exterior_01.jpg",
                   type: "file",
                   icon: <ImageIcon className="w-4 h-4 text-purple-500" />,
-                  lastModified: "8 Feb 2024",
-                  size: "15.7 MB",
+                  lastModified: "12 Ago 2025",
+                  size: "2.1 MB",
                 },
               ],
             },
             {
-              name: "💬 03_COMUNICACIONES",
+              name: "📱 fotos cel",
               type: "folder",
-              icon: <FolderOpen className="w-4 h-4 text-yellow-500" />,
+              icon: <ImageIcon className="w-4 h-4 text-green-500" />,
               status: "completo",
-              children: [
-                {
-                  name: "WhatsApp_CarlosMendoza_2024-02-01-08.pdf",
-                  type: "file",
-                  icon: <FileText className="w-4 h-4 text-red-500" />,
-                  lastModified: "8 Feb 2024",
-                  size: "892 KB",
-                },
-              ],
+            },
+            {
+              name: "📅 Fotos enero 2024",
+              type: "folder",
+              icon: <ImageIcon className="w-4 h-4 text-green-500" />,
+              status: "completo",
+            },
+            {
+              name: "🗺️ Campo Iñipulli 140_has.kmz",
+              type: "file",
+              icon: <FileText className="w-4 h-4 text-blue-500" />,
+              lastModified: "13 Sep 2023",
+              size: "2 KB",
+            },
+            {
+              name: "📄 Fundo Iñipulli_140_110124_compressed.pdf",
+              type: "file",
+              icon: <FileText className="w-4 h-4 text-red-500" />,
+              lastModified: "12 Ene 2024",
+              size: "5.1 MB",
+            },
+            {
+              name: "📋 Orden de Venta Iñipulli.docx",
+              type: "file",
+              icon: <FileText className="w-4 h-4 text-blue-500" />,
+              lastModified: "23 Nov 2023",
+              size: "38 KB",
             },
           ],
         },
         {
-          name: "👥 FAMILIA_RODRIGUEZ_COMPRA_CASA",
+          name: "🏠 FAMILIA_MARTINEZ_CASA_NUEVA",
           type: "folder",
-          icon: <Users className="w-4 h-4 text-gray-600" />,
-          status: "parcial",
-          description: "Familia joven - Primera vivienda con subsidio",
+          icon: <Users className="w-4 h-4 text-red-600" />,
+          status: "pendiente",
+          description: "❌ CARPETA INCOMPLETA - Faltan documentos críticos",
           children: [
             {
               name: "📋 01_FICHA_CLIENTE",
               type: "folder",
-              icon: <FolderOpen className="w-4 h-4 text-blue-500" />,
-              status: "parcial",
+              icon: <FolderOpen className="w-4 h-4 text-red-500" />,
+              status: "pendiente",
+              description: "❌ Falta: Certificado de ingresos, RUT, autorización",
+              children: [
+                {
+                  name: "contacto_inicial.txt",
+                  type: "file",
+                  icon: <FileText className="w-4 h-4 text-gray-400" />,
+                  lastModified: "10 Ago 2025",
+                  size: "1 KB",
+                },
+              ],
             },
             {
               name: "🏠 02_PROPIEDADES_INTERES",
               type: "folder",
-              icon: <FolderOpen className="w-4 h-4 text-green-500" />,
-              status: "completo",
+              icon: <FolderOpen className="w-4 h-4 text-red-500" />,
+              status: "pendiente",
+              description: "❌ Falta: Fotos, planos, tasación",
+            },
+            {
+              name: "💬 03_COMUNICACIONES",
+              type: "folder",
+              icon: <FolderOpen className="w-4 h-4 text-red-500" />,
+              status: "pendiente",
+              description: "❌ Falta: WhatsApp, emails, llamadas",
             },
           ],
         },
@@ -149,11 +156,34 @@ const clientFolderStructure: FolderStructure = {
       description: "Clientes con interés moderado (30-90 días)",
       children: [
         {
-          name: "🏢 EMPRESA_CONSTRUCTORA_PACIFICO",
+          name: "EMPRESA_SIN_ORGANIZACION",
           type: "folder",
-          icon: <Building className="w-4 h-4 text-gray-600" />,
-          status: "parcial",
-          description: "Constructora - Busca terrenos para proyectos",
+          icon: <Building className="w-4 h-4 text-red-600" />,
+          status: "pendiente",
+          description: "❌ MAL ORGANIZADA - Sin estructura estándar",
+          children: [
+            {
+              name: "documentos_varios.zip",
+              type: "file",
+              icon: <FileText className="w-4 h-4 text-gray-400" />,
+              lastModified: "5 Ago 2025",
+              size: "12 MB",
+            },
+            {
+              name: "foto1.jpg",
+              type: "file",
+              icon: <ImageIcon className="w-4 h-4 text-gray-400" />,
+              lastModified: "3 Ago 2025",
+              size: "3.2 MB",
+            },
+            {
+              name: "notas.txt",
+              type: "file",
+              icon: <FileText className="w-4 h-4 text-gray-400" />,
+              lastModified: "1 Ago 2025",
+              size: "500 B",
+            },
+          ],
         },
       ],
     },
@@ -240,11 +270,7 @@ const bestPractices = [
 
 function FolderOrganizationDemo() {
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
-    new Set([
-      "📁 CLIENTES - NEURALIA INMOBILIARIA",
-      "🔥 01_CLIENTES_CALIENTES",
-      "🏢 CARLOS_MENDOZA_INVERSIONES_DEL_SUR",
-    ]),
+    new Set(["📁 CLIENTES - SUR-REALISTA", "🔥 01_CLIENTES_CALIENTES", "🏢 VALDIVIA_142_TERESA_F_CASO_EXITO"]),
   )
   const [selectedTab, setSelectedTab] = useState("structure")
 
@@ -460,15 +486,48 @@ function FolderOrganizationDemo() {
                 Estructura Jerárquica Recomendada
               </CardTitle>
               <CardDescription>
-                Sistema de organización por temperatura de cliente con estructura estandarizada
+                Sistema de organización por temperatura de cliente con estructura estandarizada. Incluye ejemplos de
+                casos de éxito (verde) vs carpetas incompletas (rojo) para identificar fácilmente qué necesita
+                completarse.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-2 max-h-96 overflow-y-auto">{renderFolderTree(clientFolderStructure)}</div>
+              <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                <h4 className="font-medium text-sm mb-2">Leyenda de Estados:</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-green-100 text-green-800">Completo</Badge>
+                    <span className="text-gray-600">Cumple estándar de caso de éxito</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-yellow-100 text-yellow-800">Parcial</Badge>
+                    <span className="text-gray-600">Faltan algunos documentos</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-red-100 text-red-800">Pendiente</Badge>
+                    <span className="text-gray-600">Requiere organización completa</span>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <Card className="border-l-4 border-l-green-500">
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-50 rounded-lg">
+                    <CheckCircle className="w-5 h-5 text-green-500" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-green-600">1</div>
+                    <div className="text-sm text-gray-600">Casos de Éxito</div>
+                    <div className="text-xs text-gray-400">Estructura completa</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
             <Card className="border-l-4 border-l-red-500">
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
@@ -477,8 +536,8 @@ function FolderOrganizationDemo() {
                   </div>
                   <div>
                     <div className="text-2xl font-bold text-red-600">2</div>
-                    <div className="text-sm text-gray-600">Clientes Calientes</div>
-                    <div className="text-xs text-gray-400">De casos reales</div>
+                    <div className="text-sm text-gray-600">Carpetas Incompletas</div>
+                    <div className="text-xs text-gray-400">Requieren organización</div>
                   </div>
                 </div>
               </CardContent>
@@ -501,26 +560,12 @@ function FolderOrganizationDemo() {
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-blue-50 rounded-lg">
-                    <Clock className="w-5 h-5 text-blue-500" />
+                    <FolderOpen className="w-5 h-5 text-blue-500" />
                   </div>
                   <div>
                     <div className="text-2xl font-bold text-blue-600">1</div>
                     <div className="text-sm text-gray-600">Clientes Fríos</div>
                     <div className="text-xs text-gray-400">De casos reales</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-l-4 border-l-green-500">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-green-50 rounded-lg">
-                    <FolderOpen className="w-5 h-5 text-green-500" />
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-green-600">5</div>
-                    <div className="text-sm text-gray-600">Casos de Éxito</div>
-                    <div className="text-xs text-gray-400">Identificados</div>
                   </div>
                 </div>
               </CardContent>
