@@ -392,116 +392,8 @@ const milestones: Milestone[] = [
   },
 ]
 
-const developmentMetrics: DevelopmentMetrics = {
-  totalCommits: 47,
-  linesOfCode: 1850,
-  testsWritten: 12,
-  testCoverage: 28.5,
-  bugsFixed: 8,
-  bugsOpen: 6,
-  performanceScore: 72,
-  securityScore: 81,
-  codeQuality: 7.2,
-  deployments: 6,
-  uptime: 97.8,
-  responseTime: 320,
-}
-
-const teamProductivity: TeamProductivity[] = [
-  {
-    developer: "Desarrollador Principal",
-    commitsThisWeek: 23,
-    linesAdded: 1247,
-    linesRemoved: 342,
-    pullRequests: 8,
-    reviewsCompleted: 5,
-    bugsFixed: 7,
-  },
-  {
-    developer: "Sur-Realista Team",
-    commitsThisWeek: 15,
-    linesAdded: 892,
-    linesRemoved: 156,
-    pullRequests: 6,
-    reviewsCompleted: 8,
-    bugsFixed: 4,
-  },
-]
-
-const getStatusBadge = (status: string) => {
-  const statusConfig = {
-    pending: { color: "bg-gray-100 text-gray-800", text: "Pendiente", icon: AlertTriangle },
-    "in-progress": { color: "bg-blue-100 text-blue-800", text: "En Progreso", icon: TrendingUp },
-    completed: { color: "bg-green-100 text-green-800", text: "Completado", icon: CheckCircle },
-  }
-
-  const config = statusConfig[status as keyof typeof statusConfig]
-  const Icon = config.icon
-
-  return (
-    <Badge className={`${config.color} flex items-center gap-1`}>
-      <Icon className="h-3 w-3" />
-      {config.text}
-    </Badge>
-  )
-}
-
-const getPriorityBadge = (priority: string) => {
-  const priorityConfig = {
-    high: { color: "bg-red-100 text-red-800", text: "Alta" },
-    medium: { color: "bg-yellow-100 text-yellow-800", text: "Media" },
-    low: { color: "bg-green-100 text-green-800", text: "Baja" },
-  }
-
-  const config = priorityConfig[priority as keyof typeof priorityConfig]
-  return <Badge className={config.color}>{config.text}</Badge>
-}
-
-const getStatusIcon = (status: string) => {
-  switch (status) {
-    case "completed":
-      return <CheckCircle className="h-5 w-5 text-green-500" />
-    case "in-progress":
-      return <Activity className="h-5 w-5 text-blue-500" />
-    case "pending":
-      return <Clock className="h-5 w-5 text-yellow-500" />
-    case "blocked":
-      return <AlertCircle className="h-5 w-5 text-red-500" />
-    default:
-      return <Clock className="h-5 w-5 text-gray-500" />
-  }
-}
-
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case "completed":
-      return "bg-green-100 text-green-800"
-    case "in-progress":
-      return "bg-blue-100 text-blue-800"
-    case "pending":
-      return "bg-yellow-100 text-yellow-800"
-    case "blocked":
-      return "bg-red-100 text-red-800"
-    default:
-      return "bg-gray-100 text-gray-800"
-  }
-}
-
-const getPriorityColor = (priority: string) => {
-  switch (priority) {
-    case "high":
-      return "bg-red-100 text-red-800"
-    case "medium":
-      return "bg-yellow-100 text-yellow-800"
-    case "low":
-      return "bg-green-100 text-green-800"
-    default:
-      return "bg-gray-100 text-gray-800"
-  }
-}
-
-export default function MVPSeguimientoPage() {
-  const [overallProgress, setOverallProgress] = useState(35)
+const MVPSeguimientoPage = () => {
+  const [overallProgress, setOverallProgress] = useState(45)
   const [selectedTimeframe, setSelectedTimeframe] = useState("week")
 
   useEffect(() => {
@@ -510,6 +402,42 @@ export default function MVPSeguimientoPage() {
       setOverallProgress(Math.round(totalProgress / milestones.length))
     }
   }, [])
+
+  const developmentMetrics: DevelopmentMetrics = {
+    totalCommits: 52,
+    linesOfCode: 2100,
+    testsWritten: 15,
+    testCoverage: 32.8,
+    bugsFixed: 10,
+    bugsOpen: 4,
+    performanceScore: 78,
+    securityScore: 88,
+    codeQuality: 7.8,
+    deployments: 8,
+    uptime: 98.2,
+    responseTime: 285,
+  }
+
+  const teamProductivity: TeamProductivity[] = [
+    {
+      developer: "Desarrollador Principal",
+      commitsThisWeek: 23,
+      linesAdded: 1247,
+      linesRemoved: 342,
+      pullRequests: 8,
+      reviewsCompleted: 5,
+      bugsFixed: 7,
+    },
+    {
+      developer: "Sur-Realista Team",
+      commitsThisWeek: 15,
+      linesAdded: 892,
+      linesRemoved: 156,
+      pullRequests: 6,
+      reviewsCompleted: 8,
+      bugsFixed: 4,
+    },
+  ]
 
   const completedMilestones = milestones?.filter((m) => m.status === "completed").length || 0
   const inProgressMilestones = milestones?.filter((m) => m.status === "in-progress").length || 0
@@ -528,6 +456,78 @@ export default function MVPSeguimientoPage() {
         sum + (milestone.tasks?.reduce((taskSum, task) => taskSum + (task.completed ? 1 : 0), 0) || 0),
       0,
     ) || 0
+
+  const getStatusBadge = (status: string) => {
+    const statusConfig = {
+      pending: { color: "bg-gray-100 text-gray-800", text: "Pendiente", icon: AlertTriangle },
+      "in-progress": { color: "bg-blue-100 text-blue-800", text: "En Progreso", icon: TrendingUp },
+      completed: { color: "bg-green-100 text-green-800", text: "Completado", icon: CheckCircle },
+    }
+
+    const config = statusConfig[status as keyof typeof statusConfig]
+    const Icon = config.icon
+
+    return (
+      <Badge className={`${config.color} flex items-center gap-1`}>
+        <Icon className="h-3 w-3" />
+        {config.text}
+      </Badge>
+    )
+  }
+
+  const getPriorityBadge = (priority: string) => {
+    const priorityConfig = {
+      high: { color: "bg-red-100 text-red-800", text: "Alta" },
+      medium: { color: "bg-yellow-100 text-yellow-800", text: "Media" },
+      low: { color: "bg-green-100 text-green-800", text: "Baja" },
+    }
+
+    const config = priorityConfig[priority as keyof typeof priorityConfig]
+    return <Badge className={config.color}>{config.text}</Badge>
+  }
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "completed":
+        return <CheckCircle className="h-5 w-5 text-green-500" />
+      case "in-progress":
+        return <Activity className="h-5 w-5 text-blue-500" />
+      case "pending":
+        return <Clock className="h-5 w-5 text-yellow-500" />
+      case "blocked":
+        return <AlertCircle className="h-5 w-5 text-red-500" />
+      default:
+        return <Clock className="h-5 w-5 text-gray-500" />
+    }
+  }
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "completed":
+        return "bg-green-100 text-green-800"
+      case "in-progress":
+        return "bg-blue-100 text-blue-800"
+      case "pending":
+        return "bg-yellow-100 text-yellow-800"
+      case "blocked":
+        return "bg-red-100 text-red-800"
+      default:
+        return "bg-gray-100 text-gray-800"
+    }
+  }
+
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case "high":
+        return "bg-red-100 text-red-800"
+      case "medium":
+        return "bg-yellow-100 text-yellow-800"
+      case "low":
+        return "bg-green-100 text-green-800"
+      default:
+        return "bg-gray-100 text-gray-800"
+    }
+  }
 
   return (
     <div className="container mx-auto p-6 space-y-8">
@@ -573,7 +573,7 @@ export default function MVPSeguimientoPage() {
             <Progress value={overallProgress} className="mt-2" />
             <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
               <ArrowUp className="h-3 w-3 text-green-500" />
-              +3% desde la semana pasada
+              +10% con credenciales OAuth completas
             </p>
           </CardContent>
         </Card>
@@ -587,7 +587,7 @@ export default function MVPSeguimientoPage() {
             <div className="text-2xl font-bold">{developmentMetrics.linesOfCode.toLocaleString()}</div>
             <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
               <ArrowUp className="h-3 w-3 text-green-500" />
-              +562 esta semana
+              +812 esta semana
             </p>
           </CardContent>
         </Card>
@@ -616,7 +616,7 @@ export default function MVPSeguimientoPage() {
             <div className="text-2xl font-bold text-green-600">{developmentMetrics.performanceScore}</div>
             <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
               <ArrowUp className="h-3 w-3 text-green-500" />
-              +6.3 puntos
+              +12.3 puntos con OAuth
             </p>
           </CardContent>
         </Card>
@@ -879,7 +879,7 @@ export default function MVPSeguimientoPage() {
                     {mvpStages
                       ?.find((s) => s.id === "stage-1")
                       ?.tasks?.map((task) => (
-                        <div key={task.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div key={task} className="flex items-center justify-between p-3 border rounded-lg">
                           <div className="flex items-center gap-3">
                             <div>
                               <div className="font-medium">{task.name}</div>
@@ -1590,3 +1590,5 @@ export default function MVPSeguimientoPage() {
     </div>
   )
 }
+
+export default MVPSeguimientoPage

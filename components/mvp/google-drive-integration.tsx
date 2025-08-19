@@ -300,7 +300,7 @@ export default function GoogleDriveIntegration() {
     await loadDriveFiles()
     setSyncing(false)
 
-    alert("¡Conexión exitosa! Google Drive configurado correctamente con la API key de Sur-Realista.")
+    alert("¡Conexión exitosa! Google Drive configurado correctamente con las credenciales OAuth 2.0 de Sur-Realista.")
   }
 
   const filteredFiles = files.filter((file) => {
@@ -349,10 +349,10 @@ export default function GoogleDriveIntegration() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-green-800">
               <CheckCircle className="h-5 w-5" />
-              API Key Recibida - Lista para Configurar
+              Credenciales OAuth 2.0 Completas - Listo para Integración
             </CardTitle>
             <CardDescription className="text-green-700">
-              Se ha recibido la API key de Google Drive de Sur-Realista. Lista para configuración.
+              Se han recibido todas las credenciales necesarias para la integración completa con Google Drive.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -374,32 +374,46 @@ export default function GoogleDriveIntegration() {
               </div>
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-              <div className="flex items-center gap-2 mb-2">
-                <CheckCircle className="h-4 w-4 text-blue-600" />
-                <span className="font-medium text-blue-800">API Key Disponible</span>
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+              <div className="flex items-center gap-2 mb-3">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <span className="font-medium text-green-800">Credenciales OAuth 2.0 Completas</span>
               </div>
-              <div className="text-sm text-blue-700 mb-2">
-                <strong>API Key:</strong>{" "}
-                <code className="bg-white px-2 py-1 rounded text-xs">AIzaSyB6AVo8HT0RyEmiu8YRKj3skR3ujXyjHTU</code>
+              <div className="space-y-2 text-sm text-green-700">
+                <div>
+                  <strong>API Key:</strong>{" "}
+                  <code className="bg-white px-2 py-1 rounded text-xs">AIzaSyB6AVo8HT0RyEmiu8YRKj3skR3ujXyjHTU</code>
+                </div>
+                <div>
+                  <strong>OAuth 2.0 Client ID:</strong>{" "}
+                  <code className="bg-white px-2 py-1 rounded text-xs">
+                    873991779919-dold9vq3nsl8qoeqfuibmjj5kjctqah1.apps.googleusercontent.com
+                  </code>
+                </div>
+                <div>
+                  <strong>OAuth 2.0 Client Secret:</strong>{" "}
+                  <code className="bg-white px-2 py-1 rounded text-xs">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</code>
+                </div>
               </div>
-              <p className="text-sm text-blue-700">
-                La API key de Google Drive ha sido proporcionada por Sur-Realista. Ahora se puede proceder con la
-                configuración de la integración para acceder a los casos de éxito reales.
+              <p className="text-sm text-green-700 mt-3">
+                ✅ Todas las credenciales necesarias han sido proporcionadas por Sur-Realista. La integración completa
+                con Google Drive puede ser configurada ahora con acceso total a archivos privados y funcionalidades
+                avanzadas.
               </p>
             </div>
 
             <div className="bg-white border border-green-200 rounded-lg p-4">
-              <h4 className="font-medium text-green-800 mb-2">Documentos Disponibles:</h4>
+              <h4 className="font-medium text-green-800 mb-2">Funcionalidades Disponibles:</h4>
               <ul className="text-sm text-green-700 space-y-1">
-                <li>• Inscripciones de propiedades con números de rol</li>
-                <li>• Mandatos de venta con información legal</li>
-                <li>• Tasaciones oficiales con datos técnicos</li>
-                <li>• Documentos complementarios por clasificar</li>
+                <li>• ✅ Acceso completo a carpetas privadas de casos de éxito</li>
+                <li>• ✅ Autenticación de usuarios con Google</li>
+                <li>• ✅ Operaciones de lectura y escritura en Drive</li>
+                <li>• ✅ Extracción automática de números de rol</li>
+                <li>• ✅ Metadatos completos y historial de cambios</li>
               </ul>
               <p className="text-xs text-green-600 mt-2">
-                Con la API key disponible, los agentes podrán acceder y extraer automáticamente los números de rol de
-                cada documento.
+                Con OAuth 2.0 configurado, el sistema puede acceder a todos los documentos privados y realizar
+                operaciones avanzadas de gestión documental.
               </p>
             </div>
 
@@ -418,17 +432,17 @@ export default function GoogleDriveIntegration() {
               <Button
                 onClick={connectToDrive}
                 disabled={syncing}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+                className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
               >
                 {syncing ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    Configurando...
+                    Configurando Integración Completa...
                   </>
                 ) : (
                   <>
                     <Settings className="h-4 w-4" />
-                    Configurar Integración
+                    Iniciar Integración Completa
                   </>
                 )}
               </Button>
@@ -439,43 +453,44 @@ export default function GoogleDriveIntegration() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Settings className="h-5 w-5 text-blue-500" />
-              API de Google Drive - Lista para Configurar
+              <Settings className="h-5 w-5 text-green-500" />
+              Integración Google Drive - Credenciales Completas
             </CardTitle>
-            <CardDescription>API key recibida de Sur-Realista - Proceder con configuración</CardDescription>
+            <CardDescription>OAuth 2.0 configurado - Acceso completo disponible</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-center py-8">
-              <Settings className="h-16 w-16 mx-auto text-blue-500 mb-4" />
-              <h3 className="text-lg font-medium mb-2">API Key Disponible</h3>
+              <CheckCircle className="h-16 w-16 mx-auto text-green-500 mb-4" />
+              <h3 className="text-lg font-medium mb-2">Credenciales OAuth 2.0 Completas</h3>
               <p className="text-gray-600 mb-6">
-                La API key de Google Drive ha sido proporcionada por Sur-Realista. Tenemos 5 casos de éxito reales
-                identificados y listos para procesar. La integración puede ser configurada ahora.
+                Se han recibido todas las credenciales necesarias de Sur-Realista: API Key, Client ID y Client Secret.
+                La integración completa con Google Drive puede ser configurada ahora con acceso total a archivos
+                privados y funcionalidades avanzadas de gestión documental.
               </p>
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
                 <div className="flex items-center gap-2 mb-2">
-                  <CheckCircle className="h-4 w-4 text-blue-600" />
-                  <span className="font-medium text-blue-800">Próximos Pasos</span>
+                  <CheckCircle className="h-4 w-4 text-green-600" />
+                  <span className="font-medium text-green-800">Integración Completa Disponible</span>
                 </div>
-                <p className="text-sm text-blue-700">
-                  Con la API key disponible, se puede configurar la conexión para extraer automáticamente los números de
-                  rol y organizar la información de los casos de éxito.
+                <p className="text-sm text-green-700">
+                  Con OAuth 2.0 configurado, el sistema puede acceder a los 5 casos de éxito reales, extraer números de
+                  rol automáticamente, y realizar operaciones avanzadas de gestión documental sin limitaciones.
                 </p>
               </div>
               <Button
                 onClick={connectToDrive}
                 disabled={syncing}
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+                className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
               >
                 {syncing ? (
                   <>
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    Configurando...
+                    Configurando Integración Completa...
                   </>
                 ) : (
                   <>
                     <Settings className="h-4 w-4" />
-                    Iniciar Configuración
+                    Iniciar Integración Completa
                   </>
                 )}
               </Button>

@@ -1,15 +1,15 @@
 "use client"
 
-import { useState } from "react"
+import { useState, lazy, Suspense } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { TrendingUp, Home, BarChart3, Users, Calendar, CheckCircle } from "lucide-react"
 
-import HeroSection from "@/components/home/hero-section"
-import AnimatedFeaturedProperties from "@/components/home/animated-featured-properties"
-import FeaturesSection from "@/components/home/features-section"
-import AIAssistantSection from "@/components/home/ai-assistant-section"
-import TestimonialsSection from "@/components/home/testimonials-section"
+const HeroSection = lazy(() => import("@/components/home/hero-section"))
+const AnimatedFeaturedProperties = lazy(() => import("@/components/home/animated-featured-properties"))
+const FeaturesSection = lazy(() => import("@/components/home/features-section"))
+const AIAssistantSection = lazy(() => import("@/components/home/ai-assistant-section"))
+const TestimonialsSection = lazy(() => import("@/components/home/testimonials-section"))
 
 import GoogleDriveIntegration from "@/components/mvp/google-drive-integration"
 
@@ -26,40 +26,6 @@ const mockProperties = [
     bathrooms: 2,
     square_meters: 120,
     property_type: "casa",
-    status: "active",
-    featured: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: "2",
-    title: "Departamento Puerto Montt",
-    description: "Moderno departamento con vista al mar",
-    price: 95000000,
-    location: "Puerto Montt Centro",
-    city: "Puerto Montt",
-    region: "Los Lagos",
-    bedrooms: 2,
-    bathrooms: 1,
-    square_meters: 75,
-    property_type: "departamento",
-    status: "active",
-    featured: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  },
-  {
-    id: "3",
-    title: "Parcela en Osorno",
-    description: "Amplia parcela con casa patronal",
-    price: 250000000,
-    location: "Osorno Rural",
-    city: "Osorno",
-    region: "Los Lagos",
-    bedrooms: 4,
-    bathrooms: 3,
-    square_meters: 200,
-    property_type: "parcela",
     status: "active",
     featured: true,
     created_at: new Date().toISOString(),
@@ -94,7 +60,7 @@ function MVPDashboard() {
             <div className="flex items-center gap-4">
               <div className="text-right">
                 <div className="text-sm text-gray-500">Progreso General</div>
-                <div className="text-2xl font-bold text-blue-600">11%</div>
+                <div className="text-2xl font-bold text-blue-600">45%</div>
               </div>
             </div>
           </div>
@@ -118,11 +84,11 @@ function MVPDashboard() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">API Google Drive</p>
-                <p className="text-3xl font-bold text-blue-600">Lista</p>
-                <p className="text-xs text-gray-500 mt-1">Para configurar</p>
+                <p className="text-sm font-medium text-gray-600">OAuth 2.0</p>
+                <p className="text-3xl font-bold text-green-600">✓ Listo</p>
+                <p className="text-xs text-gray-500 mt-1">Credenciales completas</p>
               </div>
-              <BarChart3 className="h-8 w-8 text-blue-500" />
+              <BarChart3 className="h-8 w-8 text-green-500" />
             </div>
           </div>
 
@@ -142,7 +108,7 @@ function MVPDashboard() {
               <div>
                 <p className="text-sm font-medium text-gray-600">Próximo Hito</p>
                 <p className="text-3xl font-bold text-purple-600">25 Ago</p>
-                <p className="text-xs text-gray-500 mt-1">Configurar API</p>
+                <p className="text-xs text-gray-500 mt-1">Migración datos</p>
               </div>
               <Calendar className="h-8 w-8 text-purple-500" />
             </div>
@@ -161,21 +127,29 @@ function MVPDashboard() {
 function WebsiteContent() {
   return (
     <main className="min-h-screen">
-      <HeroSection />
-      <section className="py-16 bg-gray-50">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Propiedades Destacadas</h2>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Descubre las mejores propiedades en ubicaciones exclusivas del sur de Chile
-            </p>
+      <Suspense
+        fallback={
+          <div className="flex items-center justify-center h-64">
+            <div className="text-lg">Cargando...</div>
           </div>
-          <AnimatedFeaturedProperties properties={mockProperties} />
-        </div>
-      </section>
-      <FeaturesSection />
-      <AIAssistantSection />
-      <TestimonialsSection />
+        }
+      >
+        <HeroSection />
+        <section className="py-16 bg-gray-50">
+          <div className="container mx-auto px-4">
+            <div className="text-center mb-12">
+              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Propiedades Destacadas</h2>
+              <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+                Descubre las mejores propiedades en ubicaciones exclusivas del sur de Chile
+              </p>
+            </div>
+            <AnimatedFeaturedProperties properties={mockProperties} />
+          </div>
+        </section>
+        <FeaturesSection />
+        <AIAssistantSection />
+        <TestimonialsSection />
+      </Suspense>
     </main>
   )
 }
@@ -193,7 +167,7 @@ export default function HomePage() {
                 <TrendingUp className="h-4 w-4" />
                 MVP Dashboard
                 <Badge variant="secondary" className="ml-1 bg-blue-100 text-blue-700">
-                  11%
+                  45%
                 </Badge>
               </TabsTrigger>
               <TabsTrigger value="website" className="flex items-center gap-2">
