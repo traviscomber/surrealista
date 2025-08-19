@@ -99,7 +99,7 @@ const mvpStages: MVPStage[] = [
     description: "Desarrollo de API de integración, interfaz web, migración y estandarización",
     duration: "Semanas 1-4 (2 semanas completadas de 4)",
     status: "in-progress",
-    progress: 35,
+    progress: 50,
     tasks: [
       {
         id: "api-integration",
@@ -116,7 +116,7 @@ const mvpStages: MVPStage[] = [
       {
         id: "migration",
         name: "Migración y Estandarización",
-        status: "in-progress",
+        status: "completed",
         priority: "medium",
       },
       {
@@ -129,6 +129,12 @@ const mvpStages: MVPStage[] = [
         id: "auth-system",
         name: "Sistema de Autenticación",
         status: "in-progress",
+        priority: "high",
+      },
+      {
+        id: "folder-standard",
+        name: "Definición Estándar de Carpetas (6 categorías)",
+        status: "completed",
         priority: "high",
       },
       {
@@ -146,7 +152,7 @@ const mvpStages: MVPStage[] = [
       {
         id: "folder-validation",
         name: "Validación de Estructura de Carpetas",
-        status: "pending",
+        status: "in-progress",
         priority: "medium",
       },
       {
@@ -1116,7 +1122,7 @@ const MVPSeguimientoPage = () => {
                           • <strong>Tiempo transcurrido:</strong> 2 semanas de 12
                         </li>
                         <li>
-                          • <strong>Progreso general:</strong> 35% de Etapa 1
+                          • <strong>Progreso general:</strong> 50% de Etapa 1
                         </li>
                         <li>
                           • <strong>Próximo hito:</strong> Finalizar Etapa 1

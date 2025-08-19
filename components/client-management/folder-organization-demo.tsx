@@ -19,8 +19,6 @@ import {
   Eye,
   Settings,
   Target,
-  Zap,
-  Clock,
   ChevronRight,
   ChevronDown,
 } from "lucide-react"
@@ -229,6 +227,191 @@ const clientFolderStructure: FolderStructure = {
   ],
 }
 
+const newStandardStructure: FolderStructure = {
+  name: "📁 ESTRUCTURA_ESTANDAR_SURREALISTA",
+  type: "folder",
+  icon: <FolderOpen className="w-4 h-4 text-blue-600" />,
+  status: "completo",
+  description: "Nueva estructura estándar definida en 2da reunión dev",
+  children: [
+    {
+      name: "📸 1_FOTOS",
+      type: "folder",
+      icon: <ImageIcon className="w-4 h-4 text-green-500" />,
+      status: "completo",
+      description: "Agrupa fotos campo en subcarpetas con nombre de fecha de creación",
+      children: [
+        {
+          name: "📅 2024-08-15_fotos_campo",
+          type: "folder",
+          icon: <ImageIcon className="w-4 h-4 text-green-500" />,
+          status: "completo",
+          children: [
+            {
+              name: "exterior_01.jpg",
+              type: "file",
+              icon: <ImageIcon className="w-4 h-4 text-purple-500" />,
+              lastModified: "15 Ago 2024",
+              size: "2.1 MB",
+            },
+            {
+              name: "interior_cocina.jpg",
+              type: "file",
+              icon: <ImageIcon className="w-4 h-4 text-purple-500" />,
+              lastModified: "15 Ago 2024",
+              size: "1.8 MB",
+            },
+          ],
+        },
+        {
+          name: "🚁 fotos_dron",
+          type: "folder",
+          icon: <ImageIcon className="w-4 h-4 text-blue-500" />,
+          status: "completo",
+          description: "Separar fotos dji en su carpeta dron, cel si es img",
+        },
+        {
+          name: "📱 seleccion_jorge",
+          type: "folder",
+          icon: <ImageIcon className="w-4 h-4 text-orange-500" />,
+          status: "completo",
+          description: "Crear su carpeta selección qué son las que usa jorge",
+        },
+      ],
+    },
+    {
+      name: "📄 2_DOCUMENTOS",
+      type: "folder",
+      icon: <FileText className="w-4 h-4 text-blue-500" />,
+      status: "completo",
+      description: "Crear carpetas organizadas por tipo de documento",
+      children: [
+        {
+          name: "📋 a_Antecedentes_titulo",
+          type: "folder",
+          icon: <FileText className="w-4 h-4 text-green-500" />,
+          status: "completo",
+        },
+        {
+          name: "💰 b_Tasacion_info_campo",
+          type: "folder",
+          icon: <FileText className="w-4 h-4 text-yellow-500" />,
+          status: "completo",
+        },
+        {
+          name: "🏢 c_Documentos_comerciales",
+          type: "folder",
+          icon: <FileText className="w-4 h-4 text-purple-500" />,
+          status: "completo",
+        },
+      ],
+    },
+    {
+      name: "💬 3_COMUNICACIONES",
+      type: "folder",
+      icon: <Users className="w-4 h-4 text-orange-500" />,
+      status: "completo",
+      description: "Gestión de interacciones con compradores y propietarios",
+      children: [
+        {
+          name: "🛒 a_interaccion_compradores",
+          type: "folder",
+          icon: <Users className="w-4 h-4 text-green-500" />,
+          status: "completo",
+        },
+        {
+          name: "🏠 b_interaccion_dueno_contacto",
+          type: "folder",
+          icon: <Users className="w-4 h-4 text-blue-500" />,
+          status: "completo",
+        },
+        {
+          name: "💡 c_sugerencia_clientes",
+          type: "folder",
+          icon: <Users className="w-4 h-4 text-purple-500" />,
+          status: "completo",
+          description:
+            "Ordenando con esta lógica para todas las comunicaciones wzp, mail, LinkedIn, Instagram, apollo.io",
+        },
+      ],
+    },
+    {
+      name: "📈 4_MARKETING",
+      type: "folder",
+      icon: <Target className="w-4 h-4 text-pink-500" />,
+      status: "completo",
+      description: "Crear carpeta marketing, Video, reel, publicaciones de portales",
+      children: [
+        {
+          name: "🎥 videos_promocionales",
+          type: "folder",
+          icon: <FileText className="w-4 h-4 text-red-500" />,
+          status: "completo",
+        },
+        {
+          name: "📱 reels_instagram",
+          type: "folder",
+          icon: <FileText className="w-4 h-4 text-purple-500" />,
+          status: "completo",
+        },
+        {
+          name: "🌐 publicaciones_portales",
+          type: "folder",
+          icon: <FileText className="w-4 h-4 text-blue-500" />,
+          status: "completo",
+        },
+      ],
+    },
+    {
+      name: "📋 5_PDF_SUELTO",
+      type: "folder",
+      icon: <FileText className="w-4 h-4 text-red-500" />,
+      status: "completo",
+      description:
+        "Más de un PDF suelto que es la presentación o las presentaciones que hacen a potenciales compradores. No va en carpeta",
+      children: [
+        {
+          name: "presentacion_propiedad_v1.pdf",
+          type: "file",
+          icon: <FileText className="w-4 h-4 text-red-500" />,
+          lastModified: "16 Ago 2025",
+          size: "3.2 MB",
+        },
+        {
+          name: "brochure_comercial.pdf",
+          type: "file",
+          icon: <FileText className="w-4 h-4 text-red-500" />,
+          lastModified: "14 Ago 2025",
+          size: "2.8 MB",
+        },
+      ],
+    },
+    {
+      name: "🗺️ 6_KMZ_SUELTO",
+      type: "folder",
+      icon: <FileText className="w-4 h-4 text-green-500" />,
+      status: "completo",
+      description: "Si hay más kmz los abre juntos",
+      children: [
+        {
+          name: "ubicacion_propiedad.kmz",
+          type: "file",
+          icon: <FileText className="w-4 h-4 text-green-500" />,
+          lastModified: "13 Ago 2025",
+          size: "15 KB",
+        },
+        {
+          name: "limites_terreno.kmz",
+          type: "file",
+          icon: <FileText className="w-4 h-4 text-green-500" />,
+          lastModified: "13 Ago 2025",
+          size: "12 KB",
+        },
+      ],
+    },
+  ],
+}
+
 const bestPractices = [
   {
     title: "Nomenclatura Consistente",
@@ -265,6 +448,45 @@ const bestPractices = [
     description: "Mantener copias de seguridad y sincronización automática",
     example: "Google Drive + Backup local semanal",
     icon: <Download className="w-5 h-5 text-blue-600" />,
+  },
+]
+
+const updatedBestPractices = [
+  {
+    title: "Estructura de 6 Carpetas Principales",
+    description: "Sistema estandarizado definido en 2da reunión dev con nomenclatura específica",
+    example: "1_FOTOS | 2_DOCUMENTOS | 3_COMUNICACIONES | 4_MARKETING | 5_PDF_SUELTO | 6_KMZ_SUELTO",
+    icon: <Settings className="w-5 h-5 text-blue-500" />,
+  },
+  {
+    title: "Organización de Fotos por Fecha",
+    description: "Subcarpetas con nombre de fecha de creación, separación de fotos drone y selección Jorge",
+    example: "2024-08-15_fotos_campo | fotos_dron | seleccion_jorge",
+    icon: <ImageIcon className="w-5 h-5 text-green-500" />,
+  },
+  {
+    title: "Documentos por Categorías",
+    description: "Tres subcategorías específicas con nomenclatura alfabética",
+    example: "a_Antecedentes_titulo | b_Tasacion_info_campo | c_Documentos_comerciales",
+    icon: <FileText className="w-5 h-5 text-purple-500" />,
+  },
+  {
+    title: "Comunicaciones Estructuradas",
+    description: "Organización por tipo de interacción con nomenclatura específica",
+    example: "a_interaccion_compradores | b_interaccion_dueno_contacto | c_sugerencia_clientes",
+    icon: <Users className="w-5 h-5 text-orange-500" />,
+  },
+  {
+    title: "Marketing y Promoción",
+    description: "Carpeta dedicada para videos, reels y publicaciones de portales",
+    example: "videos_promocionales | reels_instagram | publicaciones_portales",
+    icon: <Target className="w-5 h-5 text-pink-500" />,
+  },
+  {
+    title: "Archivos Sueltos Organizados",
+    description: "PDFs de presentación y archivos KMZ en carpetas específicas sin subcarpetas",
+    example: "5_PDF_SUELTO (presentaciones) | 6_KMZ_SUELTO (ubicaciones)",
+    icon: <FolderOpen className="w-5 h-5 text-green-600" />,
   },
 ]
 
@@ -357,115 +579,58 @@ function FolderOrganizationDemo() {
     <div className="space-y-6">
       {/* Header Principal */}
       <div className="text-center space-y-4 mb-8">
-        <div className="inline-flex items-center gap-2 bg-green-50 px-4 py-2 rounded-full border border-green-200">
-          <CheckCircle className="w-5 h-5 text-green-600" />
-          <span className="text-sm font-medium text-green-700">Etapa 1 - 5 Casos de Éxito Identificados</span>
+        <div className="inline-flex items-center gap-2 bg-blue-50 px-4 py-2 rounded-full border border-blue-200">
+          <Settings className="w-5 h-5 text-blue-600" />
+          <span className="text-sm font-medium text-blue-700">Nueva Estructura - 2da Reunión Dev</span>
         </div>
-        <h1 className="text-4xl font-bold text-gray-900">Organización Profesional de Carpetas</h1>
+        <h1 className="text-4xl font-bold text-gray-900">Estructura Estandarizada Sur-Realista</h1>
         <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-          Sistema de organización recomendado para los casos de éxito reales identificados en Google Drive
+          Sistema de organización de 6 carpetas principales definido en la segunda reunión de desarrollo
         </p>
-        <div className="flex items-center justify-center gap-4 text-sm text-gray-500">
-          <div className="flex items-center gap-1">
-            <CheckCircle className="w-4 h-4 text-green-500" />
-            <span>5 Casos Reales</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Target className="w-4 h-4" />
-            <span>Mejores Prácticas</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Clock className="w-4 h-4 text-orange-500" />
-            <span>API Pendiente</span>
-          </div>
-        </div>
 
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 max-w-4xl mx-auto">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-4xl mx-auto">
           <div className="flex items-center gap-2 mb-2">
-            <CheckCircle className="h-5 w-5 text-green-600" />
-            <span className="font-medium text-green-800">Casos de Éxito Reales Disponibles</span>
+            <Settings className="h-5 w-5 text-blue-600" />
+            <span className="font-medium text-blue-800">Nueva Estructura Definida - 2da Reunión Dev</span>
           </div>
-          <p className="text-sm text-green-700 mb-3">
-            Juan Navarro ha compartido 5 carpetas de casos de éxito reales que contienen inscripciones, mandatos de
-            venta y tasaciones. Los números de rol están contenidos en estos documentos y serán extraídos una vez
-            configurada la API de Google Drive.
+          <p className="text-sm text-blue-700 mb-3">
+            Lógica de carpetas por campo: Crear 6 carpetas con sus subcarpetas. Sistema estandarizado para organización
+            de fotos por fecha, documentos por categorías, comunicaciones estructuradas, marketing dedicado y archivos
+            sueltos organizados.
           </p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
             <div className="bg-white p-2 rounded border">
-              <strong>Fotos:</strong> 3 carpetas organizadas
+              <strong>1_FOTOS:</strong> Por fecha + drone + selección
             </div>
             <div className="bg-white p-2 rounded border">
-              <strong>Ubicación:</strong> Archivo KMZ
+              <strong>2_DOCUMENTOS:</strong> 3 subcategorías a,b,c
             </div>
             <div className="bg-white p-2 rounded border">
-              <strong>Documentos:</strong> Fundo + Órdenes
+              <strong>3_COMUNICACIONES:</strong> Compradores + dueño + sugerencias
             </div>
             <div className="bg-white p-2 rounded border">
-              <strong>Referencias:</strong> PDFs fotográficos
-            </div>
-          </div>
-          <div className="mt-3">
-            <Button
-              size="sm"
-              variant="outline"
-              className="text-green-700 border-green-300 hover:bg-green-100 bg-transparent"
-              onClick={() =>
-                window.open("https://drive.google.com/drive/folders/11JY7ME6h72wrjud9bYwduqYSbFRcH7i5", "_blank")
-              }
-            >
-              <FolderOpen className="w-4 h-4 mr-2" />
-              Ver Casos de Éxito en Drive
-            </Button>
-          </div>
-        </div>
-
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 max-w-4xl mx-auto">
-          <div className="flex items-center gap-2 mb-2">
-            <CheckCircle className="h-5 w-5 text-green-600" />
-            <span className="font-medium text-green-800">Estructura Real: Valdivia 142 has Teresa F...</span>
-          </div>
-          <p className="text-sm text-green-700 mb-3">
-            Estructura real identificada: carpetas de fotos organizadas por fecha (fotos, fotos cel, Fotos enero 2024),
-            archivos KMZ para ubicación (Campo Iñipulli 140_has.kmz), documentos de fundo comprimidos, órdenes de venta
-            en diferentes formatos (.docx y .pdf), y referencias fotográficas. Esta estructura servirá como template
-            para organizar futuros casos.
-          </p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-            <div className="bg-white p-2 rounded border">
-              <strong>Fotos:</strong> 3 carpetas organizadas
+              <strong>4_MARKETING:</strong> Videos + reels + portales
             </div>
             <div className="bg-white p-2 rounded border">
-              <strong>Ubicación:</strong> Archivo KMZ
+              <strong>5_PDF_SUELTO:</strong> Presentaciones directas
             </div>
             <div className="bg-white p-2 rounded border">
-              <strong>Documentos:</strong> Fundo + Órdenes
+              <strong>6_KMZ_SUELTO:</strong> Archivos ubicación
             </div>
-            <div className="bg-white p-2 rounded border">
-              <strong>Referencias:</strong> PDFs fotográficos
-            </div>
-          </div>
-          <div className="mt-3">
-            <Button
-              size="sm"
-              variant="outline"
-              className="text-green-700 border-green-300 hover:bg-green-100 bg-transparent"
-              onClick={() =>
-                window.open("https://drive.google.com/drive/folders/11JY7ME6h72wrjud9bYwduqYSbFRcH7i5", "_blank")
-              }
-            >
-              <FolderOpen className="w-4 h-4 mr-2" />
-              Ver Estructura Real en Drive
-            </Button>
           </div>
         </div>
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="structure" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="structure" className="flex items-center gap-2">
+      <Tabs defaultValue="new-structure" className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="new-structure" className="flex items-center gap-2">
+            <Settings className="w-4 h-4" />
+            Nueva Estructura
+          </TabsTrigger>
+          <TabsTrigger value="comparison" className="flex items-center gap-2">
             <FolderOpen className="w-4 h-4" />
-            Estructura
+            Comparación
           </TabsTrigger>
           <TabsTrigger value="practices" className="flex items-center gap-2">
             <Target className="w-4 h-4" />
@@ -477,106 +642,100 @@ function FolderOrganizationDemo() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Folder Structure Tab */}
-        <TabsContent value="structure" className="space-y-4">
+        <TabsContent value="new-structure" className="space-y-4">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <FolderOpen className="w-5 h-5" />
-                Estructura Jerárquica Recomendada
+                <Settings className="w-5 h-5" />
+                Estructura Estandarizada - 6 Carpetas Principales
               </CardTitle>
               <CardDescription>
-                Sistema de organización por temperatura de cliente con estructura estandarizada. Incluye ejemplos de
-                casos de éxito (verde) vs carpetas incompletas (rojo) para identificar fácilmente qué necesita
-                completarse.
+                Sistema definido en la 2da reunión dev. Lógica de carpetas por campo con nomenclatura específica y
+                subcarpetas organizadas.
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2 max-h-96 overflow-y-auto">{renderFolderTree(clientFolderStructure)}</div>
-              <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-                <h4 className="font-medium text-sm mb-2">Leyenda de Estados:</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
-                  <div className="flex items-center gap-2">
-                    <Badge className="bg-green-100 text-green-800">Completo</Badge>
-                    <span className="text-gray-600">Cumple estándar de caso de éxito</span>
+              <div className="space-y-2 max-h-96 overflow-y-auto">{renderFolderTree(newStandardStructure)}</div>
+              <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                <h4 className="font-medium text-sm mb-2">Reglas de Nomenclatura:</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                  <div>
+                    • <strong>Fotos:</strong> Fecha_fotos_campo, fotos_dron, seleccion_jorge
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge className="bg-yellow-100 text-yellow-800">Parcial</Badge>
-                    <span className="text-gray-600">Faltan algunos documentos</span>
+                  <div>
+                    • <strong>Documentos:</strong> Prefijos a_, b_, c_ para orden alfabético
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Badge className="bg-red-100 text-red-800">Pendiente</Badge>
-                    <span className="text-gray-600">Requiere organización completa</span>
+                  <div>
+                    • <strong>Comunicaciones:</strong> Por tipo de interacción (compradores, dueño, clientes)
+                  </div>
+                  <div>
+                    • <strong>Marketing:</strong> Videos, reels, publicaciones separadas
+                  </div>
+                  <div>
+                    • <strong>PDFs Sueltos:</strong> Presentaciones directas sin subcarpetas
+                  </div>
+                  <div>
+                    • <strong>KMZ Sueltos:</strong> Archivos de ubicación agrupados
                   </div>
                 </div>
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card className="border-l-4 border-l-green-500">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-green-50 rounded-lg">
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-green-600">1</div>
-                    <div className="text-sm text-gray-600">Casos de Éxito</div>
-                    <div className="text-xs text-gray-400">Estructura completa</div>
-                  </div>
+        <TabsContent value="comparison" className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-red-600">
+                  <FolderOpen className="w-5 h-5" />
+                  Estructura Anterior (Casos Reales)
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 text-sm">
+                  <div>📸 fotos</div>
+                  <div>📱 fotos cel</div>
+                  <div>📅 Fotos enero 2024</div>
+                  <div>🗺️ Campo Iñipulli 140_has.kmz</div>
+                  <div>📄 Fundo Iñipulli_140_110124_compressed.pdf</div>
+                  <div>📋 Orden de Venta Iñipulli.docx</div>
+                </div>
+                <div className="mt-3 p-2 bg-red-50 rounded text-xs text-red-700">
+                  ❌ Sin estructura estandarizada, nombres inconsistentes
                 </div>
               </CardContent>
             </Card>
-            <Card className="border-l-4 border-l-red-500">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-red-50 rounded-lg">
-                    <Zap className="w-5 h-5 text-red-500" />
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-red-600">2</div>
-                    <div className="text-sm text-gray-600">Carpetas Incompletas</div>
-                    <div className="text-xs text-gray-400">Requieren organización</div>
-                  </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-green-600">
+                  <Settings className="w-5 h-5" />
+                  Nueva Estructura Estandarizada
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 text-sm">
+                  <div>📸 1_FOTOS/2024-08-15_fotos_campo</div>
+                  <div>📸 1_FOTOS/fotos_dron</div>
+                  <div>📸 1_FOTOS/seleccion_jorge</div>
+                  <div>📄 2_DOCUMENTOS/a_Antecedentes_titulo</div>
+                  <div>📄 2_DOCUMENTOS/b_Tasacion_info_campo</div>
+                  <div>💬 3_COMUNICACIONES/a_interaccion_compradores</div>
+                  <div>📋 5_PDF_SUELTO/presentacion_propiedad_v1.pdf</div>
+                  <div>🗺️ 6_KMZ_SUELTO/ubicacion_propiedad.kmz</div>
                 </div>
-              </CardContent>
-            </Card>
-            <Card className="border-l-4 border-l-yellow-500">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-yellow-50 rounded-lg">
-                    <Target className="w-5 h-5 text-yellow-500" />
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-yellow-600">2</div>
-                    <div className="text-sm text-gray-600">Clientes Tibios</div>
-                    <div className="text-xs text-gray-400">De casos reales</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-l-4 border-l-blue-500">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-blue-50 rounded-lg">
-                    <FolderOpen className="w-5 h-5 text-blue-500" />
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-blue-600">1</div>
-                    <div className="text-sm text-gray-600">Clientes Fríos</div>
-                    <div className="text-xs text-gray-400">De casos reales</div>
-                  </div>
+                <div className="mt-3 p-2 bg-green-50 rounded text-xs text-green-700">
+                  ✅ Estructura consistente, fácil navegación, escalable
                 </div>
               </CardContent>
             </Card>
           </div>
         </TabsContent>
 
-        {/* Best Practices Tab */}
         <TabsContent value="practices" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {bestPractices.map((practice, index) => (
+            {updatedBestPractices.map((practice, index) => (
               <Card key={index}>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-lg">
@@ -595,7 +754,7 @@ function FolderOrganizationDemo() {
           </div>
         </TabsContent>
 
-        {/* Templates Tab */}
+        {/* Templates Tab - keeping existing */}
         <TabsContent value="templates" className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             <Card>
