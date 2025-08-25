@@ -21,9 +21,8 @@ import {
   RefreshCw,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { RealDriveService } from "@/lib/google-drive/real-drive-service"
 
-let realDriveService: RealDriveService | null = null
+let realDriveService: any = null
 
 function FolderCard({ folder, viewMode }: { folder: any; viewMode: "grid" | "list" }) {
   const getStatusColor = (status: string) => {
@@ -144,10 +143,24 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (typeof window !== "undefined" && !realDriveService) {
-      realDriveService = new RealDriveService()
+    const initializeService = async () => {
+      if (typeof window !== "undefined" && !realDriveService) {
+        try {
+          const { RealDriveService } = await import("@/lib/google-drive/real-drive-service")
+          realDriveService = new RealDriveService()
+          await loadRealData()
+        } catch (err) {
+          console.error("[v0] Error loading drive service:", err)
+          setError("Error al cargar el servicio de Google Drive")
+          setLoading(false)
+        }
+      } else if (typeof window === "undefined") {
+        setLoading(false)
+        setError("Servicio no disponible en el servidor")
+      }
     }
-    loadRealData()
+
+    initializeService()
   }, [])
 
   const loadRealData = async () => {
@@ -201,8 +214,18 @@ export default function HomePage() {
 
   const handleAuthenticate = async () => {
     if (!realDriveService) {
-      setError("Servicio no disponible")
-      return
+      if (typeof window !== "undefined") {
+        try {
+          const { RealDriveService } = await import("@/lib/google-drive/real-drive-service")
+          realDriveService = new RealDriveService()
+        } catch (err) {
+          setError("Error al cargar el servicio")
+          return
+        }
+      } else {
+        setError("Servicio no disponible")
+        return
+      }
     }
 
     try {
