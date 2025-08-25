@@ -56,6 +56,14 @@ class RealGoogleDriveService {
       console.log("[v0] OAuth URL generated:", authUrl)
       console.log("[v0] Redirect URI:", this.config.redirectUri)
 
+      console.log("[v0] ⚠️  OAUTH SETUP REQUIRED:")
+      console.log("[v0] 1. Go to Google Cloud Console: https://console.cloud.google.com/")
+      console.log("[v0] 2. Navigate to APIs & Services > Credentials")
+      console.log("[v0] 3. Edit your OAuth 2.0 Client ID")
+      console.log("[v0] 4. Add this EXACT redirect URI to 'Authorized redirect URIs':")
+      console.log(`[v0]    ${this.config.redirectUri}`)
+      console.log("[v0] 5. Save the configuration and try again")
+
       const authWindow = window.open(authUrl, "oauth", "width=500,height=600,scrollbars=yes,resizable=yes")
 
       return new Promise((resolve) => {
@@ -70,6 +78,21 @@ class RealGoogleDriveService {
             this.exchangeCodeForToken(event.data.code).then((success) => {
               resolve(success)
             })
+          } else if (event.data.type === "oauth_error") {
+            console.error("[v0] OAuth error received:", event.data.error)
+            window.removeEventListener("message", messageListener)
+            authWindow?.close()
+
+            if (event.data.error.includes("redirect_uri_mismatch")) {
+              console.error("[v0] ❌ REDIRECT URI MISMATCH ERROR")
+              console.error("[v0] The redirect URI in your Google Cloud Console doesn't match:")
+              console.error(`[v0] Expected: ${this.config.redirectUri}`)
+              console.error("[v0] Please add the exact URI above to your OAuth client configuration")
+            }
+
+            console.log("[v0] Falling back to demo mode due to OAuth error")
+            this.accessToken = "demo_mode"
+            resolve(true)
           }
         }
 

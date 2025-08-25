@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation"
 export default function AuthCallback() {
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading")
   const [message, setMessage] = useState("")
+  const [instructions, setInstructions] = useState("")
   const searchParams = useSearchParams()
 
   useEffect(() => {
@@ -14,7 +15,37 @@ export default function AuthCallback() {
 
     if (error) {
       setStatus("error")
-      setMessage(`Authentication failed: ${error}`)
+
+      if (error === "redirect_uri_mismatch") {
+        setMessage("OAuth Configuration Error: Redirect URI Mismatch")
+        setInstructions(`
+          To fix this error, you need to add the following redirect URI to your Google Cloud Console:
+          
+          ${window.location.origin}/auth/callback
+          
+          Steps:
+          1. Go to Google Cloud Console (console.cloud.google.com)
+          2. Navigate to APIs & Services > Credentials
+          3. Edit your OAuth 2.0 Client ID
+          4. Add the exact URI above to 'Authorized redirect URIs'
+          5. Save and try again
+        `)
+      } else {
+        setMessage(`Authentication failed: ${error}`)
+        setInstructions("Please check your OAuth configuration and try again.")
+      }
+
+      if (window.opener) {
+        window.opener.postMessage(
+          {
+            type: "oauth_error",
+            error: error,
+            redirectUri: `${window.location.origin}/auth/callback`,
+          },
+          "*",
+        )
+      }
+
       return
     }
 
@@ -23,6 +54,7 @@ export default function AuthCallback() {
     } else {
       setStatus("error")
       setMessage("No authorization code received")
+      setInstructions("The OAuth flow did not complete successfully.")
     }
   }, [searchParams])
 
@@ -52,12 +84,13 @@ export default function AuthCallback() {
       console.error("[v0] Error handling auth code:", error)
       setStatus("error")
       setMessage("Failed to process authentication")
+      setInstructions("An unexpected error occurred during authentication processing.")
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6">
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="max-w-2xl w-full bg-white rounded-lg shadow-md p-6">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Google Drive Authentication</h1>
 
@@ -86,7 +119,15 @@ export default function AuthCallback() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </div>
-              <p className="text-red-600 font-medium">{message}</p>
+              <p className="text-red-600 font-medium mb-4">{message}</p>
+
+              {instructions && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-left max-w-lg">
+                  <h3 className="font-semibold text-yellow-800 mb-2">Configuration Required:</h3>
+                  <pre className="text-sm text-yellow-700 whitespace-pre-wrap font-mono">{instructions}</pre>
+                </div>
+              )}
+
               <button
                 onClick={() => window.close()}
                 className="mt-4 px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
