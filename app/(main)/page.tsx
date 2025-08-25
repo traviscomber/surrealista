@@ -23,7 +23,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { RealDriveService } from "@/lib/google-drive/real-drive-service"
 
-const realDriveService = new RealDriveService()
+let realDriveService: RealDriveService | null = null
 
 function FolderCard({ folder, viewMode }: { folder: any; viewMode: "grid" | "list" }) {
   const getStatusColor = (status: string) => {
@@ -144,10 +144,19 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (typeof window !== "undefined" && !realDriveService) {
+      realDriveService = new RealDriveService()
+    }
     loadRealData()
   }, [])
 
   const loadRealData = async () => {
+    if (typeof window === "undefined" || !realDriveService) {
+      setLoading(false)
+      setError("Servicio no disponible en el servidor")
+      return
+    }
+
     try {
       setLoading(true)
       setError(null)
@@ -191,6 +200,11 @@ export default function HomePage() {
   }
 
   const handleAuthenticate = async () => {
+    if (!realDriveService) {
+      setError("Servicio no disponible")
+      return
+    }
+
     try {
       await realDriveService.authenticate()
       await loadRealData()
