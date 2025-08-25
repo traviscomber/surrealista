@@ -179,6 +179,36 @@ const mvpStages: MVPStage[] = [
         status: "pending",
         priority: "low",
       },
+      {
+        id: "data-export",
+        name: "Sistema de Exportación de Datos",
+        status: "pending",
+        priority: "medium",
+      },
+      {
+        id: "search-functionality",
+        name: "Funcionalidad de Búsqueda Avanzada",
+        status: "pending",
+        priority: "medium",
+      },
+      {
+        id: "duplicate-detection",
+        name: "Detección de Archivos Duplicados",
+        status: "pending",
+        priority: "low",
+      },
+      {
+        id: "admin-dashboard",
+        name: "Dashboard Administrativo Completo",
+        status: "pending",
+        priority: "medium",
+      },
+      {
+        id: "user-permissions",
+        name: "Sistema de Permisos de Usuario",
+        status: "pending",
+        priority: "low",
+      },
     ],
   },
   {
@@ -258,6 +288,24 @@ const mvpStages: MVPStage[] = [
       {
         id: "user-training-2",
         name: "Capacitación de Usuarios Avanzada",
+        status: "pending",
+        priority: "medium",
+      },
+      {
+        id: "automated-tagging",
+        name: "Etiquetado Automático de Documentos",
+        status: "pending",
+        priority: "medium",
+      },
+      {
+        id: "document-comparison",
+        name: "Comparación de Documentos",
+        status: "pending",
+        priority: "low",
+      },
+      {
+        id: "workflow-automation",
+        name: "Automatización de Flujos de Trabajo",
         status: "pending",
         priority: "medium",
       },
@@ -348,6 +396,24 @@ const mvpStages: MVPStage[] = [
         name: "Capacitación de Usuarios Etapa 3",
         status: "pending",
         priority: "medium",
+      },
+      {
+        id: "lead-nurturing",
+        name: "Sistema de Nutrición de Leads",
+        status: "pending",
+        priority: "medium",
+      },
+      {
+        id: "communication-history",
+        name: "Historial de Comunicaciones",
+        status: "pending",
+        priority: "medium",
+      },
+      {
+        id: "appointment-scheduling",
+        name: "Sistema de Agendamiento de Citas",
+        status: "pending",
+        priority: "low",
       },
     ],
   },
@@ -1128,16 +1194,16 @@ const MVPSeguimientoPage = () => {
                       <h4 className="font-medium text-gray-700 mb-2">Progreso Actual</h4>
                       <ul className="text-sm space-y-1 text-gray-600">
                         <li>
-                          • <strong>Tiempo transcurrido:</strong> 2 semanas de 12
+                          • <strong>Tiempo transcurrido:</strong> 3 semanas de 12
                         </li>
                         <li>
-                          • <strong>Progreso general:</strong> 50% de Etapa 1
+                          • <strong>Progreso general:</strong> 75% de Etapa 1
                         </li>
                         <li>
                           • <strong>Próximo hito:</strong> Finalizar Etapa 1
                         </li>
                         <li>
-                          • <strong>Tiempo restante:</strong> 10 semanas
+                          • <strong>Tiempo restante:</strong> 9 semanas
                         </li>
                       </ul>
                     </div>
@@ -1579,7 +1645,6 @@ const MVPSeguimientoPage = () => {
                 <div className="flex items-center gap-4 mt-2 text-xs text-green-600">
                   <span>Completado: 16 Ago 2025</span>
                   <span>Progreso: 100%</span>
-                  <span>Estado: Activo</span>
                 </div>
               </div>
             </div>
