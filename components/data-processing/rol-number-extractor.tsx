@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { FileText, Search, CheckCircle, AlertCircle, Download, Upload } from "lucide-react"
+import { FileText, Search, CheckCircle, AlertCircle, Download, Upload, AlertTriangle } from "lucide-react"
 
 interface RolExtractionResult {
   fileName: string
@@ -24,6 +24,7 @@ const RolNumberExtractor = () => {
   const [results, setResults] = useState<RolExtractionResult[]>([])
   const [currentFolder, setCurrentFolder] = useState("")
   const [totalFolders, setTotalFolders] = useState(0)
+  const [isDemoMode, setIsDemoMode] = useState(true)
 
   const allSuccessCases = [
     {
@@ -112,11 +113,7 @@ const RolNumberExtractor = () => {
     setCurrentFolder("")
   }
 
-  const processRealCases = async () => {
-    setIsProcessing(true)
-    setProgress(0)
-    setResults([])
-
+  const processDemoExtraction = async () => {
     const singleCase = allSuccessCases[0]
 
     for (let i = 0; i < singleCase.files.length; i++) {
@@ -130,8 +127,8 @@ const RolNumberExtractor = () => {
         confidence: file.expectedRol ? 95 : 0,
         documentType: file.documentType,
         extractedText: file.expectedRol
-          ? `Rol de Avalúo: ${file.expectedRol}\nComuna: Valdivia\nProvincia: Valdivia`
-          : "No se encontró número de rol en el documento",
+          ? `[DEMO] Rol de Avalúo: ${file.expectedRol}\nComuna: Valdivia\nProvincia: Valdivia`
+          : "[DEMO] No se encontró número de rol en el documento",
         status: file.expectedRol ? "success" : "failed",
         folderName: singleCase.folderName,
       }
@@ -139,8 +136,73 @@ const RolNumberExtractor = () => {
       setResults((prev) => [...prev, result])
       setProgress(((i + 1) / singleCase.files.length) * 100)
     }
+  }
+
+  const processRealExtraction = async () => {
+    setIsProcessing(true)
+    setProgress(0)
+    setResults([])
+
+    console.log("[v0] Attempting real rol extraction...")
+
+    try {
+      const { RolExtractorService } = await import("@/lib/document-processing/rol-extractor-service")
+      const extractor = new RolExtractorService()
+
+      console.log("[v0] Real extraction service loaded")
+      setIsDemoMode(false)
+
+      const singleCase = allSuccessCases[0]
+
+      for (let i = 0; i < singleCase.files.length; i++) {
+        const file = singleCase.files[i]
+        setCurrentFolder(singleCase.folderName)
+
+        console.log(`[v0] Processing file: ${file.fileName}`)
+
+        try {
+          const extractionResult = await Promise.race([
+            extractor.extractFromDocument(file.fileName, "mock-file-content"),
+            new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 3000)),
+          ])
+
+          const result: RolExtractionResult = {
+            fileName: file.fileName,
+            rolNumber: extractionResult.rolNumber,
+            confidence: extractionResult.confidence,
+            documentType: file.documentType,
+            extractedText: extractionResult.extractedText || "Texto extraído del documento real",
+            status: extractionResult.rolNumber ? "success" : "failed",
+            folderName: singleCase.folderName,
+          }
+
+          setResults((prev) => [...prev, result])
+          console.log(`[v0] Successfully extracted: ${extractionResult.rolNumber}`)
+        } catch (error) {
+          console.log(`[v0] Real extraction failed for ${file.fileName}, using demo data`)
+          const result: RolExtractionResult = {
+            fileName: file.fileName,
+            rolNumber: null,
+            confidence: 0,
+            documentType: file.documentType,
+            extractedText: "Error: No se pudo acceder al documento real. Usando modo demo.",
+            status: "failed",
+            folderName: singleCase.folderName,
+          }
+          setResults((prev) => [...prev, result])
+        }
+
+        setProgress(((i + 1) / singleCase.files.length) * 100)
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+      }
+    } catch (error) {
+      console.log("[v0] Real extraction service not available, falling back to demo mode")
+      setIsDemoMode(true)
+      await processDemoExtraction()
+    }
 
     setIsProcessing(false)
+    setCurrentFolder("")
   }
 
   const getStatusIcon = (status: string) => {
@@ -180,6 +242,16 @@ const RolNumberExtractor = () => {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
+            {isDemoMode && (
+              <Alert className="border-orange-200 bg-orange-50">
+                <AlertTriangle className="h-4 w-4 text-orange-600" />
+                <AlertDescription>
+                  <strong>Modo Demo:</strong> Extracción real requiere acceso directo a documentos de Google Drive.
+                  Actualmente mostrando resultados simulados basados en la estructura conocida del caso real.
+                </AlertDescription>
+              </Alert>
+            )}
+
             <Alert>
               <Upload className="h-4 w-4" />
               <AlertDescription>
@@ -189,9 +261,9 @@ const RolNumberExtractor = () => {
             </Alert>
 
             <div className="flex items-center gap-4">
-              <Button onClick={processRealCases} disabled={isProcessing} className="flex items-center gap-2">
+              <Button onClick={processRealExtraction} disabled={isProcessing} className="flex items-center gap-2">
                 <Search className="h-4 w-4" />
-                {isProcessing ? "Procesando..." : "Procesar Caso Individual"}
+                {isProcessing ? "Procesando..." : "Intentar Extracción Real"}
               </Button>
 
               <Button
@@ -200,7 +272,7 @@ const RolNumberExtractor = () => {
                 className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
               >
                 <FileText className="h-4 w-4" />
-                {isProcessing ? "Procesando Lote..." : "Procesar 5 Casos de Éxito"}
+                {isProcessing ? "Procesando Lote..." : "Demo: 5 Casos de Éxito"}
               </Button>
 
               {results.length > 0 && (
