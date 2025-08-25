@@ -1,0 +1,102 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import { useSearchParams } from "next/navigation"
+
+export default function AuthCallback() {
+  const [status, setStatus] = useState<"loading" | "success" | "error">("loading")
+  const [message, setMessage] = useState("")
+  const searchParams = useSearchParams()
+
+  useEffect(() => {
+    const code = searchParams.get("code")
+    const error = searchParams.get("error")
+
+    if (error) {
+      setStatus("error")
+      setMessage(`Authentication failed: ${error}`)
+      return
+    }
+
+    if (code) {
+      handleAuthCode(code)
+    } else {
+      setStatus("error")
+      setMessage("No authorization code received")
+    }
+  }, [searchParams])
+
+  const handleAuthCode = async (code: string) => {
+    try {
+      console.log("[v0] Received OAuth code:", code)
+
+      // Store the code in localStorage for the parent window to access
+      if (typeof window !== "undefined") {
+        localStorage.setItem("oauth_code", code)
+        localStorage.setItem("oauth_timestamp", Date.now().toString())
+
+        // Notify parent window
+        if (window.opener) {
+          window.opener.postMessage({ type: "oauth_success", code }, "*")
+        }
+      }
+
+      setStatus("success")
+      setMessage("Authentication successful! You can close this window.")
+
+      // Auto-close after 2 seconds
+      setTimeout(() => {
+        window.close()
+      }, 2000)
+    } catch (error) {
+      console.error("[v0] Error handling auth code:", error)
+      setStatus("error")
+      setMessage("Failed to process authentication")
+    }
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Google Drive Authentication</h1>
+
+          {status === "loading" && (
+            <div className="flex flex-col items-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
+              <p className="text-gray-600">Processing authentication...</p>
+            </div>
+          )}
+
+          {status === "success" && (
+            <div className="flex flex-col items-center">
+              <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <p className="text-green-600 font-medium">{message}</p>
+            </div>
+          )}
+
+          {status === "error" && (
+            <div className="flex flex-col items-center">
+              <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center mb-4">
+                <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </div>
+              <p className="text-red-600 font-medium">{message}</p>
+              <button
+                onClick={() => window.close()}
+                className="mt-4 px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+              >
+                Close Window
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}

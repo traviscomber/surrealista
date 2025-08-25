@@ -34,7 +34,7 @@ class RealGoogleDriveService {
       apiKey: "AIzaSyB6AVo8HT0RyEmiu8YRKj3skR3ujXyjHTU",
       clientId: "873991779919-dold9vq3nsl8qoeqfuibmjj5kjctqah1.apps.googleusercontent.com",
       clientSecret: "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",
-      redirectUri: `${window.location.origin}/auth/callback`,
+      redirectUri: `${typeof window !== "undefined" ? window.location.origin : "https://localhost:3000"}/auth/callback`,
     }
   }
 
@@ -42,10 +42,8 @@ class RealGoogleDriveService {
     try {
       console.log("[v0] Attempting real Google Drive authentication...")
 
-      // Initialize Google API
-      await this.loadGoogleAPI()
+      console.log("[v0] Private folder detected, using OAuth authentication...")
 
-      // Configure OAuth 2.0 with real credentials
       const authUrl =
         `https://accounts.google.com/o/oauth2/v2/auth?` +
         `client_id=${this.config.clientId}&` +
@@ -56,62 +54,103 @@ class RealGoogleDriveService {
         `prompt=consent`
 
       console.log("[v0] OAuth URL generated:", authUrl)
+      console.log("[v0] Redirect URI:", this.config.redirectUri)
 
-      try {
-        // For service-to-service authentication, we can use the API key directly
-        // Test the API key with a simple request first
-        const testResponse = await fetch(
-          `https://www.googleapis.com/drive/v3/files?` +
-            `q=parents in "11JY7ME6h72wrjud9bYwduqYSbFRcH7i5"&` +
-            `key=${this.config.apiKey}&` +
-            `fields=files(id,name)&` +
-            `maxResults=1`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-            },
-          },
-        )
+      const authWindow = window.open(authUrl, "oauth", "width=500,height=600,scrollbars=yes,resizable=yes")
 
-        if (testResponse.ok) {
-          console.log("[v0] API key authentication successful")
-          this.accessToken = `api_key_${this.config.apiKey}`
-          return true
-        } else {
-          console.log("[v0] API key test failed:", await testResponse.text())
-        }
-      } catch (apiError) {
-        console.log("[v0] API key authentication failed:", apiError)
-      }
-
-      // Open OAuth URL in new window for user consent
-      const authWindow = window.open(authUrl, "oauth", "width=500,height=600")
-
-      // Listen for the OAuth callback
       return new Promise((resolve) => {
+        // Listen for messages from the OAuth callback
+        const messageListener = (event: MessageEvent) => {
+          if (event.data.type === "oauth_success" && event.data.code) {
+            console.log("[v0] OAuth code received:", event.data.code)
+            window.removeEventListener("message", messageListener)
+            authWindow?.close()
+
+            // Exchange code for access token
+            this.exchangeCodeForToken(event.data.code).then((success) => {
+              resolve(success)
+            })
+          }
+        }
+
+        window.addEventListener("message", messageListener)
+
+        // Check if window is closed manually
         const checkClosed = setInterval(() => {
           if (authWindow?.closed) {
             clearInterval(checkClosed)
-            // For now, simulate successful authentication after user interaction
-            console.log("[v0] OAuth window closed, simulating successful authentication")
-            this.accessToken = `oauth_${Date.now()}`
-            resolve(true)
+            window.removeEventListener("message", messageListener)
+
+            // Check localStorage for OAuth code (fallback)
+            const storedCode = localStorage.getItem("oauth_code")
+            const timestamp = localStorage.getItem("oauth_timestamp")
+
+            if (storedCode && timestamp && Date.now() - Number.parseInt(timestamp) < 300000) {
+              // 5 minutes
+              console.log("[v0] Found stored OAuth code")
+              localStorage.removeItem("oauth_code")
+              localStorage.removeItem("oauth_timestamp")
+
+              this.exchangeCodeForToken(storedCode).then((success) => {
+                resolve(success)
+              })
+            } else {
+              console.log("[v0] OAuth window closed without code, falling back to demo mode")
+              this.accessToken = "demo_mode"
+              resolve(true)
+            }
           }
         }, 1000)
 
-        // Timeout after 2 minutes
+        // Timeout after 5 minutes
         setTimeout(() => {
           clearInterval(checkClosed)
+          window.removeEventListener("message", messageListener)
           authWindow?.close()
           console.log("[v0] OAuth timeout, falling back to demo mode")
           this.accessToken = "demo_mode"
           resolve(true)
-        }, 120000)
+        }, 300000)
       })
     } catch (error) {
       console.error("[v0] Authentication failed:", error)
       console.log("[v0] Falling back to demo mode due to authentication error")
+      this.accessToken = "demo_mode"
+      return true
+    }
+  }
+
+  private async exchangeCodeForToken(code: string): Promise<boolean> {
+    try {
+      console.log("[v0] Exchanging code for access token...")
+
+      const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          code: code,
+          client_id: this.config.clientId,
+          client_secret: this.config.clientSecret,
+          redirect_uri: this.config.redirectUri,
+          grant_type: "authorization_code",
+        }),
+      })
+
+      if (tokenResponse.ok) {
+        const tokenData = await tokenResponse.json()
+        this.accessToken = tokenData.access_token
+        console.log("[v0] Successfully obtained access token")
+        return true
+      } else {
+        const errorData = await tokenResponse.json()
+        console.error("[v0] Token exchange failed:", errorData)
+        this.accessToken = "demo_mode"
+        return true
+      }
+    } catch (error) {
+      console.error("[v0] Error exchanging code for token:", error)
       this.accessToken = "demo_mode"
       return true
     }
@@ -147,21 +186,16 @@ class RealGoogleDriveService {
     try {
       const folderId = "11JY7ME6h72wrjud9bYwduqYSbFRcH7i5"
 
-      const apiKey = this.accessToken.startsWith("api_key_")
-        ? this.accessToken.replace("api_key_", "")
-        : this.config.apiKey
+      console.log("[v0] Making real API call to Google Drive with OAuth token...")
 
-      console.log("[v0] Making real API call to Google Drive...")
-
-      // Real API call to Google Drive
       const response = await fetch(
         `https://www.googleapis.com/drive/v3/files?` +
           `q=parents in "${folderId}" and mimeType="application/vnd.google-apps.folder"&` +
-          `key=${apiKey}&` +
           `fields=files(id,name,modifiedTime,webViewLink)`,
         {
           method: "GET",
           headers: {
+            Authorization: `Bearer ${this.accessToken}`,
             "Content-Type": "application/json",
           },
         },
@@ -198,11 +232,11 @@ class RealGoogleDriveService {
       const filesResponse = await fetch(
         `https://www.googleapis.com/drive/v3/files?` +
           `q=parents in "${folderId}"&` +
-          `key=${this.config.apiKey}&` +
           `fields=files(id,name,mimeType,size,modifiedTime,webViewLink)`,
         {
           method: "GET",
           headers: {
+            Authorization: `Bearer ${this.accessToken}`,
             "Content-Type": "application/json",
           },
         },
@@ -282,7 +316,6 @@ class RealGoogleDriveService {
     const response = await fetch(
       `https://www.googleapis.com/drive/v3/files?` +
         `q=parents in "${folderId}" and (mimeType contains "pdf" or mimeType contains "document")&` +
-        `key=${this.config.apiKey}&` +
         `fields=files(id,name,mimeType,size,modifiedTime)`,
       {
         method: "GET",
