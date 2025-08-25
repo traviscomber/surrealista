@@ -1,150 +1,128 @@
 "use client"
+
+import { useState, useEffect, useMemo } from "react"
 import { Badge } from "@/components/ui/badge"
-import { TrendingUp, Folder, FileText, ImageIcon, MapPin, Calendar, CheckCircle, AlertCircle } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  TrendingUp,
+  Folder,
+  FileText,
+  MapPin,
+  Calendar,
+  CheckCircle,
+  AlertCircle,
+  Search,
+  Grid,
+  List,
+  ChevronLeft,
+  ChevronRight,
+  RefreshCw,
+} from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { RealDriveService } from "@/lib/google-drive/real-drive-service"
 
-const successCases = [
-  {
-    id: "1",
-    name: "Valdivia 142 has Teresa F...",
-    status: "complete",
-    files: 9,
-    rolNumbers: 2,
-    lastModified: "Aug 12, 2025",
-    structure: {
-      "1_FOTOS": ["fotos", "fotos cel", "Fotos enero 2024"],
-      "2_DOCUMENTOS": ["Fundo Iñipulli_140_110124_compressed.pdf", "MARIOUINAfoto.pdf"],
-      "3_COMUNICACIONES": [],
-      "4_MARKETING": [],
-      "5_PDF_SUELTO": ["Orden de Venta Iñipulli.docx", "Orden de Venta TF.pdf"],
-      "6_KMZ_SUELTO": ["Campo Iñipulli 140_has.kmz"],
-    },
-  },
-  {
-    id: "2",
-    name: "CASA_TEMUCO_FAMILIA_RODRIGUEZ",
-    status: "complete",
-    files: 15,
-    rolNumbers: 1,
-    lastModified: "Aug 10, 2025",
-    structure: {
-      "1_FOTOS": ["2024-07-15", "2024-08-01", "drone_selection"],
-      "2_DOCUMENTOS": ["a_antecedentes_titulo", "b_tasacion_info", "c_documentos_comerciales"],
-      "3_COMUNICACIONES": ["a_interaccion_compradores", "b_interaccion_dueno"],
-      "4_MARKETING": ["video_reel", "publicaciones_portales"],
-      "5_PDF_SUELTO": ["presentacion_compradores.pdf"],
-      "6_KMZ_SUELTO": ["ubicacion_casa_temuco.kmz"],
-    },
-  },
-  {
-    id: "3",
-    name: "PARCELA_PUCON_VISTA_LAGO",
-    status: "complete",
-    files: 12,
-    rolNumbers: 1,
-    lastModified: "Aug 8, 2025",
-    structure: {
-      "1_FOTOS": ["2024-06-20", "2024-07-10", "drone_aereas"],
-      "2_DOCUMENTOS": ["a_antecedentes_titulo", "b_tasacion_info"],
-      "3_COMUNICACIONES": ["a_interaccion_compradores"],
-      "4_MARKETING": ["video_promocional", "fotos_marketing"],
-      "5_PDF_SUELTO": ["brochure_parcela.pdf"],
-      "6_KMZ_SUELTO": ["parcela_pucon_coordenadas.kmz"],
-    },
-  },
-  {
-    id: "4",
-    name: "DEPARTAMENTO_VALDIVIA_CENTRO",
-    status: "incomplete",
-    files: 8,
-    rolNumbers: 0,
-    lastModified: "Aug 5, 2025",
-    structure: {
-      "1_FOTOS": ["fotos_mezcladas"],
-      "2_DOCUMENTOS": [],
-      "3_COMUNICACIONES": [],
-      "4_MARKETING": [],
-      "5_PDF_SUELTO": ["documentos_varios.pdf"],
-      "6_KMZ_SUELTO": [],
-    },
-  },
-  {
-    id: "5",
-    name: "CASA_OSORNO_FAMILIAR",
-    status: "complete",
-    files: 18,
-    rolNumbers: 2,
-    lastModified: "Aug 3, 2025",
-    structure: {
-      "1_FOTOS": ["2024-05-15", "2024-06-01", "seleccion_jorge"],
-      "2_DOCUMENTOS": ["a_antecedentes_titulo", "b_tasacion_info", "c_documentos_comerciales"],
-      "3_COMUNICACIONES": ["a_interaccion_compradores", "c_sugerencia_clientes"],
-      "4_MARKETING": ["video_reel", "publicaciones_portales"],
-      "5_PDF_SUELTO": ["presentacion_final.pdf"],
-      "6_KMZ_SUELTO": ["casa_osorno_ubicacion.kmz"],
-    },
-  },
-]
+const realDriveService = new RealDriveService()
 
-function FolderStructureView({ folder }: { folder: (typeof successCases)[0] }) {
+function FolderCard({ folder, viewMode }: { folder: any; viewMode: "grid" | "list" }) {
   const getStatusColor = (status: string) => {
-    return status === "complete" ? "text-green-600 bg-green-50" : "text-red-600 bg-red-50"
+    switch (status) {
+      case "complete":
+        return "text-green-600 bg-green-50 border-green-200"
+      case "processing":
+        return "text-blue-600 bg-blue-50 border-blue-200"
+      case "pending":
+        return "text-yellow-600 bg-yellow-50 border-yellow-200"
+      default:
+        return "text-red-600 bg-red-50 border-red-200"
+    }
   }
 
   const getStatusIcon = (status: string) => {
-    return status === "complete" ? <CheckCircle className="h-4 w-4" /> : <AlertCircle className="h-4 w-4" />
+    switch (status) {
+      case "complete":
+        return <CheckCircle className="h-4 w-4" />
+      case "processing":
+        return <Calendar className="h-4 w-4" />
+      case "pending":
+        return <AlertCircle className="h-4 w-4" />
+      default:
+        return <AlertCircle className="h-4 w-4" />
+    }
+  }
+
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case "complete":
+        return "Completo"
+      case "processing":
+        return "Procesando"
+      case "pending":
+        return "Pendiente"
+      default:
+        return "Incompleto"
+    }
+  }
+
+  if (viewMode === "list") {
+    return (
+      <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Folder className="h-5 w-5 text-blue-600" />
+            <div>
+              <h3 className="font-medium text-gray-900">{folder.name}</h3>
+              <p className="text-sm text-gray-500">
+                {folder.location} • {folder.propertyType}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="text-sm text-gray-600">
+              <span className="flex items-center gap-1">
+                <FileText className="h-4 w-4" />
+                {folder.files}
+              </span>
+            </div>
+            <div className="text-sm text-gray-600">
+              <span className="flex items-center gap-1">
+                <MapPin className="h-4 w-4" />
+                {folder.rolNumbers}
+              </span>
+            </div>
+            <Badge className={getStatusColor(folder.status)}>
+              {getStatusIcon(folder.status)}
+              {getStatusText(folder.status)}
+            </Badge>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <Card className="mb-6">
-      <CardHeader>
+    <Card className="hover:shadow-md transition-shadow">
+      <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Folder className="h-5 w-5 text-blue-600" />
-            {folder.name}
-          </CardTitle>
-          <Badge className={getStatusColor(folder.status)}>
-            {getStatusIcon(folder.status)}
-            {folder.status === "complete" ? "Completo" : "Incompleto"}
-          </Badge>
-        </div>
-        <div className="flex items-center gap-4 text-sm text-gray-600">
-          <span className="flex items-center gap-1">
-            <FileText className="h-4 w-4" />
-            {folder.files} archivos
-          </span>
-          <span className="flex items-center gap-1">
-            <MapPin className="h-4 w-4" />
-            {folder.rolNumbers} números de rol
-          </span>
-          <span className="flex items-center gap-1">
-            <Calendar className="h-4 w-4" />
-            {folder.lastModified}
-          </span>
+          <CardTitle className="text-sm font-medium truncate">{folder.name}</CardTitle>
+          <Badge className={getStatusColor(folder.status)}>{getStatusIcon(folder.status)}</Badge>
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Object.entries(folder.structure).map(([folderName, contents]) => (
-            <div key={folderName} className="border rounded-lg p-3">
-              <div className="flex items-center gap-2 mb-2">
-                <Folder className="h-4 w-4 text-blue-500" />
-                <span className="font-medium text-sm">{folderName}</span>
-              </div>
-              <div className="space-y-1">
-                {contents.length > 0 ? (
-                  contents.map((item, index) => (
-                    <div key={index} className="flex items-center gap-2 text-xs text-gray-600">
-                      {item.includes(".") ? <FileText className="h-3 w-3" /> : <Folder className="h-3 w-3" />}
-                      <span className="truncate">{item}</span>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-xs text-gray-400 italic">Vacía</div>
-                )}
-              </div>
-            </div>
-          ))}
+      <CardContent className="pt-0">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-600">Archivos:</span>
+            <span className="font-medium">{folder.files}</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-600">Rol:</span>
+            <span className="font-medium">{folder.rolNumbers}</span>
+          </div>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-gray-600">Completitud:</span>
+            <span className="font-medium">{folder.completionScore}%</span>
+          </div>
         </div>
       </CardContent>
     </Card>
@@ -152,16 +130,142 @@ function FolderStructureView({ folder }: { folder: (typeof successCases)[0] }) {
 }
 
 export default function HomePage() {
-  const currentDate = new Date().toLocaleDateString("es-CL", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  })
+  const [searchTerm, setSearchTerm] = useState("")
+  const [statusFilter, setStatusFilter] = useState("all")
+  const [locationFilter, setLocationFilter] = useState("all")
+  const [sortBy, setSortBy] = useState("name")
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 20
 
-  const totalFiles = successCases.reduce((sum, folder) => sum + folder.files, 0)
-  const totalRolNumbers = successCases.reduce((sum, folder) => sum + folder.rolNumbers, 0)
-  const completeCases = successCases.filter((folder) => folder.status === "complete").length
+  const [folders, setFolders] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    loadRealData()
+  }, [])
+
+  const loadRealData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+
+      const authSuccess = await realDriveService.authenticate()
+      setIsAuthenticated(authSuccess)
+
+      if (!authSuccess) {
+        setError("Autenticación requerida para acceder a Google Drive")
+        setLoading(false)
+        return
+      }
+
+      const realFolders = await realDriveService.listSuccessCases()
+
+      const processedFolders = realFolders.map((folder: any, index: number) => ({
+        id: folder.id || index.toString(),
+        name: folder.name,
+        status:
+          folder.completionStatus === "complete"
+            ? "complete"
+            : folder.completionStatus === "incomplete"
+              ? "processing"
+              : "pending",
+        files: folder.totalFiles || 0,
+        rolNumbers: folder.rolNumbers || 0,
+        location: folder.location || "DESCONOCIDA",
+        propertyType: folder.propertyType || "PROPIEDAD",
+        lastModified: new Date(folder.files?.[0]?.modifiedTime || Date.now()).toLocaleDateString("es-CL"),
+        completionScore:
+          folder.completionStatus === "complete" ? 95 : folder.completionStatus === "incomplete" ? 65 : 35,
+      }))
+
+      setFolders(processedFolders)
+    } catch (err) {
+      console.error("[v0] Error loading real Google Drive data:", err)
+      setError("Error al cargar datos de Google Drive")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleAuthenticate = async () => {
+    try {
+      await realDriveService.authenticate()
+      await loadRealData()
+    } catch (err) {
+      console.error("[v0] Authentication error:", err)
+      setError("Error en la autenticación")
+    }
+  }
+
+  const filteredAndSortedFolders = useMemo(() => {
+    const filtered = folders.filter((folder) => {
+      const matchesSearch = folder.name.toLowerCase().includes(searchTerm.toLowerCase())
+      const matchesStatus = statusFilter === "all" || folder.status === statusFilter
+      const matchesLocation = locationFilter === "all" || folder.location === locationFilter
+      return matchesSearch && matchesStatus && matchesLocation
+    })
+
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case "name":
+          return a.name.localeCompare(b.name)
+        case "files":
+          return b.files - a.files
+        case "completion":
+          return b.completionScore - a.completionScore
+        case "date":
+          return new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime()
+        default:
+          return 0
+      }
+    })
+
+    return filtered
+  }, [folders, searchTerm, statusFilter, locationFilter, sortBy])
+
+  const totalPages = Math.ceil(filteredAndSortedFolders.length / itemsPerPage)
+  const paginatedFolders = filteredAndSortedFolders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+
+  const stats = useMemo(() => {
+    const total = filteredAndSortedFolders.length
+    const complete = filteredAndSortedFolders.filter((f) => f.status === "complete").length
+    const totalFiles = filteredAndSortedFolders.reduce((sum, f) => sum + f.files, 0)
+    const totalRol = filteredAndSortedFolders.reduce((sum, f) => sum + f.rolNumbers, 0)
+
+    return { total, complete, totalFiles, totalRol }
+  }, [filteredAndSortedFolders])
+
+  const uniqueLocations = [...new Set(folders.map((f) => f.location))].sort()
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
+        <div className="text-center">
+          <RefreshCw className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Cargando datos reales de Google Drive</h2>
+          <p className="text-gray-600">Conectando con su carpeta de casos de éxito...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error && !isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
+        <div className="text-center max-w-md">
+          <AlertCircle className="h-12 w-12 text-orange-600 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Autenticación Requerida</h2>
+          <p className="text-gray-600 mb-6">Para acceder a los datos reales de Google Drive, necesita autenticarse.</p>
+          <Button onClick={handleAuthenticate} className="bg-blue-600 hover:bg-blue-700">
+            Conectar con Google Drive
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
@@ -171,13 +275,17 @@ export default function HomePage() {
             <div>
               <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
                 <TrendingUp className="h-8 w-8 text-blue-600" />
-                Google Drive - Casos de Éxito
+                Gestión de Carpetas - Sur-Realista
                 <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                  10 Carpetas Identificadas
+                  {folders.length} Carpetas Reales
                 </Badge>
               </h1>
-              <p className="text-gray-600 mt-1">{currentDate}</p>
+              <p className="text-gray-600 mt-1">Datos reales desde Google Drive - Casos de éxito procesados</p>
             </div>
+            <Button onClick={loadRealData} variant="outline" size="sm" disabled={loading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+              Actualizar
+            </Button>
           </div>
         </div>
       </div>
@@ -187,9 +295,22 @@ export default function HomePage() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between">
               <div>
+                <p className="text-sm font-medium text-gray-600">Casos Filtrados</p>
+                <p className="text-3xl font-bold text-blue-600">{stats.total}</p>
+                <p className="text-xs text-gray-500 mt-1">De {folders.length} totales</p>
+              </div>
+              <Folder className="h-8 w-8 text-blue-500" />
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between">
+              <div>
                 <p className="text-sm font-medium text-gray-600">Casos Completos</p>
-                <p className="text-3xl font-bold text-green-600">{completeCases}/10</p>
-                <p className="text-xs text-gray-500 mt-1">Estructura estándar</p>
+                <p className="text-3xl font-bold text-green-600">{stats.complete}</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {Math.round((stats.complete / stats.total) * 100)}% completitud
+                </p>
               </div>
               <CheckCircle className="h-8 w-8 text-green-500" />
             </div>
@@ -199,10 +320,10 @@ export default function HomePage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Archivos</p>
-                <p className="text-3xl font-bold text-blue-600">{totalFiles}</p>
-                <p className="text-xs text-gray-500 mt-1">En todas las carpetas</p>
+                <p className="text-3xl font-bold text-purple-600">{stats.totalFiles}</p>
+                <p className="text-xs text-gray-500 mt-1">En casos filtrados</p>
               </div>
-              <FileText className="h-8 w-8 text-blue-500" />
+              <FileText className="h-8 w-8 text-purple-500" />
             </div>
           </div>
 
@@ -210,37 +331,130 @@ export default function HomePage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Números de Rol</p>
-                <p className="text-3xl font-bold text-purple-600">{totalRolNumbers}</p>
-                <p className="text-xs text-gray-500 mt-1">Extraídos exitosamente</p>
+                <p className="text-3xl font-bold text-orange-600">{stats.totalRol}</p>
+                <p className="text-xs text-gray-500 mt-1">Extraídos</p>
               </div>
-              <MapPin className="h-8 w-8 text-purple-500" />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Fotos Organizadas</p>
-                <p className="text-3xl font-bold text-orange-600">156</p>
-                <p className="text-xs text-gray-500 mt-1">Por fecha y tipo</p>
-              </div>
-              <ImageIcon className="h-8 w-8 text-orange-500" />
+              <MapPin className="h-8 w-8 text-orange-500" />
             </div>
           </div>
         </div>
 
-        <div className="space-y-6">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">Estructura de Carpetas - Casos de Éxito</h2>
-            <p className="text-gray-600 mb-6">
-              Visualización de las carpetas organizadas según el estándar definido en la 2da reunión dev.
-            </p>
-          </div>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+          <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
+            <div className="flex flex-col sm:flex-row gap-4 flex-1">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <Input
+                  placeholder="Buscar carpetas..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
 
-          {successCases.map((folder) => (
-            <FolderStructureView key={folder.id} folder={folder} />
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Estado" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos los estados</SelectItem>
+                  <SelectItem value="complete">Completo</SelectItem>
+                  <SelectItem value="processing">Procesando</SelectItem>
+                  <SelectItem value="pending">Pendiente</SelectItem>
+                  <SelectItem value="incomplete">Incompleto</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={locationFilter} onValueChange={setLocationFilter}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Ubicación" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas las ubicaciones</SelectItem>
+                  {uniqueLocations.map((location) => (
+                    <SelectItem key={location} value={location}>
+                      {location}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={sortBy} onValueChange={setSortBy}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Ordenar por" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name">Nombre</SelectItem>
+                  <SelectItem value="files">Archivos</SelectItem>
+                  <SelectItem value="completion">Completitud</SelectItem>
+                  <SelectItem value="date">Fecha</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant={viewMode === "grid" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setViewMode("grid")}
+              >
+                <Grid className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === "list" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setViewMode("list")}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div
+          className={
+            viewMode === "grid"
+              ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8"
+              : "space-y-4 mb-8"
+          }
+        >
+          {paginatedFolders.map((folder) => (
+            <FolderCard key={folder.id} folder={folder} viewMode={viewMode} />
           ))}
         </div>
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="text-sm text-gray-600">
+              Mostrando {(currentPage - 1) * itemsPerPage + 1} a{" "}
+              {Math.min(currentPage * itemsPerPage, filteredAndSortedFolders.length)} de{" "}
+              {filteredAndSortedFolders.length} carpetas
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Anterior
+              </Button>
+              <span className="text-sm text-gray-600">
+                Página {currentPage} de {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Siguiente
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
