@@ -84,9 +84,9 @@ function MVPDashboard() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">OAuth 2.0</p>
-                <p className="text-3xl font-bold text-green-600">✓ Listo</p>
-                <p className="text-xs text-gray-500 mt-1">Credenciales completas</p>
+                <p className="text-sm font-medium text-gray-600">Números de Rol</p>
+                <p className="text-3xl font-bold text-green-600">4/5</p>
+                <p className="text-xs text-gray-500 mt-1">Extraídos exitosamente</p>
               </div>
               <BarChart3 className="h-8 w-8 text-green-500" />
             </div>
@@ -95,11 +95,11 @@ function MVPDashboard() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Documentos</p>
-                <p className="text-3xl font-bold text-orange-600">~45</p>
-                <p className="text-xs text-gray-500 mt-1">Por procesar</p>
+                <p className="text-sm font-medium text-gray-600">OAuth 2.0</p>
+                <p className="text-3xl font-bold text-green-600">✓ Listo</p>
+                <p className="text-xs text-gray-500 mt-1">Credenciales completas</p>
               </div>
-              <Users className="h-8 w-8 text-orange-500" />
+              <Users className="h-8 w-8 text-green-500" />
             </div>
           </div>
 

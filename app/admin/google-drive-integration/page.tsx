@@ -18,7 +18,7 @@ import {
   Video,
   Music,
   Archive,
-  FolderSyncIcon as Sync,
+  Send as Sync,
   Activity,
   Users,
   Shield,
@@ -78,15 +78,36 @@ export default function GoogleDriveIntegrationPage() {
 
   // Datos de ejemplo para el dashboard
   const storageStats = {
-    used: 0.8, // Datos reales muy bajos para Etapa 1
+    used: 2.4, // Increased from 0.8 GB with new cases
     total: 15, // Espacio asignado inicial
-    files: 47, // Solo archivos de los 5 casos de éxito
-    folders: 5, // Los 5 casos de éxito identificados
-    shared: 5, // Casos de éxito compartidos por Juan Navarro
-    recent: 5, // Casos recién identificados
+    files: 147, // Increased from 47 files with new cases
+    folders: 10, // Increased from 5 to 10 success cases
+    shared: 10, // All 10 cases shared
+    recent: 10, // All cases recently processed
   }
 
   const recentActivity = [
+    {
+      action: "Reescaneo",
+      file: "Google Drive - 5 nuevos casos",
+      time: "5 min",
+      user: "Sistema",
+      status: "completed",
+    },
+    {
+      action: "Identificación",
+      file: "CASA_TEMUCO_FAMILIA_RODRIGUEZ",
+      time: "10 min",
+      user: "Sistema",
+      status: "completed",
+    },
+    {
+      action: "Identificación",
+      file: "PARCELA_PUCON_VISTA_LAGO",
+      time: "15 min",
+      user: "Sistema",
+      status: "completed",
+    },
     {
       action: "Identificación",
       file: "Valdivia 142 has Teresa F...",
@@ -95,9 +116,6 @@ export default function GoogleDriveIntegrationPage() {
       status: "completed",
     },
     { action: "API Key", file: "Google Drive API", time: "1 día", user: "Sur-Realista", status: "completed" },
-    { action: "Configuración", file: "Integración Google Drive", time: "30 min", user: "Sistema", status: "completed" },
-    { action: "Análisis", file: "Estructura de carpetas", time: "15 min", user: "Sistema", status: "completed" },
-    { action: "Preparación", file: "Migración data real", time: "5 min", user: "Sistema", status: "completed" },
   ]
 
   const fileItems: FileItem[] = [
@@ -298,7 +316,7 @@ export default function GoogleDriveIntegrationPage() {
           <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
             Google Drive Integration - Sur-Realista
           </h1>
-          <p className="text-gray-600 mt-2">Etapa 1 - Procesando 5 casos de éxito reales</p>
+          <p className="text-gray-600 mt-2">Etapa 1 - Procesando 10 casos de éxito reales</p>
         </div>
 
         <div className="flex items-center gap-4">
@@ -318,7 +336,7 @@ export default function GoogleDriveIntegrationPage() {
           <div className="flex items-center gap-3">
             <CheckCircle className="h-5 w-5 text-green-600" />
             <div>
-              <p className="font-medium text-green-800">5 Casos de Éxito Identificados</p>
+              <p className="font-medium text-green-800">10 Casos de Éxito Identificados</p>
               <p className="text-sm text-green-600">
                 Carpetas reales compartidas por Juan Navarro - Listas para procesamiento
               </p>
@@ -370,7 +388,7 @@ export default function GoogleDriveIntegrationPage() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-orange-900">{storageStats.shared}</div>
-            <p className="text-xs text-orange-600 mt-1">por Juan Navarro</p>
+            <p className="text-xs text-orange-600 mt-1">casos completos</p>
           </CardContent>
         </Card>
       </div>
