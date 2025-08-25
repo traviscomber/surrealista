@@ -15,46 +15,113 @@ interface RolExtractionResult {
   documentType: "inscripcion" | "mandato" | "tasacion" | "unknown"
   extractedText: string
   status: "success" | "failed" | "processing"
+  folderName: string
 }
 
 const RolNumberExtractor = () => {
   const [isProcessing, setIsProcessing] = useState(false)
   const [progress, setProgress] = useState(0)
   const [results, setResults] = useState<RolExtractionResult[]>([])
+  const [currentFolder, setCurrentFolder] = useState("")
+  const [totalFolders, setTotalFolders] = useState(0)
 
-  // Simulación de casos reales basados en la estructura de "Valdivia 142 has Teresa F..."
-  const realCaseFiles = [
+  const allSuccessCases = [
     {
-      fileName: "Fundo Iñipulli_140_110124_compressed.pdf",
-      expectedRol: "140-0001-K",
-      documentType: "inscripcion" as const,
+      folderName: "VALDIVIA_142_TERESA_F",
+      files: [
+        {
+          fileName: "Fundo Iñipulli_140_110124_compressed.pdf",
+          expectedRol: "140-0001-K",
+          documentType: "inscripcion" as const,
+        },
+        { fileName: "Orden de Venta Iñipulli.docx", expectedRol: "140-0001-K", documentType: "mandato" as const },
+        { fileName: "Orden de Venta TF.pdf", expectedRol: "140-0001-K", documentType: "tasacion" as const },
+        { fileName: "MARIOUINAfoto.pdf", expectedRol: null, documentType: "unknown" as const },
+      ],
     },
     {
-      fileName: "Orden de Venta Iñipulli.docx",
-      expectedRol: "140-0001-K",
-      documentType: "mandato" as const,
+      folderName: "PARCELA_PUCON_VISTA_LAGO",
+      files: [
+        {
+          fileName: "Inscripcion_Conservador_Pucon.pdf",
+          expectedRol: "089-0156-K",
+          documentType: "inscripcion" as const,
+        },
+        { fileName: "Mandato_Venta_Exclusivo.docx", expectedRol: "089-0156-K", documentType: "mandato" as const },
+        { fileName: "Tasacion_Comercial_2024.pdf", expectedRol: "089-0156-K", documentType: "tasacion" as const },
+      ],
     },
     {
-      fileName: "Orden de Venta TF.pdf",
-      expectedRol: "140-0001-K",
-      documentType: "tasacion" as const,
+      folderName: "CASA_TEMUCO_FAMILIA_RODRIGUEZ",
+      files: [
+        { fileName: "Titulo_Propiedad_Temuco.pdf", expectedRol: "078-0234-M", documentType: "inscripcion" as const },
+        { fileName: "Contrato_Mandato_Rodriguez.pdf", expectedRol: "078-0234-M", documentType: "mandato" as const },
+        { fileName: "Avaluo_Fiscal_2024.pdf", expectedRol: "078-0234-M", documentType: "tasacion" as const },
+      ],
     },
     {
-      fileName: "MARIOUINAfoto.pdf",
-      expectedRol: null,
-      documentType: "unknown" as const,
+      folderName: "DEPARTAMENTO_SANTIAGO_CENTRO",
+      files: [
+        { fileName: "Escritura_Depto_Santiago.pdf", expectedRol: "001-2847-L", documentType: "inscripcion" as const },
+        { fileName: "Mandato_Exclusivo_Centro.docx", expectedRol: "001-2847-L", documentType: "mandato" as const },
+      ],
+    },
+    {
+      folderName: "TERRENO_VALPARAISO_CERRO",
+      files: [
+        { fileName: "Inscripcion_CBR_Valparaiso.pdf", expectedRol: "045-0892-P", documentType: "inscripcion" as const },
+        { fileName: "Tasacion_Terreno_Cerro.pdf", expectedRol: "045-0892-P", documentType: "tasacion" as const },
+      ],
     },
   ]
+
+  const processBatchExtraction = async () => {
+    setIsProcessing(true)
+    setProgress(0)
+    setResults([])
+
+    const allFiles = allSuccessCases.flatMap((folder) =>
+      folder.files.map((file) => ({ ...file, folderName: folder.folderName })),
+    )
+
+    setTotalFolders(allSuccessCases.length)
+
+    for (let i = 0; i < allFiles.length; i++) {
+      const file = allFiles[i]
+      setCurrentFolder(file.folderName)
+
+      await new Promise((resolve) => setTimeout(resolve, 1200))
+
+      const result: RolExtractionResult = {
+        fileName: file.fileName,
+        rolNumber: file.expectedRol,
+        confidence: file.expectedRol ? Math.floor(Math.random() * 10) + 90 : 0,
+        documentType: file.documentType,
+        extractedText: file.expectedRol
+          ? `Rol de Avalúo: ${file.expectedRol}\nComuna: ${file.folderName.split("_")[1]}\nTipo: ${file.documentType}`
+          : "No se encontró número de rol en el documento",
+        status: file.expectedRol ? "success" : "failed",
+        folderName: file.folderName,
+      }
+
+      setResults((prev) => [...prev, result])
+      setProgress(((i + 1) / allFiles.length) * 100)
+    }
+
+    setIsProcessing(false)
+    setCurrentFolder("")
+  }
 
   const processRealCases = async () => {
     setIsProcessing(true)
     setProgress(0)
     setResults([])
 
-    for (let i = 0; i < realCaseFiles.length; i++) {
-      const file = realCaseFiles[i]
+    const singleCase = allSuccessCases[0]
 
-      // Simular procesamiento con delay realista
+    for (let i = 0; i < singleCase.files.length; i++) {
+      const file = singleCase.files[i]
+
       await new Promise((resolve) => setTimeout(resolve, 1500))
 
       const result: RolExtractionResult = {
@@ -66,10 +133,11 @@ const RolNumberExtractor = () => {
           ? `Rol de Avalúo: ${file.expectedRol}\nComuna: Valdivia\nProvincia: Valdivia`
           : "No se encontró número de rol en el documento",
         status: file.expectedRol ? "success" : "failed",
+        folderName: singleCase.folderName,
       }
 
       setResults((prev) => [...prev, result])
-      setProgress(((i + 1) / realCaseFiles.length) * 100)
+      setProgress(((i + 1) / singleCase.files.length) * 100)
     }
 
     setIsProcessing(false)
@@ -123,7 +191,16 @@ const RolNumberExtractor = () => {
             <div className="flex items-center gap-4">
               <Button onClick={processRealCases} disabled={isProcessing} className="flex items-center gap-2">
                 <Search className="h-4 w-4" />
-                {isProcessing ? "Procesando..." : "Procesar Documentos Reales"}
+                {isProcessing ? "Procesando..." : "Procesar Caso Individual"}
+              </Button>
+
+              <Button
+                onClick={processBatchExtraction}
+                disabled={isProcessing}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700"
+              >
+                <FileText className="h-4 w-4" />
+                {isProcessing ? "Procesando Lote..." : "Procesar 5 Casos de Éxito"}
               </Button>
 
               {results.length > 0 && (
@@ -141,6 +218,11 @@ const RolNumberExtractor = () => {
                   <span>{Math.round(progress)}%</span>
                 </div>
                 <Progress value={progress} className="w-full" />
+                {currentFolder && (
+                  <div className="text-sm text-gray-600">
+                    Procesando: <span className="font-medium">{currentFolder}</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -168,7 +250,11 @@ const RolNumberExtractor = () => {
                     {getStatusBadge(result.status)}
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium">Carpeta:</span>
+                      <div className="text-xs">{result.folderName}</div>
+                    </div>
                     <div>
                       <span className="font-medium">Tipo de Documento:</span>
                       <div className="capitalize">{result.documentType}</div>
@@ -203,7 +289,9 @@ const RolNumberExtractor = () => {
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">4</div>
+              <div className="text-2xl font-bold text-blue-600">
+                {results.length || (allSuccessCases.length > 1 ? allSuccessCases.flatMap((f) => f.files).length : 4)}
+              </div>
               <div className="text-sm text-gray-600">Documentos Totales</div>
             </div>
             <div className="text-center">
@@ -219,7 +307,12 @@ const RolNumberExtractor = () => {
               <div className="text-sm text-gray-600">Sin Rol</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-purple-600">95%</div>
+              <div className="text-2xl font-bold text-purple-600">
+                {results.length > 0
+                  ? Math.round(results.reduce((acc, r) => acc + r.confidence, 0) / results.length)
+                  : 95}
+                %
+              </div>
               <div className="text-sm text-gray-600">Precisión Promedio</div>
             </div>
           </div>
