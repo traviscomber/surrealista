@@ -19,12 +19,135 @@ import {
   ChevronLeft,
   ChevronRight,
   RefreshCw,
+  ArrowLeft,
+  FolderOpen,
+  ImageIcon,
+  Video,
+  File,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 let realDriveService: any = null
 
-function FolderCard({ folder, viewMode }: { folder: any; viewMode: "grid" | "list" }) {
+function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void }) {
+  const standardStructure = {
+    "1_FOTOS": {
+      icon: <ImageIcon className="h-4 w-4" />,
+      color: "text-green-600",
+      subfolders: ["2024-06-20", "2024-07-10", "drone_aereas", "seleccion_jorge"],
+    },
+    "2_DOCUMENTOS": {
+      icon: <FileText className="h-4 w-4" />,
+      color: "text-blue-600",
+      subfolders: ["a_antecedentes_titulo", "b_tasacion_info", "c_documentos_comerciales"],
+    },
+    "3_COMUNICACIONES": {
+      icon: <MapPin className="h-4 w-4" />,
+      color: "text-purple-600",
+      subfolders: ["a_interaccion_compradores", "b_interaccion_dueno", "c_sugerencia_clientes"],
+    },
+    "4_MARKETING": {
+      icon: <Video className="h-4 w-4" />,
+      color: "text-orange-600",
+      subfolders: ["video_promocional", "fotos_marketing", "publicaciones_portales"],
+    },
+    "5_PDF_SUELTO": {
+      icon: <File className="h-4 w-4" />,
+      color: "text-red-600",
+      subfolders: [],
+    },
+    "6_KMZ_SUELTO": {
+      icon: <MapPin className="h-4 w-4" />,
+      color: "text-indigo-600",
+      subfolders: [],
+    },
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="sm" onClick={onBack}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="flex-1">
+              <h1 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <FolderOpen className="h-5 w-5 text-blue-600" />
+                {folder.name}
+              </h1>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Folder Metadata */}
+      <div className="container mx-auto px-4 py-6">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div>
+              <div className="flex items-center justify-center mb-2">
+                <FileText className="h-5 w-5 text-blue-600" />
+              </div>
+              <p className="text-2xl font-bold text-blue-600">{folder.files}</p>
+              <p className="text-sm text-gray-600">archivos</p>
+            </div>
+            <div>
+              <div className="flex items-center justify-center mb-2">
+                <MapPin className="h-5 w-5 text-green-600" />
+              </div>
+              <p className="text-2xl font-bold text-green-600">{folder.rolNumbers}</p>
+              <p className="text-sm text-gray-600">números de rol</p>
+            </div>
+            <div>
+              <div className="flex items-center justify-center mb-2">
+                <Calendar className="h-5 w-5 text-purple-600" />
+              </div>
+              <p className="text-sm font-bold text-purple-600">Aug 8,</p>
+              <p className="text-sm text-gray-600">2025</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Folder Structure */}
+        <div className="space-y-4">
+          {Object.entries(standardStructure).map(([folderName, config]) => (
+            <div key={folderName} className="bg-white rounded-lg shadow-sm border border-gray-200">
+              <div className="p-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className={config.color}>{config.icon}</div>
+                  <h3 className="font-semibold text-gray-900">{folderName}</h3>
+                </div>
+
+                {config.subfolders.length > 0 && (
+                  <div className="ml-7 space-y-2">
+                    {config.subfolders.map((subfolder) => (
+                      <div key={subfolder} className="flex items-center gap-2 py-2 px-3 bg-gray-50 rounded-md">
+                        <Folder className="h-4 w-4 text-gray-500" />
+                        <span className="text-sm text-gray-700">{subfolder}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {config.subfolders.length === 0 && (
+                  <div className="ml-7 text-sm text-gray-500 italic">Archivos sueltos organizados</div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function FolderCard({
+  folder,
+  viewMode,
+  onViewDetails,
+}: { folder: any; viewMode: "grid" | "list"; onViewDetails: (folder: any) => void }) {
   const getStatusColor = (status: string) => {
     switch (status) {
       case "complete":
@@ -66,7 +189,10 @@ function FolderCard({ folder, viewMode }: { folder: any; viewMode: "grid" | "lis
 
   if (viewMode === "list") {
     return (
-      <div className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+      <div
+        className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+        onClick={() => onViewDetails(folder)}
+      >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Folder className="h-5 w-5 text-blue-600" />
@@ -101,7 +227,7 @@ function FolderCard({ folder, viewMode }: { folder: any; viewMode: "grid" | "lis
   }
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => onViewDetails(folder)}>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-medium truncate">{folder.name}</CardTitle>
@@ -141,6 +267,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selectedFolder, setSelectedFolder] = useState<any | null>(null)
 
   useEffect(() => {
     const initializeService = async () => {
@@ -277,6 +404,14 @@ export default function HomePage() {
 
   const uniqueLocations = [...new Set(folders.map((f) => f.location))].sort()
 
+  const handleViewDetails = (folder: any) => {
+    setSelectedFolder(folder)
+  }
+
+  const handleBackToList = () => {
+    setSelectedFolder(null)
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
@@ -302,6 +437,10 @@ export default function HomePage() {
         </div>
       </div>
     )
+  }
+
+  if (selectedFolder) {
+    return <FolderDetailView folder={selectedFolder} onBack={handleBackToList} />
   }
 
   return (
@@ -456,7 +595,7 @@ export default function HomePage() {
           }
         >
           {paginatedFolders.map((folder) => (
-            <FolderCard key={folder.id} folder={folder} viewMode={viewMode} />
+            <FolderCard key={folder.id} folder={folder} viewMode={viewMode} onViewDetails={handleViewDetails} />
           ))}
         </div>
 
