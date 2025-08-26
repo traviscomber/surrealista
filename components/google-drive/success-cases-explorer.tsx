@@ -15,7 +15,7 @@ export default function SuccessCasesExplorer() {
   const [rolExtractionResults, setRolExtractionResults] = useState<any[]>([])
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null)
 
-  const SUCCESS_CASES_FOLDER_ID = "1wJRhFJNpIqoJ_O9FPIhpPglmypnwgt5F"
+  const SUCCESS_CASES_FOLDER_ID = "1DedwoHB3BOHqIIiIGEqZqt0qCCjuVMn2"
 
   const loadSuccessCases = async () => {
     setIsLoading(true)

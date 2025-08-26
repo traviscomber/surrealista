@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "No access token found" }, { status: 401 })
     }
 
-    const folderId = "1wJRhFJNpIqoJ_O9FPIhpPglmypnwgt5F"
+    const folderId = "1DedwoHB3BOHqIIiIGEqZqt0qCCjuVMn2"
     const response = await fetch(
       `https://www.googleapis.com/drive/v3/files?` +
         `q=parents in "${folderId}" and mimeType="application/vnd.google-apps.folder"&` +
