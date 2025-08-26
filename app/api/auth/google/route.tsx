@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
 
   if (!code) {
     const clientId = "873991779919-dold9vq3nsl8qoeqfuibmjj5kjctqah1.apps.googleusercontent.com"
-    const redirectUri = new URL("/api/auth/google", request.url).toString()
+    const redirectUri = "https://sur-realista.vercel.app/api/auth/google"
     const scope = "https://www.googleapis.com/auth/drive.readonly"
 
     const authUrl =
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
   try {
     const clientId = "873991779919-dold9vq3nsl8qoeqfuibmjj5kjctqah1.apps.googleusercontent.com"
     const clientSecret = "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"
-    const redirectUri = new URL("/api/auth/google", request.url).toString()
+    const redirectUri = "https://sur-realista.vercel.app/api/auth/google"
 
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
@@ -85,9 +85,19 @@ export async function GET(request: NextRequest) {
 
     response.cookies.set("google_access_token", tokenData.access_token, {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
       maxAge: tokenData.expires_in || 3600,
     })
+
+    if (tokenData.refresh_token) {
+      response.cookies.set("google_refresh_token", tokenData.refresh_token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: 30 * 24 * 60 * 60, // 30 days
+      })
+    }
 
     return response
   } catch (error) {

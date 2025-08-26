@@ -153,7 +153,7 @@ export default function RealDriveConnector() {
           <CardHeader>
             <CardTitle>Casos de Éxito Reales</CardTitle>
             <CardDescription>
-              Carpetas encontradas en: https://drive.google.com/drive/folders/1DedwoHB3BOHqIIiIGEqZqt0qCCjuVMn2
+              Carpetas encontradas en: https://drive.google.com/drive/folders/1wJRhFJNpIqoJ_O9FPIhpPglmypnwgt5F
             </CardDescription>
           </CardHeader>
           <CardContent>
