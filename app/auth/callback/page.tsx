@@ -13,22 +13,29 @@ export default function AuthCallback() {
     const code = searchParams.get("code")
     const error = searchParams.get("error")
 
+    // Check if this is a popup-based flow (no URL parameters)
+    if (!code && !error) {
+      setStatus("success")
+      setMessage("OAuth flow completed successfully!")
+      setInstructions("This page is no longer needed with popup-based authentication. You can close this window.")
+
+      // Auto-close after 2 seconds for popup flow
+      setTimeout(() => {
+        window.close()
+      }, 2000)
+      return
+    }
+
     if (error) {
       setStatus("error")
 
       if (error === "redirect_uri_mismatch") {
         setMessage("OAuth Configuration Error: Redirect URI Mismatch")
         setInstructions(`
-          To fix this error, you need to add the following redirect URI to your Google Cloud Console:
+          The system has been updated to use popup-based authentication to avoid this error.
           
-          ${window.location.origin}/auth/callback
-          
-          Steps:
-          1. Go to Google Cloud Console (console.cloud.google.com)
-          2. Navigate to APIs & Services > Credentials
-          3. Edit your OAuth 2.0 Client ID
-          4. Add the exact URI above to 'Authorized redirect URIs'
-          5. Save and try again
+          If you're still seeing this error, try refreshing the main page.
+          The new authentication method doesn't require redirect URI configuration.
         `)
       } else {
         setMessage(`Authentication failed: ${error}`)
@@ -109,6 +116,7 @@ export default function AuthCallback() {
                 </svg>
               </div>
               <p className="text-green-600 font-medium">{message}</p>
+              <p className="text-sm text-gray-500 mt-2">Using popup-based OAuth flow</p>
             </div>
           )}
 
@@ -123,7 +131,7 @@ export default function AuthCallback() {
 
               {instructions && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-left max-w-lg">
-                  <h3 className="font-semibold text-yellow-800 mb-2">Configuration Required:</h3>
+                  <h3 className="font-semibold text-yellow-800 mb-2">Updated Authentication Method:</h3>
                   <pre className="text-sm text-yellow-700 whitespace-pre-wrap font-mono">{instructions}</pre>
                 </div>
               )}

@@ -424,7 +424,7 @@ export default function GoogleDriveIntegration() {
                 variant="outline"
                 size="sm"
                 onClick={() =>
-                  window.open("https://drive.google.com/drive/folders/11JY7ME6h72wrjud9bYwduqYSbFRcH7i5", "_blank")
+                  window.open("https://drive.google.com/drive/folders/1DedwoHB3BOHqIIiIGEqZqt0qCCjuVMn2", "_blank")
                 }
                 className="flex items-center gap-2"
               >

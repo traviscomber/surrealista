@@ -97,7 +97,7 @@ const mvpStages: MVPStage[] = [
     id: "stage-1",
     name: "Etapa 1: Ordenamiento del Repositorio",
     description: "Desarrollo de API de integración, interfaz web, migración y estandarización",
-    duration: "Semanas 1-4 (2 semanas completadas de 4)",
+    duration: "Semanas 1-4 (3 semanas completadas de 4)",
     status: "in-progress",
     progress: 75,
     tasks: [
@@ -158,6 +158,42 @@ const mvpStages: MVPStage[] = [
       {
         id: "batch-processing",
         name: "Procesamiento en Lotes",
+        status: "completed",
+        priority: "medium",
+      },
+      {
+        id: "agentic-system",
+        name: "Sistema Agéntico Documental",
+        status: "in-progress",
+        priority: "high",
+      },
+      {
+        id: "agent-orchestrator",
+        name: "Orquestador de Agentes",
+        status: "in-progress",
+        priority: "high",
+      },
+      {
+        id: "folder-agent",
+        name: "Agente de Organización de Carpetas",
+        status: "completed",
+        priority: "high",
+      },
+      {
+        id: "extraction-agent",
+        name: "Agente de Extracción de Datos",
+        status: "completed",
+        priority: "high",
+      },
+      {
+        id: "validation-agent",
+        name: "Agente de Validación de Estructura",
+        status: "completed",
+        priority: "medium",
+      },
+      {
+        id: "document-agent",
+        name: "Agente de Clasificación de Documentos",
         status: "completed",
         priority: "medium",
       },

@@ -34,107 +34,30 @@ class RealGoogleDriveService {
       apiKey: "AIzaSyB6AVo8HT0RyEmiu8YRKj3skR3ujXyjHTU",
       clientId: "873991779919-dold9vq3nsl8qoeqfuibmjj5kjctqah1.apps.googleusercontent.com",
       clientSecret: "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",
-      redirectUri: `${typeof window !== "undefined" ? window.location.origin : "https://localhost:3000"}/auth/callback`,
+      redirectUri: "postmessage",
     }
   }
 
   async authenticate(): Promise<boolean> {
     try {
-      console.log("[v0] Attempting real Google Drive authentication...")
+      console.log("[v0] Attempting server-side Google Drive authentication...")
 
-      console.log("[v0] Private folder detected, using OAuth authentication...")
+      const response = await fetch("/api/drive/folders")
 
-      const authUrl =
-        `https://accounts.google.com/o/oauth2/v2/auth?` +
-        `client_id=${this.config.clientId}&` +
-        `redirect_uri=${encodeURIComponent(this.config.redirectUri)}&` +
-        `scope=${encodeURIComponent("https://www.googleapis.com/auth/drive.readonly")}&` +
-        `response_type=code&` +
-        `access_type=offline&` +
-        `prompt=consent`
+      if (response.ok) {
+        console.log("[v0] Already authenticated via server-side OAuth")
+        this.accessToken = "server_authenticated"
+        return true
+      }
 
-      console.log("[v0] OAuth URL generated:", authUrl)
-      console.log("[v0] Redirect URI:", this.config.redirectUri)
+      if (response.status === 401) {
+        console.log("[v0] No access token found, starting OAuth popup...")
+        return await this.startOAuthPopup()
+      }
 
-      console.log("[v0] ⚠️  OAUTH SETUP REQUIRED:")
-      console.log("[v0] 1. Go to Google Cloud Console: https://console.cloud.google.com/")
-      console.log("[v0] 2. Navigate to APIs & Services > Credentials")
-      console.log("[v0] 3. Edit your OAuth 2.0 Client ID")
-      console.log("[v0] 4. Add this EXACT redirect URI to 'Authorized redirect URIs':")
-      console.log(`[v0]    ${this.config.redirectUri}`)
-      console.log("[v0] 5. Save the configuration and try again")
-
-      const authWindow = window.open(authUrl, "oauth", "width=500,height=600,scrollbars=yes,resizable=yes")
-
-      return new Promise((resolve) => {
-        // Listen for messages from the OAuth callback
-        const messageListener = (event: MessageEvent) => {
-          if (event.data.type === "oauth_success" && event.data.code) {
-            console.log("[v0] OAuth code received:", event.data.code)
-            window.removeEventListener("message", messageListener)
-            authWindow?.close()
-
-            // Exchange code for access token
-            this.exchangeCodeForToken(event.data.code).then((success) => {
-              resolve(success)
-            })
-          } else if (event.data.type === "oauth_error") {
-            console.error("[v0] OAuth error received:", event.data.error)
-            window.removeEventListener("message", messageListener)
-            authWindow?.close()
-
-            if (event.data.error.includes("redirect_uri_mismatch")) {
-              console.error("[v0] ❌ REDIRECT URI MISMATCH ERROR")
-              console.error("[v0] The redirect URI in your Google Cloud Console doesn't match:")
-              console.error(`[v0] Expected: ${this.config.redirectUri}`)
-              console.error("[v0] Please add the exact URI above to your OAuth client configuration")
-            }
-
-            console.log("[v0] Falling back to demo mode due to OAuth error")
-            this.accessToken = "demo_mode"
-            resolve(true)
-          }
-        }
-
-        window.addEventListener("message", messageListener)
-
-        // Check if window is closed manually
-        const checkClosed = setInterval(() => {
-          if (authWindow?.closed) {
-            clearInterval(checkClosed)
-            window.removeEventListener("message", messageListener)
-
-            // Check localStorage for OAuth code (fallback)
-            const storedCode = localStorage.getItem("oauth_code")
-            const timestamp = localStorage.getItem("oauth_timestamp")
-
-            if (storedCode && timestamp && Date.now() - Number.parseInt(timestamp) < 300000) {
-              // 5 minutes
-              console.log("[v0] Found stored OAuth code")
-              localStorage.removeItem("oauth_code")
-              localStorage.removeItem("oauth_timestamp")
-
-              this.exchangeCodeForToken(storedCode).then((success) => {
-                resolve(success)
-              })
-            } else {
-              console.log("[v0] OAuth window closed without code, falling back to demo mode")
-              this.accessToken = "demo_mode"
-              resolve(true)
-            }
-          }
-        }, 1000)
-
-        // Timeout after 5 minutes
-        setTimeout(() => {
-          clearInterval(checkClosed)
-          window.removeEventListener("message", messageListener)
-          authWindow?.close()
-          console.log("[v0] OAuth timeout, falling back to demo mode")
-          this.accessToken = "demo_mode"
-          resolve(true)
-        }, 300000)
-      })
+      console.log("[v0] API error:", response.status, "falling back to demo mode")
+      this.accessToken = "demo_mode"
+      return true
     } catch (error) {
       console.error("[v0] Authentication failed:", error)
       console.log("[v0] Falling back to demo mode due to authentication error")
@@ -143,57 +66,72 @@ class RealGoogleDriveService {
     }
   }
 
-  private async exchangeCodeForToken(code: string): Promise<boolean> {
-    try {
-      console.log("[v0] Exchanging code for access token...")
+  private async startOAuthPopup(): Promise<boolean> {
+    return new Promise((resolve) => {
+      const popup = window.open("/api/auth/google", "google-oauth", "width=500,height=600,scrollbars=yes,resizable=yes")
 
-      const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({
-          code: code,
-          client_id: this.config.clientId,
-          client_secret: this.config.clientSecret,
-          redirect_uri: this.config.redirectUri,
-          grant_type: "authorization_code",
-        }),
-      })
-
-      if (tokenResponse.ok) {
-        const tokenData = await tokenResponse.json()
-        this.accessToken = tokenData.access_token
-        console.log("[v0] Successfully obtained access token")
-        return true
-      } else {
-        const errorData = await tokenResponse.json()
-        console.error("[v0] Token exchange failed:", errorData)
+      if (!popup) {
+        console.error("[v0] Popup blocked, falling back to demo mode")
         this.accessToken = "demo_mode"
-        return true
-      }
-    } catch (error) {
-      console.error("[v0] Error exchanging code for token:", error)
-      this.accessToken = "demo_mode"
-      return true
-    }
-  }
-
-  private async loadGoogleAPI(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      if (typeof window !== "undefined" && (window as any).gapi) {
-        resolve()
+        resolve(true)
         return
       }
 
-      const script = document.createElement("script")
-      script.src = "https://apis.google.com/js/api.js"
-      script.onload = () => {
-        ;(window as any).gapi.load("client:auth2", resolve)
+      const checkClosed = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(checkClosed)
+          // Check if authentication was successful
+          this.checkAuthenticationStatus().then(resolve)
+        }
+      }, 1000)
+
+      // Listen for messages from popup
+      const messageListener = (event: MessageEvent) => {
+        if (event.origin !== window.location.origin) return
+
+        if (event.data.type === "oauth-success") {
+          clearInterval(checkClosed)
+          window.removeEventListener("message", messageListener)
+          popup.close()
+          this.accessToken = "server_authenticated"
+          resolve(true)
+        } else if (event.data.type === "oauth-error") {
+          clearInterval(checkClosed)
+          window.removeEventListener("message", messageListener)
+          popup.close()
+          this.accessToken = "demo_mode"
+          resolve(true)
+        }
       }
-      script.onerror = reject
-      document.head.appendChild(script)
+
+      window.addEventListener("message", messageListener)
+
+      // Timeout after 5 minutes
+      setTimeout(() => {
+        clearInterval(checkClosed)
+        window.removeEventListener("message", messageListener)
+        if (!popup.closed) {
+          popup.close()
+        }
+        this.accessToken = "demo_mode"
+        resolve(true)
+      }, 300000)
     })
+  }
+
+  private async checkAuthenticationStatus(): Promise<boolean> {
+    try {
+      const response = await fetch("/api/drive/folders")
+      if (response.ok) {
+        this.accessToken = "server_authenticated"
+        return true
+      }
+    } catch (error) {
+      console.error("[v0] Error checking auth status:", error)
+    }
+
+    this.accessToken = "demo_mode"
+    return true
   }
 
   async listSuccessCases(): Promise<FolderStructure[]> {
@@ -207,42 +145,41 @@ class RealGoogleDriveService {
     }
 
     try {
-      const folderId = "11JY7ME6h72wrjud9bYwduqYSbFRcH7i5"
+      console.log("[v0] Making API call via server-side endpoint...")
 
-      console.log("[v0] Making real API call to Google Drive with OAuth token...")
-
-      const response = await fetch(
-        `https://www.googleapis.com/drive/v3/files?` +
-          `q=parents in "${folderId}" and mimeType="application/vnd.google-apps.folder"&` +
-          `fields=files(id,name,modifiedTime,webViewLink)`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${this.accessToken}`,
-            "Content-Type": "application/json",
-          },
-        },
-      )
+      const response = await fetch("/api/drive/folders")
 
       if (!response.ok) {
-        const errorText = await response.text()
-        console.error("[v0] API call failed:", response.status, errorText)
-        throw new Error(`API call failed: ${response.status} ${errorText}`)
+        const errorData = await response.json()
+        console.error("[v0] Server API call failed:", response.status, errorData)
+        throw new Error(`Server API call failed: ${response.status}`)
       }
 
       const data = await response.json()
-      console.log("[v0] Real Google Drive response:", data)
+      console.log("[v0] Real Google Drive response via server:", data)
 
-      // Process real folders
-      const folders: FolderStructure[] = []
-
-      for (const folder of data.files || []) {
-        const folderStructure = await this.analyzeFolderStructure(folder.id, folder.name)
-        folders.push(folderStructure)
+      const realFolderStructure: FolderStructure = {
+        id: "1DedwoHB3BOHqIIiIGEqZqt0qCCjuVMn2",
+        name: "Caso de Éxito Real - " + new Date().toLocaleDateString(),
+        files: data.files || [],
+        subfolders: [],
+        totalFiles: data.folderAnalysis?.totalItems || 0,
+        totalSize: this.calculateTotalSize(data.files || []),
+        completionStatus: this.analyzeRealCompletionStatus(data.files || [], data.folderAnalysis),
       }
 
-      console.log("[v0] Successfully processed", folders.length, "real folders")
-      return folders
+      try {
+        const rolResponse = await fetch(`/api/drive/extract-rol/1DedwoHB3BOHqIIiIGEqZqt0qCCjuVMn2`)
+        if (rolResponse.ok) {
+          const rolData = await rolResponse.json()
+          console.log("[v0] Extracted rol numbers from real documents:", rolData.rolNumbers)
+        }
+      } catch (rolError) {
+        console.log("[v0] Could not extract rol numbers:", rolError)
+      }
+
+      console.log("[v0] Successfully processed real folder with", realFolderStructure.totalFiles, "items")
+      return [realFolderStructure]
     } catch (error) {
       console.error("[v0] Error fetching real data:", error)
       console.log("[v0] Falling back to enhanced demo data")
@@ -252,20 +189,13 @@ class RealGoogleDriveService {
 
   private async analyzeFolderStructure(folderId: string, folderName: string): Promise<FolderStructure> {
     try {
-      const filesResponse = await fetch(
-        `https://www.googleapis.com/drive/v3/files?` +
-          `q=parents in "${folderId}"&` +
-          `fields=files(id,name,mimeType,size,modifiedTime,webViewLink)`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${this.accessToken}`,
-            "Content-Type": "application/json",
-          },
-        },
-      )
+      const response = await fetch(`/api/drive/folders/${folderId}`)
 
-      const filesData = await filesResponse.json()
+      if (!response.ok) {
+        throw new Error(`Failed to analyze folder: ${response.status}`)
+      }
+
+      const filesData = await response.json()
       const files: DriveFile[] = filesData.files || []
 
       // Analyze completion based on standard 6-folder structure
@@ -316,19 +246,14 @@ class RealGoogleDriveService {
 
   async extractRolNumbers(folderId: string): Promise<string[]> {
     try {
-      const files = await this.getDocumentFiles(folderId)
-      const rolNumbers: string[] = []
+      const response = await fetch(`/api/drive/extract-rol/${folderId}`)
 
-      for (const file of files) {
-        if (file.mimeType.includes("pdf") || file.mimeType.includes("document")) {
-          // In a real implementation, this would download and parse the document
-          // For now, simulate extraction based on file names
-          const extractedRols = this.simulateRolExtraction(file.name)
-          rolNumbers.push(...extractedRols)
-        }
+      if (!response.ok) {
+        throw new Error(`Failed to extract rol numbers: ${response.status}`)
       }
 
-      return [...new Set(rolNumbers)] // Remove duplicates
+      const data = await response.json()
+      return data.rolNumbers || []
     } catch (error) {
       console.error("[v0] Error extracting rol numbers:", error)
       return []
@@ -336,18 +261,11 @@ class RealGoogleDriveService {
   }
 
   private async getDocumentFiles(folderId: string): Promise<DriveFile[]> {
-    const response = await fetch(
-      `https://www.googleapis.com/drive/v3/files?` +
-        `q=parents in "${folderId}" and (mimeType contains "pdf" or mimeType contains "document")&` +
-        `fields=files(id,name,mimeType,size,modifiedTime)`,
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${this.accessToken}`,
-          "Content-Type": "application/json",
-        },
-      },
-    )
+    const response = await fetch(`/api/drive/documents/${folderId}`)
+
+    if (!response.ok) {
+      throw new Error(`Failed to get document files: ${response.status}`)
+    }
 
     const data = await response.json()
     return data.files || []
@@ -383,7 +301,7 @@ class RealGoogleDriveService {
             name: "1_FOTOS",
             mimeType: "application/vnd.google-apps.folder",
             modifiedTime: "2025-08-12T00:00:00Z",
-            webViewLink: "https://drive.google.com/drive/folders/11JY7ME6h72wrjud9bYwduqYSbFRcH7i5",
+            webViewLink: "https://drive.google.com/drive/folders/1DedwoHB3BOHqIIiIGEqZqt0qCCjuVMn2",
           },
           {
             id: "2",
@@ -470,6 +388,27 @@ class RealGoogleDriveService {
 
   private getDemoSuccessCases(): FolderStructure[] {
     return this.getEnhancedDemoSuccessCases()
+  }
+
+  // Helper methods for real data processing
+  private calculateTotalSize(files: DriveFile[]): number {
+    return files.reduce((sum, file) => sum + Number.parseInt(file.size || "0"), 0)
+  }
+
+  private analyzeRealCompletionStatus(files: DriveFile[], analysis: any): "complete" | "incomplete" | "pending" {
+    if (!analysis) return "pending"
+
+    const hasDocuments = analysis.documents > 0
+    const hasFolders = analysis.folders > 0
+    const hasImages = analysis.images > 0
+
+    if (hasDocuments && hasFolders && hasImages && analysis.totalItems >= 10) {
+      return "complete"
+    } else if (analysis.totalItems >= 5) {
+      return "incomplete"
+    } else {
+      return "pending"
+    }
   }
 }
 

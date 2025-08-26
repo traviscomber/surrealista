@@ -57,6 +57,14 @@ const toolsItems = [
     badge: "IA",
   },
   {
+    title: "Agentes Documentales",
+    href: "/admin/agentes",
+    icon: Brain,
+    description: "Sistema agéntico para gestión documental automática",
+    badge: "Nuevo",
+    badgeColor: "bg-purple-500",
+  },
+  {
     title: "Tecnología IA",
     href: "/tecnologia-ia",
     icon: Brain,
@@ -92,8 +100,16 @@ const mvpItems = [
     href: "/mvp/seguimiento",
     icon: Activity,
     description: "Estado actual y progreso completo del desarrollo",
-    badge: "35%",
+    badge: "75%",
     badgeColor: "bg-blue-500",
+  },
+  {
+    title: "Agentes Documentales",
+    href: "/admin/agentes",
+    icon: Brain,
+    description: "Sistema agéntico para automatización documental",
+    badge: "Semana 4",
+    badgeColor: "bg-purple-500",
   },
   {
     title: "Google Drive Integration",
@@ -304,7 +320,14 @@ export function Header() {
                 <Link href="/mvp/seguimiento" className="flex items-center">
                   <Activity className="mr-2 h-4 w-4" />
                   <span>Seguimiento MVP</span>
-                  <Badge className="ml-auto bg-blue-500 text-white text-xs">35%</Badge>
+                  <Badge className="ml-auto bg-blue-500 text-white text-xs">75%</Badge>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/agentes" className="flex items-center">
+                  <Brain className="mr-2 h-4 w-4" />
+                  <span>Agentes Documentales</span>
+                  <Badge className="ml-auto bg-purple-500 text-white text-xs">Nuevo</Badge>
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -411,6 +434,15 @@ export function Header() {
                   >
                     <Shield className="h-4 w-4" />
                     <span>Panel Admin</span>
+                  </Link>
+                  <Link
+                    href="/admin/agentes"
+                    className="flex items-center space-x-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <Brain className="h-4 w-4" />
+                    <span>Agentes Documentales</span>
+                    <Badge className="ml-auto bg-purple-500 text-white text-xs">Nuevo</Badge>
                   </Link>
                 </div>
               </div>
