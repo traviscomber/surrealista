@@ -7,25 +7,12 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     console.log("[v0] OAuth error:", error)
-    return new NextResponse(
-      `
-      <html>
-        <body>
-          <script>
-            window.opener?.postMessage({ type: 'oauth-error', error: '${error}' }, window.location.origin);
-            window.close();
-          </script>
-          <p>Authentication failed: ${error}. This window will close automatically.</p>
-        </body>
-      </html>
-    `,
-      { headers: { "Content-Type": "text/html" } },
-    )
+    return NextResponse.redirect(new URL("/?auth=error", request.url))
   }
 
   if (!code) {
     const clientId = "873991779919-dold9vq3nsl8qoeqfuibmjj5kjctqah1.apps.googleusercontent.com"
-    const redirectUri = "https://sur-realista.vercel.app/api/auth/google"
+    const redirectUri = new URL("/api/auth/google", request.url).toString()
     const scope = "https://www.googleapis.com/auth/drive.readonly"
 
     const authUrl =
@@ -43,7 +30,7 @@ export async function GET(request: NextRequest) {
   try {
     const clientId = "873991779919-dold9vq3nsl8qoeqfuibmjj5kjctqah1.apps.googleusercontent.com"
     const clientSecret = "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"
-    const redirectUri = "https://sur-realista.vercel.app/api/auth/google"
+    const redirectUri = new URL("/api/auth/google", request.url).toString()
 
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
@@ -71,7 +58,7 @@ export async function GET(request: NextRequest) {
               window.opener?.postMessage({ type: 'oauth-error', error: '${tokenData.error}' }, window.location.origin);
               window.close();
             </script>
-            <p>Authentication failed: ${tokenData.error}. This window will close automatically.</p>
+            <p>Authentication failed. This window will close automatically.</p>
           </body>
         </html>
       `,
@@ -98,19 +85,9 @@ export async function GET(request: NextRequest) {
 
     response.cookies.set("google_access_token", tokenData.access_token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      secure: true,
       maxAge: tokenData.expires_in || 3600,
     })
-
-    if (tokenData.refresh_token) {
-      response.cookies.set("google_refresh_token", tokenData.refresh_token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 30 * 24 * 60 * 60, // 30 days
-      })
-    }
 
     return response
   } catch (error) {

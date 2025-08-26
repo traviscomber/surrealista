@@ -158,28 +158,16 @@ class RealGoogleDriveService {
       const data = await response.json()
       console.log("[v0] Real Google Drive response via server:", data)
 
-      const realFolderStructure: FolderStructure = {
-        id: "1DedwoHB3BOHqIIiIGEqZqt0qCCjuVMn2",
-        name: "Caso de Éxito Real - " + new Date().toLocaleDateString(),
-        files: data.files || [],
-        subfolders: [],
-        totalFiles: data.folderAnalysis?.totalItems || 0,
-        totalSize: this.calculateTotalSize(data.files || []),
-        completionStatus: this.analyzeRealCompletionStatus(data.files || [], data.folderAnalysis),
+      // Process real folders
+      const folders: FolderStructure[] = []
+
+      for (const folder of data.files || []) {
+        const folderStructure = await this.analyzeFolderStructure(folder.id, folder.name)
+        folders.push(folderStructure)
       }
 
-      try {
-        const rolResponse = await fetch(`/api/drive/extract-rol/1DedwoHB3BOHqIIiIGEqZqt0qCCjuVMn2`)
-        if (rolResponse.ok) {
-          const rolData = await rolResponse.json()
-          console.log("[v0] Extracted rol numbers from real documents:", rolData.rolNumbers)
-        }
-      } catch (rolError) {
-        console.log("[v0] Could not extract rol numbers:", rolError)
-      }
-
-      console.log("[v0] Successfully processed real folder with", realFolderStructure.totalFiles, "items")
-      return [realFolderStructure]
+      console.log("[v0] Successfully processed", folders.length, "real folders")
+      return folders
     } catch (error) {
       console.error("[v0] Error fetching real data:", error)
       console.log("[v0] Falling back to enhanced demo data")
@@ -388,27 +376,6 @@ class RealGoogleDriveService {
 
   private getDemoSuccessCases(): FolderStructure[] {
     return this.getEnhancedDemoSuccessCases()
-  }
-
-  // Helper methods for real data processing
-  private calculateTotalSize(files: DriveFile[]): number {
-    return files.reduce((sum, file) => sum + Number.parseInt(file.size || "0"), 0)
-  }
-
-  private analyzeRealCompletionStatus(files: DriveFile[], analysis: any): "complete" | "incomplete" | "pending" {
-    if (!analysis) return "pending"
-
-    const hasDocuments = analysis.documents > 0
-    const hasFolders = analysis.folders > 0
-    const hasImages = analysis.images > 0
-
-    if (hasDocuments && hasFolders && hasImages && analysis.totalItems >= 10) {
-      return "complete"
-    } else if (analysis.totalItems >= 5) {
-      return "incomplete"
-    } else {
-      return "pending"
-    }
   }
 }
 
