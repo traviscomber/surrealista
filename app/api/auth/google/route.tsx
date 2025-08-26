@@ -5,6 +5,8 @@ export async function GET(request: NextRequest) {
   const code = searchParams.get("code")
   const error = searchParams.get("error")
 
+  console.log("[v0] OAuth route accessed:", { code: !!code, error, url: request.url })
+
   if (error) {
     console.log("[v0] OAuth error:", error)
     return NextResponse.redirect(new URL("/?auth=error", request.url))
@@ -14,6 +16,8 @@ export async function GET(request: NextRequest) {
     const clientId = "873991779919-dold9vq3nsl8qoeqfuibmjj5kjctqah1.apps.googleusercontent.com"
     const redirectUri = new URL("/api/auth/google", request.url).toString()
     const scope = "https://www.googleapis.com/auth/drive.readonly"
+
+    console.log("[v0] Redirecting to Google OAuth with URI:", redirectUri)
 
     const authUrl =
       `https://accounts.google.com/o/oauth2/v2/auth?` +
@@ -31,6 +35,8 @@ export async function GET(request: NextRequest) {
     const clientId = "873991779919-dold9vq3nsl8qoeqfuibmjj5kjctqah1.apps.googleusercontent.com"
     const clientSecret = "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"
     const redirectUri = new URL("/api/auth/google", request.url).toString()
+
+    console.log("[v0] Exchanging code for token with redirect URI:", redirectUri)
 
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
@@ -55,6 +61,7 @@ export async function GET(request: NextRequest) {
         <html>
           <body>
             <script>
+              console.log("[v0] Sending oauth-error message to parent");
               window.opener?.postMessage({ type: 'oauth-error', error: '${tokenData.error}' }, window.location.origin);
               window.close();
             </script>
@@ -73,8 +80,9 @@ export async function GET(request: NextRequest) {
       <html>
         <body>
           <script>
+            console.log("[v0] Sending oauth-success message to parent");
             window.opener?.postMessage({ type: 'oauth-success' }, window.location.origin);
-            window.close();
+            setTimeout(() => window.close(), 1000);
           </script>
           <p>Authentication successful! This window will close automatically.</p>
         </body>
@@ -107,6 +115,7 @@ export async function GET(request: NextRequest) {
       <html>
         <body>
           <script>
+            console.log("[v0] Sending oauth-error message to parent");
             window.opener?.postMessage({ type: 'oauth-error', error: 'server_error' }, window.location.origin);
             window.close();
           </script>
