@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
 
   if (!code) {
     const clientId = "873991779919-dold9vq3nsl8qoeqfuibmjj5kjctqah1.apps.googleusercontent.com"
-    const redirectUri = "https://sur-realista.vercel.app/api/auth/google"
+    const redirectUri = new URL("/api/auth/google", request.url).toString()
     const scope = "https://www.googleapis.com/auth/drive.readonly"
 
     const authUrl =
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
   try {
     const clientId = "873991779919-dold9vq3nsl8qoeqfuibmjj5kjctqah1.apps.googleusercontent.com"
     const clientSecret = "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"
-    const redirectUri = "https://sur-realista.vercel.app/api/auth/google"
+    const redirectUri = new URL("/api/auth/google", request.url).toString()
 
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
