@@ -289,7 +289,7 @@ class RealGoogleDriveService {
             name: "1_FOTOS",
             mimeType: "application/vnd.google-apps.folder",
             modifiedTime: "2025-08-12T00:00:00Z",
-            webViewLink: "https://drive.google.com/drive/folders/1DedwoHB3BOHqIIiIGEqZqt0qCCjuVMn2",
+            webViewLink: "https://drive.google.com/drive/folders/11JY7ME6h72wrjud9bYwduqYSbFRcH7i5",
           },
           {
             id: "2",

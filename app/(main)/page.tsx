@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -30,41 +30,38 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 let realDriveService: any = null
 
 function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void }) {
-  const standardStructure = useMemo(
-    () => ({
-      "1_FOTOS": {
-        icon: <ImageIcon className="h-4 w-4" />,
-        color: "text-green-600",
-        subfolders: ["2024-06-20", "2024-07-10", "drone_aereas", "seleccion_jorge"],
-      },
-      "2_DOCUMENTOS": {
-        icon: <FileText className="h-4 w-4" />,
-        color: "text-blue-600",
-        subfolders: ["a_antecedentes_titulo", "b_tasacion_info", "c_documentos_comerciales"],
-      },
-      "3_COMUNICACIONES": {
-        icon: <MapPin className="h-4 w-4" />,
-        color: "text-purple-600",
-        subfolders: ["a_interaccion_compradores", "b_interaccion_dueno", "c_sugerencia_clientes"],
-      },
-      "4_MARKETING": {
-        icon: <Video className="h-4 w-4" />,
-        color: "text-orange-600",
-        subfolders: ["video_promocional", "fotos_marketing", "publicaciones_portales"],
-      },
-      "5_PDF_SUELTO": {
-        icon: <File className="h-4 w-4" />,
-        color: "text-red-600",
-        subfolders: [],
-      },
-      "6_KMZ_SUELTO": {
-        icon: <MapPin className="h-4 w-4" />,
-        color: "text-indigo-600",
-        subfolders: [],
-      },
-    }),
-    [],
-  )
+  const standardStructure = {
+    "1_FOTOS": {
+      icon: <ImageIcon className="h-4 w-4" />,
+      color: "text-green-600",
+      subfolders: ["2024-06-20", "2024-07-10", "drone_aereas", "seleccion_jorge"],
+    },
+    "2_DOCUMENTOS": {
+      icon: <FileText className="h-4 w-4" />,
+      color: "text-blue-600",
+      subfolders: ["a_antecedentes_titulo", "b_tasacion_info", "c_documentos_comerciales"],
+    },
+    "3_COMUNICACIONES": {
+      icon: <MapPin className="h-4 w-4" />,
+      color: "text-purple-600",
+      subfolders: ["a_interaccion_compradores", "b_interaccion_dueno", "c_sugerencia_clientes"],
+    },
+    "4_MARKETING": {
+      icon: <Video className="h-4 w-4" />,
+      color: "text-orange-600",
+      subfolders: ["video_promocional", "fotos_marketing", "publicaciones_portales"],
+    },
+    "5_PDF_SUELTO": {
+      icon: <File className="h-4 w-4" />,
+      color: "text-red-600",
+      subfolders: [],
+    },
+    "6_KMZ_SUELTO": {
+      icon: <MapPin className="h-4 w-4" />,
+      color: "text-indigo-600",
+      subfolders: [],
+    },
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
@@ -146,63 +143,55 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
   )
 }
 
-const FolderCard = ({
+function FolderCard({
   folder,
   viewMode,
   onViewDetails,
-}: { folder: any; viewMode: "grid" | "list"; onViewDetails: (folder: any) => void }) => {
-  const statusConfig = useMemo(() => {
-    const getStatusColor = (status: string) => {
-      switch (status) {
-        case "complete":
-          return "text-green-600 bg-green-50 border-green-200"
-        case "processing":
-          return "text-blue-600 bg-blue-50 border-blue-200"
-        case "pending":
-          return "text-yellow-600 bg-yellow-50 border-yellow-200"
-        default:
-          return "text-red-600 bg-red-50 border-red-200"
-      }
+}: { folder: any; viewMode: "grid" | "list"; onViewDetails: (folder: any) => void }) {
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "complete":
+        return "text-green-600 bg-green-50 border-green-200"
+      case "processing":
+        return "text-blue-600 bg-blue-50 border-blue-200"
+      case "pending":
+        return "text-yellow-600 bg-yellow-50 border-yellow-200"
+      default:
+        return "text-red-600 bg-red-50 border-red-200"
     }
+  }
 
-    const getStatusIcon = (status: string) => {
-      switch (status) {
-        case "complete":
-          return <CheckCircle className="h-4 w-4" />
-        case "processing":
-          return <Calendar className="h-4 w-4" />
-        case "pending":
-          return <AlertCircle className="h-4 w-4" />
-        default:
-          return <AlertCircle className="h-4 w-4" />
-      }
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "complete":
+        return <CheckCircle className="h-4 w-4" />
+      case "processing":
+        return <Calendar className="h-4 w-4" />
+      case "pending":
+        return <AlertCircle className="h-4 w-4" />
+      default:
+        return <AlertCircle className="h-4 w-4" />
     }
+  }
 
-    const getStatusText = (status: string) => {
-      switch (status) {
-        case "complete":
-          return "Completo"
-        case "processing":
-          return "Procesando"
-        case "pending":
-          return "Pendiente"
-        default:
-          return "Incompleto"
-      }
+  const getStatusText = (status: string) => {
+    switch (status) {
+      case "complete":
+        return "Completo"
+      case "processing":
+        return "Procesando"
+      case "pending":
+        return "Pendiente"
+      default:
+        return "Incompleto"
     }
-
-    return { getStatusColor, getStatusIcon, getStatusText }
-  }, [])
-
-  const handleClick = useCallback(() => {
-    onViewDetails(folder)
-  }, [folder, onViewDetails])
+  }
 
   if (viewMode === "list") {
     return (
       <div
         className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
-        onClick={handleClick}
+        onClick={() => onViewDetails(folder)}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -227,9 +216,9 @@ const FolderCard = ({
                 {folder.rolNumbers}
               </span>
             </div>
-            <Badge className={statusConfig.getStatusColor(folder.status)}>
-              {statusConfig.getStatusIcon(folder.status)}
-              {statusConfig.getStatusText(folder.status)}
+            <Badge className={getStatusColor(folder.status)}>
+              {getStatusIcon(folder.status)}
+              {getStatusText(folder.status)}
             </Badge>
           </div>
         </div>
@@ -238,13 +227,11 @@ const FolderCard = ({
   }
 
   return (
-    <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={handleClick}>
+    <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => onViewDetails(folder)}>
       <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <CardTitle className="text-sm font-medium truncate">{folder.name}</CardTitle>
-          <Badge className={statusConfig.getStatusColor(folder.status)}>
-            {statusConfig.getStatusIcon(folder.status)}
-          </Badge>
+          <Badge className={getStatusColor(folder.status)}>{getStatusIcon(folder.status)}</Badge>
         </div>
       </CardHeader>
       <CardContent className="pt-0">
@@ -277,66 +264,35 @@ export default function HomePage() {
   const itemsPerPage = 20
 
   const [folders, setFolders] = useState<any[]>([])
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [selectedFolder, setSelectedFolder] = useState<any | null>(null)
-  const [serviceInitialized, setServiceInitialized] = useState(false)
-
-  const initializeService = useCallback(async () => {
-    if (typeof window !== "undefined" && !realDriveService && !serviceInitialized) {
-      try {
-        setServiceInitialized(true)
-        const { RealDriveService } = await import("@/lib/google-drive/real-drive-service")
-        realDriveService = new RealDriveService()
-      } catch (err) {
-        console.error("[v0] Error loading drive service:", err)
-        setError("Error al cargar el servicio de Google Drive")
-      }
-    }
-  }, [serviceInitialized])
 
   useEffect(() => {
-    const demoFolders = [
-      {
-        id: "demo-1",
-        name: "PARCELA_PUCON_VISTA_LAGO",
-        status: "complete",
-        files: 12,
-        rolNumbers: 1,
-        location: "PUCÓN",
-        propertyType: "PARCELA",
-        lastModified: "2025-08-08",
-        completionScore: 95,
-      },
-      {
-        id: "demo-2",
-        name: "CASA_TEMUCO_FAMILIA_RODRIGUEZ",
-        status: "processing",
-        files: 8,
-        rolNumbers: 1,
-        location: "TEMUCO",
-        propertyType: "CASA",
-        lastModified: "2025-08-07",
-        completionScore: 75,
-      },
-      {
-        id: "demo-3",
-        name: "DEPARTAMENTO_SANTIAGO_CENTRO",
-        status: "complete",
-        files: 15,
-        rolNumbers: 2,
-        location: "SANTIAGO",
-        propertyType: "DEPARTAMENTO",
-        lastModified: "2025-08-06",
-        completionScore: 90,
-      },
-    ]
-    setFolders(demoFolders)
+    const initializeService = async () => {
+      if (typeof window !== "undefined" && !realDriveService) {
+        try {
+          const { RealDriveService } = await import("@/lib/google-drive/real-drive-service")
+          realDriveService = new RealDriveService()
+          await loadRealData()
+        } catch (err) {
+          console.error("[v0] Error loading drive service:", err)
+          setError("Error al cargar el servicio de Google Drive")
+          setLoading(false)
+        }
+      } else if (typeof window === "undefined") {
+        setLoading(false)
+        setError("Servicio no disponible en el servidor")
+      }
+    }
+
+    initializeService()
   }, [])
 
-  const loadRealData = useCallback(async () => {
-    if (typeof window === "undefined") {
+  const loadRealData = async () => {
+    if (typeof window === "undefined" || !realDriveService) {
+      setLoading(false)
       setError("Servicio no disponible en el servidor")
       return
     }
@@ -345,18 +301,12 @@ export default function HomePage() {
       setLoading(true)
       setError(null)
 
-      await initializeService()
-
-      if (!realDriveService) {
-        setError("Error al inicializar el servicio")
-        return
-      }
-
       const authSuccess = await realDriveService.authenticate()
       setIsAuthenticated(authSuccess)
 
       if (!authSuccess) {
         setError("Autenticación requerida para acceder a Google Drive")
+        setLoading(false)
         return
       }
 
@@ -387,14 +337,22 @@ export default function HomePage() {
     } finally {
       setLoading(false)
     }
-  }, [initializeService])
+  }
 
-  const handleAuthenticate = useCallback(async () => {
-    await initializeService()
-
+  const handleAuthenticate = async () => {
     if (!realDriveService) {
-      setError("Error al cargar el servicio")
-      return
+      if (typeof window !== "undefined") {
+        try {
+          const { RealDriveService } = await import("@/lib/google-drive/real-drive-service")
+          realDriveService = new RealDriveService()
+        } catch (err) {
+          setError("Error al cargar el servicio")
+          return
+        }
+      } else {
+        setError("Servicio no disponible")
+        return
+      }
     }
 
     try {
@@ -404,11 +362,9 @@ export default function HomePage() {
       console.error("[v0] Authentication error:", err)
       setError("Error en la autenticación")
     }
-  }, [initializeService, loadRealData])
+  }
 
   const filteredAndSortedFolders = useMemo(() => {
-    if (!folders.length) return []
-
     const filtered = folders.filter((folder) => {
       const matchesSearch = folder.name.toLowerCase().includes(searchTerm.toLowerCase())
       const matchesStatus = statusFilter === "all" || folder.status === statusFilter
@@ -416,7 +372,7 @@ export default function HomePage() {
       return matchesSearch && matchesStatus && matchesLocation
     })
 
-    return filtered.sort((a, b) => {
+    filtered.sort((a, b) => {
       switch (sortBy) {
         case "name":
           return a.name.localeCompare(b.name)
@@ -430,6 +386,8 @@ export default function HomePage() {
           return 0
       }
     })
+
+    return filtered
   }, [folders, searchTerm, statusFilter, locationFilter, sortBy])
 
   const totalPages = Math.ceil(filteredAndSortedFolders.length / itemsPerPage)
@@ -444,17 +402,29 @@ export default function HomePage() {
     return { total, complete, totalFiles, totalRol }
   }, [filteredAndSortedFolders])
 
-  const uniqueLocations = useMemo(() => [...new Set(folders.map((f) => f.location))].sort(), [folders])
+  const uniqueLocations = [...new Set(folders.map((f) => f.location))].sort()
 
-  const handleViewDetails = useCallback((folder: any) => {
+  const handleViewDetails = (folder: any) => {
     setSelectedFolder(folder)
-  }, [])
+  }
 
-  const handleBackToList = useCallback(() => {
+  const handleBackToList = () => {
     setSelectedFolder(null)
-  }, [])
+  }
 
-  if (error && !isAuthenticated && loading) {
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
+        <div className="text-center">
+          <RefreshCw className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Cargando datos reales de Google Drive</h2>
+          <p className="text-gray-600">Conectando con su carpeta de casos de éxito...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (error && !isAuthenticated) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
         <div className="text-center max-w-md">
@@ -483,25 +453,15 @@ export default function HomePage() {
                 <TrendingUp className="h-8 w-8 text-blue-600" />
                 Gestión de Carpetas - Sur-Realista
                 <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                  {folders.length} Carpetas {isAuthenticated ? "Reales" : "Demo"}
+                  {folders.length} Carpetas Reales
                 </Badge>
               </h1>
-              <p className="text-gray-600 mt-1">
-                {isAuthenticated ? "Datos reales desde Google Drive" : "Datos de demostración"} - Casos de éxito
-                procesados
-              </p>
+              <p className="text-gray-600 mt-1">Datos reales desde Google Drive - Casos de éxito procesados</p>
             </div>
-            <div className="flex gap-2">
-              {!isAuthenticated && (
-                <Button onClick={handleAuthenticate} variant="outline" size="sm">
-                  Conectar Google Drive
-                </Button>
-              )}
-              <Button onClick={loadRealData} variant="outline" size="sm" disabled={loading}>
-                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-                {loading ? "Cargando..." : "Actualizar"}
-              </Button>
-            </div>
+            <Button onClick={loadRealData} variant="outline" size="sm" disabled={loading}>
+              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+              Actualizar
+            </Button>
           </div>
         </div>
       </div>
@@ -525,7 +485,7 @@ export default function HomePage() {
                 <p className="text-sm font-medium text-gray-600">Casos Completos</p>
                 <p className="text-3xl font-bold text-green-600">{stats.complete}</p>
                 <p className="text-xs text-gray-500 mt-1">
-                  {stats.total > 0 ? Math.round((stats.complete / stats.total) * 100) : 0}% completitud
+                  {Math.round((stats.complete / stats.total) * 100)}% completitud
                 </p>
               </div>
               <CheckCircle className="h-8 w-8 text-green-500" />
