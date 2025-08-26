@@ -22,7 +22,7 @@ export function AgentDashboard() {
     setIsProcessing(true)
 
     try {
-      const result = await orchestrator.processGoogleDriveFolder("11JY7ME6h72wrjud9bYwduqYSbFRcH7i5")
+      const result = await orchestrator.processGoogleDriveFolder("1DedwoHB3BOHqIIiIGEqZqt0qCCjuVMn2")
       setResults(result)
     } catch (error) {
       console.error("[v0] Agent processing failed:", error)
