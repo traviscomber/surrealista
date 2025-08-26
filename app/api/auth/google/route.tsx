@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
 
   if (!code) {
     const clientId = "873991779919-dold9vq3nsl8qoeqfuibmjj5kjctqah1.apps.googleusercontent.com"
-    const redirectUri = new URL("/api/auth/google", request.url).toString()
+    const redirectUri = "https://sur-realista.vercel.app/api/auth/google"
     const scope = "https://www.googleapis.com/auth/drive.readonly"
 
     console.log("[v0] Redirecting to Google OAuth with URI:", redirectUri)
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
   try {
     const clientId = "873991779919-dold9vq3nsl8qoeqfuibmjj5kjctqah1.apps.googleusercontent.com"
     const clientSecret = "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"
-    const redirectUri = new URL("/api/auth/google", request.url).toString()
+    const redirectUri = "https://sur-realista.vercel.app/api/auth/google"
 
     console.log("[v0] Exchanging code for token with redirect URI:", redirectUri)
 
