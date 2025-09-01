@@ -30,41 +30,122 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 let realDriveService: any = null
 
 function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void }) {
-  const standardStructure = useMemo(
-    () => ({
+  const [folderContents, setFolderContents] = useState<any>(null)
+  const [loadingContents, setLoadingContents] = useState(true)
+  const [contentsError, setContentsError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const loadFolderContents = async () => {
+      try {
+        setLoadingContents(true)
+        setContentsError(null)
+
+        const response = await fetch(`/api/drive/folders/${folder.id}`)
+        if (!response.ok) {
+          throw new Error("Failed to load folder contents")
+        }
+
+        const contents = await response.json()
+        setFolderContents(contents)
+      } catch (error) {
+        console.error("[v0] Error loading folder contents:", error)
+        setContentsError("Error al cargar el contenido de la carpeta")
+      } finally {
+        setLoadingContents(false)
+      }
+    }
+
+    if (folder.id) {
+      loadFolderContents()
+    }
+  }, [folder.id])
+
+  const organizedContents = useMemo(() => {
+    if (!folderContents?.files) return null
+
+    const categories = {
       "1_FOTOS": {
         icon: <ImageIcon className="h-4 w-4" />,
         color: "text-green-600",
-        subfolders: ["2024-06-20", "2024-07-10", "drone_aereas", "seleccion_jorge"],
+        files: [],
+        subfolders: [],
       },
       "2_DOCUMENTOS": {
         icon: <FileText className="h-4 w-4" />,
         color: "text-blue-600",
-        subfolders: ["a_antecedentes_titulo", "b_tasacion_info", "c_documentos_comerciales"],
+        files: [],
+        subfolders: [],
       },
       "3_COMUNICACIONES": {
         icon: <MapPin className="h-4 w-4" />,
         color: "text-purple-600",
-        subfolders: ["a_interaccion_compradores", "b_interaccion_dueno", "c_sugerencia_clientes"],
+        files: [],
+        subfolders: [],
       },
       "4_MARKETING": {
         icon: <Video className="h-4 w-4" />,
         color: "text-orange-600",
-        subfolders: ["video_promocional", "fotos_marketing", "publicaciones_portales"],
+        files: [],
+        subfolders: [],
       },
       "5_PDF_SUELTO": {
         icon: <File className="h-4 w-4" />,
         color: "text-red-600",
+        files: [],
         subfolders: [],
       },
       "6_KMZ_SUELTO": {
         icon: <MapPin className="h-4 w-4" />,
         color: "text-indigo-600",
+        files: [],
         subfolders: [],
       },
-    }),
-    [],
-  )
+    }
+
+    folderContents.files.forEach((item: any) => {
+      const name = item.name.toUpperCase()
+
+      if (name.includes("FOTO") || name.includes("IMAGE") || name.includes("JPG") || name.includes("PNG")) {
+        if (item.mimeType === "application/vnd.google-apps.folder") {
+          categories["1_FOTOS"].subfolders.push(item)
+        } else {
+          categories["1_FOTOS"].files.push(item)
+        }
+      } else if (name.includes("DOCUMENTO") || name.includes("DOC") || name.includes("PDF")) {
+        if (item.mimeType === "application/vnd.google-apps.folder") {
+          categories["2_DOCUMENTOS"].subfolders.push(item)
+        } else {
+          categories["2_DOCUMENTOS"].files.push(item)
+        }
+      } else if (name.includes("COMUNICACION") || name.includes("MAIL") || name.includes("MENSAJE")) {
+        if (item.mimeType === "application/vnd.google-apps.folder") {
+          categories["3_COMUNICACIONES"].subfolders.push(item)
+        } else {
+          categories["3_COMUNICACIONES"].files.push(item)
+        }
+      } else if (name.includes("MARKETING") || name.includes("VIDEO") || name.includes("PROMOCION")) {
+        if (item.mimeType === "application/vnd.google-apps.folder") {
+          categories["4_MARKETING"].subfolders.push(item)
+        } else {
+          categories["4_MARKETING"].files.push(item)
+        }
+      } else if (name.includes("KMZ") || name.includes("KML")) {
+        if (item.mimeType === "application/vnd.google-apps.folder") {
+          categories["6_KMZ_SUELTO"].subfolders.push(item)
+        } else {
+          categories["6_KMZ_SUELTO"].files.push(item)
+        }
+      } else {
+        if (item.mimeType === "application/vnd.google-apps.folder") {
+          categories["5_PDF_SUELTO"].subfolders.push(item)
+        } else {
+          categories["5_PDF_SUELTO"].files.push(item)
+        }
+      }
+    })
+
+    return categories
+  }, [folderContents])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
@@ -113,34 +194,78 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
           </div>
         </div>
 
-        {/* Folder Structure */}
-        <div className="space-y-4">
-          {Object.entries(standardStructure).map(([folderName, config]) => (
-            <div key={folderName} className="bg-white rounded-lg shadow-sm border border-gray-200">
-              <div className="p-4">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className={config.color}>{config.icon}</div>
-                  <h3 className="font-semibold text-gray-900">{folderName}</h3>
-                </div>
-
-                {config.subfolders.length > 0 && (
-                  <div className="ml-7 space-y-2">
-                    {config.subfolders.map((subfolder) => (
-                      <div key={subfolder} className="flex items-center gap-2 py-2 px-3 bg-gray-50 rounded-md">
-                        <Folder className="h-4 w-4 text-gray-500" />
-                        <span className="text-sm text-gray-700">{subfolder}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {config.subfolders.length === 0 && (
-                  <div className="ml-7 text-sm text-gray-500 italic">Archivos sueltos organizados</div>
-                )}
-              </div>
+        {loadingContents && (
+          <div className="container mx-auto px-4 py-6">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+              <RefreshCw className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
+              <p className="text-gray-600">Cargando contenido de la carpeta...</p>
             </div>
-          ))}
-        </div>
+          </div>
+        )}
+
+        {contentsError && (
+          <div className="container mx-auto px-4 py-6">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
+              <AlertCircle className="h-8 w-8 text-red-600 mx-auto mb-4" />
+              <p className="text-red-600 mb-4">{contentsError}</p>
+              <Button onClick={() => window.location.reload()} variant="outline">
+                Reintentar
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {!loadingContents && !contentsError && organizedContents && (
+          <div className="container mx-auto px-4 py-6">
+            <div className="space-y-4">
+              {Object.entries(organizedContents).map(([categoryName, category]) => {
+                const totalItems = category.files.length + category.subfolders.length
+
+                return (
+                  <div key={categoryName} className="bg-white rounded-lg shadow-sm border border-gray-200">
+                    <div className="p-4">
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className={category.color}>{category.icon}</div>
+                        <h3 className="font-semibold text-gray-900">{categoryName}</h3>
+                        <Badge variant="outline" className="text-xs">
+                          {totalItems} elementos
+                        </Badge>
+                      </div>
+
+                      {totalItems > 0 ? (
+                        <div className="ml-7 space-y-2">
+                          {/* Show subfolders */}
+                          {category.subfolders.map((subfolder: any) => (
+                            <div key={subfolder.id} className="flex items-center gap-2 py-2 px-3 bg-blue-50 rounded-md">
+                              <Folder className="h-4 w-4 text-blue-500" />
+                              <span className="text-sm text-gray-700 font-medium">{subfolder.name}</span>
+                              <Badge variant="outline" className="text-xs ml-auto">
+                                Carpeta
+                              </Badge>
+                            </div>
+                          ))}
+
+                          {/* Show files */}
+                          {category.files.map((file: any) => (
+                            <div key={file.id} className="flex items-center gap-2 py-2 px-3 bg-gray-50 rounded-md">
+                              <FileText className="h-4 w-4 text-gray-500" />
+                              <span className="text-sm text-gray-700">{file.name}</span>
+                              <Badge variant="outline" className="text-xs ml-auto">
+                                {file.mimeType?.split("/")[1]?.toUpperCase() || "Archivo"}
+                              </Badge>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="ml-7 text-sm text-gray-500 italic">No hay archivos en esta categoría</div>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
