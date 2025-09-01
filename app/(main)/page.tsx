@@ -407,6 +407,8 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null)
   const [selectedFolder, setSelectedFolder] = useState<any | null>(null)
   const [serviceInitialized, setServiceInitialized] = useState(false)
+  const [searchIndex, setSearchIndex] = useState<Map<string, any>>(new Map())
+  const [indexLoading, setIndexLoading] = useState(false)
 
   const initializeService = useCallback(async () => {
     if (typeof window !== "undefined" && !realDriveService && !serviceInitialized) {
@@ -421,43 +423,59 @@ export default function HomePage() {
     }
   }, [serviceInitialized])
 
-  useEffect(() => {
-    const demoFolders = [
-      {
-        id: "demo-1",
-        name: "PARCELA_PUCON_VISTA_LAGO",
-        status: "complete",
-        files: 12,
-        rolNumbers: 1,
-        location: "PUCÓN",
-        propertyType: "PARCELA",
-        lastModified: "2025-08-08",
-        completionScore: 95,
-      },
-      {
-        id: "demo-2",
-        name: "CASA_TEMUCO_FAMILIA_RODRIGUEZ",
-        status: "processing",
-        files: 8,
-        rolNumbers: 1,
-        location: "TEMUCO",
-        propertyType: "CASA",
-        lastModified: "2025-08-07",
-        completionScore: 75,
-      },
-      {
-        id: "demo-3",
-        name: "DEPARTAMENTO_SANTIAGO_CENTRO",
-        status: "complete",
-        files: 15,
-        rolNumbers: 2,
-        location: "SANTIAGO",
-        propertyType: "DEPARTAMENTO",
-        lastModified: "2025-08-06",
-        completionScore: 90,
-      },
-    ]
-    setFolders(demoFolders)
+  const buildSearchIndex = useCallback(async (foldersList: any[]) => {
+    if (!foldersList.length) return
+
+    setIndexLoading(true)
+    const newIndex = new Map()
+
+    try {
+      // Add folder names to index
+      foldersList.forEach((folder) => {
+        const searchableContent = {
+          folderId: folder.id,
+          folderName: folder.name,
+          type: "folder",
+          content: [folder.name, folder.location, folder.propertyType].join(" ").toLowerCase(),
+        }
+        newIndex.set(`folder-${folder.id}`, searchableContent)
+      })
+
+      // Fetch contents for each folder and add to index
+      const contentPromises = foldersList.map(async (folder) => {
+        try {
+          const response = await fetch(`/api/drive/folders/${folder.id}`)
+          if (response.ok) {
+            const contents = await response.json()
+
+            if (contents.files) {
+              contents.files.forEach((item: any) => {
+                const searchableContent = {
+                  folderId: folder.id,
+                  folderName: folder.name,
+                  type: item.mimeType === "application/vnd.google-apps.folder" ? "subfolder" : "file",
+                  name: item.name,
+                  content: [item.name, folder.name].join(" ").toLowerCase(),
+                }
+                newIndex.set(
+                  `${item.mimeType === "application/vnd.google-apps.folder" ? "subfolder" : "file"}-${item.id}`,
+                  searchableContent,
+                )
+              })
+            }
+          }
+        } catch (error) {
+          console.error(`[v0] Error fetching contents for folder ${folder.id}:`, error)
+        }
+      })
+
+      await Promise.all(contentPromises)
+      setSearchIndex(newIndex)
+    } catch (error) {
+      console.error("[v0] Error building search index:", error)
+    } finally {
+      setIndexLoading(false)
+    }
   }, [])
 
   const loadRealData = useCallback(async () => {
@@ -506,13 +524,14 @@ export default function HomePage() {
       }))
 
       setFolders(processedFolders)
+      await buildSearchIndex(processedFolders)
     } catch (err) {
       console.error("[v0] Error loading real Google Drive data:", err)
       setError("Error al cargar datos de Google Drive")
     } finally {
       setLoading(false)
     }
-  }, [initializeService])
+  }, [initializeService, buildSearchIndex])
 
   const handleAuthenticate = useCallback(async () => {
     await initializeService()
@@ -535,9 +554,28 @@ export default function HomePage() {
     if (!folders.length) return []
 
     const filtered = folders.filter((folder) => {
-      const matchesSearch = folder.name.toLowerCase().includes(searchTerm.toLowerCase())
       const matchesStatus = statusFilter === "all" || folder.status === statusFilter
       const matchesLocation = locationFilter === "all" || folder.location === locationFilter
+
+      let matchesSearch = true
+      if (searchTerm.trim()) {
+        const searchLower = searchTerm.toLowerCase()
+
+        const folderNameMatch = folder.name.toLowerCase().includes(searchLower)
+
+        let contentMatch = false
+        if (searchIndex.size > 0) {
+          for (const [key, item] of searchIndex.entries()) {
+            if (item.folderId === folder.id && item.content.includes(searchLower)) {
+              contentMatch = true
+              break
+            }
+          }
+        }
+
+        matchesSearch = folderNameMatch || contentMatch
+      }
+
       return matchesSearch && matchesStatus && matchesLocation
     })
 
@@ -555,7 +593,7 @@ export default function HomePage() {
           return 0
       }
     })
-  }, [folders, searchTerm, statusFilter, locationFilter, sortBy])
+  }, [folders, searchTerm, statusFilter, locationFilter, sortBy, searchIndex])
 
   const totalPages = Math.ceil(filteredAndSortedFolders.length / itemsPerPage)
   const paginatedFolders = filteredAndSortedFolders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
@@ -578,6 +616,46 @@ export default function HomePage() {
   const handleBackToList = useCallback(() => {
     setSelectedFolder(null)
   }, [])
+
+  useEffect(() => {
+    const demoFolders = [
+      {
+        id: "demo-1",
+        name: "PARCELA_PUCON_VISTA_LAGO",
+        status: "complete",
+        files: 12,
+        rolNumbers: 1,
+        location: "PUCÓN",
+        propertyType: "PARCELA",
+        lastModified: "2025-08-08",
+        completionScore: 95,
+      },
+      {
+        id: "demo-2",
+        name: "CASA_TEMUCO_FAMILIA_RODRIGUEZ",
+        status: "processing",
+        files: 8,
+        rolNumbers: 1,
+        location: "TEMUCO",
+        propertyType: "CASA",
+        lastModified: "2025-08-07",
+        completionScore: 75,
+      },
+      {
+        id: "demo-3",
+        name: "DEPARTAMENTO_SANTIAGO_CENTRO",
+        status: "complete",
+        files: 15,
+        rolNumbers: 2,
+        location: "SANTIAGO",
+        propertyType: "DEPARTAMENTO",
+        lastModified: "2025-08-06",
+        completionScore: 90,
+      },
+    ]
+    setFolders(demoFolders)
+    buildSearchIndex(demoFolders)
+  }, [buildSearchIndex])
 
   if (error && !isAuthenticated && loading) {
     return (
@@ -686,11 +764,16 @@ export default function HomePage() {
               <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
-                  placeholder="Buscar carpetas..."
+                  placeholder="Buscar en carpetas, subcarpetas y archivos..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
                 />
+                {indexLoading && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <RefreshCw className="h-4 w-4 animate-spin text-blue-500" />
+                  </div>
+                )}
               </div>
 
               <Select value={statusFilter} onValueChange={setStatusFilter}>
