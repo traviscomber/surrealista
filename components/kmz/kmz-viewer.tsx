@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Upload, MapPin, FileText, Map, Eye, Trash2, AlertCircle, CheckCircle } from "lucide-react"
 import { useDropzone } from "react-dropzone"
 import { kmzReader, type KMZData } from "@/lib/kmz/kmz-reader"
+import { CanvasMap } from "@/components/maps/canvas-map"
 
 export function KMZViewer() {
   const [kmzFiles, setKmzFiles] = useState<KMZData[]>([])
@@ -236,110 +237,45 @@ export function KMZViewer() {
                 <CardDescription>Visualización de todas las ubicaciones KMZ en el mapa interactivo</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="relative bg-gradient-to-br from-blue-50 to-green-50 rounded-lg p-8 min-h-[400px] overflow-hidden">
-                  {/* Map Background */}
-                  <div className="absolute inset-0 opacity-10">
-                    <Map className="absolute top-4 left-8 h-16 w-16 text-gray-600" />
-                    <MapPin className="absolute bottom-8 right-12 h-20 w-20 text-blue-600" />
-                    <FileText className="absolute top-12 right-8 h-12 w-12 text-green-600" />
-                  </div>
+                <div className="h-[600px] w-full">
+                  <CanvasMap
+                    properties={[]}
+                    kmzData={kmzFiles}
+                    selectedProperty={null}
+                    onPropertySelect={() => {}}
+                    showKMZOverlay={true}
+                  />
+                </div>
 
-                  {/* KMZ Data Visualization */}
-                  <div className="relative z-10">
-                    {kmzFiles.map((kmz, kmzIndex) => (
-                      <div key={kmzIndex} className="absolute inset-0">
-                        {kmz.placemarks.map((placemark, placemarkIndex) => (
-                          <div key={`${kmzIndex}-${placemarkIndex}`}>
-                            {/* KMZ Points */}
-                            {placemark.coordinates.map((coord, coordIndex) => (
-                              <div
-                                key={`${kmzIndex}-${placemarkIndex}-${coordIndex}`}
-                                className="absolute w-3 h-3 bg-purple-500 rounded-full border-2 border-white shadow-lg cursor-pointer hover:scale-125 transition-transform"
-                                style={{
-                                  left: `${20 + ((kmzIndex * 15 + placemarkIndex * 8 + coordIndex * 3) % 60)}%`,
-                                  top: `${20 + ((kmzIndex * 12 + placemarkIndex * 6 + coordIndex * 4) % 60)}%`,
-                                }}
-                                title={`${kmz.fileName} - ${placemark.name || `Punto ${coordIndex + 1}`}`}
-                              />
-                            ))}
-
-                            {/* KMZ Boundary Lines */}
-                            {placemark.coordinates.length > 1 && (
-                              <svg className="absolute inset-0 w-full h-full pointer-events-none">
-                                <defs>
-                                  <pattern
-                                    id={`kmz-pattern-${kmzIndex}-${placemarkIndex}`}
-                                    patternUnits="userSpaceOnUse"
-                                    width="4"
-                                    height="4"
-                                  >
-                                    <rect
-                                      width="4"
-                                      height="4"
-                                      fill="none"
-                                      stroke="purple"
-                                      strokeWidth="0.5"
-                                      opacity="0.3"
-                                    />
-                                  </pattern>
-                                </defs>
-                                <rect
-                                  x={`${20 + ((kmzIndex * 15 + placemarkIndex * 8) % 50)}%`}
-                                  y={`${20 + ((kmzIndex * 12 + placemarkIndex * 6) % 50)}%`}
-                                  width="25%"
-                                  height="20%"
-                                  fill={`url(#kmz-pattern-${kmzIndex}-${placemarkIndex})`}
-                                  stroke="purple"
-                                  strokeWidth="2"
-                                  strokeDasharray="5,5"
-                                  opacity="0.6"
-                                />
-                              </svg>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Legend */}
-                  <div className="absolute bottom-4 left-4 bg-white rounded-lg shadow-lg p-3 space-y-2">
-                    <h4 className="font-semibold text-sm">Leyenda</h4>
-                    <div className="flex items-center gap-2 text-xs">
-                      <div className="w-3 h-3 bg-purple-500 rounded-full"></div>
-                      <span>Puntos KMZ</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs">
-                      <div className="w-3 h-1 border-t-2 border-dashed border-purple-500"></div>
-                      <span>Límites de Parcela</span>
-                    </div>
-                  </div>
-
-                  {/* KMZ Files Info */}
-                  <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-3 max-w-xs">
-                    <h4 className="font-semibold text-sm mb-2">Archivos Visualizados</h4>
-                    <div className="space-y-1 max-h-32 overflow-y-auto">
-                      {kmzFiles.map((kmz, index) => (
-                        <div key={index} className="text-xs p-2 bg-purple-50 rounded">
-                          <div className="font-medium truncate">{kmz.fileName}</div>
-                          <div className="text-muted-foreground">{kmz.placemarks.length} ubicaciones</div>
-                          {kmzReader.extractPropertyRoles(kmz).length > 0 && (
-                            <div className="text-orange-600 font-mono text-xs">
-                              {kmzReader.extractPropertyRoles(kmz).slice(0, 2).join(", ")}
-                              {kmzReader.extractPropertyRoles(kmz).length > 2 && "..."}
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Active Status */}
-                  <div className="absolute top-4 left-4 bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
-                    <CheckCircle className="h-4 w-4 inline mr-1" />
+                {/* Map Statistics */}
+                <div className="mt-4 flex justify-between items-center">
+                  <div className="flex items-center gap-2 text-sm text-green-600">
+                    <CheckCircle className="h-4 w-4" />
                     Mapa Activo - {getTotalPlacemarks()} ubicaciones
                   </div>
+
+                  <div className="text-sm text-muted-foreground">
+                    {kmzFiles.length} archivo{kmzFiles.length !== 1 ? "s" : ""} KMZ cargado
+                    {kmzFiles.length !== 1 ? "s" : ""}
+                  </div>
                 </div>
+
+                {/* KMZ Files Summary */}
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {kmzFiles.map((kmz, index) => (
+                    <div key={index} className="bg-purple-50 rounded-lg p-3">
+                      <div className="font-medium text-sm truncate">{kmz.fileName}</div>
+                      <div className="text-xs text-muted-foreground">{kmz.placemarks.length} ubicaciones</div>
+                      {kmzReader.extractPropertyRoles(kmz).length > 0 && (
+                        <div className="text-xs text-orange-600 font-mono mt-1">
+                          Roles: {kmzReader.extractPropertyRoles(kmz).slice(0, 2).join(", ")}
+                          {kmzReader.extractPropertyRoles(kmz).length > 2 && "..."}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                {/* </CHANGE> */}
               </CardContent>
             </Card>
           </TabsContent>

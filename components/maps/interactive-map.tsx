@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import LeafletMap from "@/components/maps/leaflet-map" // Import LeafletMap component
+import CanvasMap from "@/components/maps/canvas-map" // Import CanvasMap component
 
 import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -442,7 +442,7 @@ export function InteractiveMap() {
             </Button>
           )}
         </div>
-        <LeafletMap
+        <CanvasMap
           properties={filteredProperties}
           kmzData={kmzData}
           showKmzOverlay={showKmzOverlay}
