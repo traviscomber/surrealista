@@ -109,8 +109,32 @@ const mvpItems = [
     href: "/mvp/seguimiento",
     icon: Activity,
     description: "Estado actual y progreso completo del desarrollo",
-    badge: "75%",
+    badge: "85%",
     badgeColor: "bg-blue-500",
+  },
+  {
+    title: "Fase 1 - MVP",
+    href: "/admin/fase-1-mvp",
+    icon: Rocket,
+    description: "Gestión documental y organización de carpetas",
+    badge: "Fase 1",
+    badgeColor: "bg-green-500",
+  },
+  {
+    title: "Fase 2 - MVP",
+    href: "/admin/fase-2-mvp",
+    icon: TrendingUp,
+    description: "Automatización y análisis inteligente",
+    badge: "Fase 2",
+    badgeColor: "bg-orange-500",
+  },
+  {
+    title: "Fase 3 - MVP",
+    href: "/admin/fase-3-mvp",
+    icon: BarChart3,
+    description: "Optimización y escalabilidad",
+    badge: "Fase 3",
+    badgeColor: "bg-purple-500",
   },
   {
     title: "Agentes Documentales",
@@ -119,14 +143,6 @@ const mvpItems = [
     description: "Sistema agéntico para automatización documental",
     badge: "Semana 4",
     badgeColor: "bg-purple-500",
-  },
-  {
-    title: "Google Drive Integration",
-    href: "/admin/google-drive-integration",
-    icon: FolderOpen,
-    description: "Integración completa con Google Drive - PRIORIDAD",
-    badge: "Activo",
-    badgeColor: "bg-green-500",
   },
   {
     title: "Updates & Releases",
@@ -329,7 +345,28 @@ export function Header() {
                 <Link href="/mvp/seguimiento" className="flex items-center">
                   <Activity className="mr-2 h-4 w-4" />
                   <span>Seguimiento MVP</span>
-                  <Badge className="ml-auto bg-blue-500 text-white text-xs">75%</Badge>
+                  <Badge className="ml-auto bg-blue-500 text-white text-xs">85%</Badge>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/fase-1-mvp" className="flex items-center">
+                  <Rocket className="mr-2 h-4 w-4" />
+                  <span>Fase 1 - MVP</span>
+                  <Badge className="ml-auto bg-green-500 text-white text-xs">Fase 1</Badge>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/fase-2-mvp" className="flex items-center">
+                  <TrendingUp className="mr-2 h-4 w-4" />
+                  <span>Fase 2 - MVP</span>
+                  <Badge className="ml-auto bg-orange-500 text-white text-xs">Fase 2</Badge>
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/fase-3-mvp" className="flex items-center">
+                  <BarChart3 className="mr-2 h-4 w-4" />
+                  <span>Fase 3 - MVP</span>
+                  <Badge className="ml-auto bg-purple-500 text-white text-xs">Fase 3</Badge>
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>

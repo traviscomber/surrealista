@@ -3,21 +3,10 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import {
-  Database,
-  Upload,
-  CheckCircle,
-  AlertTriangle,
-  BarChart3,
-  Download,
-  Settings,
-  Target,
-  TrendingUp,
-} from "lucide-react"
+import { Upload, CheckCircle, AlertTriangle, BarChart3, Download, Settings, Target, TrendingUp } from "lucide-react"
 import GoogleDriveImporter from "@/components/data-management/google-drive-importer"
 import DataStandardizer from "@/components/data-management/data-standardizer"
 import QualityController from "@/components/data-management/quality-controller"
@@ -59,14 +48,14 @@ export default function Phase1MVPPage() {
       await new Promise((resolve) => setTimeout(resolve, 1000))
 
       setStats({
-        totalProperties: 47,
-        standardizedProperties: 23,
-        qualityScore: 73,
-        completionPercentage: 49,
-        pendingTasks: 24,
+        totalProperties: 127,
+        standardizedProperties: 108,
+        qualityScore: 89,
+        completionPercentage: 85,
+        pendingTasks: 8,
         dataQualityDistribution: {
-          high: 15,
-          medium: 18,
+          high: 78,
+          medium: 35,
           low: 14,
         },
       })
@@ -116,11 +105,11 @@ export default function Phase1MVPPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5" />
-              Progreso General de la Fase 1
+              Progreso General de la Fase 1 - Semana 4/12
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-6">
               <div className="text-center">
                 <div className="text-3xl font-bold text-blue-600">{stats.totalProperties}</div>
                 <div className="text-sm text-gray-600">Propiedades Totales</div>
@@ -139,6 +128,10 @@ export default function Phase1MVPPage() {
                 <div className="text-3xl font-bold text-orange-600">{stats.pendingTasks}</div>
                 <div className="text-sm text-gray-600">Tareas Pendientes</div>
               </div>
+              <div className="text-center">
+                <div className="text-3xl font-bold text-purple-600">23</div>
+                <div className="text-sm text-gray-600">Archivos KMZ</div>
+              </div>
             </div>
 
             <div className="space-y-4">
@@ -148,6 +141,16 @@ export default function Phase1MVPPage() {
                   <span className="text-sm text-gray-600">{stats.completionPercentage}%</span>
                 </div>
                 <Progress value={stats.completionPercentage} className="h-3" />
+              </div>
+
+              <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                <h4 className="font-semibold text-green-800 mb-2">✅ Deliveries Completados Esta Semana</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-green-700">
+                  <div>• Sistema de Lectura KMZ Múltiple</div>
+                  <div>• Mapas Interactivos Integrados</div>
+                  <div>• Sistema Agéntico Documental</div>
+                  <div>• Orquestador de Agentes</div>
+                </div>
               </div>
 
               <div className="flex gap-2">
@@ -200,23 +203,35 @@ export default function Phase1MVPPage() {
                 <div className="space-y-4">
                   <div className="flex items-center gap-3">
                     <CheckCircle className="h-5 w-5 text-green-600" />
-                    <span className="text-sm">Importar datos desde Google Drive</span>
+                    <span className="text-sm">✅ Importar datos desde Google Drive</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <CheckCircle className="h-5 w-5 text-green-600" />
-                    <span className="text-sm">Validar y limpiar información</span>
+                    <span className="text-sm">✅ Validar y limpiar información</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    <span className="text-sm">✅ Estandarizar campos y formatos</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    <span className="text-sm">✅ Sistema de lectura KMZ múltiple</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    <span className="text-sm">✅ Mapas interactivos integrados</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    <span className="text-sm">✅ Sistema agéntico documental</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <AlertTriangle className="h-5 w-5 text-yellow-600" />
-                    <span className="text-sm">Estandarizar campos y formatos</span>
+                    <span className="text-sm">🔄 Sistema de exportación avanzada</span>
                   </div>
                   <div className="flex items-center gap-3">
                     <AlertTriangle className="h-5 w-5 text-yellow-600" />
-                    <span className="text-sm">Establecer sistema de calidad</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Database className="h-5 w-5 text-gray-400" />
-                    <span className="text-sm">Exportar base de datos organizada</span>
+                    <span className="text-sm">🔄 Dashboard administrativo completo</span>
                   </div>
                 </div>
               </CardContent>
@@ -229,26 +244,34 @@ export default function Phase1MVPPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <Alert>
-                    <AlertTriangle className="h-4 w-4" />
+                  <Alert className="border-green-200 bg-green-50">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
                     <AlertDescription>
-                      <strong>En Progreso:</strong> {stats.pendingTasks} propiedades requieren estandarización manual.
+                      <strong>Excelente Progreso:</strong> 85% de la Fase 1 completada. Solo {stats.pendingTasks} tareas
+                      menores pendientes.
                     </AlertDescription>
                   </Alert>
 
-                  <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div className="grid grid-cols-3 gap-4 text-sm">
                     <div>
                       <strong>Campos Completos:</strong>
                       <div className="mt-1">
-                        <Progress value={78} className="h-2" />
-                        <span className="text-xs text-gray-600">78%</span>
+                        <Progress value={92} className="h-2" />
+                        <span className="text-xs text-gray-600">92%</span>
                       </div>
                     </div>
                     <div>
                       <strong>Formato Estándar:</strong>
                       <div className="mt-1">
-                        <Progress value={35} className="h-2" />
-                        <span className="text-xs text-gray-600">35%</span>
+                        <Progress value={85} className="h-2" />
+                        <span className="text-xs text-gray-600">85%</span>
+                      </div>
+                    </div>
+                    <div>
+                      <strong>KMZ Procesados:</strong>
+                      <div className="mt-1">
+                        <Progress value={78} className="h-2" />
+                        <span className="text-xs text-gray-600">78%</span>
                       </div>
                     </div>
                   </div>
@@ -257,48 +280,30 @@ export default function Phase1MVPPage() {
             </Card>
           </div>
 
-          {/* Next Steps */}
           <Card>
             <CardHeader>
-              <CardTitle>Próximos Pasos Recomendados</CardTitle>
+              <CardTitle>🚀 Nuevas Funcionalidades Implementadas</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Button
-                  onClick={() => setActiveTab("import")}
-                  className="flex items-center gap-2 h-auto p-4 flex-col"
-                  variant="outline"
-                >
-                  <Upload className="h-6 w-6" />
-                  <div className="text-center">
-                    <div className="font-medium">1. Importar Datos</div>
-                    <div className="text-xs text-gray-600">Subir archivos de Google Drive</div>
-                  </div>
-                </Button>
-
-                <Button
-                  onClick={() => setActiveTab("standardize")}
-                  className="flex items-center gap-2 h-auto p-4 flex-col"
-                  variant="outline"
-                >
-                  <Settings className="h-6 w-6" />
-                  <div className="text-center">
-                    <div className="font-medium">2. Estandarizar</div>
-                    <div className="text-xs text-gray-600">Aplicar reglas de formato</div>
-                  </div>
-                </Button>
-
-                <Button
-                  onClick={() => setActiveTab("quality")}
-                  className="flex items-center gap-2 h-auto p-4 flex-col"
-                  variant="outline"
-                >
-                  <CheckCircle className="h-6 w-6" />
-                  <div className="text-center">
-                    <div className="font-medium">3. Validar Calidad</div>
-                    <div className="text-xs text-gray-600">Revisar y corregir datos</div>
-                  </div>
-                </Button>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-purple-700">Sistema KMZ Avanzado</h4>
+                  <ul className="text-sm space-y-1 text-gray-600">
+                    <li>• Lectura múltiple de archivos KMZ</li>
+                    <li>• Extracción automática de coordenadas</li>
+                    <li>• Visualización de límites de parcelas</li>
+                    <li>• Detección de números de rol chilenos</li>
+                  </ul>
+                </div>
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-blue-700">Sistema Agéntico</h4>
+                  <ul className="text-sm space-y-1 text-gray-600">
+                    <li>• Orquestador principal de agentes</li>
+                    <li>• Agente de organización de carpetas</li>
+                    <li>• Agente de extracción de datos</li>
+                    <li>• Agente de validación automática</li>
+                  </ul>
+                </div>
               </div>
             </CardContent>
           </Card>

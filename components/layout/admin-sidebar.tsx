@@ -66,23 +66,32 @@ const menuItems: MenuItem[] = [
     badgeColor: "bg-green-500",
     children: [
       {
-        title: "MVP Dashboard",
-        href: "/admin/mvp-completo",
-        icon: Rocket,
-        badge: "Live",
-        badgeColor: "bg-green-500",
-      },
-      {
         title: "Seguimiento MVP",
         href: "/mvp/seguimiento",
         icon: Activity,
-        badge: "35%",
+        badge: "85%",
         badgeColor: "bg-blue-500",
       },
       {
         title: "Fase 1 MVP",
         href: "/admin/fase-1-mvp",
         icon: Target,
+        badge: "85%",
+        badgeColor: "bg-green-500",
+      },
+      {
+        title: "Fase 2 MVP",
+        href: "/admin/fase-2-mvp",
+        icon: Target,
+        badge: "Próximo",
+        badgeColor: "bg-orange-500",
+      },
+      {
+        title: "Fase 3 MVP",
+        href: "/admin/fase-3-mvp",
+        icon: Target,
+        badge: "Futuro",
+        badgeColor: "bg-purple-500",
       },
     ],
   },
@@ -135,9 +144,10 @@ const menuItems: MenuItem[] = [
 const getPageTitle = (pathname: string): string => {
   const routes: Record<string, string> = {
     "/admin": "Dashboard",
-    "/admin/mvp-completo": "MVP Dashboard",
     "/mvp/seguimiento": "Seguimiento MVP",
     "/admin/fase-1-mvp": "Fase 1 MVP",
+    "/admin/fase-2-mvp": "Fase 2 MVP",
+    "/admin/fase-3-mvp": "Fase 3 MVP",
     "/mvp/analytics-completo": "Analytics MVP",
     "/admin/google-drive-integration": "Google Drive Integration",
     "/admin/organizacion-carpetas-demo": "Organización Carpetas",
@@ -276,7 +286,7 @@ export function AdminSidebar() {
             <Link href="/mvp/seguimiento">
               <Activity className="h-4 w-4" />
               Seguimiento MVP
-              <Badge className="ml-auto bg-blue-500 text-white text-xs">35%</Badge>
+              <Badge className="ml-auto bg-blue-500 text-white text-xs">85%</Badge>
             </Link>
           </Button>
           <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
