@@ -39,6 +39,7 @@ import {
   BarChart3,
   Shield,
   FolderOpen,
+  Map,
 } from "lucide-react"
 
 const toolsItems = [
@@ -63,6 +64,14 @@ const toolsItems = [
     description: "Sistema agéntico para gestión documental automática",
     badge: "Nuevo",
     badgeColor: "bg-purple-500",
+  },
+  {
+    title: "Lector KMZ",
+    href: "/admin/kmz-reader",
+    icon: Map,
+    description: "Procesamiento múltiple de archivos KMZ geoespaciales",
+    badge: "Beta",
+    badgeColor: "bg-orange-500",
   },
   {
     title: "Tecnología IA",

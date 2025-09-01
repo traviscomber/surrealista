@@ -1,18 +1,20 @@
 "use client"
 
+import type React from "react"
+import LeafletMap from "@/components/maps/leaflet-map" // Import LeafletMap component
+
 import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
+import { KMZReader } from "@/lib/kmz/kmz-reader"
 import {
   MapPin,
   Home,
   Building,
   TreePine,
-  Waves,
-  Mountain,
   Filter,
   Eye,
   Heart,
@@ -22,6 +24,9 @@ import {
   Bed,
   Bath,
   Square,
+  Upload,
+  FileText,
+  Layers,
 } from "lucide-react"
 
 interface Property {
@@ -42,6 +47,13 @@ interface Property {
   description: string
   image: string
   featured: boolean
+}
+
+interface KMZData {
+  fileName: string
+  coordinates: Array<[number, number]>
+  rolNumbers: string[]
+  properties: any[]
 }
 
 const mockProperties: Property[] = [
@@ -167,6 +179,8 @@ export function InteractiveMap() {
     region: "all",
     search: "",
   })
+  const [kmzData, setKmzData] = useState<KMZData[]>([])
+  const [showKmzOverlay, setShowKmzOverlay] = useState(true)
 
   const handleFilterChange = (key: string, value: string) => {
     const newFilters = { ...filters, [key]: value }
@@ -197,6 +211,30 @@ export function InteractiveMap() {
     }
 
     setFilteredProperties(filtered)
+  }
+
+  const handleKmzUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files
+    if (!files) return
+
+    const kmzReader = new KMZReader()
+    const newKmzData: KMZData[] = []
+
+    for (const file of Array.from(files)) {
+      try {
+        const result = await kmzReader.readKMZ(file)
+        newKmzData.push({
+          fileName: file.name,
+          coordinates: result.coordinates,
+          rolNumbers: result.rolNumbers,
+          properties: result.placemarks,
+        })
+      } catch (error) {
+        console.error(`Error reading KMZ file ${file.name}:`, error)
+      }
+    }
+
+    setKmzData([...kmzData, ...newKmzData])
   }
 
   const getPropertyIcon = (type: string) => {
@@ -250,14 +288,28 @@ export function InteractiveMap() {
           <h1 className="text-3xl font-bold">Mapa Interactivo de Propiedades</h1>
           <p className="text-muted-foreground">Explora propiedades en el sur de Chile</p>
         </div>
-        <Button className="gap-2">
-          <Share2 className="h-4 w-4" />
-          Compartir Mapa
-        </Button>
+        <div className="flex gap-2">
+          <div className="relative">
+            <input
+              type="file"
+              accept=".kmz,.kml"
+              multiple
+              onChange={handleKmzUpload}
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            />
+            <Button variant="outline" className="gap-2 bg-transparent">
+              <Upload className="h-4 w-4" />
+              Cargar KMZ
+            </Button>
+          </div>
+          <Button className="gap-2">
+            <Share2 className="h-4 w-4" />
+            Compartir Mapa
+          </Button>
+        </div>
       </div>
 
-      {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Propiedades</CardTitle>
@@ -266,6 +318,28 @@ export function InteractiveMap() {
           <CardContent>
             <div className="text-2xl font-bold">{filteredProperties.length}</div>
             <p className="text-xs text-muted-foreground">de {properties.length} totales</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Archivos KMZ</CardTitle>
+            <FileText className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-purple-600">{kmzData.length}</div>
+            <p className="text-xs text-muted-foreground">archivos cargados</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Roles Extraídos</CardTitle>
+            <Layers className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600">
+              {kmzData.reduce((sum, data) => sum + data.rolNumbers.length, 0)}
+            </div>
+            <p className="text-xs text-muted-foreground">números de rol</p>
           </CardContent>
         </Card>
         <Card>
@@ -286,16 +360,6 @@ export function InteractiveMap() {
           <CardContent>
             <div className="text-2xl font-bold text-red-600">{featuredCount}</div>
             <p className="text-xs text-muted-foreground">propiedades premium</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Valor Total</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatPrice(totalValue)}</div>
-            <p className="text-xs text-muted-foreground">inventario total</p>
           </CardContent>
         </Card>
       </div>
@@ -365,68 +429,28 @@ export function InteractiveMap() {
       </Card>
 
       {/* Map Simulation */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Mapa de Propiedades</CardTitle>
-          <CardDescription>Vista interactiva del sur de Chile</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="relative bg-gradient-to-br from-blue-50 to-green-50 rounded-lg p-8 min-h-[400px] overflow-hidden">
-            {/* Map Background */}
-            <div className="absolute inset-0 opacity-10">
-              <Mountain className="absolute top-4 left-8 h-16 w-16 text-gray-600" />
-              <Waves className="absolute bottom-8 right-12 h-20 w-20 text-blue-600" />
-              <TreePine className="absolute top-12 right-8 h-12 w-12 text-green-600" />
-              <TreePine className="absolute bottom-16 left-16 h-14 w-14 text-green-600" />
-            </div>
-
-            {/* Property Markers */}
-            <div className="relative z-10">
-              {filteredProperties.map((property, index) => (
-                <div
-                  key={property.id}
-                  className={`absolute cursor-pointer transform -translate-x-1/2 -translate-y-1/2 ${
-                    selectedProperty?.id === property.id ? "scale-125 z-20" : "hover:scale-110"
-                  }`}
-                  style={{
-                    left: `${20 + ((index * 15) % 60)}%`,
-                    top: `${20 + ((index * 12) % 60)}%`,
-                  }}
-                  onClick={() => setSelectedProperty(property)}
-                >
-                  <div
-                    className={`p-2 rounded-full shadow-lg transition-all ${
-                      property.featured ? "bg-red-500" : "bg-blue-500"
-                    } text-white`}
-                  >
-                    {getPropertyIcon(property.type)}
-                  </div>
-                  {selectedProperty?.id === property.id && (
-                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 bg-white rounded-lg shadow-lg p-3 min-w-[200px] border">
-                      <h4 className="font-semibold text-sm">{property.title}</h4>
-                      <p className="text-xs text-muted-foreground">{property.location.city}</p>
-                      <p className="font-bold text-sm text-green-600">{formatPrice(property.price)}</p>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {/* Legend */}
-            <div className="absolute bottom-4 left-4 bg-white rounded-lg shadow-lg p-3 space-y-2">
-              <h4 className="font-semibold text-sm">Leyenda</h4>
-              <div className="flex items-center gap-2 text-xs">
-                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                <span>Propiedades</span>
-              </div>
-              <div className="flex items-center gap-2 text-xs">
-                <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                <span>Destacadas</span>
-              </div>
-            </div>
+      <div>
+        <div className="flex justify-between items-center mb-4">
+          <div>
+            <h2 className="text-xl font-bold">Mapa de Propiedades</h2>
+            <p className="text-muted-foreground">Vista interactiva del sur de Chile</p>
           </div>
-        </CardContent>
-      </Card>
+          {kmzData.length > 0 && (
+            <Button variant="outline" size="sm" onClick={() => setShowKmzOverlay(!showKmzOverlay)} className="gap-2">
+              <Layers className="h-4 w-4" />
+              {showKmzOverlay ? "Ocultar KMZ" : "Mostrar KMZ"}
+            </Button>
+          )}
+        </div>
+        <LeafletMap
+          properties={filteredProperties}
+          kmzData={kmzData}
+          showKmzOverlay={showKmzOverlay}
+          onToggleKmzOverlay={() => setShowKmzOverlay(!showKmzOverlay)}
+          onPropertySelect={setSelectedProperty}
+          selectedProperty={selectedProperty}
+        />
+      </div>
 
       {/* Property List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
