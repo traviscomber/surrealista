@@ -31,24 +31,6 @@ import { PARAOrganizer, type PARAClassification } from "@/lib/para-method/para-o
 
 let realDriveService: any = null
 
-const classificationCache = new Map<string, any>()
-const paraCache = new Map<string, PARAClassification>()
-
-// Compiled regex patterns for better performance
-const classificationPatterns = {
-  DATOS_TECNICOS: /\b(KMZ|KML|COORDENADA|GPS|TOPOGRAFIA|PLANO)\b/i,
-  RECURSOS_VISUALES: /\b(FOTO|IMAGE|JPG|PNG|VIDEO|IMAGEN|PICTURE|DRONE|AEREA)\b/i,
-  COMUNICACIONES: /\b(MAIL|MENSAJE|COMUNICACION|WHATSAPP|CHAT|EMAIL|CORREO|CONVERSACION)\b/i,
-  DOCUMENTOS_LEGALES:
-    /\b(CONTRATO|ESCRITURA|LEGAL|NOTARIA|INSCRIPCION|MANDATO|TASACION|COMERCIAL|ORDEN|VENTA|COMPRA|FUNDO|CAMPO|PARCELA|ROL|CONSERVADOR|REGISTRO|DOC|CERT|TITULO|PROPIEDAD)\b/i,
-}
-
-const mimeTypePatterns = {
-  DATOS_TECNICOS: /\b(kmz|kml)\b/i,
-  RECURSOS_VISUALES: /\b(image|video|jpeg|png|gif)\b/i,
-  DOCUMENTOS_LEGALES: /\bpdf\b/i,
-}
-
 function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void }) {
   const [folderContents, setFolderContents] = useState<any>(null)
   const [loadingContents, setLoadingContents] = useState(true)
@@ -63,40 +45,16 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
         setLoadingContents(true)
         setContentsError(null)
 
-        const cacheKey = `folder-${folder.id}`
-        if (classificationCache.has(cacheKey)) {
-          const cached = classificationCache.get(cacheKey)
-          setFolderContents(cached.contents)
-          setParaClassification(cached.classification)
-          setLoadingContents(false)
-          return
+        const response = await fetch(`/api/drive/folders/${folder.id}`)
+        if (!response.ok) {
+          throw new Error("Failed to load folder contents")
         }
 
-        // Use hierarchy data if available to avoid API call
-        if (folder.hierarchy) {
-          const contents = { files: [...(folder.hierarchy.files || []), ...(folder.hierarchy.folders || [])] }
-          setFolderContents(contents)
+        const contents = await response.json()
+        setFolderContents(contents)
 
-          const classification = paraOrganizer.classifyFolder(folder.name, contents.files || [])
-          setParaClassification(classification)
-
-          // Cache the results
-          classificationCache.set(cacheKey, { contents, classification })
-        } else {
-          const response = await fetch(`/api/drive/folders/${folder.id}`)
-          if (!response.ok) {
-            throw new Error("Failed to load folder contents")
-          }
-
-          const contents = await response.json()
-          setFolderContents(contents)
-
-          const classification = paraOrganizer.classifyFolder(folder.name, contents.files || [])
-          setParaClassification(classification)
-
-          // Cache the results
-          classificationCache.set(cacheKey, { contents, classification })
-        }
+        const classification = paraOrganizer.classifyFolder(folder.name, contents.files || [])
+        setParaClassification(classification)
       } catch (error) {
         console.error("[v0] Error loading folder contents:", error)
         setContentsError("Error al cargar el contenido de la carpeta")
@@ -108,17 +66,14 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
     if (folder.id) {
       loadFolderContents()
     }
-  }, [folder.id, folder.hierarchy, paraOrganizer])
+  }, [folder.id, paraOrganizer])
 
   const organizedContents = useMemo(() => {
     if (!folderContents?.files || !paraClassification) return null
 
-    const cacheKey = `organized-${folder.id}-${folderContents.files.length}`
-    if (classificationCache.has(cacheKey)) {
-      return classificationCache.get(cacheKey)
-    }
-
     console.log("[v0] Testing classification for folder:", folder.name)
+    console.log("[v0] Folder contents:", folderContents.files)
+    console.log("[v0] PARA classification:", paraClassification)
 
     const categories = paraOrganizer.getCategories()
     const currentCategory = categories[paraClassification.category]
@@ -161,40 +116,149 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
     }
 
     folderContents.files.forEach((item: any) => {
-      const name = item.name
+      const name = item.name.toUpperCase()
       const mimeType = item.mimeType || ""
       const isFolder = item.mimeType === "application/vnd.google-apps.folder"
 
-      let category = "OTROS_DOCUMENTOS"
+      console.log("[v0] Classifying file:", {
+        name: item.name,
+        nameUpper: name,
+        mimeType: mimeType,
+        isFolder: isFolder,
+      })
 
-      // Use compiled regex patterns for faster matching
-      if (classificationPatterns.DATOS_TECNICOS.test(name) || mimeTypePatterns.DATOS_TECNICOS.test(mimeType)) {
-        category = "DATOS_TECNICOS"
-      } else if (
-        classificationPatterns.RECURSOS_VISUALES.test(name) ||
-        mimeTypePatterns.RECURSOS_VISUALES.test(mimeType)
+      let classified = false
+
+      // DATOS_TECNICOS - KMZ, coordinates, technical files
+      if (
+        !classified &&
+        (name.includes("KMZ") ||
+          name.includes("KML") ||
+          name.includes("COORDENADA") ||
+          name.includes("GPS") ||
+          name.includes("TOPOGRAFIA") ||
+          name.includes("PLANO") ||
+          mimeType.includes("kmz") ||
+          mimeType.includes("kml"))
       ) {
-        category = "RECURSOS_VISUALES"
-      } else if (classificationPatterns.COMUNICACIONES.test(name)) {
-        category = "COMUNICACIONES"
-      } else if (
-        classificationPatterns.DOCUMENTOS_LEGALES.test(name) ||
-        (mimeTypePatterns.DOCUMENTOS_LEGALES.test(mimeType) && classificationPatterns.DOCUMENTOS_LEGALES.test(name))
-      ) {
-        category = "DOCUMENTOS_LEGALES"
+        console.log("[v0] -> Classified as DATOS_TECNICOS")
+        if (isFolder) {
+          paraStructure.files["DATOS_TECNICOS"].subfolders.push(item)
+        } else {
+          paraStructure.files["DATOS_TECNICOS"].files.push(item)
+        }
+        classified = true
       }
 
-      if (isFolder) {
-        paraStructure.files[category].subfolders.push(item)
-      } else {
-        paraStructure.files[category].files.push(item)
+      // RECURSOS_VISUALES - Photos, images, videos
+      if (
+        !classified &&
+        (name.includes("FOTO") ||
+          name.includes("IMAGE") ||
+          name.includes("JPG") ||
+          name.includes("PNG") ||
+          name.includes("VIDEO") ||
+          name.includes("IMAGEN") ||
+          name.includes("PICTURE") ||
+          name.includes("DRONE") ||
+          name.includes("AEREA") ||
+          mimeType.includes("image") ||
+          mimeType.includes("video") ||
+          mimeType.includes("jpeg") ||
+          mimeType.includes("png") ||
+          mimeType.includes("gif"))
+      ) {
+        console.log("[v0] -> Classified as RECURSOS_VISUALES")
+        if (isFolder) {
+          paraStructure.files["RECURSOS_VISUALES"].subfolders.push(item)
+        } else {
+          paraStructure.files["RECURSOS_VISUALES"].files.push(item)
+        }
+        classified = true
+      }
+
+      // COMUNICACIONES - Messages, emails, communications
+      if (
+        !classified &&
+        (name.includes("MAIL") ||
+          name.includes("MENSAJE") ||
+          name.includes("COMUNICACION") ||
+          name.includes("WHATSAPP") ||
+          name.includes("CHAT") ||
+          name.includes("EMAIL") ||
+          name.includes("CORREO") ||
+          name.includes("CONVERSACION"))
+      ) {
+        console.log("[v0] -> Classified as COMUNICACIONES")
+        if (isFolder) {
+          paraStructure.files["COMUNICACIONES"].subfolders.push(item)
+        } else {
+          paraStructure.files["COMUNICACIONES"].files.push(item)
+        }
+        classified = true
+      }
+
+      // DOCUMENTOS_LEGALES - Legal documents, contracts, PDFs with legal content
+      if (
+        !classified &&
+        (name.includes("CONTRATO") ||
+          name.includes("ESCRITURA") ||
+          name.includes("LEGAL") ||
+          name.includes("NOTARIA") ||
+          name.includes("INSCRIPCION") ||
+          name.includes("MANDATO") ||
+          name.includes("TASACION") ||
+          name.includes("COMERCIAL") ||
+          name.includes("ORDEN") ||
+          name.includes("VENTA") ||
+          name.includes("COMPRA") ||
+          name.includes("FUNDO") ||
+          name.includes("CAMPO") ||
+          name.includes("PARCELA") ||
+          name.includes("ROL") ||
+          name.includes("CONSERVADOR") ||
+          name.includes("REGISTRO") ||
+          (mimeType.includes("pdf") &&
+            (name.includes("DOC") || name.includes("CERT") || name.includes("TITULO") || name.includes("PROPIEDAD"))))
+      ) {
+        console.log("[v0] -> Classified as DOCUMENTOS_LEGALES")
+        if (isFolder) {
+          paraStructure.files["DOCUMENTOS_LEGALES"].subfolders.push(item)
+        } else {
+          paraStructure.files["DOCUMENTOS_LEGALES"].files.push(item)
+        }
+        classified = true
+      }
+
+      // OTROS_DOCUMENTOS - Everything else (default category)
+      if (!classified) {
+        console.log("[v0] -> Classified as OTROS_DOCUMENTOS (default)")
+        if (isFolder) {
+          paraStructure.files["OTROS_DOCUMENTOS"].subfolders.push(item)
+        } else {
+          paraStructure.files["OTROS_DOCUMENTOS"].files.push(item)
+        }
       }
     })
 
-    // Cache the organized structure
-    classificationCache.set(cacheKey, paraStructure)
+    console.log("[v0] Classification summary:", {
+      DOCUMENTOS_LEGALES:
+        paraStructure.files["DOCUMENTOS_LEGALES"].files.length +
+        paraStructure.files["DOCUMENTOS_LEGALES"].subfolders.length,
+      COMUNICACIONES:
+        paraStructure.files["COMUNICACIONES"].files.length + paraStructure.files["COMUNICACIONES"].subfolders.length,
+      RECURSOS_VISUALES:
+        paraStructure.files["RECURSOS_VISUALES"].files.length +
+        paraStructure.files["RECURSOS_VISUALES"].subfolders.length,
+      DATOS_TECNICOS:
+        paraStructure.files["DATOS_TECNICOS"].files.length + paraStructure.files["DATOS_TECNICOS"].subfolders.length,
+      OTROS_DOCUMENTOS:
+        paraStructure.files["OTROS_DOCUMENTOS"].files.length +
+        paraStructure.files["OTROS_DOCUMENTOS"].subfolders.length,
+    })
+
     return paraStructure
-  }, [folderContents, paraClassification, paraOrganizer, folder.id])
+  }, [folderContents, paraClassification, paraOrganizer])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
@@ -355,11 +419,11 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
   )
 }
 
-function FolderCardComponent({
+const FolderCard = ({
   folder,
   viewMode,
   onViewDetails,
-}: { folder: any; viewMode: "grid" | "list"; onViewDetails: (folder: any) => void }) {
+}: { folder: any; viewMode: "grid" | "list"; onViewDetails: (folder: any) => void }) => {
   const statusConfig = useMemo(() => {
     const getStatusColor = (status: string) => {
       switch (status) {
@@ -525,35 +589,36 @@ export default function HomePage() {
           content: [folder.name, folder.location, folder.propertyType].join(" ").toLowerCase(),
         }
         newIndex.set(`folder-${folder.id}`, searchableContent)
+      })
 
-        // Use hierarchy data if available to avoid API calls
-        if (folder.hierarchy?.files) {
-          folder.hierarchy.files.forEach((item: any) => {
-            const searchableContent = {
-              folderId: folder.id,
-              folderName: folder.name,
-              type: "file",
-              name: item.name,
-              content: [item.name, folder.name].join(" ").toLowerCase(),
-            }
-            newIndex.set(`file-${item.id}`, searchableContent)
-          })
-        }
+      const contentPromises = foldersList.map(async (folder) => {
+        try {
+          const response = await fetch(`/api/drive/folders/${folder.id}`)
+          if (response.ok) {
+            const contents = await response.json()
 
-        if (folder.hierarchy?.folders) {
-          folder.hierarchy.folders.forEach((item: any) => {
-            const searchableContent = {
-              folderId: folder.id,
-              folderName: folder.name,
-              type: "subfolder",
-              name: item.name,
-              content: [item.name, folder.name].join(" ").toLowerCase(),
+            if (contents.files) {
+              contents.files.forEach((item: any) => {
+                const searchableContent = {
+                  folderId: folder.id,
+                  folderName: folder.name,
+                  type: item.mimeType === "application/vnd.google-apps.folder" ? "subfolder" : "file",
+                  name: item.name,
+                  content: [item.name, folder.name].join(" ").toLowerCase(),
+                }
+                newIndex.set(
+                  `${item.mimeType === "application/vnd.google-apps.folder" ? "subfolder" : "file"}-${item.id}`,
+                  searchableContent,
+                )
+              })
             }
-            newIndex.set(`subfolder-${item.id}`, searchableContent)
-          })
+          }
+        } catch (error) {
+          console.error(`[v0] Error fetching contents for folder ${folder.id}:`, error)
         }
       })
 
+      await Promise.all(contentPromises)
       setSearchIndex(newIndex)
     } catch (error) {
       console.error("[v0] Error building search index:", error)
@@ -911,12 +976,7 @@ export default function HomePage() {
           }
         >
           {paginatedFolders.map((folder) => (
-            <FolderCardComponent
-              key={folder.id}
-              folder={folder}
-              viewMode={viewMode}
-              onViewDetails={handleViewDetails}
-            />
+            <FolderCard key={folder.id} folder={folder} viewMode={viewMode} onViewDetails={handleViewDetails} />
           ))}
         </div>
 
