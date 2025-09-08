@@ -281,7 +281,7 @@ class RealGoogleDriveService {
   private getEnhancedDemoSuccessCases(): FolderStructure[] {
     return [
       {
-        id: "real_case_1",
+        id: "1wJRhFJNpIqoJ_O9FPIhpPglmypnwgt5F",
         name: "Valdivia 142 has Teresa F...",
         files: [
           {
@@ -289,14 +289,14 @@ class RealGoogleDriveService {
             name: "1_FOTOS",
             mimeType: "application/vnd.google-apps.folder",
             modifiedTime: "2025-08-12T00:00:00Z",
-            webViewLink: "https://drive.google.com/drive/folders/1DedwoHB3BOHqIIiIGEqZqt0qCCjuVMn2",
+            webViewLink: "https://drive.google.com/drive/folders/1wJRhFJNpIqoJ_O9FPIhpPglmypnwgt5F",
           },
           {
             id: "2",
             name: "2_DOCUMENTOS",
             mimeType: "application/vnd.google-apps.folder",
             modifiedTime: "2025-08-12T00:00:00Z",
-            webViewLink: "#",
+            webViewLink: "https://drive.google.com/drive/folders/1wJRhFJNpIqoJ_O9FPIhpPglmypnwgt5F",
           },
           {
             id: "3",
@@ -304,7 +304,7 @@ class RealGoogleDriveService {
             mimeType: "application/pdf",
             size: "5100000",
             modifiedTime: "2024-01-12T00:00:00Z",
-            webViewLink: "#",
+            webViewLink: "https://drive.google.com/drive/folders/1wJRhFJNpIqoJ_O9FPIhpPglmypnwgt5F",
           },
           {
             id: "4",
@@ -312,7 +312,7 @@ class RealGoogleDriveService {
             mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             size: "38000",
             modifiedTime: "2023-11-23T00:00:00Z",
-            webViewLink: "#",
+            webViewLink: "https://drive.google.com/drive/folders/1wJRhFJNpIqoJ_O9FPIhpPglmypnwgt5F",
           },
           {
             id: "5",
@@ -320,56 +320,13 @@ class RealGoogleDriveService {
             mimeType: "application/vnd.google-earth.kmz",
             size: "2000",
             modifiedTime: "2023-09-13T00:00:00Z",
-            webViewLink: "#",
+            webViewLink: "https://drive.google.com/drive/folders/1wJRhFJNpIqoJ_O9FPIhpPglmypnwgt5F",
           },
         ],
         subfolders: [],
         totalFiles: 8,
         totalSize: 7200000,
         completionStatus: "complete",
-      },
-      {
-        id: "real_case_2",
-        name: "CASA_TEMUCO_FAMILIA_RODRIGUEZ",
-        files: [
-          {
-            id: "6",
-            name: "1_FOTOS",
-            mimeType: "application/vnd.google-apps.folder",
-            modifiedTime: "2025-08-10T00:00:00Z",
-            webViewLink: "#",
-          },
-          {
-            id: "7",
-            name: "Escritura_Casa_Temuco.pdf",
-            mimeType: "application/pdf",
-            size: "2400000",
-            modifiedTime: "2025-07-15T00:00:00Z",
-            webViewLink: "#",
-          },
-        ],
-        subfolders: [],
-        totalFiles: 6,
-        totalSize: 4800000,
-        completionStatus: "incomplete",
-      },
-      {
-        id: "real_case_3",
-        name: "PARCELA_PUCON_VISTA_LAGO",
-        files: [
-          {
-            id: "8",
-            name: "Tasacion_Parcela_Pucon.pdf",
-            mimeType: "application/pdf",
-            size: "1800000",
-            modifiedTime: "2025-08-05T00:00:00Z",
-            webViewLink: "#",
-          },
-        ],
-        subfolders: [],
-        totalFiles: 3,
-        totalSize: 2100000,
-        completionStatus: "pending",
       },
     ]
   }

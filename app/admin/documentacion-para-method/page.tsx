@@ -36,71 +36,74 @@ export default function PARAMethodDocumentation() {
 
   const folderExamples = {
     complete: {
-      name: "PARCELA_PUCON_VISTA_LAGO_ROL_142",
+      name: "Valdivia 142 has Teresa F...",
       status: "complete",
       structure: {
         "1_FOTOS": {
           icon: <Camera className="h-4 w-4" />,
           color: "text-green-600",
           files: [
-            "2024-08-15_Drone_Vista_Aerea_v01.jpg",
-            "2024-08-15_Fachada_Principal_v01.jpg",
-            "2024-08-15_Interior_Salon_v01.jpg",
-            "2024-08-15_Terreno_Limites_v01.jpg",
+            "fotos/exterior_campo_iñipulli_01.jpg",
+            "fotos_cel/vista_panoramica_celular.jpg",
+            "Fotos_enero_2024/drone_vista_aerea_campo.jpg",
+            "Fotos_enero_2024/limites_terreno_marcados.jpg",
           ],
-          subfolders: ["Drone_Aereas", "Interiores", "Exteriores"],
+          subfolders: ["fotos", "fotos cel", "Fotos enero 2024"],
         },
         "2_DOCUMENTOS": {
           icon: <FileText className="h-4 w-4" />,
           color: "text-blue-600",
           files: [
-            "2024-08-10_Escritura_Publica_v01.pdf",
-            "2024-08-12_Certificado_Dominio_v01.pdf",
-            "2024-08-14_Tasacion_Comercial_v01.pdf",
+            "a_Antecedentes_titulo/Fundo_Iñipulli_140_110124_compressed.pdf",
+            "b_Tasacion_info_campo/Tasacion_Comercial_Campo_140has.pdf",
+            "c_Documentos_comerciales/MARIOUINAfoto.pdf",
           ],
-          subfolders: ["Legales", "Tasaciones", "Permisos"],
+          subfolders: ["a_Antecedentes_titulo", "b_Tasacion_info_campo", "c_Documentos_comerciales"],
         },
         "3_COMUNICACIONES": {
           icon: <MessageSquare className="h-4 w-4" />,
           color: "text-purple-600",
-          files: ["2024-08-16_Email_Cliente_Consulta_v01.pdf", "2024-08-17_WhatsApp_Negociacion_v01.pdf"],
-          subfolders: ["Emails", "WhatsApp", "Llamadas"],
+          files: [
+            "a_interaccion_compradores/consulta_teresa_f_campo.pdf",
+            "b_interaccion_dueno_contacto/negociacion_iñipulli_140.pdf",
+          ],
+          subfolders: ["a_interaccion_compradores", "b_interaccion_dueno_contacto", "c_sugerencia_clientes"],
         },
         "4_MARKETING": {
           icon: <Video className="h-4 w-4" />,
           color: "text-orange-600",
-          files: ["2024-08-18_Video_Tour_Virtual_v01.mp4", "2024-08-18_Brochure_Comercial_v01.pdf"],
-          subfolders: ["Videos", "Brochures", "Publicidad"],
+          files: ["videos_promocionales/tour_campo_iñipulli_140has.mp4", "reels_instagram/reel_campo_valdivia.mp4"],
+          subfolders: ["videos_promocionales", "reels_instagram", "publicaciones_portales"],
         },
         "5_PDF_SUELTO": {
           icon: <FileText className="h-4 w-4" />,
           color: "text-red-600",
-          files: ["2024-08-19_Informe_Tecnico_v01.pdf", "2024-08-19_Estudio_Suelo_v01.pdf"],
+          files: ["presentacion_campo_iñipulli_140has.pdf", "brochure_fundo_valdivia_teresa_f.pdf"],
           subfolders: [],
         },
         "6_KMZ_SUELTO": {
           icon: <MapPin className="h-4 w-4" />,
           color: "text-indigo-600",
-          files: ["2024-08-20_Parcela_Pucon_Limites_v01.kmz", "2024-08-20_Coordenadas_GPS_v01.kmz"],
+          files: ["Campo_Iñipulli_140_has.kmz", "limites_fundo_valdivia_teresa_f.kmz"],
           subfolders: [],
         },
       },
     },
     incomplete: {
-      name: "CASA_TEMUCO_FAMILIA_RODRIGUEZ",
+      name: "Caso Éxito - Quilpué Residencial",
       status: "incomplete",
       structure: {
         "1_FOTOS": {
           icon: <Camera className="h-4 w-4" />,
           color: "text-green-600",
-          files: ["2024-08-10_Fachada_v01.jpg"],
-          subfolders: [],
+          files: ["fotos_preliminares/fachada_quilpue.jpg"],
+          subfolders: ["fotos_preliminares"],
         },
         "2_DOCUMENTOS": {
           icon: <FileText className="h-4 w-4" />,
           color: "text-blue-600",
-          files: ["2024-08-12_Escritura_v01.pdf"],
-          subfolders: [],
+          files: ["a_Antecedentes_titulo/Inscripción_Propiedad.pdf", "c_Documentos_comerciales/Mandato_Exclusivo.pdf"],
+          subfolders: ["a_Antecedentes_titulo", "c_Documentos_comerciales"],
         },
         "3_COMUNICACIONES": {
           icon: <MessageSquare className="h-4 w-4" />,
@@ -422,18 +425,23 @@ export default function PARAMethodDocumentation() {
               <CardContent>
                 <div className="space-y-4">
                   <div className="p-4 bg-blue-50 rounded-lg">
-                    <h4 className="font-semibold text-blue-900 mb-2">Formato Estándar</h4>
+                    <h4 className="font-semibold text-blue-900 mb-2">
+                      Formato Estándar (Basado en Casos Reales Campos 2025)
+                    </h4>
                     <code className="text-sm bg-white px-2 py-1 rounded border">
-                      YYYY-MM-DD_ProyectoIdentificador_TipoDocumento_Version.ext
+                      Campo_Iñipulli_140_has.kmz | Fundo_Iñipulli_140_110124_compressed.pdf | Fotos_enero_2024/
                     </code>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <h4 className="font-semibold text-gray-900 mb-2">Ejemplos Correctos:</h4>
+                      <h4 className="font-semibold text-gray-900 mb-2">Ejemplos Reales Campos 2025:</h4>
                       <ul className="text-sm space-y-1 text-gray-700">
-                        <li>• 2024-08-15_PuconParcela_Escritura_v01.pdf</li>
-                        <li>• 2024-08-16_TemucoVenta_Tasacion_v02.pdf</li>
-                        <li>• 2024-08-17_ValdiviaTerreno_Fotos_v01.jpg</li>
+                        <li>• Campo_Iñipulli_140_has.kmz</li>
+                        <li>• Fundo_Iñipulli_140_110124_compressed.pdf</li>
+                        <li>• MARIOUINAfoto.pdf</li>
+                        <li>• Orden_de_Venta_Iñipulli.docx</li>
+                        <li>• Orden_de_Venta_TF.pdf</li>
+                        <li>• Fotos_enero_2024/</li>
                       </ul>
                     </div>
                     <div>
@@ -442,6 +450,7 @@ export default function PARAMethodDocumentation() {
                         <li>• documento_final_final.pdf</li>
                         <li>• IMG_001.jpg</li>
                         <li>• Untitled document.docx</li>
+                        <li>• fotos cel (sin fecha)</li>
                       </ul>
                     </div>
                   </div>
@@ -469,21 +478,26 @@ export default function PARAMethodDocumentation() {
                           <Target className="h-5 w-5 text-red-600" />
                           <div>
                             <p className="font-medium text-red-900">Projects</p>
-                            <p className="text-sm text-red-700">Ventas activas, negociaciones en curso</p>
+                            <p className="text-sm text-red-700">
+                              Valdivia 142 has Teresa F, Quilpué Residencial, Viña del Mar Comercial
+                            </p>
                           </div>
                         </div>
                         <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
                           <Settings className="h-5 w-5 text-blue-600" />
                           <div>
                             <p className="font-medium text-blue-900">Areas</p>
-                            <p className="text-sm text-blue-700">Gestión de clientes, marketing continuo</p>
+                            <p className="text-sm text-blue-700">Gestión fotos por fecha, documentos por categorías</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-3 p-3 bg-green-50 rounded-lg">
                           <BookOpen className="h-5 w-5 text-green-600" />
                           <div>
                             <p className="font-medium text-green-900">Resources</p>
-                            <p className="text-sm text-green-700">Plantillas, estudios de mercado</p>
+                            <p className="text-sm text-green-700">
+                              Templates Campo Iñipulli, nomenclatura Fundo_[Nombre]_[Hectáreas]_[Fecha], estructura 6
+                              categorías
+                            </p>
                           </div>
                         </div>
                       </div>
@@ -493,13 +507,15 @@ export default function PARAMethodDocumentation() {
                       <div className="p-4 bg-gray-50 rounded-lg">
                         <div className="text-sm font-mono space-y-1">
                           <div>📁 1_Projects/</div>
-                          <div className="ml-4">📁 PARCELA_PUCON_VISTA_LAGO/</div>
-                          <div className="ml-8">📁 1_FOTOS/</div>
-                          <div className="ml-8">📁 2_DOCUMENTOS/</div>
-                          <div className="ml-8">📁 3_COMUNICACIONES/</div>
-                          <div className="ml-8">📁 4_MARKETING/</div>
+                          <div className="ml-4">📁 Valdivia_142_has_Teresa_F/</div>
+                          <div className="ml-8">📁 1_FOTOS/fotos/</div>
+                          <div className="ml-8">📁 1_FOTOS/fotos_cel/</div>
+                          <div className="ml-8">📁 1_FOTOS/Fotos_enero_2024/</div>
+                          <div className="ml-8">📁 2_DOCUMENTOS/a_Antecedentes_titulo/</div>
+                          <div className="ml-8">📁 3_COMUNICACIONES/a_interaccion_compradores/</div>
+                          <div className="ml-8">📁 4_MARKETING/videos_promocionales/</div>
                           <div className="ml-8">📁 5_PDF_SUELTO/</div>
-                          <div className="ml-8">📁 6_KMZ_SUELTO/</div>
+                          <div className="ml-8">📁 6_KMZ_SUELTO/Campo_Iñipulli_140_has.kmz</div>
                         </div>
                       </div>
                     </div>
