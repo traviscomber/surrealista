@@ -117,6 +117,13 @@ const menuItems: MenuItem[] = [
         badgeColor: "bg-blue-500",
       },
       {
+        title: "Método PARA",
+        href: "/admin/documentacion-para-method",
+        icon: HelpCircle,
+        badge: "Guía",
+        badgeColor: "bg-indigo-500",
+      },
+      {
         title: "Migración Data Real",
         href: "/admin/migracion-data-real",
         icon: Upload,
@@ -151,6 +158,7 @@ const getPageTitle = (pathname: string): string => {
     "/mvp/analytics-completo": "Analytics MVP",
     "/admin/google-drive-integration": "Google Drive Integration",
     "/admin/organizacion-carpetas-demo": "Organización Carpetas",
+    "/admin/documentacion-para-method": "Método PARA - Documentación",
     "/admin/migracion-data-real": "Migración Data Real",
     "/admin/mensajes": "Centro de Mensajes",
   }
@@ -294,6 +302,13 @@ export function AdminSidebar() {
               <Upload className="h-4 w-4" />
               Migración Data
               <Badge className="ml-auto bg-purple-500 text-white text-xs">Ready</Badge>
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
+            <Link href="/admin/documentacion-para-method">
+              <HelpCircle className="h-4 w-4" />
+              Método PARA
+              <Badge className="ml-auto bg-indigo-500 text-white text-xs">Guía</Badge>
             </Link>
           </Button>
         </div>
