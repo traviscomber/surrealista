@@ -71,6 +71,10 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
   const organizedContents = useMemo(() => {
     if (!folderContents?.files || !paraClassification) return null
 
+    console.log("[v0] Testing classification for folder:", folder.name)
+    console.log("[v0] Folder contents:", folderContents.files)
+    console.log("[v0] PARA classification:", paraClassification)
+
     const categories = paraOrganizer.getCategories()
     const currentCategory = categories[paraClassification.category]
 
@@ -115,7 +119,15 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
       const name = item.name.toUpperCase()
       const mimeType = item.mimeType || ""
 
+      console.log("[v0] Classifying file:", {
+        name: item.name,
+        nameUpper: name,
+        mimeType: mimeType,
+        isFolder: item.mimeType === "application/vnd.google-apps.folder",
+      })
+
       if (name.includes("KMZ") || name.includes("KML") || name.includes("COORDENADA") || mimeType.includes("kmz")) {
+        console.log("[v0] -> Classified as DATOS_TECNICOS")
         if (item.mimeType === "application/vnd.google-apps.folder") {
           paraStructure.files["DATOS_TECNICOS"].subfolders.push(item)
         } else {
@@ -130,6 +142,7 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
         mimeType.includes("image") ||
         mimeType.includes("video")
       ) {
+        console.log("[v0] -> Classified as RECURSOS_VISUALES")
         if (item.mimeType === "application/vnd.google-apps.folder") {
           paraStructure.files["RECURSOS_VISUALES"].subfolders.push(item)
         } else {
@@ -142,6 +155,7 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
         name.includes("WHATSAPP") ||
         name.includes("CHAT")
       ) {
+        console.log("[v0] -> Classified as COMUNICACIONES")
         if (item.mimeType === "application/vnd.google-apps.folder") {
           paraStructure.files["COMUNICACIONES"].subfolders.push(item)
         } else {
@@ -155,18 +169,36 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
         name.includes("INSCRIPCION") ||
         mimeType.includes("pdf")
       ) {
+        console.log("[v0] -> Classified as DOCUMENTOS_LEGALES")
         if (item.mimeType === "application/vnd.google-apps.folder") {
           paraStructure.files["DOCUMENTOS_LEGALES"].subfolders.push(item)
         } else {
           paraStructure.files["DOCUMENTOS_LEGALES"].files.push(item)
         }
       } else {
+        console.log("[v0] -> Classified as OTROS_DOCUMENTOS (default)")
         if (item.mimeType === "application/vnd.google-apps.folder") {
           paraStructure.files["OTROS_DOCUMENTOS"].subfolders.push(item)
         } else {
           paraStructure.files["OTROS_DOCUMENTOS"].files.push(item)
         }
       }
+    })
+
+    console.log("[v0] Classification summary:", {
+      DOCUMENTOS_LEGALES:
+        paraStructure.files["DOCUMENTOS_LEGALES"].files.length +
+        paraStructure.files["DOCUMENTOS_LEGALES"].subfolders.length,
+      COMUNICACIONES:
+        paraStructure.files["COMUNICACIONES"].files.length + paraStructure.files["COMUNICACIONES"].subfolders.length,
+      RECURSOS_VISUALES:
+        paraStructure.files["RECURSOS_VISUALES"].files.length +
+        paraStructure.files["RECURSOS_VISUALES"].subfolders.length,
+      DATOS_TECNICOS:
+        paraStructure.files["DATOS_TECNICOS"].files.length + paraStructure.files["DATOS_TECNICOS"].subfolders.length,
+      OTROS_DOCUMENTOS:
+        paraStructure.files["OTROS_DOCUMENTOS"].files.length +
+        paraStructure.files["OTROS_DOCUMENTOS"].subfolders.length,
     })
 
     return paraStructure
