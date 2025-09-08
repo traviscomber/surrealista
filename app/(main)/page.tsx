@@ -22,10 +22,12 @@ import {
   ArrowLeft,
   FolderOpen,
   ImageIcon,
-  Video,
-  File,
+  Building,
+  BookOpen,
+  Archive,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { PARAOrganizer, type PARAClassification } from "@/lib/para-method/para-organizer"
 
 let realDriveService: any = null
 
@@ -33,6 +35,9 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
   const [folderContents, setFolderContents] = useState<any>(null)
   const [loadingContents, setLoadingContents] = useState(true)
   const [contentsError, setContentsError] = useState<string | null>(null)
+  const [paraClassification, setParaClassification] = useState<PARAClassification | null>(null)
+
+  const paraOrganizer = useMemo(() => new PARAOrganizer(), [])
 
   useEffect(() => {
     const loadFolderContents = async () => {
@@ -47,6 +52,9 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
 
         const contents = await response.json()
         setFolderContents(contents)
+
+        const classification = paraOrganizer.classifyFolder(folder.name, contents.files || [])
+        setParaClassification(classification)
       } catch (error) {
         console.error("[v0] Error loading folder contents:", error)
         setContentsError("Error al cargar el contenido de la carpeta")
@@ -58,98 +66,114 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
     if (folder.id) {
       loadFolderContents()
     }
-  }, [folder.id])
+  }, [folder.id, paraOrganizer])
 
   const organizedContents = useMemo(() => {
-    if (!folderContents?.files) return null
+    if (!folderContents?.files || !paraClassification) return null
 
-    const categories = {
-      "1_FOTOS": {
-        icon: <ImageIcon className="h-4 w-4" />,
-        color: "text-green-600",
-        files: [],
-        subfolders: [],
-      },
-      "2_DOCUMENTOS": {
-        icon: <FileText className="h-4 w-4" />,
-        color: "text-blue-600",
-        files: [],
-        subfolders: [],
-      },
-      "3_COMUNICACIONES": {
-        icon: <MapPin className="h-4 w-4" />,
-        color: "text-purple-600",
-        files: [],
-        subfolders: [],
-      },
-      "4_MARKETING": {
-        icon: <Video className="h-4 w-4" />,
-        color: "text-orange-600",
-        files: [],
-        subfolders: [],
-      },
-      "5_PDF_SUELTO": {
-        icon: <File className="h-4 w-4" />,
-        color: "text-red-600",
-        files: [],
-        subfolders: [],
-      },
-      "6_KMZ_SUELTO": {
-        icon: <MapPin className="h-4 w-4" />,
-        color: "text-indigo-600",
-        files: [],
-        subfolders: [],
+    const categories = paraOrganizer.getCategories()
+    const currentCategory = categories[paraClassification.category]
+
+    const paraStructure = {
+      category: currentCategory,
+      classification: paraClassification,
+      files: {
+        DOCUMENTOS_LEGALES: {
+          icon: <FileText className="h-4 w-4" />,
+          color: "text-blue-600",
+          files: [],
+          subfolders: [],
+        },
+        COMUNICACIONES: {
+          icon: <MapPin className="h-4 w-4" />,
+          color: "text-purple-600",
+          files: [],
+          subfolders: [],
+        },
+        RECURSOS_VISUALES: {
+          icon: <ImageIcon className="h-4 w-4" />,
+          color: "text-green-600",
+          files: [],
+          subfolders: [],
+        },
+        DATOS_TECNICOS: {
+          icon: <MapPin className="h-4 w-4" />,
+          color: "text-indigo-600",
+          files: [],
+          subfolders: [],
+        },
+        OTROS_DOCUMENTOS: {
+          icon: <Archive className="h-4 w-4" />,
+          color: "text-gray-600",
+          files: [],
+          subfolders: [],
+        },
       },
     }
 
     folderContents.files.forEach((item: any) => {
       const name = item.name.toUpperCase()
+      const mimeType = item.mimeType || ""
 
-      if (name.includes("FOTO") || name.includes("IMAGE") || name.includes("JPG") || name.includes("PNG")) {
+      if (name.includes("KMZ") || name.includes("KML") || name.includes("COORDENADA") || mimeType.includes("kmz")) {
         if (item.mimeType === "application/vnd.google-apps.folder") {
-          categories["1_FOTOS"].subfolders.push(item)
+          paraStructure.files["DATOS_TECNICOS"].subfolders.push(item)
         } else {
-          categories["1_FOTOS"].files.push(item)
+          paraStructure.files["DATOS_TECNICOS"].files.push(item)
         }
-      } else if (name.includes("DOCUMENTO") || name.includes("DOC") || name.includes("PDF")) {
+      } else if (
+        name.includes("FOTO") ||
+        name.includes("IMAGE") ||
+        name.includes("JPG") ||
+        name.includes("PNG") ||
+        name.includes("VIDEO") ||
+        mimeType.includes("image") ||
+        mimeType.includes("video")
+      ) {
         if (item.mimeType === "application/vnd.google-apps.folder") {
-          categories["2_DOCUMENTOS"].subfolders.push(item)
+          paraStructure.files["RECURSOS_VISUALES"].subfolders.push(item)
         } else {
-          categories["2_DOCUMENTOS"].files.push(item)
+          paraStructure.files["RECURSOS_VISUALES"].files.push(item)
         }
-      } else if (name.includes("COMUNICACION") || name.includes("MAIL") || name.includes("MENSAJE")) {
+      } else if (
+        name.includes("MAIL") ||
+        name.includes("MENSAJE") ||
+        name.includes("COMUNICACION") ||
+        name.includes("WHATSAPP") ||
+        name.includes("CHAT")
+      ) {
         if (item.mimeType === "application/vnd.google-apps.folder") {
-          categories["3_COMUNICACIONES"].subfolders.push(item)
+          paraStructure.files["COMUNICACIONES"].subfolders.push(item)
         } else {
-          categories["3_COMUNICACIONES"].files.push(item)
+          paraStructure.files["COMUNICACIONES"].files.push(item)
         }
-      } else if (name.includes("MARKETING") || name.includes("VIDEO") || name.includes("PROMOCION")) {
+      } else if (
+        name.includes("CONTRATO") ||
+        name.includes("ESCRITURA") ||
+        name.includes("LEGAL") ||
+        name.includes("NOTARIA") ||
+        name.includes("INSCRIPCION") ||
+        mimeType.includes("pdf")
+      ) {
         if (item.mimeType === "application/vnd.google-apps.folder") {
-          categories["4_MARKETING"].subfolders.push(item)
+          paraStructure.files["DOCUMENTOS_LEGALES"].subfolders.push(item)
         } else {
-          categories["4_MARKETING"].files.push(item)
-        }
-      } else if (name.includes("KMZ") || name.includes("KML")) {
-        if (item.mimeType === "application/vnd.google-apps.folder") {
-          categories["6_KMZ_SUELTO"].subfolders.push(item)
-        } else {
-          categories["6_KMZ_SUELTO"].files.push(item)
+          paraStructure.files["DOCUMENTOS_LEGALES"].files.push(item)
         }
       } else {
         if (item.mimeType === "application/vnd.google-apps.folder") {
-          categories["5_PDF_SUELTO"].subfolders.push(item)
+          paraStructure.files["OTROS_DOCUMENTOS"].subfolders.push(item)
         } else {
-          categories["5_PDF_SUELTO"].files.push(item)
+          paraStructure.files["OTROS_DOCUMENTOS"].files.push(item)
         }
       }
     })
 
-    return categories
-  }, [folderContents])
+    return paraStructure
+  }, [folderContents, paraClassification, paraOrganizer])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
-      {/* Header */}
       <div className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center gap-3">
@@ -161,15 +185,28 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
                 <FolderOpen className="h-5 w-5 text-blue-600" />
                 {folder.name}
               </h1>
+              {paraClassification && (
+                <div className="flex items-center gap-2 mt-1">
+                  <Badge className={organizedContents?.category.color}>{organizedContents?.category.name}</Badge>
+                  <Badge variant="outline">{paraClassification.status.toUpperCase()}</Badge>
+                  <Badge variant="outline" className="text-xs">
+                    Prioridad: {paraClassification.priority.toUpperCase()}
+                  </Badge>
+                  {paraClassification.tags.map((tag) => (
+                    <Badge key={tag} variant="secondary" className="text-xs">
+                      {tag}
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Folder Metadata */}
       <div className="container mx-auto px-4 py-6">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="grid grid-cols-3 gap-4 text-center">
+          <div className="grid grid-cols-4 gap-4 text-center">
             <div>
               <div className="flex items-center justify-center mb-2">
                 <FileText className="h-5 w-5 text-blue-600" />
@@ -190,6 +227,16 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
               </div>
               <p className="text-sm font-bold text-purple-600">Aug 8,</p>
               <p className="text-sm text-gray-600">2025</p>
+            </div>
+            <div>
+              <div className="flex items-center justify-center mb-2">
+                {paraClassification?.category === "projects" && <TrendingUp className="h-5 w-5 text-red-600" />}
+                {paraClassification?.category === "areas" && <Building className="h-5 w-5 text-blue-600" />}
+                {paraClassification?.category === "resources" && <BookOpen className="h-5 w-5 text-green-600" />}
+                {paraClassification?.category === "archive" && <Archive className="h-5 w-5 text-gray-600" />}
+              </div>
+              <p className="text-sm font-bold text-gray-900">PARA</p>
+              <p className="text-xs text-gray-600">{paraClassification?.category.toUpperCase()}</p>
             </div>
           </div>
         </div>
@@ -217,8 +264,23 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
 
         {!loadingContents && !contentsError && organizedContents && (
           <div className="container mx-auto px-4 py-6">
+            <div className="bg-gradient-to-r from-blue-50 to-green-50 rounded-lg border border-blue-200 p-4 mb-6">
+              <h3 className="font-semibold text-gray-900 mb-2">Organización PARA Aplicada</h3>
+              <p className="text-sm text-gray-700 mb-2">{organizedContents.category.description}</p>
+              <div className="text-xs text-gray-600">
+                <strong>Subcategoría:</strong> {paraClassification?.subcategory} |<strong> Estado:</strong>{" "}
+                {paraClassification?.status} |<strong> Prioridad:</strong> {paraClassification?.priority}
+                {paraClassification?.dueDate && (
+                  <span>
+                    {" "}
+                    | <strong>Fecha límite:</strong> {paraClassification.dueDate}
+                  </span>
+                )}
+              </div>
+            </div>
+
             <div className="space-y-4">
-              {Object.entries(organizedContents).map(([categoryName, category]) => {
+              {Object.entries(organizedContents.files).map(([categoryName, category]) => {
                 const totalItems = category.files.length + category.subfolders.length
 
                 return (
@@ -234,7 +296,6 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
 
                       {totalItems > 0 ? (
                         <div className="ml-7 space-y-2">
-                          {/* Show subfolders */}
                           {category.subfolders.map((subfolder: any) => (
                             <div key={subfolder.id} className="flex items-center gap-2 py-2 px-3 bg-blue-50 rounded-md">
                               <Folder className="h-4 w-4 text-blue-500" />
@@ -245,7 +306,6 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
                             </div>
                           ))}
 
-                          {/* Show files */}
                           {category.files.map((file: any) => (
                             <div key={file.id} className="flex items-center gap-2 py-2 px-3 bg-gray-50 rounded-md">
                               <FileText className="h-4 w-4 text-gray-500" />
@@ -410,6 +470,9 @@ export default function HomePage() {
   const [searchIndex, setSearchIndex] = useState<Map<string, any>>(new Map())
   const [indexLoading, setIndexLoading] = useState(false)
 
+  const paraOrganizer = useMemo(() => new PARAOrganizer(), [])
+  const paraStats = useMemo(() => paraOrganizer.getCategoryStats(folders), [folders, paraOrganizer])
+
   const initializeService = useCallback(async () => {
     if (typeof window !== "undefined" && !realDriveService && !serviceInitialized) {
       try {
@@ -430,7 +493,6 @@ export default function HomePage() {
     const newIndex = new Map()
 
     try {
-      // Add folder names to index
       foldersList.forEach((folder) => {
         const searchableContent = {
           folderId: folder.id,
@@ -441,7 +503,6 @@ export default function HomePage() {
         newIndex.set(`folder-${folder.id}`, searchableContent)
       })
 
-      // Fetch contents for each folder and add to index
       const contentPromises = foldersList.map(async (folder) => {
         try {
           const response = await fetch(`/api/drive/folders/${folder.id}`)
@@ -650,10 +711,13 @@ export default function HomePage() {
                 <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
                   {folders.length} Carpetas {isAuthenticated ? "Reales" : "Demo"}
                 </Badge>
+                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                  Método PARA Activo
+                </Badge>
               </h1>
               <p className="text-gray-600 mt-1">
                 {isAuthenticated ? "Datos reales desde Google Drive" : "Datos de demostración"} - Casos de éxito
-                procesados
+                procesados con metodología PARA
               </p>
             </div>
             <div className="flex gap-2">
@@ -676,46 +740,44 @@ export default function HomePage() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Casos Filtrados</p>
-                <p className="text-3xl font-bold text-blue-600">{stats.total}</p>
-                <p className="text-xs text-gray-500 mt-1">De {folders.length} totales</p>
+                <p className="text-sm font-medium text-gray-600">Proyectos Activos</p>
+                <p className="text-3xl font-bold text-red-600">{paraStats.projects}</p>
+                <p className="text-xs text-gray-500 mt-1">Con fechas límite</p>
               </div>
-              <Folder className="h-8 w-8 text-blue-500" />
+              <TrendingUp className="h-8 w-8 text-red-500" />
             </div>
           </div>
 
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Casos Completos</p>
-                <p className="text-3xl font-bold text-green-600">{stats.complete}</p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {stats.total > 0 ? Math.round((stats.complete / stats.total) * 100) : 0}% completitud
-                </p>
+                <p className="text-sm font-medium text-gray-600">Áreas Responsabilidad</p>
+                <p className="text-3xl font-bold text-blue-600">{paraStats.areas}</p>
+                <p className="text-xs text-gray-500 mt-1">Actividades continuas</p>
               </div>
-              <CheckCircle className="h-8 w-8 text-green-500" />
+              <Building className="h-8 w-8 text-blue-500" />
             </div>
           </div>
 
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Archivos</p>
-                <p className="text-3xl font-bold text-purple-600">{stats.totalFiles}</p>
-                <p className="text-xs text-gray-500 mt-1">En casos filtrados</p>
+                <p className="text-sm font-medium text-gray-600">Recursos Referencia</p>
+                <p className="text-3xl font-bold text-green-600">{paraStats.resources}</p>
+                <p className="text-xs text-gray-500 mt-1">Para consulta futura</p>
               </div>
-              <FileText className="h-8 w-8 text-purple-500" />
+              <BookOpen className="h-8 w-8 text-green-500" />
             </div>
           </div>
 
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Números de Rol</p>
-                <p className="text-3xl font-bold text-orange-600">{stats.totalRol}</p>
-                <p className="text-xs text-gray-500 mt-1">Extraídos</p>
+                <p className="text-sm font-medium text-gray-600">Archivo</p>
+                <p className="text-3xl font-bold text-gray-600">{paraStats.archive}</p>
+                <p className="text-xs text-gray-500 mt-1">Casos completados</p>
               </div>
-              <MapPin className="h-8 w-8 text-orange-500" />
+              <Archive className="h-8 w-8 text-gray-500" />
             </div>
           </div>
         </div>
