@@ -617,45 +617,7 @@ export default function HomePage() {
     setSelectedFolder(null)
   }, [])
 
-  useEffect(() => {
-    const demoFolders = [
-      {
-        id: "demo-1",
-        name: "PARCELA_PUCON_VISTA_LAGO",
-        status: "complete",
-        files: 12,
-        rolNumbers: 1,
-        location: "PUCÓN",
-        propertyType: "PARCELA",
-        lastModified: "2025-08-08",
-        completionScore: 95,
-      },
-      {
-        id: "demo-2",
-        name: "CASA_TEMUCO_FAMILIA_RODRIGUEZ",
-        status: "processing",
-        files: 8,
-        rolNumbers: 1,
-        location: "TEMUCO",
-        propertyType: "CASA",
-        lastModified: "2025-08-07",
-        completionScore: 75,
-      },
-      {
-        id: "demo-3",
-        name: "DEPARTAMENTO_SANTIAGO_CENTRO",
-        status: "complete",
-        files: 15,
-        rolNumbers: 2,
-        location: "SANTIAGO",
-        propertyType: "DEPARTAMENTO",
-        lastModified: "2025-08-06",
-        completionScore: 90,
-      },
-    ]
-    setFolders(demoFolders)
-    buildSearchIndex(demoFolders)
-  }, [buildSearchIndex])
+  useEffect(() => {}, [buildSearchIndex])
 
   if (error && !isAuthenticated && loading) {
     return (
