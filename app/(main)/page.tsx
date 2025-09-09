@@ -22,40 +22,17 @@ import {
   ArrowLeft,
   FolderOpen,
   ImageIcon,
-  Building,
-  BookOpen,
-  Archive,
+  Video,
+  File,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { PARAOrganizer, type PARAClassification } from "@/lib/para-method/para-organizer"
 
 let realDriveService: any = null
-
-const classificationCache = new Map<string, any>()
-const paraCache = new Map<string, PARAClassification>()
-
-// Compiled regex patterns for better performance
-const classificationPatterns = {
-  DATOS_TECNICOS: /\b(KMZ|KML|COORDENADA|GPS|TOPOGRAFIA|PLANO)\b/i,
-  RECURSOS_VISUALES: /\b(FOTO|IMAGE|JPG|PNG|VIDEO|IMAGEN|PICTURE|DRONE|AEREA)\b/i,
-  COMUNICACIONES: /\b(MAIL|MENSAJE|COMUNICACION|WHATSAPP|CHAT|EMAIL|CORREO|CONVERSACION)\b/i,
-  DOCUMENTOS_LEGALES:
-    /\b(CONTRATO|ESCRITURA|LEGAL|NOTARIA|INSCRIPCION|MANDATO|TASACION|COMERCIAL|ORDEN|VENTA|COMPRA|FUNDO|CAMPO|PARCELA|ROL|CONSERVADOR|REGISTRO|DOC|CERT|TITULO|PROPIEDAD)\b/i,
-}
-
-const mimeTypePatterns = {
-  DATOS_TECNICOS: /\b(kmz|kml)\b/i,
-  RECURSOS_VISUALES: /\b(image|video|jpeg|png|gif)\b/i,
-  DOCUMENTOS_LEGALES: /\bpdf\b/i,
-}
 
 function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void }) {
   const [folderContents, setFolderContents] = useState<any>(null)
   const [loadingContents, setLoadingContents] = useState(true)
   const [contentsError, setContentsError] = useState<string | null>(null)
-  const [paraClassification, setParaClassification] = useState<PARAClassification | null>(null)
-
-  const paraOrganizer = useMemo(() => new PARAOrganizer(), [])
 
   useEffect(() => {
     const loadFolderContents = async () => {
@@ -63,40 +40,13 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
         setLoadingContents(true)
         setContentsError(null)
 
-        const cacheKey = `folder-${folder.id}`
-        if (classificationCache.has(cacheKey)) {
-          const cached = classificationCache.get(cacheKey)
-          setFolderContents(cached.contents)
-          setParaClassification(cached.classification)
-          setLoadingContents(false)
-          return
+        const response = await fetch(`/api/drive/folders/${folder.id}`)
+        if (!response.ok) {
+          throw new Error("Failed to load folder contents")
         }
 
-        // Use hierarchy data if available to avoid API call
-        if (folder.hierarchy) {
-          const contents = { files: [...(folder.hierarchy.files || []), ...(folder.hierarchy.folders || [])] }
-          setFolderContents(contents)
-
-          const classification = paraOrganizer.classifyFolder(folder.name, contents.files || [])
-          setParaClassification(classification)
-
-          // Cache the results
-          classificationCache.set(cacheKey, { contents, classification })
-        } else {
-          const response = await fetch(`/api/drive/folders/${folder.id}`)
-          if (!response.ok) {
-            throw new Error("Failed to load folder contents")
-          }
-
-          const contents = await response.json()
-          setFolderContents(contents)
-
-          const classification = paraOrganizer.classifyFolder(folder.name, contents.files || [])
-          setParaClassification(classification)
-
-          // Cache the results
-          classificationCache.set(cacheKey, { contents, classification })
-        }
+        const contents = await response.json()
+        setFolderContents(contents)
       } catch (error) {
         console.error("[v0] Error loading folder contents:", error)
         setContentsError("Error al cargar el contenido de la carpeta")
@@ -108,96 +58,98 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
     if (folder.id) {
       loadFolderContents()
     }
-  }, [folder.id, folder.hierarchy, paraOrganizer])
+  }, [folder.id])
 
   const organizedContents = useMemo(() => {
-    if (!folderContents?.files || !paraClassification) return null
+    if (!folderContents?.files) return null
 
-    const cacheKey = `organized-${folder.id}-${folderContents.files.length}`
-    if (classificationCache.has(cacheKey)) {
-      return classificationCache.get(cacheKey)
-    }
-
-    console.log("[v0] Testing classification for folder:", folder.name)
-
-    const categories = paraOrganizer.getCategories()
-    const currentCategory = categories[paraClassification.category]
-
-    const paraStructure = {
-      category: currentCategory,
-      classification: paraClassification,
-      files: {
-        DOCUMENTOS_LEGALES: {
-          icon: <FileText className="h-4 w-4" />,
-          color: "text-blue-600",
-          files: [],
-          subfolders: [],
-        },
-        COMUNICACIONES: {
-          icon: <MapPin className="h-4 w-4" />,
-          color: "text-purple-600",
-          files: [],
-          subfolders: [],
-        },
-        RECURSOS_VISUALES: {
-          icon: <ImageIcon className="h-4 w-4" />,
-          color: "text-green-600",
-          files: [],
-          subfolders: [],
-        },
-        DATOS_TECNICOS: {
-          icon: <MapPin className="h-4 w-4" />,
-          color: "text-indigo-600",
-          files: [],
-          subfolders: [],
-        },
-        OTROS_DOCUMENTOS: {
-          icon: <Archive className="h-4 w-4" />,
-          color: "text-gray-600",
-          files: [],
-          subfolders: [],
-        },
+    const categories = {
+      "1_FOTOS": {
+        icon: <ImageIcon className="h-4 w-4" />,
+        color: "text-green-600",
+        files: [],
+        subfolders: [],
+      },
+      "2_DOCUMENTOS": {
+        icon: <FileText className="h-4 w-4" />,
+        color: "text-blue-600",
+        files: [],
+        subfolders: [],
+      },
+      "3_COMUNICACIONES": {
+        icon: <MapPin className="h-4 w-4" />,
+        color: "text-purple-600",
+        files: [],
+        subfolders: [],
+      },
+      "4_MARKETING": {
+        icon: <Video className="h-4 w-4" />,
+        color: "text-orange-600",
+        files: [],
+        subfolders: [],
+      },
+      "5_PDF_SUELTO": {
+        icon: <File className="h-4 w-4" />,
+        color: "text-red-600",
+        files: [],
+        subfolders: [],
+      },
+      "6_KMZ_SUELTO": {
+        icon: <MapPin className="h-4 w-4" />,
+        color: "text-indigo-600",
+        files: [],
+        subfolders: [],
       },
     }
 
     folderContents.files.forEach((item: any) => {
-      const name = item.name
-      const mimeType = item.mimeType || ""
-      const isFolder = item.mimeType === "application/vnd.google-apps.folder"
+      const name = item.name.toUpperCase()
 
-      let category = "OTROS_DOCUMENTOS"
-
-      // Use compiled regex patterns for faster matching
-      if (classificationPatterns.DATOS_TECNICOS.test(name) || mimeTypePatterns.DATOS_TECNICOS.test(mimeType)) {
-        category = "DATOS_TECNICOS"
-      } else if (
-        classificationPatterns.RECURSOS_VISUALES.test(name) ||
-        mimeTypePatterns.RECURSOS_VISUALES.test(mimeType)
-      ) {
-        category = "RECURSOS_VISUALES"
-      } else if (classificationPatterns.COMUNICACIONES.test(name)) {
-        category = "COMUNICACIONES"
-      } else if (
-        classificationPatterns.DOCUMENTOS_LEGALES.test(name) ||
-        (mimeTypePatterns.DOCUMENTOS_LEGALES.test(mimeType) && classificationPatterns.DOCUMENTOS_LEGALES.test(name))
-      ) {
-        category = "DOCUMENTOS_LEGALES"
-      }
-
-      if (isFolder) {
-        paraStructure.files[category].subfolders.push(item)
+      if (name.includes("FOTO") || name.includes("IMAGE") || name.includes("JPG") || name.includes("PNG")) {
+        if (item.mimeType === "application/vnd.google-apps.folder") {
+          categories["1_FOTOS"].subfolders.push(item)
+        } else {
+          categories["1_FOTOS"].files.push(item)
+        }
+      } else if (name.includes("DOCUMENTO") || name.includes("DOC") || name.includes("PDF")) {
+        if (item.mimeType === "application/vnd.google-apps.folder") {
+          categories["2_DOCUMENTOS"].subfolders.push(item)
+        } else {
+          categories["2_DOCUMENTOS"].files.push(item)
+        }
+      } else if (name.includes("COMUNICACION") || name.includes("MAIL") || name.includes("MENSAJE")) {
+        if (item.mimeType === "application/vnd.google-apps.folder") {
+          categories["3_COMUNICACIONES"].subfolders.push(item)
+        } else {
+          categories["3_COMUNICACIONES"].files.push(item)
+        }
+      } else if (name.includes("MARKETING") || name.includes("VIDEO") || name.includes("PROMOCION")) {
+        if (item.mimeType === "application/vnd.google-apps.folder") {
+          categories["4_MARKETING"].subfolders.push(item)
+        } else {
+          categories["4_MARKETING"].files.push(item)
+        }
+      } else if (name.includes("KMZ") || name.includes("KML")) {
+        if (item.mimeType === "application/vnd.google-apps.folder") {
+          categories["6_KMZ_SUELTO"].subfolders.push(item)
+        } else {
+          categories["6_KMZ_SUELTO"].files.push(item)
+        }
       } else {
-        paraStructure.files[category].files.push(item)
+        if (item.mimeType === "application/vnd.google-apps.folder") {
+          categories["5_PDF_SUELTO"].subfolders.push(item)
+        } else {
+          categories["5_PDF_SUELTO"].files.push(item)
+        }
       }
     })
 
-    // Cache the organized structure
-    classificationCache.set(cacheKey, paraStructure)
-    return paraStructure
-  }, [folderContents, paraClassification, paraOrganizer, folder.id])
+    return categories
+  }, [folderContents])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+      {/* Header */}
       <div className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center gap-3">
@@ -209,28 +161,15 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
                 <FolderOpen className="h-5 w-5 text-blue-600" />
                 {folder.name}
               </h1>
-              {paraClassification && (
-                <div className="flex items-center gap-2 mt-1">
-                  <Badge className={organizedContents?.category.color}>{organizedContents?.category.name}</Badge>
-                  <Badge variant="outline">{paraClassification.status.toUpperCase()}</Badge>
-                  <Badge variant="outline" className="text-xs">
-                    Prioridad: {paraClassification.priority.toUpperCase()}
-                  </Badge>
-                  {paraClassification.tags.map((tag) => (
-                    <Badge key={tag} variant="secondary" className="text-xs">
-                      {tag}
-                    </Badge>
-                  ))}
-                </div>
-              )}
             </div>
           </div>
         </div>
       </div>
 
+      {/* Folder Metadata */}
       <div className="container mx-auto px-4 py-6">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="grid grid-cols-4 gap-4 text-center">
+          <div className="grid grid-cols-3 gap-4 text-center">
             <div>
               <div className="flex items-center justify-center mb-2">
                 <FileText className="h-5 w-5 text-blue-600" />
@@ -251,16 +190,6 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
               </div>
               <p className="text-sm font-bold text-purple-600">Aug 8,</p>
               <p className="text-sm text-gray-600">2025</p>
-            </div>
-            <div>
-              <div className="flex items-center justify-center mb-2">
-                {paraClassification?.category === "projects" && <TrendingUp className="h-5 w-5 text-red-600" />}
-                {paraClassification?.category === "areas" && <Building className="h-5 w-5 text-blue-600" />}
-                {paraClassification?.category === "resources" && <BookOpen className="h-5 w-5 text-green-600" />}
-                {paraClassification?.category === "archive" && <Archive className="h-5 w-5 text-gray-600" />}
-              </div>
-              <p className="text-sm font-bold text-gray-900">PARA</p>
-              <p className="text-xs text-gray-600">{paraClassification?.category.toUpperCase()}</p>
             </div>
           </div>
         </div>
@@ -288,23 +217,8 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
 
         {!loadingContents && !contentsError && organizedContents && (
           <div className="container mx-auto px-4 py-6">
-            <div className="bg-gradient-to-r from-blue-50 to-green-50 rounded-lg border border-blue-200 p-4 mb-6">
-              <h3 className="font-semibold text-gray-900 mb-2">Organización PARA Aplicada</h3>
-              <p className="text-sm text-gray-700 mb-2">{organizedContents.category.description}</p>
-              <div className="text-xs text-gray-600">
-                <strong>Subcategoría:</strong> {paraClassification?.subcategory} |<strong> Estado:</strong>{" "}
-                {paraClassification?.status} |<strong> Prioridad:</strong> {paraClassification?.priority}
-                {paraClassification?.dueDate && (
-                  <span>
-                    {" "}
-                    | <strong>Fecha límite:</strong> {paraClassification.dueDate}
-                  </span>
-                )}
-              </div>
-            </div>
-
             <div className="space-y-4">
-              {Object.entries(organizedContents.files).map(([categoryName, category]) => {
+              {Object.entries(organizedContents).map(([categoryName, category]) => {
                 const totalItems = category.files.length + category.subfolders.length
 
                 return (
@@ -320,6 +234,7 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
 
                       {totalItems > 0 ? (
                         <div className="ml-7 space-y-2">
+                          {/* Show subfolders */}
                           {category.subfolders.map((subfolder: any) => (
                             <div key={subfolder.id} className="flex items-center gap-2 py-2 px-3 bg-blue-50 rounded-md">
                               <Folder className="h-4 w-4 text-blue-500" />
@@ -330,6 +245,7 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
                             </div>
                           ))}
 
+                          {/* Show files */}
                           {category.files.map((file: any) => (
                             <div key={file.id} className="flex items-center gap-2 py-2 px-3 bg-gray-50 rounded-md">
                               <FileText className="h-4 w-4 text-gray-500" />
@@ -355,11 +271,11 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
   )
 }
 
-function FolderCardComponent({
+const FolderCard = ({
   folder,
   viewMode,
   onViewDetails,
-}: { folder: any; viewMode: "grid" | "list"; onViewDetails: (folder: any) => void }) {
+}: { folder: any; viewMode: "grid" | "list"; onViewDetails: (folder: any) => void }) => {
   const statusConfig = useMemo(() => {
     const getStatusColor = (status: string) => {
       switch (status) {
@@ -494,9 +410,6 @@ export default function HomePage() {
   const [searchIndex, setSearchIndex] = useState<Map<string, any>>(new Map())
   const [indexLoading, setIndexLoading] = useState(false)
 
-  const paraOrganizer = useMemo(() => new PARAOrganizer(), [])
-  const paraStats = useMemo(() => paraOrganizer.getCategoryStats(folders), [folders, paraOrganizer])
-
   const initializeService = useCallback(async () => {
     if (typeof window !== "undefined" && !realDriveService && !serviceInitialized) {
       try {
@@ -517,6 +430,7 @@ export default function HomePage() {
     const newIndex = new Map()
 
     try {
+      // Add folder names to index
       foldersList.forEach((folder) => {
         const searchableContent = {
           folderId: folder.id,
@@ -525,35 +439,37 @@ export default function HomePage() {
           content: [folder.name, folder.location, folder.propertyType].join(" ").toLowerCase(),
         }
         newIndex.set(`folder-${folder.id}`, searchableContent)
+      })
 
-        // Use hierarchy data if available to avoid API calls
-        if (folder.hierarchy?.files) {
-          folder.hierarchy.files.forEach((item: any) => {
-            const searchableContent = {
-              folderId: folder.id,
-              folderName: folder.name,
-              type: "file",
-              name: item.name,
-              content: [item.name, folder.name].join(" ").toLowerCase(),
-            }
-            newIndex.set(`file-${item.id}`, searchableContent)
-          })
-        }
+      // Fetch contents for each folder and add to index
+      const contentPromises = foldersList.map(async (folder) => {
+        try {
+          const response = await fetch(`/api/drive/folders/${folder.id}`)
+          if (response.ok) {
+            const contents = await response.json()
 
-        if (folder.hierarchy?.folders) {
-          folder.hierarchy.folders.forEach((item: any) => {
-            const searchableContent = {
-              folderId: folder.id,
-              folderName: folder.name,
-              type: "subfolder",
-              name: item.name,
-              content: [item.name, folder.name].join(" ").toLowerCase(),
+            if (contents.files) {
+              contents.files.forEach((item: any) => {
+                const searchableContent = {
+                  folderId: folder.id,
+                  folderName: folder.name,
+                  type: item.mimeType === "application/vnd.google-apps.folder" ? "subfolder" : "file",
+                  name: item.name,
+                  content: [item.name, folder.name].join(" ").toLowerCase(),
+                }
+                newIndex.set(
+                  `${item.mimeType === "application/vnd.google-apps.folder" ? "subfolder" : "file"}-${item.id}`,
+                  searchableContent,
+                )
+              })
             }
-            newIndex.set(`subfolder-${item.id}`, searchableContent)
-          })
+          }
+        } catch (error) {
+          console.error(`[v0] Error fetching contents for folder ${folder.id}:`, error)
         }
       })
 
+      await Promise.all(contentPromises)
       setSearchIndex(newIndex)
     } catch (error) {
       console.error("[v0] Error building search index:", error)
@@ -572,71 +488,50 @@ export default function HomePage() {
       setLoading(true)
       setError(null)
 
-      const response = await fetch("/api/drive/folders/complete-hierarchy")
+      await initializeService()
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch complete hierarchy")
+      if (!realDriveService) {
+        setError("Error al inicializar el servicio")
+        return
       }
 
-      const hierarchyData = await response.json()
-      console.log("[v0] Complete hierarchy loaded:", hierarchyData)
+      const authSuccess = await realDriveService.authenticate()
+      setIsAuthenticated(authSuccess)
 
-      const processedFolders = []
-
-      function processHierarchy(folders, parentPath = "") {
-        folders.forEach((folder) => {
-          const folderPath = parentPath ? `${parentPath}/${folder.name}` : folder.name
-
-          // Add the folder itself
-          processedFolders.push({
-            id: folder.id,
-            name: folderPath,
-            status: folder.contents?.files?.length > 0 ? "complete" : "pending",
-            files: (folder.contents?.files?.length || 0) + (folder.contents?.folders?.length || 0),
-            rolNumbers: 0, // Will be calculated later
-            location: extractLocation(folder.name),
-            propertyType: extractPropertyType(folder.name),
-            lastModified: folder.modifiedTime
-              ? new Date(folder.modifiedTime).toLocaleDateString("es-CL")
-              : new Date().toLocaleDateString("es-CL"),
-            completionScore: folder.contents?.files?.length > 0 ? 85 : 35,
-            hierarchy: folder.contents, // Store complete hierarchy for detail view
-          })
-
-          // Recursively process subfolders
-          if (folder.contents?.folders?.length > 0) {
-            processHierarchy(folder.contents.folders, folderPath)
-          }
-        })
+      if (!authSuccess) {
+        setError("Autenticación requerida para acceder a Google Drive")
+        return
       }
 
-      if (hierarchyData.hierarchy?.folders) {
-        processHierarchy(hierarchyData.hierarchy.folders)
-      }
+      const realFolders = await realDriveService.listSuccessCases()
 
-      function extractLocation(folderName) {
-        const locationPatterns = ["PUCON", "TEMUCO", "VALDIVIA", "OSORNO", "PUERTO MONTT", "CHILOE"]
-        const found = locationPatterns.find((loc) => folderName.toUpperCase().includes(loc))
-        return found || "DESCONOCIDA"
-      }
+      const processedFolders = realFolders.map((folder: any, index: number) => ({
+        id: folder.id || index.toString(),
+        name: folder.name,
+        status:
+          folder.completionStatus === "complete"
+            ? "complete"
+            : folder.completionStatus === "incomplete"
+              ? "processing"
+              : "pending",
+        files: folder.totalFiles || 0,
+        rolNumbers: folder.rolNumbers || 0,
+        location: folder.location || "DESCONOCIDA",
+        propertyType: folder.propertyType || "PROPIEDAD",
+        lastModified: new Date(folder.files?.[0]?.modifiedTime || Date.now()).toLocaleDateString("es-CL"),
+        completionScore:
+          folder.completionStatus === "complete" ? 95 : folder.completionStatus === "incomplete" ? 65 : 35,
+      }))
 
-      function extractPropertyType(folderName) {
-        const typePatterns = ["PARCELA", "CASA", "CAMPO", "TERRENO", "DEPARTAMENTO"]
-        const found = typePatterns.find((type) => folderName.toUpperCase().includes(type))
-        return found || "PROPIEDAD"
-      }
-
-      console.log("[v0] Processed folders with complete hierarchy:", processedFolders.length)
       setFolders(processedFolders)
       await buildSearchIndex(processedFolders)
-      setIsAuthenticated(true)
     } catch (err) {
-      console.error("[v0] Error loading complete hierarchy:", err)
-      setError("Error al cargar la jerarquía completa de Google Drive")
+      console.error("[v0] Error loading real Google Drive data:", err)
+      setError("Error al cargar datos de Google Drive")
     } finally {
       setLoading(false)
     }
-  }, [buildSearchIndex])
+  }, [initializeService, buildSearchIndex])
 
   const handleAuthenticate = useCallback(async () => {
     await initializeService()
@@ -755,13 +650,10 @@ export default function HomePage() {
                 <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
                   {folders.length} Carpetas {isAuthenticated ? "Reales" : "Demo"}
                 </Badge>
-                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                  Método PARA Activo
-                </Badge>
               </h1>
               <p className="text-gray-600 mt-1">
                 {isAuthenticated ? "Datos reales desde Google Drive" : "Datos de demostración"} - Casos de éxito
-                procesados con metodología PARA
+                procesados
               </p>
             </div>
             <div className="flex gap-2">
@@ -784,44 +676,46 @@ export default function HomePage() {
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Proyectos Activos</p>
-                <p className="text-3xl font-bold text-red-600">{paraStats.projects}</p>
-                <p className="text-xs text-gray-500 mt-1">Con fechas límite</p>
+                <p className="text-sm font-medium text-gray-600">Casos Filtrados</p>
+                <p className="text-3xl font-bold text-blue-600">{stats.total}</p>
+                <p className="text-xs text-gray-500 mt-1">De {folders.length} totales</p>
               </div>
-              <TrendingUp className="h-8 w-8 text-red-500" />
+              <Folder className="h-8 w-8 text-blue-500" />
             </div>
           </div>
 
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Áreas Responsabilidad</p>
-                <p className="text-3xl font-bold text-blue-600">{paraStats.areas}</p>
-                <p className="text-xs text-gray-500 mt-1">Actividades continuas</p>
+                <p className="text-sm font-medium text-gray-600">Casos Completos</p>
+                <p className="text-3xl font-bold text-green-600">{stats.complete}</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  {stats.total > 0 ? Math.round((stats.complete / stats.total) * 100) : 0}% completitud
+                </p>
               </div>
-              <Building className="h-8 w-8 text-blue-500" />
+              <CheckCircle className="h-8 w-8 text-green-500" />
             </div>
           </div>
 
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Recursos Referencia</p>
-                <p className="text-3xl font-bold text-green-600">{paraStats.resources}</p>
-                <p className="text-xs text-gray-500 mt-1">Para consulta futura</p>
+                <p className="text-sm font-medium text-gray-600">Total Archivos</p>
+                <p className="text-3xl font-bold text-purple-600">{stats.totalFiles}</p>
+                <p className="text-xs text-gray-500 mt-1">En casos filtrados</p>
               </div>
-              <BookOpen className="h-8 w-8 text-green-500" />
+              <FileText className="h-8 w-8 text-purple-500" />
             </div>
           </div>
 
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Archivo</p>
-                <p className="text-3xl font-bold text-gray-600">{paraStats.archive}</p>
-                <p className="text-xs text-gray-500 mt-1">Casos completados</p>
+                <p className="text-sm font-medium text-gray-600">Números de Rol</p>
+                <p className="text-3xl font-bold text-orange-600">{stats.totalRol}</p>
+                <p className="text-xs text-gray-500 mt-1">Extraídos</p>
               </div>
-              <Archive className="h-8 w-8 text-gray-500" />
+              <MapPin className="h-8 w-8 text-orange-500" />
             </div>
           </div>
         </div>
@@ -911,12 +805,7 @@ export default function HomePage() {
           }
         >
           {paginatedFolders.map((folder) => (
-            <FolderCardComponent
-              key={folder.id}
-              folder={folder}
-              viewMode={viewMode}
-              onViewDetails={handleViewDetails}
-            />
+            <FolderCard key={folder.id} folder={folder} viewMode={viewMode} onViewDetails={handleViewDetails} />
           ))}
         </div>
 
