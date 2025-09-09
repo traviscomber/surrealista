@@ -124,6 +124,13 @@ const menuItems: MenuItem[] = [
         badgeColor: "bg-indigo-500",
       },
       {
+        title: "Connection Diagnostics",
+        href: "/admin/connection-diagnostics",
+        icon: Activity,
+        badge: "Debug",
+        badgeColor: "bg-red-500",
+      },
+      {
         title: "Migración Data Real",
         href: "/admin/migracion-data-real",
         icon: Upload,
@@ -159,6 +166,7 @@ const getPageTitle = (pathname: string): string => {
     "/admin/google-drive-integration": "Google Drive Integration",
     "/admin/organizacion-carpetas-demo": "Organización Carpetas",
     "/admin/documentacion-para-method": "Método PARA - Documentación",
+    "/admin/connection-diagnostics": "Connection Diagnostics",
     "/admin/migracion-data-real": "Migración Data Real",
     "/admin/mensajes": "Centro de Mensajes",
   }
@@ -309,6 +317,13 @@ export function AdminSidebar() {
               <HelpCircle className="h-4 w-4" />
               Método PARA
               <Badge className="ml-auto bg-indigo-500 text-white text-xs">Guía</Badge>
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
+            <Link href="/admin/connection-diagnostics">
+              <Activity className="h-4 w-4" />
+              Connection Diagnostics
+              <Badge className="ml-auto bg-red-500 text-white text-xs">Debug</Badge>
             </Link>
           </Button>
         </div>
