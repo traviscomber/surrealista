@@ -71,10 +71,6 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
   const organizedContents = useMemo(() => {
     if (!folderContents?.files || !paraClassification) return null
 
-    console.log("[v0] Testing classification for folder:", folder.name)
-    console.log("[v0] Folder contents:", folderContents.files)
-    console.log("[v0] PARA classification:", paraClassification)
-
     const categories = paraOrganizer.getCategories()
     const currentCategory = categories[paraClassification.category]
 
@@ -119,15 +115,7 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
       const name = item.name.toUpperCase()
       const mimeType = item.mimeType || ""
 
-      console.log("[v0] Classifying file:", {
-        name: item.name,
-        nameUpper: name,
-        mimeType: mimeType,
-        isFolder: item.mimeType === "application/vnd.google-apps.folder",
-      })
-
       if (name.includes("KMZ") || name.includes("KML") || name.includes("COORDENADA") || mimeType.includes("kmz")) {
-        console.log("[v0] -> Classified as DATOS_TECNICOS")
         if (item.mimeType === "application/vnd.google-apps.folder") {
           paraStructure.files["DATOS_TECNICOS"].subfolders.push(item)
         } else {
@@ -142,7 +130,6 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
         mimeType.includes("image") ||
         mimeType.includes("video")
       ) {
-        console.log("[v0] -> Classified as RECURSOS_VISUALES")
         if (item.mimeType === "application/vnd.google-apps.folder") {
           paraStructure.files["RECURSOS_VISUALES"].subfolders.push(item)
         } else {
@@ -155,7 +142,6 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
         name.includes("WHATSAPP") ||
         name.includes("CHAT")
       ) {
-        console.log("[v0] -> Classified as COMUNICACIONES")
         if (item.mimeType === "application/vnd.google-apps.folder") {
           paraStructure.files["COMUNICACIONES"].subfolders.push(item)
         } else {
@@ -169,36 +155,18 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
         name.includes("INSCRIPCION") ||
         mimeType.includes("pdf")
       ) {
-        console.log("[v0] -> Classified as DOCUMENTOS_LEGALES")
         if (item.mimeType === "application/vnd.google-apps.folder") {
           paraStructure.files["DOCUMENTOS_LEGALES"].subfolders.push(item)
         } else {
           paraStructure.files["DOCUMENTOS_LEGALES"].files.push(item)
         }
       } else {
-        console.log("[v0] -> Classified as OTROS_DOCUMENTOS (default)")
         if (item.mimeType === "application/vnd.google-apps.folder") {
           paraStructure.files["OTROS_DOCUMENTOS"].subfolders.push(item)
         } else {
           paraStructure.files["OTROS_DOCUMENTOS"].files.push(item)
         }
       }
-    })
-
-    console.log("[v0] Classification summary:", {
-      DOCUMENTOS_LEGALES:
-        paraStructure.files["DOCUMENTOS_LEGALES"].files.length +
-        paraStructure.files["DOCUMENTOS_LEGALES"].subfolders.length,
-      COMUNICACIONES:
-        paraStructure.files["COMUNICACIONES"].files.length + paraStructure.files["COMUNICACIONES"].subfolders.length,
-      RECURSOS_VISUALES:
-        paraStructure.files["RECURSOS_VISUALES"].files.length +
-        paraStructure.files["RECURSOS_VISUALES"].subfolders.length,
-      DATOS_TECNICOS:
-        paraStructure.files["DATOS_TECNICOS"].files.length + paraStructure.files["DATOS_TECNICOS"].subfolders.length,
-      OTROS_DOCUMENTOS:
-        paraStructure.files["OTROS_DOCUMENTOS"].files.length +
-        paraStructure.files["OTROS_DOCUMENTOS"].subfolders.length,
     })
 
     return paraStructure
@@ -581,71 +549,50 @@ export default function HomePage() {
       setLoading(true)
       setError(null)
 
-      const response = await fetch("/api/drive/folders/complete-hierarchy")
+      await initializeService()
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch complete hierarchy")
+      if (!realDriveService) {
+        setError("Error al inicializar el servicio")
+        return
       }
 
-      const hierarchyData = await response.json()
-      console.log("[v0] Complete hierarchy loaded:", hierarchyData)
+      const authSuccess = await realDriveService.authenticate()
+      setIsAuthenticated(authSuccess)
 
-      const processedFolders = []
-
-      function processHierarchy(folders, parentPath = "") {
-        folders.forEach((folder) => {
-          const folderPath = parentPath ? `${parentPath}/${folder.name}` : folder.name
-
-          // Add the folder itself
-          processedFolders.push({
-            id: folder.id,
-            name: folderPath,
-            status: folder.contents?.files?.length > 0 ? "complete" : "pending",
-            files: (folder.contents?.files?.length || 0) + (folder.contents?.folders?.length || 0),
-            rolNumbers: 0, // Will be calculated later
-            location: extractLocation(folder.name),
-            propertyType: extractPropertyType(folder.name),
-            lastModified: folder.modifiedTime
-              ? new Date(folder.modifiedTime).toLocaleDateString("es-CL")
-              : new Date().toLocaleDateString("es-CL"),
-            completionScore: folder.contents?.files?.length > 0 ? 85 : 35,
-            hierarchy: folder.contents, // Store complete hierarchy for detail view
-          })
-
-          // Recursively process subfolders
-          if (folder.contents?.folders?.length > 0) {
-            processHierarchy(folder.contents.folders, folderPath)
-          }
-        })
+      if (!authSuccess) {
+        setError("Autenticación requerida para acceder a Google Drive")
+        return
       }
 
-      if (hierarchyData.hierarchy?.folders) {
-        processHierarchy(hierarchyData.hierarchy.folders)
-      }
+      const realFolders = await realDriveService.listSuccessCases()
 
-      function extractLocation(folderName) {
-        const locationPatterns = ["PUCON", "TEMUCO", "VALDIVIA", "OSORNO", "PUERTO MONTT", "CHILOE"]
-        const found = locationPatterns.find((loc) => folderName.toUpperCase().includes(loc))
-        return found || "DESCONOCIDA"
-      }
+      const processedFolders = realFolders.map((folder: any, index: number) => ({
+        id: folder.id || index.toString(),
+        name: folder.name,
+        status:
+          folder.completionStatus === "complete"
+            ? "complete"
+            : folder.completionStatus === "incomplete"
+              ? "processing"
+              : "pending",
+        files: folder.totalFiles || 0,
+        rolNumbers: folder.rolNumbers || 0,
+        location: folder.location || "DESCONOCIDA",
+        propertyType: folder.propertyType || "PROPIEDAD",
+        lastModified: new Date(folder.files?.[0]?.modifiedTime || Date.now()).toLocaleDateString("es-CL"),
+        completionScore:
+          folder.completionStatus === "complete" ? 95 : folder.completionStatus === "incomplete" ? 65 : 35,
+      }))
 
-      function extractPropertyType(folderName) {
-        const typePatterns = ["PARCELA", "CASA", "CAMPO", "TERRENO", "DEPARTAMENTO"]
-        const found = typePatterns.find((type) => folderName.toUpperCase().includes(type))
-        return found || "PROPIEDAD"
-      }
-
-      console.log("[v0] Processed folders with complete hierarchy:", processedFolders.length)
       setFolders(processedFolders)
       await buildSearchIndex(processedFolders)
-      setIsAuthenticated(true)
     } catch (err) {
-      console.error("[v0] Error loading complete hierarchy:", err)
-      setError("Error al cargar la jerarquía completa de Google Drive")
+      console.error("[v0] Error loading real Google Drive data:", err)
+      setError("Error al cargar datos de Google Drive")
     } finally {
       setLoading(false)
     }
-  }, [buildSearchIndex])
+  }, [initializeService, buildSearchIndex])
 
   const handleAuthenticate = useCallback(async () => {
     await initializeService()
