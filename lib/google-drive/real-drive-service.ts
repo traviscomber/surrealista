@@ -68,7 +68,6 @@ class RealGoogleDriveService {
 
   private async startOAuthPopup(): Promise<boolean> {
     return new Promise((resolve) => {
-      console.log("[v0] Opening OAuth popup window...")
       const popup = window.open("/api/auth/google", "google-oauth", "width=500,height=600,scrollbars=yes,resizable=yes")
 
       if (!popup) {
@@ -78,36 +77,25 @@ class RealGoogleDriveService {
         return
       }
 
-      let authCompleted = false
-
       const checkClosed = setInterval(() => {
-        if (popup.closed && !authCompleted) {
-          console.log("[v0] Popup closed without completion, checking auth status...")
+        if (popup.closed) {
           clearInterval(checkClosed)
-          this.checkAuthenticationStatus().then((success) => {
-            if (!success) {
-              console.log("[v0] Authentication not completed, falling back to demo mode")
-              this.accessToken = "demo_mode"
-            }
-            resolve(true)
-          })
+          // Check if authentication was successful
+          this.checkAuthenticationStatus().then(resolve)
         }
       }, 1000)
 
+      // Listen for messages from popup
       const messageListener = (event: MessageEvent) => {
         if (event.origin !== window.location.origin) return
 
         if (event.data.type === "oauth-success") {
-          console.log("[v0] OAuth success message received")
-          authCompleted = true
           clearInterval(checkClosed)
           window.removeEventListener("message", messageListener)
           popup.close()
           this.accessToken = "server_authenticated"
           resolve(true)
         } else if (event.data.type === "oauth-error") {
-          console.log("[v0] OAuth error message received:", event.data.error)
-          authCompleted = true
           clearInterval(checkClosed)
           window.removeEventListener("message", messageListener)
           popup.close()
@@ -118,18 +106,16 @@ class RealGoogleDriveService {
 
       window.addEventListener("message", messageListener)
 
+      // Timeout after 5 minutes
       setTimeout(() => {
-        if (!authCompleted) {
-          console.log("[v0] OAuth timeout reached, closing popup")
-          clearInterval(checkClosed)
-          window.removeEventListener("message", messageListener)
-          if (!popup.closed) {
-            popup.close()
-          }
-          this.accessToken = "demo_mode"
-          resolve(true)
+        clearInterval(checkClosed)
+        window.removeEventListener("message", messageListener)
+        if (!popup.closed) {
+          popup.close()
         }
-      }, 120000) // 2 minutes instead of 5
+        this.accessToken = "demo_mode"
+        resolve(true)
+      }, 300000)
     })
   }
 
@@ -172,6 +158,7 @@ class RealGoogleDriveService {
       const data = await response.json()
       console.log("[v0] Real Google Drive response via server:", data)
 
+      // Process real folders
       const folders: FolderStructure[] = []
 
       for (const folder of data.files || []) {
@@ -199,13 +186,14 @@ class RealGoogleDriveService {
       const filesData = await response.json()
       const files: DriveFile[] = filesData.files || []
 
+      // Analyze completion based on standard 6-folder structure
       const completionStatus = this.analyzeCompletionStatus(files)
 
       return {
         id: folderId,
         name: folderName,
         files: files,
-        subfolders: [],
+        subfolders: [], // Could be expanded to analyze subfolders
         totalFiles: files.length,
         totalSize: files.reduce((sum, file) => sum + Number.parseInt(file.size || "0"), 0),
         completionStatus,
