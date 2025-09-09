@@ -12,10 +12,8 @@ export async function GET(request: NextRequest) {
 
   if (!code) {
     const clientId = "873991779919-dold9vq3nsl8qoeqfuibmjj5kjctqah1.apps.googleusercontent.com"
-    const redirectUri = new URL("/api/auth/google", request.url).toString()
+    const redirectUri = "https://sur-realista.vercel.app/api/auth/google"
     const scope = "https://www.googleapis.com/auth/drive.readonly"
-
-    console.log("[v0] OAuth redirect URI:", redirectUri)
 
     const authUrl =
       `https://accounts.google.com/o/oauth2/v2/auth?` +
@@ -32,9 +30,9 @@ export async function GET(request: NextRequest) {
   try {
     const clientId = "873991779919-dold9vq3nsl8qoeqfuibmjj5kjctqah1.apps.googleusercontent.com"
     const clientSecret = "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"
-    const redirectUri = new URL("/api/auth/google", request.url).toString()
+    const redirectUri = "https://sur-realista.vercel.app/api/auth/google"
 
-    console.log("[v0] Token exchange redirect URI:", redirectUri)
+    console.log("[v0] Exchanging code for access token...")
 
     const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
@@ -90,6 +88,7 @@ export async function GET(request: NextRequest) {
     response.cookies.set("google_access_token", tokenData.access_token, {
       httpOnly: true,
       secure: true,
+      sameSite: "lax",
       maxAge: tokenData.expires_in || 3600,
     })
 
@@ -97,6 +96,7 @@ export async function GET(request: NextRequest) {
       response.cookies.set("google_refresh_token", tokenData.refresh_token, {
         httpOnly: true,
         secure: true,
+        sameSite: "lax",
         maxAge: 30 * 24 * 60 * 60, // 30 days
       })
     }
