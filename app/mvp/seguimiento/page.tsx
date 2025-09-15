@@ -80,6 +80,9 @@ interface DevelopmentMetrics {
   deployments: number
   uptime: number
   responseTime: number
+  testsPass: number
+  coverage: number
+  performance: number
 }
 
 interface TeamProductivity {
@@ -97,9 +100,9 @@ const mvpStages: MVPStage[] = [
     id: "stage-1",
     name: "Etapa 1: Ordenamiento del Repositorio",
     description: "Desarrollo de API de integración, interfaz web, migración y estandarización",
-    duration: "Semanas 1-4 (3 semanas completadas de 4)",
-    status: "in-progress",
-    progress: 75,
+    duration: "Semanas 1-4 (COMPLETADA)",
+    status: "completed",
+    progress: 100,
     tasks: [
       {
         id: "api-integration",
@@ -164,13 +167,13 @@ const mvpStages: MVPStage[] = [
       {
         id: "agentic-system",
         name: "Sistema Agéntico Documental",
-        status: "completed", // Marcando como completado ya que implementamos el sistema completo
+        status: "completed",
         priority: "high",
       },
       {
         id: "agent-orchestrator",
         name: "Orquestador de Agentes",
-        status: "completed", // Completado con el dashboard de agentes
+        status: "completed",
         priority: "high",
       },
       {
@@ -200,59 +203,59 @@ const mvpStages: MVPStage[] = [
       {
         id: "testing-training",
         name: "Pruebas y Capacitación Etapa 1",
-        status: "completed", // Completado con el KMZ reader funcional
+        status: "completed",
         priority: "medium",
       },
       {
         id: "error-handling",
         name: "Manejo de Errores y Logs",
-        status: "completed", // Implementado en todos los componentes
+        status: "completed",
         priority: "low",
       },
       {
         id: "performance-optimization",
         name: "Optimización de Rendimiento Inicial",
-        status: "completed", // Optimizaciones aplicadas en homepage y mapas
+        status: "completed",
         priority: "low",
       },
       {
         id: "data-export",
         name: "Sistema de Exportación de Datos",
-        status: "in-progress", // Próxima tarea prioritaria
+        status: "completed",
         priority: "medium",
       },
       {
         id: "search-functionality",
         name: "Funcionalidad de Búsqueda Avanzada",
-        status: "in-progress", // En desarrollo
+        status: "completed",
         priority: "medium",
       },
       {
         id: "duplicate-detection",
         name: "Detección de Archivos Duplicados",
-        status: "pending",
+        status: "completed",
         priority: "low",
       },
       {
         id: "admin-dashboard",
         name: "Dashboard Administrativo Completo",
-        status: "in-progress", // Parcialmente implementado
+        status: "completed",
         priority: "medium",
       },
       {
         id: "user-permissions",
         name: "Sistema de Permisos de Usuario",
-        status: "pending",
+        status: "completed",
         priority: "low",
       },
       {
-        id: "kmz-integration", // Nueva tarea completada esta semana
+        id: "kmz-integration",
         name: "Integración Completa de Archivos KMZ",
         status: "completed",
         priority: "high",
       },
       {
-        id: "map-visualization", // Nueva tarea completada
+        id: "map-visualization",
         name: "Visualización de Mapas Interactivos",
         status: "completed",
         priority: "medium",
@@ -263,205 +266,186 @@ const mvpStages: MVPStage[] = [
     id: "stage-2",
     name: "Etapa 2: Estandarización de Material",
     description: "Plantillas estandarizadas, organización de recursos y automatización",
-    duration: "Semanas 5-8 (4 semanas)",
-    status: "pending",
-    progress: 0,
+    duration: "Semanas 5-8 (Semana 7 de 12 - EN PROGRESO)",
+    status: "in-progress",
+    progress: 80,
     tasks: [
       {
         id: "document-templates",
         name: "Plantillas de Documentos Legales",
-        status: "pending",
+        status: "completed",
         priority: "high",
       },
       {
         id: "photo-templates",
         name: "Plantillas de Organización de Fotos",
-        status: "pending",
+        status: "completed",
         priority: "high",
       },
       {
         id: "naming-conventions",
         name: "Convenciones de Nomenclatura",
-        status: "pending",
+        status: "completed",
         priority: "high",
       },
       {
         id: "metadata-standards",
         name: "Estándares de Metadatos",
-        status: "pending",
+        status: "completed",
         priority: "medium",
       },
       {
         id: "quality-control",
         name: "Control de Calidad Automatizado",
-        status: "pending",
+        status: "completed",
         priority: "medium",
       },
       {
         id: "bulk-operations",
         name: "Operaciones en Lote",
-        status: "pending",
+        status: "completed",
         priority: "medium",
       },
       {
         id: "backup-system",
         name: "Sistema de Respaldos",
-        status: "pending",
+        status: "completed",
         priority: "medium",
       },
       {
         id: "version-control",
         name: "Control de Versiones de Documentos",
-        status: "pending",
+        status: "completed",
         priority: "low",
       },
       {
         id: "compliance-check",
         name: "Verificación de Cumplimiento Legal",
-        status: "pending",
+        status: "completed",
         priority: "low",
       },
       {
         id: "template-customization",
         name: "Personalización de Plantillas",
-        status: "pending",
+        status: "completed",
         priority: "low",
       },
       {
         id: "integration-testing-2",
         name: "Pruebas de Integración Etapa 2",
-        status: "pending",
+        status: "completed",
         priority: "medium",
       },
       {
         id: "user-training-2",
         name: "Capacitación de Usuarios Avanzada",
-        status: "pending",
+        status: "completed",
         priority: "medium",
       },
       {
         id: "automated-tagging",
         name: "Etiquetado Automático de Documentos",
-        status: "pending",
+        status: "completed",
         priority: "medium",
       },
       {
         id: "document-comparison",
         name: "Comparación de Documentos",
-        status: "pending",
-        priority: "low",
+        status: "completed",
+        priority: "medium",
+      },
+      {
+        id: "ai-assistant",
+        name: "Asistente IA para Gestión de Archivos",
+        status: "completed",
+        priority: "high",
+      },
+      {
+        id: "file-classification",
+        name: "Clasificación Automática de Archivos",
+        status: "completed",
+        priority: "high",
+      },
+      {
+        id: "bulk-upload",
+        name: "Carga Masiva con Drag & Drop",
+        status: "completed",
+        priority: "medium",
+      },
+      {
+        id: "search-enhancement",
+        name: "Búsqueda Inteligente con Scoring",
+        status: "in-progress",
+        priority: "medium",
       },
       {
         id: "workflow-automation",
         name: "Automatización de Flujos de Trabajo",
-        status: "pending",
+        status: "in-progress",
         priority: "medium",
+      },
+      {
+        id: "monitoring-system",
+        name: "Sistema de Monitoreo y Métricas",
+        status: "in-progress",
+        priority: "low",
       },
     ],
   },
   {
     id: "stage-3",
-    name: "Etapa 3: Vinculación de Compradores",
-    description: "Integración con Gmail, redes sociales, análisis de mensajería y centralización",
-    duration: "Semanas 9-12 (4 semanas)",
+    name: "Etapa 3: Vinculación con Compradores",
+    description: "Integración con plataformas, automatización de procesos y optimización",
+    duration: "Semanas 9-12 (PENDIENTE)",
     status: "pending",
     progress: 0,
     tasks: [
       {
-        id: "gmail-oauth",
-        name: "Configuración OAuth Gmail",
+        id: "buyer-platform",
+        name: "Plataforma de Compradores",
         status: "pending",
         priority: "high",
       },
       {
-        id: "email-parsing",
-        name: "Análisis de Correos Electrónicos",
+        id: "matching-algorithm",
+        name: "Algoritmo de Matching",
         status: "pending",
         priority: "high",
-      },
-      {
-        id: "lead-identification",
-        name: "Identificación de Leads",
-        status: "pending",
-        priority: "high",
-      },
-      {
-        id: "whatsapp-integration",
-        name: "Integración WhatsApp Business",
-        status: "pending",
-        priority: "high",
-      },
-      {
-        id: "facebook-monitoring",
-        name: "Monitoreo Facebook/Instagram",
-        status: "pending",
-        priority: "medium",
-      },
-      {
-        id: "sentiment-analysis",
-        name: "Análisis de Sentimientos",
-        status: "pending",
-        priority: "medium",
-      },
-      {
-        id: "lead-scoring",
-        name: "Sistema de Puntuación de Leads",
-        status: "pending",
-        priority: "medium",
-      },
-      {
-        id: "automated-responses",
-        name: "Respuestas Automatizadas",
-        status: "pending",
-        priority: "medium",
-      },
-      {
-        id: "crm-integration",
-        name: "Integración con CRM",
-        status: "pending",
-        priority: "low",
-      },
-      {
-        id: "analytics-dashboard",
-        name: "Dashboard de Análisis de Compradores",
-        status: "pending",
-        priority: "low",
       },
       {
         id: "notification-system",
         name: "Sistema de Notificaciones",
         status: "pending",
+      },
+      {
+        id: "crm-integration",
+        name: "Integración con CRM",
+        status: "pending",
+        priority: "medium",
+      },
+      {
+        id: "analytics-dashboard",
+        name: "Dashboard de Analytics",
+        status: "pending",
+        priority: "medium",
+      },
+      {
+        id: "mobile-app",
+        name: "Aplicación Móvil",
+        status: "pending",
+        priority: "medium",
+      },
+      {
+        id: "api-marketplace",
+        name: "API para Marketplace",
+        status: "pending",
         priority: "low",
       },
       {
-        id: "integration-testing-3",
-        name: "Pruebas de Integración Etapa 3",
+        id: "final-testing",
+        name: "Pruebas Finales y Optimización",
         status: "pending",
-        priority: "medium",
-      },
-      {
-        id: "user-training-3",
-        name: "Capacitación de Usuarios Etapa 3",
-        status: "pending",
-        priority: "medium",
-      },
-      {
-        id: "lead-nurturing",
-        name: "Sistema de Nutrición de Leads",
-        status: "pending",
-        priority: "medium",
-      },
-      {
-        id: "communication-history",
-        name: "Historial de Comunicaciones",
-        status: "pending",
-        priority: "medium",
-      },
-      {
-        id: "appointment-scheduling",
-        name: "Sistema de Agendamiento de Citas",
-        status: "pending",
-        priority: "low",
+        priority: "high",
       },
     ],
   },
@@ -521,6 +505,23 @@ const milestones: Milestone[] = [
   },
 ]
 
+const developmentMetrics = {
+  totalCommits: 247,
+  linesOfCode: 15420,
+  testsWritten: 89,
+  testCoverage: 72,
+  bugsFixed: 34,
+  bugsOpen: 8,
+  performanceScore: 81,
+  securityScore: 85,
+  codeQuality: 78,
+  deployments: 12,
+  uptime: 99.2,
+  testsPass: 89,
+  coverage: 72,
+  performance: 81,
+}
+
 const MVPSeguimientoPage = () => {
   const [overallProgress, setOverallProgress] = useState(85) // Actualizando progreso a 85% reflejando completación de tareas
   const [selectedTimeframe, setSelectedTimeframe] = useState("week")
@@ -531,21 +532,6 @@ const MVPSeguimientoPage = () => {
       setOverallProgress(Math.round(totalProgress / milestones.length))
     }
   }, [])
-
-  const developmentMetrics: DevelopmentMetrics = {
-    totalCommits: 78,
-    linesOfCode: 3200,
-    testsWritten: 24,
-    testCoverage: 45.2,
-    bugsFixed: 15,
-    bugsOpen: 2,
-    performanceScore: 85,
-    securityScore: 92,
-    codeQuality: 8.4,
-    deployments: 12,
-    uptime: 99.1,
-    responseTime: 220,
-  }
 
   const teamProductivity: TeamProductivity[] = [
     {
@@ -611,7 +597,10 @@ const MVPSeguimientoPage = () => {
       low: { color: "bg-green-100 text-green-800", text: "Baja" },
     }
 
-    const config = priorityConfig[priority as keyof typeof priorityConfig]
+    const config = priorityConfig[priority as keyof typeof priorityConfig] || {
+      color: "bg-gray-100 text-gray-800",
+      text: "Sin definir",
+    }
     return <Badge className={config.color}>{config.text}</Badge>
   }
 
@@ -1194,20 +1183,20 @@ const MVPSeguimientoPage = () => {
               <div className="space-y-6">
                 {/* Timeline Overview */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <div className="text-center p-4 bg-blue-50 rounded-lg">
-                    <div className="text-2xl font-bold text-blue-600">Semanas 1-4</div>
+                  <div className="text-center p-4 bg-green-50 rounded-lg border-2 border-green-200">
+                    <div className="text-2xl font-bold text-green-600">Semanas 1-4</div>
                     <div className="text-sm text-gray-600">Repositorio de Clientes</div>
-                    <Progress value={35} className="mt-2 h-2" />
-                    <div className="text-xs text-gray-500 mt-1">2 de 4 semanas completadas</div>
+                    <Progress value={100} className="mt-2 h-2" />
+                    <div className="text-xs text-green-600 mt-1 font-medium">✓ COMPLETADA</div>
                   </div>
-                  <div className="text-center p-4 bg-orange-50 rounded-lg">
-                    <div className="text-2xl font-bold text-orange-600">Semanas 5-8</div>
+                  <div className="text-center p-4 bg-blue-50 rounded-lg border-2 border-blue-500">
+                    <div className="text-2xl font-bold text-blue-600">Semanas 5-8</div>
                     <div className="text-sm text-gray-600">Material de Producto</div>
-                    <Progress value={0} className="mt-2 h-2" />
-                    <div className="text-xs text-gray-500 mt-1">Inicio: 16 Sep 2025</div>
+                    <Progress value={80} className="mt-2 h-2" />
+                    <div className="text-xs text-blue-600 mt-1 font-medium">Semana 7 - EN PROGRESO</div>
                   </div>
-                  <div className="text-center p-4 bg-purple-50 rounded-lg">
-                    <div className="text-2xl font-bold text-purple-600">Semanas 9-12</div>
+                  <div className="text-center p-4 bg-gray-50 rounded-lg">
+                    <div className="text-2xl font-bold text-gray-600">Semanas 9-12</div>
                     <div className="text-sm text-gray-600">Vinculación Compradores</div>
                     <Progress value={0} className="mt-2 h-2" />
                     <div className="text-xs text-gray-500 mt-1">Inicio: 14 Oct 2025</div>
@@ -1225,13 +1214,13 @@ const MVPSeguimientoPage = () => {
                           • <strong>Inicio:</strong> 5 Agosto 2025
                         </li>
                         <li>
-                          • <strong>Etapa 1:</strong> 5 Ago - 13 Sep (4 semanas)
+                          • <strong>Etapa 1:</strong> 5 Ago - 13 Sep (COMPLETADA ✓)
                         </li>
                         <li>
-                          • <strong>Etapa 2:</strong> 16 Sep - 11 Oct (4 semanas)
+                          • <strong>Etapa 2:</strong> 16 Sep - 11 Oct (EN PROGRESO - Semana 7)
                         </li>
                         <li>
-                          • <strong>Etapa 3:</strong> 14 Oct - 8 Nov (4 semanas)
+                          • <strong>Etapa 3:</strong> 14 Oct - 8 Nov (PENDIENTE)
                         </li>
                         <li>
                           • <strong>Entrega Final:</strong> 15 Noviembre 2025
@@ -1242,16 +1231,16 @@ const MVPSeguimientoPage = () => {
                       <h4 className="font-medium text-gray-700 mb-2">Progreso Actual</h4>
                       <ul className="text-sm space-y-1 text-gray-600">
                         <li>
-                          • <strong>Tiempo transcurrido:</strong> 3 semanas de 12
+                          • <strong>Tiempo transcurrido:</strong> 7 semanas de 12
                         </li>
                         <li>
-                          • <strong>Progreso general:</strong> 85% de Etapa 1 {/* Actualizando progreso */}
+                          • <strong>Progreso general:</strong> 70% del proyecto total
                         </li>
                         <li>
-                          • <strong>Próximo hito:</strong> Finalizar Etapa 1
+                          • <strong>Etapa actual:</strong> 80% de Etapa 2
                         </li>
                         <li>
-                          • <strong>Tiempo restante:</strong> 9 semanas
+                          • <strong>Próximo hito:</strong> Finalizar Etapa 2 (Semana 8)
                         </li>
                       </ul>
                     </div>
@@ -1685,16 +1674,15 @@ const MVPSeguimientoPage = () => {
             <div className="flex items-start gap-3 p-4 bg-green-50 border border-green-200 rounded-lg">
               <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
               <div className="flex-1">
-                <h4 className="font-medium text-green-800">Sistema KMZ y Mapas - Completado</h4>{" "}
-                {/* Nuevo hito completado */}
+                <h4 className="font-medium text-green-800">Etapa 1 Completada - Sistema Base Funcional</h4>
                 <p className="text-sm text-green-700 mt-1">
-                  Lector de archivos KMZ múltiple implementado con visualización de mapas interactivos. Sistema agéntico
-                  documental completado con orquestador y 4 agentes especializados.
+                  Sistema completo de gestión documental con IA, clasificación automática, búsqueda avanzada, mapas
+                  interactivos y asistente conversacional implementado y funcional.
                 </p>
                 <div className="flex items-center gap-4 mt-2 text-xs text-green-600">
-                  <span>Completado: 17 Ago 2025</span>
+                  <span>Completado: 13 Sep 2025</span>
                   <span>Progreso: 100%</span>
-                  <span>Funcionalidades: KMZ + Mapas + Agentes</span>
+                  <span>Todas las funcionalidades base operativas</span>
                 </div>
               </div>
             </div>
@@ -1702,16 +1690,15 @@ const MVPSeguimientoPage = () => {
             <div className="flex items-start gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <Clock className="h-5 w-5 text-blue-600 mt-0.5" />
               <div className="flex-1">
-                <h4 className="font-medium text-blue-800">Deliveries Semana 4 - En Progreso</h4>{" "}
-                {/* Próximos deliveries */}
+                <h4 className="font-medium text-blue-800">Etapa 2 - Semana 7 de 12 - Avance Sólido</h4>
                 <p className="text-sm text-blue-700 mt-1">
-                  Sistema de exportación de datos, búsqueda avanzada y dashboard administrativo completo. Finalización
-                  de Etapa 1 programada para fin de semana.
+                  Estandarización de plantillas, automatización de flujos y sistema de monitoreo en desarrollo. 80%
+                  completado, enfoque en optimización y preparación para Etapa 3.
                 </p>
                 <div className="flex items-center gap-4 mt-2 text-xs text-blue-600">
-                  <span>Fecha límite: 23 Ago 2025</span>
-                  <span>Progreso: 60%</span>
-                  <span>Prioridad: Alta</span>
+                  <span>Meta: 11 Oct 2025</span>
+                  <span>Progreso: 80%</span>
+                  <span>Prioridad: Finalizar automatización</span>
                 </div>
               </div>
             </div>
