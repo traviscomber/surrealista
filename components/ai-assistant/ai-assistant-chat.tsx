@@ -3,12 +3,27 @@
 import type React from "react"
 import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { supabase } from "@/lib/supabase/client"
-import { Bot, Send, User, Sparkles, MapPin, Calculator, Phone, Mail, Clock, TrendingUp, Home, DollarSign } from 'lucide-react'
+import {
+  Bot,
+  Send,
+  User,
+  Sparkles,
+  MapPin,
+  Calculator,
+  Phone,
+  Clock,
+  TrendingUp,
+  Home,
+  DollarSign,
+  Search,
+  FileText,
+  FolderOpen,
+  HelpCircle,
+} from "lucide-react"
 import { v4 as uuidv4 } from "uuid"
 
 interface Message {
@@ -17,10 +32,17 @@ interface Message {
   content: string
   timestamp: Date
   metadata?: {
-    type?: "property_recommendation" | "market_analysis" | "price_estimate" | "contact_info" | "general"
+    type?:
+      | "property_recommendation"
+      | "market_analysis"
+      | "price_estimate"
+      | "contact_info"
+      | "general"
+      | "search_results"
     properties?: any[]
     analysis?: any
     confidence?: number
+    searchResults?: any
   }
 }
 
@@ -38,43 +60,43 @@ const quickActions: QuickAction[] = [
     label: "Casas con vista al lago",
     icon: <Home className="h-4 w-4" />,
     prompt: "Busco una casa con vista al lago en Puerto Varas o Frutillar, presupuesto hasta $400 millones",
-    category: "search"
+    category: "search",
   },
   {
     id: "market_analysis",
     label: "Análisis de mercado",
     icon: <TrendingUp className="h-4 w-4" />,
     prompt: "¿Cómo está el mercado inmobiliario en el sur de Chile? ¿Es buen momento para comprar?",
-    category: "analysis"
+    category: "analysis",
   },
   {
     id: "price_estimate",
     label: "Estimar precio",
     icon: <Calculator className="h-4 w-4" />,
     prompt: "¿Cuánto podría valer una casa de 200m² con 4 dormitorios en Puerto Varas?",
-    category: "analysis"
+    category: "analysis",
   },
   {
     id: "investment_advice",
     label: "Consejo de inversión",
     icon: <DollarSign className="h-4 w-4" />,
     prompt: "¿Qué tipo de propiedad recomiendan para inversión en Pucón? ¿Rental turístico o venta?",
-    category: "analysis"
+    category: "analysis",
   },
   {
     id: "contact_agent",
     label: "Hablar con agente",
     icon: <Phone className="h-4 w-4" />,
     prompt: "Quiero hablar con un agente especializado en propiedades de lujo en la región",
-    category: "contact"
+    category: "contact",
   },
   {
     id: "financing_options",
     label: "Opciones de financiamiento",
     icon: <Calculator className="h-4 w-4" />,
     prompt: "¿Qué opciones de crédito hipotecario tienen? ¿Trabajan con subsidios?",
-    category: "info"
-  }
+    category: "info",
+  },
 ]
 
 const complexQuestions: QuickAction[] = [
@@ -82,37 +104,42 @@ const complexQuestions: QuickAction[] = [
     id: "complex_investment",
     label: "Análisis de inversión complejo",
     icon: <TrendingUp className="h-4 w-4" />,
-    prompt: "Quiero invertir $800 millones en propiedades del sur de Chile para generar ingresos pasivos. Necesito un análisis completo considerando: ROI esperado, riesgos geológicos, potencial turístico, proyecciones demográficas, impacto del cambio climático en la zona, y estrategias de diversificación entre diferentes tipos de propiedades. ¿Cuál sería la cartera óptima?",
-    category: "analysis"
+    prompt:
+      "Quiero invertir $800 millones en propiedades del sur de Chile para generar ingresos pasivos. Necesito un análisis completo considerando: ROI esperado, riesgos geológicos, potencial turístico, proyecciones demográficas, impacto del cambio climático en la zona, y estrategias de diversificación entre diferentes tipos de propiedades. ¿Cuál sería la cartera óptima?",
+    category: "analysis",
   },
   {
     id: "complex_market",
     label: "Predicción de mercado avanzada",
     icon: <Calculator className="h-4 w-4" />,
-    prompt: "Basándose en datos históricos, tendencias macroeconómicas, desarrollo de infraestructura, políticas gubernamentales y factores ambientales, ¿cómo proyectan que evolucionará el mercado inmobiliario en Puerto Varas, Pucón y Valdivia en los próximos 10 años? Incluyan análisis de riesgo por zona y oportunidades emergentes.",
-    category: "analysis"
+    prompt:
+      "Basándose en datos históricos, tendencias macroeconómicas, desarrollo de infraestructura, políticas gubernamentales y factores ambientales, ¿cómo proyectan que evolucionará el mercado inmobiliario en Puerto Varas, Pucón y Valdivia en los próximos 10 años? Incluyan análisis de riesgo por zona y oportunidades emergentes.",
+    category: "analysis",
   },
   {
     id: "complex_comparison",
     label: "Comparación multi-variable",
     icon: <Home className="h-4 w-4" />,
-    prompt: "Necesito comparar propiedades en 3 ubicaciones diferentes (Puerto Varas, Pucón, Chiloé) considerando: precio por m², potencial de revalorización, facilidad de acceso, servicios disponibles, riesgo sísmico, atractivo turístico, costos de mantención, liquidez del mercado local, y regulaciones municipales. ¿Cuál recomiendan para una familia que busca segunda vivienda con potencial de inversión?",
-    category: "search"
+    prompt:
+      "Necesito comparar propiedades en 3 ubicaciones diferentes (Puerto Varas, Pucón, Chiloé) considerando: precio por m², potencial de revalorización, facilidad de acceso, servicios disponibles, riesgo sísmico, atractivo turístico, costos de mantención, liquidez del mercado local, y regulaciones municipales. ¿Cuál recomiendan para una familia que busca segunda vivienda con potencial de inversión?",
+    category: "search",
   },
   {
     id: "complex_financing",
     label: "Estrategia financiera integral",
     icon: <DollarSign className="h-4 w-4" />,
-    prompt: "Soy extranjero residente en Chile con ingresos variables (profesional independiente). Quiero comprar una propiedad de $450 millones. Analicen todas las opciones: crédito hipotecario tradicional vs leasing habitacional, subsidios aplicables, estrategias tributarias, seguros necesarios, costos asociados, y estructuración óptima considerando mi perfil de riesgo. ¿Cuál es la mejor estrategia financiera?",
-    category: "info"
+    prompt:
+      "Soy extranjero residente en Chile con ingresos variables (profesional independiente). Quiero comprar una propiedad de $450 millones. Analicen todas las opciones: crédito hipotecario tradicional vs leasing habitacional, subsidios aplicables, estrategias tributarias, seguros necesarios, costos asociados, y estructuración óptima considerando mi perfil de riesgo. ¿Cuál es la mejor estrategia financiera?",
+    category: "info",
   },
   {
     id: "complex_development",
     label: "Proyecto de desarrollo inmobiliario",
     icon: <MapPin className="h-4 w-4" />,
-    prompt: "Estoy evaluando desarrollar un proyecto inmobiliario en terrenos rurales cerca de Puerto Varas. Necesito análisis de: factibilidad técnica, requisitos regulatorios, estudios ambientales necesarios, infraestructura requerida, análisis de demanda, competencia local, cronograma de desarrollo, estructura de financiamiento, y proyección de rentabilidad. ¿Es viable el proyecto?",
-    category: "analysis"
-  }
+    prompt:
+      "Estoy evaluando desarrollar un proyecto inmobiliario en terrenos rurales cerca de Puerto Varas. Necesito análisis de: factibilidad técnica, requisitos regulatorios, estudios ambientales necesarios, infraestructura requerida, análisis de demanda, competencia local, cronograma de desarrollo, estructura de financiamiento, y proyección de rentabilidad. ¿Es viable el proyecto?",
+    category: "analysis",
+  },
 ]
 
 export function AIAssistantChat() {
@@ -120,9 +147,10 @@ export function AIAssistantChat() {
     {
       id: "1",
       role: "assistant",
-      content: "¡Hola! Soy el asistente inmobiliario inteligente de Sur-Realista. Utilizo IA avanzada para ayudarte a encontrar la propiedad perfecta, analizar el mercado y responder todas tus consultas inmobiliarias. ¿En qué puedo asistirte hoy?",
+      content:
+        "¡Hola! Soy el asistente inmobiliario inteligente de Sur-Realista. Utilizo IA avanzada para ayudarte a encontrar la propiedad perfecta, analizar el mercado y responder todas tus consultas inmobiliarias. ¿En qué puedo asistirte hoy?",
       timestamp: new Date(),
-      metadata: { type: "general", confidence: 1.0 }
+      metadata: { type: "general", confidence: 1.0 },
     },
   ])
   const [input, setInput] = useState("")
@@ -136,40 +164,73 @@ export function AIAssistantChat() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
+  const searchDocuments = async (query: string, filters?: any) => {
+    try {
+      const response = await fetch("/api/v1/documents/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query, ...filters }),
+      })
+      return await response.json()
+    } catch (error) {
+      console.error("Search error:", error)
+      return { results: [], total: 0 }
+    }
+  }
+
+  const searchProperties = async (filters: any) => {
+    try {
+      const params = new URLSearchParams(filters)
+      const response = await fetch(`/api/v1/properties?${params}`)
+      return await response.json()
+    } catch (error) {
+      console.error("Property search error:", error)
+      return { properties: [], total: 0 }
+    }
+  }
+
   const getIntelligentResponse = async (userMessage: string): Promise<Message> => {
     const message = userMessage.toLowerCase()
-    
-    // Análisis de complejidad de la consulta
+
     const complexityIndicators = {
       high: /(?:análisis completo|proyecciones|estrategia|factibilidad|múltiples variables|comparar.*considerando|evaluar.*factores)/i,
       investment: /(?:invertir|inversión|roi|rentabilidad|cartera|diversificación|riesgo)/i,
       technical: /(?:técnico|regulatorio|ambiental|infraestructura|desarrollo|proyecto)/i,
       financial: /(?:financiamiento|crédito|leasing|tributario|estructura)/i,
-      predictive: /(?:proyectar|futuro|tendencias|evolución|próximos.*años)/i
+      predictive: /(?:proyectar|futuro|tendencias|evolución|próximos.*años)/i,
     }
 
-    // Análisis de intención usando patrones avanzados
     const intentions = {
-      complex_investment: /(?:invertir.*millones|cartera.*propiedades|análisis.*completo.*inversión|roi.*riesgo.*diversificación)/i,
+      complex_investment:
+        /(?:invertir.*millones|cartera.*propiedades|análisis.*completo.*inversión|roi.*riesgo.*diversificación)/i,
       complex_market: /(?:proyectar.*mercado|evolución.*años|tendencias.*macroeconómicas|análisis.*histórico)/i,
       complex_comparison: /(?:comparar.*ubicaciones|múltiples.*variables|considerar.*factores|recomendar.*familia)/i,
       complex_financing: /(?:extranjero.*residente|estrategia.*financiera|leasing.*hipotecario|estructura.*óptima)/i,
       complex_development: /(?:proyecto.*desarrollo|terrenos.*rurales|factibilidad.*técnica|análisis.*demanda)/i,
-      property_search: /(?:busco|quiero|necesito|me interesa).*(casa|departamento|terreno|propiedad|parcela)|(?:casa|departamento|terreno|propiedad|parcela).*(busco|quiero|necesito)/i,
+      property_search:
+        /(?:busco|quiero|necesito|me interesa).*(casa|departamento|terreno|propiedad|parcela)|(?:casa|departamento|terreno|propiedad|parcela).*(busco|quiero|necesito)/i,
       price_inquiry: /(?:precio|costo|valor|cuánto|cotizar|presupuesto)/i,
       location_specific: /(?:puerto varas|pucón|valdivia|osorno|frutillar|chiloé|puerto montt)/i,
       investment: /(?:inversión|invertir|rentabilidad|retorno|negocio|comercial)/i,
       financing: /(?:crédito|hipotecario|financiamiento|banco|subsidio|pie|dividendo)/i,
       market_analysis: /(?:mercado|tendencia|análisis|estadística|proyección|futuro)/i,
       contact: /(?:contacto|agente|reunión|visita|cita|llamar|whatsapp)/i,
-      ai_technology: /(?:ia|inteligencia artificial|algoritmo|tecnología|predicción|análisis automático)/i
+      ai_technology: /(?:ia|inteligencia artificial|algoritmo|tecnología|predicción|análisis automático)/i,
     }
 
-    let responseType: string = "general"
+    const searchPatterns = {
+      document_search: /(?:buscar|encontrar|localizar).*(documento|archivo|pdf|contrato|escritura)/i,
+      folder_search: /(?:buscar|encontrar|organizar).*(carpeta|folder|directorio)/i,
+      property_search: /(?:buscar|encontrar).*(propiedad|casa|departamento|terreno)/i,
+      client_search: /(?:buscar|encontrar).*(cliente|propietario|comprador)/i,
+      organization_help: /(?:organizar|estructurar|ordenar).*(carpetas|documentos|archivos)/i,
+      search_command: /^\/buscar\s+(.+)/i,
+    }
+
+    let responseType = "general"
     let confidence = 0.8
     let isComplex = false
 
-    // Determinar complejidad
     for (const [type, pattern] of Object.entries(complexityIndicators)) {
       if (pattern.test(userMessage)) {
         isComplex = true
@@ -178,7 +239,79 @@ export function AIAssistantChat() {
       }
     }
 
-    // Determinar tipo de consulta
+    for (const [type, pattern] of Object.entries(searchPatterns)) {
+      if (pattern.test(userMessage)) {
+        responseType = type
+        confidence = 0.95
+
+        if (type === "search_command") {
+          const searchQuery = userMessage.match(searchPatterns.search_command)?.[1]
+          if (searchQuery) {
+            const searchResults = await searchDocuments(searchQuery)
+            let content = `🔍 **Resultados de búsqueda para: "${searchQuery}"**\n\n`
+
+            if (searchResults.results?.length > 0) {
+              content += searchResults.results
+                .slice(0, 5)
+                .map(
+                  (doc: any, index: number) =>
+                    `**${index + 1}.** ${doc.title}\n📁 ${doc.folder_path}\n📅 ${new Date(doc.created_at).toLocaleDateString()}\n`,
+                )
+                .join("\n")
+
+              if (searchResults.total > 5) {
+                content += `\n... y ${searchResults.total - 5} resultados más.\n`
+              }
+            } else {
+              content += "No se encontraron documentos con esos criterios.\n"
+            }
+
+            content += `\n💡 **Comandos de búsqueda disponibles:**\n• \`/buscar [término]\` - Búsqueda general\n• \`/carpetas [cliente]\` - Estructura de carpetas\n• \`/documentos [tipo]\` - Documentos por tipo\n• \`/propiedades [filtros]\` - Búsqueda de propiedades`
+
+            const metadata: any = { type: responseType, confidence, isComplex, searchResults }
+            return {
+              id: uuidv4(),
+              role: "assistant",
+              content,
+              timestamp: new Date(),
+              metadata,
+            }
+          }
+        }
+
+        switch (type) {
+          case "folder_search":
+          case "organization_help":
+            return {
+              id: uuidv4(),
+              role: "assistant",
+              content: `📁 **Asistente de Organización de Carpetas**\n\n**🎯 Sistema Sur-Realista (6 Carpetas Estándar):**\n\n**1_FOTOS** 📸\n• Subcarpetas por fecha (YYYY-MM-DD)\n• Drone/ y Seleccionadas/ cuando aplique\n\n**2_DOCUMENTOS** 📄\n• a_Antecedentes/ - Documentos legales base\n• b_Tasacion/ - Avalúos y tasaciones\n• c_Comerciales/ - Contratos y ofertas\n\n**3_COMUNICACIONES** 💬\n• Interacciones con compradores/propietarios\n• Emails, WhatsApp, llamadas\n\n**4_MARKETING** 🎬\n• Videos, reels, publicaciones\n• Material promocional\n\n**5_PDF_SUELTO** 📋\n• Presentaciones independientes\n• Brochures, fichas técnicas\n\n**6_KMZ_SUELTO** 🗺️\n• Archivos de ubicación\n• Mapas y coordenadas\n\n**💡 Comandos útiles:**\n• \`/buscar [documento]\` - Encontrar archivos\n• \`/carpetas [cliente]\` - Ver estructura específica\n• \`/organizar [ruta]\` - Sugerir organización`,
+              timestamp: new Date(),
+              metadata: { type: responseType, confidence, isComplex },
+            }
+
+          case "document_search":
+            return {
+              id: uuidv4(),
+              role: "assistant",
+              content: `🔍 **Búsqueda Inteligente de Documentos**\n\n**📋 Tipos de documentos que puedo encontrar:**\n• Escrituras y títulos de dominio\n• Contratos de compraventa\n• Avalúos y tasaciones\n• Certificados de hipotecas\n• Planos y permisos\n• Documentos tributarios\n\n**🎯 Usa comandos específicos:**\n• \`/buscar escritura [ROL]\` - Buscar por ROL\n• \`/buscar contrato [cliente]\` - Contratos de cliente\n• \`/buscar avalúo [dirección]\` - Tasaciones por dirección\n• \`/buscar [término general]\` - Búsqueda amplia\n\n**📁 También puedo ayudarte a:**\n• Clasificar documentos automáticamente\n• Sugerir ubicación según tipo\n• Verificar documentos faltantes\n• Organizar por fecha o importancia`,
+              timestamp: new Date(),
+              metadata: { type: responseType, confidence, isComplex },
+            }
+
+          case "property_search":
+            return {
+              id: uuidv4(),
+              role: "assistant",
+              content: `🏡 **Búsqueda Inteligente de Propiedades**\n\n**🔍 Puedo buscar por:**\n• Ubicación (comuna, sector, dirección)\n• Tipo (casa, departamento, terreno, comercial)\n• Rango de precios\n• ROL de avalúo\n• Características específicas\n\n**💡 Ejemplos de búsqueda:**\n• "Casas en Puerto Varas bajo $200M"\n• "Departamentos 2D+1B en Pucón"\n• "Terrenos comerciales Osorno"\n• "Propiedades con vista al lago"\n\n**📊 Información que obtienes:**\n• Datos oficiales del SII\n• Historial de transacciones\n• Avalúo fiscal actualizado\n• Análisis de mercado\n• Proyecciones de plusvalía\n\n¿Qué tipo de propiedad estás buscando?`,
+              timestamp: new Date(),
+              metadata: { type: responseType, confidence, isComplex },
+            }
+        }
+        break
+      }
+    }
+
     for (const [type, pattern] of Object.entries(intentions)) {
       if (pattern.test(userMessage)) {
         responseType = type
@@ -187,9 +320,8 @@ export function AIAssistantChat() {
       }
     }
 
-    // Generar respuesta contextual basada en la intención
     let content = ""
-    let metadata: any = { type: responseType, confidence, isComplex }
+    const metadata: any = { type: responseType, confidence, isComplex }
 
     switch (responseType) {
       case "complex_investment":
@@ -228,12 +360,12 @@ export function AIAssistantChat() {
 4. **18 meses**: Terrenos Chiloé (desarrollo futuro)
 
 **ROI PROYECTADO CARTERA**: 10.2% anual promedio + 13.5% plusvalía`
-        
+
         metadata.analysis = {
           investment_score: 9.2,
           risk_level: "medio-bajo",
           projected_roi: "10.2%",
-          diversification_score: 8.8
+          diversification_score: 8.8,
         }
         break
 
@@ -278,12 +410,12 @@ export function AIAssistantChat() {
 • **Turismo wellness**: Propiedades especializadas
 
 **RECOMENDACIÓN**: Diversificar entre las 3 zonas, enfoque sustentabilidad`
-        
+
         metadata.analysis = {
           market_score: 8.7,
           trend: "bullish_long_term",
           confidence: 94.8,
-          timeframe: "10_years"
+          timeframe: "10_years",
         }
         break
 
@@ -341,12 +473,12 @@ export function AIAssistantChat() {
 ⚠️ **Consideraciones**: Acceso limitado, servicios básicos
 
 **ESTRATEGIA RECOMENDADA**: Puerto Varas como residencia principal + Pucón como inversión rental`
-        
+
         metadata.analysis = {
           comparison_score: 8.4,
           recommended_location: "Puerto Varas",
           investment_potential: "Alto",
-          family_suitability: "Excelente"
+          family_suitability: "Excelente",
         }
         break
 
@@ -421,12 +553,12 @@ export function AIAssistantChat() {
 • **Opción B**: Dividendo $2.8M/mes, mayor liquidez inicial
 
 **SIGUIENTE PASO**: Pre-evaluación con 3 bancos simultáneamente`
-        
+
         metadata.analysis = {
           financing_score: 8.9,
           recommended_option: "Híbrida",
           monthly_payment: "$2.1M",
-          total_savings: "$15M"
+          total_savings: "$15M",
         }
         break
 
@@ -517,13 +649,13 @@ export function AIAssistantChat() {
 • **Riesgo**: Medio (mercado consolidado)
 
 **RECOMENDACIÓN**: Proceder con estudios detallados y securing terreno`
-        
+
         metadata.analysis = {
           feasibility_score: 8.6,
           tir: "28.5%",
           van: "$2,800M",
           risk_level: "Medio",
-          recommendation: "Viable"
+          recommendation: "Viable",
         }
         break
 
@@ -542,10 +674,10 @@ export function AIAssistantChat() {
 • Zona de alta plusvalía
 
 Nuestro algoritmo de IA ha identificado estas propiedades con 94.2% de coincidencia con tus preferencias. ¿Te gustaría agendar una visita virtual o presencial?`
-          
+
           metadata.properties = [
             { id: "1", title: "Casa Premium Puerto Varas", price: 350000000, match: 94.2 },
-            { id: "2", title: "Parcela Frutillar", price: 280000000, match: 89.7 }
+            { id: "2", title: "Parcela Frutillar", price: 280000000, match: 89.7 },
           ]
         } else {
           content = `Perfecto, te ayudo a encontrar la propiedad ideal. Nuestro sistema de IA analiza más de 247 propiedades disponibles en tiempo real.
@@ -576,11 +708,11 @@ Mientras tanto, aquí tienes nuestras propiedades más populares esta semana seg
 • Proyecciones de plusvalía (3-5 años)
 
 ¿Tienes alguna propiedad específica en mente para cotizar? Puedo darte una valoración precisa en menos de 2 minutos.`
-        
+
         metadata.analysis = {
           market_trend: "alcista",
           confidence_level: 94.2,
-          data_sources: ["SII", "CIREN", "Banco Central"]
+          data_sources: ["SII", "CIREN", "Banco Central"],
         }
         break
 
@@ -601,11 +733,11 @@ Basado en 15,000+ transacciones analizadas, las mejores inversiones son:
 3. Terrenos en desarrollo urbano Valdivia (nueva infraestructura)
 
 ¿Te interesa algún tipo específico de inversión? Puedo generar un análisis personalizado con proyecciones detalladas.`
-        
+
         metadata.analysis = {
           investment_score: 8.7,
           risk_level: "medio-bajo",
-          projected_roi: "8-15%"
+          projected_roi: "8-15%",
         }
         break
 
@@ -653,11 +785,11 @@ Ingresa tus datos y en 30 segundos obtienes:
 • Consolidación mercado luxury en lagos
 
 **Recomendación:** Excelente momento para comprar. Inventario limitado y tasas históricamente bajas.`
-        
+
         metadata.analysis = {
           market_score: 8.5,
           trend: "bullish",
-          confidence: 94.2
+          confidence: 94.2,
         }
         break
 
@@ -686,7 +818,7 @@ Av. Costanera 1234, Puerto Varas
 🕒 Lun-Vie 9:00-18:00, Sáb 10:00-14:00
 
 ¿Prefieres que te contacten por WhatsApp, llamada o agendar reunión presencial?`
-        
+
         metadata.type = "contact_info"
         break
 
@@ -717,16 +849,15 @@ Av. Costanera 1234, Puerto Varas
 • Partner Tecnológico Google Cloud
 
 ¿Te interesa conocer cómo aplicamos IA a tu búsqueda específica?`
-        
+
         metadata.analysis = {
           ai_accuracy: 94.2,
           data_sources: 8,
-          processing_speed: "30 segundos"
+          processing_speed: "30 segundos",
         }
         break
 
       default:
-        // Respuesta general inteligente
         if (message.includes("hola") || message.includes("buenos días") || message.includes("buenas tardes")) {
           content = `¡Hola! 👋 Soy el asistente inmobiliario más avanzado del sur de Chile. 
 
@@ -756,13 +887,18 @@ Estoy aquí para ayudarte con:
       role: "assistant",
       content,
       timestamp: new Date(),
-      metadata
+      metadata,
     }
   }
 
   const handleSendMessage = async (messageText?: string) => {
     const textToSend = messageText || input
     if (!textToSend.trim()) return
+
+    if (textToSend.startsWith("/")) {
+      setShowQuickActions(false)
+      setShowComplexQuestions(false)
+    }
 
     const userMessage: Message = {
       id: uuidv4(),
@@ -774,11 +910,8 @@ Estoy aquí para ayudarte con:
     setMessages((prev) => [...prev, userMessage])
     setInput("")
     setIsLoading(true)
-    setShowQuickActions(false)
-    setShowComplexQuestions(false)
 
     try {
-      // Save user message to database
       await supabase.from("agent_interactions").insert({
         session_id: sessionId,
         role: "user",
@@ -786,16 +919,13 @@ Estoy aquí para ayudarte con:
         timestamp: userMessage.timestamp.toISOString(),
       })
 
-      // Generate intelligent response
       const assistantMessage = await getIntelligentResponse(textToSend)
-      
-      // Simulate processing time for better UX (longer for complex queries)
+
       const processingTime = textToSend.length > 200 ? 3000 : 1500
       await new Promise((resolve) => setTimeout(resolve, processingTime))
 
       setMessages((prev) => [...prev, assistantMessage])
 
-      // Save assistant message to database
       await supabase.from("agent_interactions").insert({
         session_id: sessionId,
         role: "assistant",
@@ -808,9 +938,10 @@ Estoy aquí para ayudarte con:
       const errorMessage: Message = {
         id: uuidv4(),
         role: "assistant",
-        content: "Disculpa, hubo un error procesando tu consulta. Por favor intenta nuevamente o contacta directamente a nuestros agentes al +56 9 1234 5678.",
+        content:
+          "Disculpa, hubo un error procesando tu consulta. Por favor intenta nuevamente o contacta directamente a nuestros agentes al +56 9 1234 5678.",
         timestamp: new Date(),
-        metadata: { type: "error", confidence: 0 }
+        metadata: { type: "error", confidence: 0 },
       }
       setMessages((prev) => [...prev, errorMessage])
     } finally {
@@ -868,8 +999,8 @@ Estoy aquí para ayudarte con:
             <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
               <div
                 className={`flex items-start max-w-[90%] ${
-                  message.role === "user" 
-                    ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white" 
+                  message.role === "user"
+                    ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white"
                     : "bg-gray-50 border"
                 } rounded-lg px-4 py-3`}
               >
@@ -879,9 +1010,7 @@ Estoy aquí para ayudarte con:
                   </div>
                 )}
                 <div className="flex-1">
-                  <div className="whitespace-pre-wrap text-sm leading-relaxed">
-                    {message.content}
-                  </div>
+                  <div className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</div>
                   <div className="flex items-center justify-between mt-2">
                     <p className="text-xs opacity-70">
                       {message.timestamp.toLocaleTimeString([], {
@@ -929,14 +1058,10 @@ Estoy aquí para ayudarte con:
                     className="justify-start text-left h-auto p-3 hover:bg-purple-50 hover:border-purple-200"
                   >
                     <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 mt-1">
-                        {action.icon}
-                      </div>
+                      <div className="flex-shrink-0 mt-1">{action.icon}</div>
                       <div>
                         <div className="font-medium text-xs mb-1">{action.label}</div>
-                        <div className="text-xs text-gray-600 line-clamp-2">
-                          {action.prompt.substring(0, 120)}...
-                        </div>
+                        <div className="text-xs text-gray-600 line-clamp-2">{action.prompt.substring(0, 120)}...</div>
                       </div>
                     </div>
                   </Button>
@@ -947,23 +1072,60 @@ Estoy aquí para ayudarte con:
 
           {/* Quick Actions */}
           {showQuickActions && messages.length <= 1 && !showComplexQuestions && (
-            <div className="space-y-3">
-              <div className="text-sm text-gray-600 font-medium">Acciones rápidas:</div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {quickActions.map((action) => (
-                  <Button
-                    key={action.id}
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleQuickAction(action)}
-                    className="justify-start text-left h-auto p-3 hover:bg-blue-50 hover:border-blue-200"
-                  >
-                    <div className="flex items-center gap-2">
-                      {action.icon}
-                      <span className="text-xs">{action.label}</span>
-                    </div>
-                  </Button>
-                ))}
+            <div className="space-y-3 border-t pt-4">
+              <div className="text-sm text-gray-600 font-medium flex items-center gap-2">
+                <Search className="h-4 w-4" />
+                Búsquedas Rápidas:
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleSendMessage("/buscar documentos pendientes")}
+                  className="justify-start text-left h-auto py-2"
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  <div>
+                    <div className="font-medium">Documentos Pendientes</div>
+                    <div className="text-xs text-gray-500">Buscar archivos sin clasificar</div>
+                  </div>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleSendMessage("organizar carpetas cliente nuevo")}
+                  className="justify-start text-left h-auto py-2"
+                >
+                  <FolderOpen className="h-4 w-4 mr-2" />
+                  <div>
+                    <div className="font-medium">Organizar Carpetas</div>
+                    <div className="text-xs text-gray-500">Estructura estándar Sur-Realista</div>
+                  </div>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleSendMessage("/buscar propiedades Puerto Varas")}
+                  className="justify-start text-left h-auto py-2"
+                >
+                  <Home className="h-4 w-4 mr-2" />
+                  <div>
+                    <div className="font-medium">Buscar Propiedades</div>
+                    <div className="text-xs text-gray-500">Por ubicación y características</div>
+                  </div>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleSendMessage("ayuda comandos de búsqueda")}
+                  className="justify-start text-left h-auto py-2"
+                >
+                  <HelpCircle className="h-4 w-4 mr-2" />
+                  <div>
+                    <div className="font-medium">Comandos de Búsqueda</div>
+                    <div className="text-xs text-gray-500">Ver todos los comandos disponibles</div>
+                  </div>
+                </Button>
               </div>
             </div>
           )}
@@ -977,8 +1139,14 @@ Estoy aquí para ayudarte con:
                 </div>
                 <div className="flex items-center space-x-1">
                   <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"></div>
-                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: "0.1s" }}></div>
-                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: "0.2s" }}></div>
+                  <div
+                    className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"
+                    style={{ animationDelay: "0.1s" }}
+                  ></div>
+                  <div
+                    className="w-2 h-2 bg-blue-600 rounded-full animate-bounce"
+                    style={{ animationDelay: "0.2s" }}
+                  ></div>
                   <span className="text-sm text-gray-600 ml-2">Procesando análisis complejo...</span>
                 </div>
               </div>
