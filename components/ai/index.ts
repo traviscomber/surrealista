@@ -1,0 +1,8 @@
+export { AIAssistant } from "../ai-assistant/ai-assistant"
+export { AIChat } from "../ai-assistant/ai-chat"
+export { AIFeatures } from "../ai-features/ai-features"
+export { AIBenefits } from "../ai-features/ai-benefits"
+export { AITechnicalDetails } from "../ai-features/ai-technical-details"
+export { AIFAQ } from "../ai-features/ai-faq"
+export { AIWorkspace } from "../ai-workspace/ai-workspace"
+export { AIWorkspaceDashboard } from "../ai-workspace/ai-workspace-dashboard"
