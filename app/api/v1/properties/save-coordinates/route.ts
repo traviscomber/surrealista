@@ -11,10 +11,40 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Datos de coordenadas incompletos" }, { status: 400 })
     }
 
-    const { data: property, error: propertyError } = await supabase
+    const { data: existingProperty } = await supabase
       .from("properties")
-      .upsert(
-        {
+      .select("*")
+      .eq("roll_number", coordinateData.rollNumber)
+      .single()
+
+    let property
+    if (existingProperty) {
+      // Update existing property
+      const { data: updatedProperty, error: updateError } = await supabase
+        .from("properties")
+        .update({
+          latitude: coordinateData.coordinates.lat,
+          longitude: coordinateData.coordinates.lng,
+          address: coordinateData.address,
+          city: coordinateData.city,
+          region: coordinateData.region,
+          coordinate_source: coordinateData.source,
+          coordinate_extracted_at: coordinateData.extractedAt,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("roll_number", coordinateData.rollNumber)
+        .select()
+
+      if (updateError) {
+        console.error("Property update error:", updateError)
+        return NextResponse.json({ success: false, error: "Error al actualizar propiedad" }, { status: 500 })
+      }
+      property = updatedProperty
+    } else {
+      // Insert new property
+      const { data: newProperty, error: insertError } = await supabase
+        .from("properties")
+        .insert({
           roll_number: coordinateData.rollNumber,
           latitude: coordinateData.coordinates.lat,
           longitude: coordinateData.coordinates.lng,
@@ -24,16 +54,14 @@ export async function POST(request: NextRequest) {
           coordinate_source: coordinateData.source,
           coordinate_extracted_at: coordinateData.extractedAt,
           updated_at: new Date().toISOString(),
-        },
-        {
-          onConflict: "roll_number",
-        },
-      )
-      .select()
+        })
+        .select()
 
-    if (propertyError) {
-      console.error("Property save error:", propertyError)
-      return NextResponse.json({ success: false, error: "Error al guardar en propiedades" }, { status: 500 })
+      if (insertError) {
+        console.error("Property insert error:", insertError)
+        return NextResponse.json({ success: false, error: "Error al guardar propiedad" }, { status: 500 })
+      }
+      property = newProperty
     }
 
     const { error: logError } = await supabase.from("coordinate_extraction_log").insert({

@@ -252,8 +252,15 @@ export class RolExtractorService {
     results: Array<RolExtractionResult & { folderName: string; documentUrl: string }>,
   ) {
     try {
-      const { error } = await this.supabase.from("rol_extractions").upsert(
-        results.map((result) => ({
+      for (const result of results) {
+        const { data: existing } = await this.supabase
+          .from("rol_extractions")
+          .select("*")
+          .eq("folder_name", result.folderName)
+          .eq("document_url", result.documentUrl)
+          .single()
+
+        const recordData = {
           folder_name: result.folderName,
           document_url: result.documentUrl,
           rol_number: result.rolNumber,
@@ -262,11 +269,15 @@ export class RolExtractorService {
           needs_review: result.needsReview,
           document_type: result.metadata.documentType,
           extracted_at: new Date().toISOString(),
-        })),
-      )
+        }
 
-      if (error) {
-        console.error("[v0] Database storage error:", error)
+        if (existing) {
+          // Update existing record
+          await this.supabase.from("rol_extractions").update(recordData).eq("id", existing.id)
+        } else {
+          // Insert new record
+          await this.supabase.from("rol_extractions").insert(recordData)
+        }
       }
     } catch (error) {
       console.error("[v0] Failed to store extraction results:", error)

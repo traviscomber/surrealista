@@ -5,62 +5,63 @@ const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env
 
 export async function POST(request: NextRequest) {
   try {
-    const { rollNumber } = await request.json()
+    const { comuna, manzana, predio } = await request.json()
 
-    if (!rollNumber) {
-      return NextResponse.json({ success: false, error: "Número de rol requerido" }, { status: 400 })
+    if (!comuna || !manzana || !predio) {
+      return NextResponse.json({ success: false, error: "Comuna, Manzana y Predio son requeridos" }, { status: 400 })
     }
 
+    const rollNumber = generateShortRollNumber(comuna, manzana, predio)
+
+    const extractedData = await extractCoordinatesFromSII(comuna, manzana, predio)
+
+    if (!extractedData.success) {
+      return NextResponse.json({ success: false, error: extractedData.error }, { status: 400 })
+    }
+
+    // First check if record exists
     const { data: existingRecord } = await supabase
       .from("sii_coordinate_extractions")
       .select("*")
       .eq("roll_number", rollNumber)
       .single()
 
-    if (existingRecord) {
-      return NextResponse.json({
-        success: true,
-        data: {
-          rollNumber: existingRecord.roll_number,
-          coordinates: existingRecord.coordinates,
-          address: existingRecord.address,
-          city: existingRecord.city,
-          region: existingRecord.region,
-          source: "database_cache",
-          extractedAt: existingRecord.extracted_at,
-        },
-      })
-    }
+    let savedRecord = existingRecord
 
-    const extractedData = await extractCoordinatesFromSII(rollNumber)
+    if (!existingRecord) {
+      // Insert new record only if it doesn't exist
+      const { data: newRecord, error: dbError } = await supabase
+        .from("sii_coordinate_extractions")
+        .insert({
+          roll_number: rollNumber,
+          comuna,
+          manzana,
+          predio,
+          coordinates: extractedData.coordinates,
+          address: extractedData.address,
+          city: extractedData.city,
+          region: extractedData.region,
+          extracted_at: new Date().toISOString(),
+          source: "sii_website",
+          raw_data: extractedData.rawData,
+        })
+        .select()
+        .single()
 
-    if (!extractedData.success) {
-      return NextResponse.json({ success: false, error: extractedData.error }, { status: 400 })
-    }
-
-    const { data: savedRecord, error: dbError } = await supabase
-      .from("sii_coordinate_extractions")
-      .insert({
-        roll_number: rollNumber,
-        coordinates: extractedData.coordinates,
-        address: extractedData.address,
-        city: extractedData.city,
-        region: extractedData.region,
-        extracted_at: new Date().toISOString(),
-        source: "sii_website",
-        raw_data: extractedData.rawData,
-      })
-      .select()
-      .single()
-
-    if (dbError) {
-      console.error("Database error:", dbError)
-      // Continue even if DB save fails
+      if (dbError) {
+        console.error("Database error:", dbError)
+        // Continue even if DB save fails
+      } else {
+        savedRecord = newRecord
+      }
     }
 
     return NextResponse.json({
       success: true,
       data: {
+        comuna,
+        manzana,
+        predio,
         rollNumber,
         coordinates: extractedData.coordinates,
         address: extractedData.address,
@@ -76,23 +77,13 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function extractCoordinatesFromSII(rollNumber: string) {
+async function extractCoordinatesFromSII(comuna: string, manzana: string, predio: string) {
   try {
-    // to access https://www4.sii.cl/mapasui/internet/#/contenido/index.html
-    // For now, we'll simulate the extraction process
-
-    // Validate roll number format
-    if (!isValidRollNumber(rollNumber)) {
-      return { success: false, error: "Formato de rol inválido" }
+    if (!isValidSIIInput(comuna, manzana, predio)) {
+      return { success: false, error: "Formato de datos inválido" }
     }
 
-    // In production, this would:
-    // 1. Open the SII website
-    // 2. Input the roll number
-    // 3. Extract coordinates from the map
-    // 4. Extract additional property data
-
-    const mockExtraction = generateRealisticCoordinates(rollNumber)
+    const mockExtraction = generateRealisticCoordinates(comuna, manzana, predio)
 
     return {
       success: true,
@@ -107,17 +98,19 @@ async function extractCoordinatesFromSII(rollNumber: string) {
   }
 }
 
-function isValidRollNumber(rollNumber: string): boolean {
-  // Chilean roll number formats: 12345-67 or 123-45-6
-  const patterns = [
-    /^\d{3,5}-\d{1,3}$/, // Format: 12345-67
-    /^\d{3,5}-\d{1,3}-\d{1,2}$/, // Format: 123-45-6
-  ]
+function isValidSIIInput(comuna: string, manzana: string, predio: string): boolean {
+  if (!comuna || comuna.length < 3) return false
 
-  return patterns.some((pattern) => pattern.test(rollNumber))
+  const manzanaNum = Number.parseInt(manzana)
+  if (isNaN(manzanaNum) || manzanaNum < 1 || manzanaNum > 9999) return false
+
+  const predioNum = Number.parseInt(predio)
+  if (isNaN(predioNum) || predioNum < 1 || predioNum > 9999) return false
+
+  return true
 }
 
-function generateRealisticCoordinates(rollNumber: string) {
+function generateRealisticCoordinates(comuna: string, manzana: string, predio: string) {
   const chileanRegions = [
     {
       name: "Región Metropolitana",
@@ -136,29 +129,32 @@ function generateRealisticCoordinates(rollNumber: string) {
     { name: "Maule", lat: -35.4264, lng: -71.6554, cities: ["Talca", "Curicó", "Linares", "Cauquenes"] },
   ]
 
-  // Use roll number to deterministically select region
-  const hash = rollNumber.split("").reduce((a, b) => a + b.charCodeAt(0), 0)
+  const hash =
+    comuna.split("").reduce((a, b) => a + b.charCodeAt(0), 0) +
+    Number.parseInt(manzana) * 7 +
+    Number.parseInt(predio) * 13
   const regionIndex = hash % chileanRegions.length
   const selectedRegion = chileanRegions[regionIndex]
 
-  // Add realistic variation to coordinates
-  const latVariation = Math.sin(hash) * 0.1 // ±0.1 degrees (~11km)
-  const lngVariation = Math.cos(hash) * 0.1
+  const latVariation = Math.sin(hash) * 0.05 + Number.parseInt(manzana) * 0.001
+  const lngVariation = Math.cos(hash) * 0.05 + Number.parseInt(predio) * 0.001
 
   const cityIndex = hash % selectedRegion.cities.length
-  const streetNumber = (hash % 9999) + 1
+  const streetNumber = (hash % 999) + 1
 
   return {
     coordinates: {
       lat: Number((selectedRegion.lat + latVariation).toFixed(6)),
       lng: Number((selectedRegion.lng + lngVariation).toFixed(6)),
     },
-    address: `Calle ${getRandomStreetName()} ${streetNumber}`,
+    address: `${getRandomStreetName()} ${streetNumber}, Manzana ${manzana}, Predio ${predio}`,
     city: selectedRegion.cities[cityIndex],
     region: selectedRegion.name,
     rawData: {
       extractionMethod: "sii_website_simulation",
-      rollNumber,
+      comuna,
+      manzana,
+      predio,
       timestamp: new Date().toISOString(),
     },
   }
@@ -180,4 +176,21 @@ function getRandomStreetName(): string {
     "La Esperanza",
   ]
   return streetNames[Math.floor(Math.random() * streetNames.length)]
+}
+
+function generateShortRollNumber(comuna: string, manzana: string, predio: string): string {
+  // Create a hash of the comuna name to keep it short
+  const comunaHash = comuna
+    .toUpperCase()
+    .replace(/\s+/g, "")
+    .split("")
+    .reduce((hash, char) => hash + char.charCodeAt(0), 0)
+    .toString(36)
+    .substring(0, 6) // Max 6 characters
+
+  const manzanaFormatted = manzana.padStart(3, "0") // Max 3 digits
+  const predioFormatted = predio.padStart(3, "0") // Max 3 digits
+
+  // Format: HASH-MZA-PRD (max 15 characters)
+  return `${comunaHash}-${manzanaFormatted}-${predioFormatted}`.toUpperCase()
 }
