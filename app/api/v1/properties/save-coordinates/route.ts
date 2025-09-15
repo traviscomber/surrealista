@@ -41,11 +41,18 @@ export async function POST(request: NextRequest) {
       }
       property = updatedProperty
     } else {
+      const propertyTitle = coordinateData.address
+        ? `Propiedad en ${coordinateData.address}`
+        : `Propiedad ROL ${coordinateData.rollNumber}`
+
       // Insert new property
       const { data: newProperty, error: insertError } = await supabase
         .from("properties")
         .insert({
           roll_number: coordinateData.rollNumber,
+          title: propertyTitle, // Added required title field
+          price: 0, // Added default price value to satisfy NOT NULL constraint
+          property_type: "RESIDENTIAL", // Added default property_type to satisfy NOT NULL constraint
           latitude: coordinateData.coordinates.lat,
           longitude: coordinateData.coordinates.lng,
           address: coordinateData.address,
