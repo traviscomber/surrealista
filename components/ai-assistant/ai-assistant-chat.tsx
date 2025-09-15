@@ -56,6 +56,27 @@ interface QuickAction {
 
 const quickActions: QuickAction[] = [
   {
+    id: "search_documents",
+    label: "🔍 Buscar documentos",
+    icon: <Search className="h-4 w-4" />,
+    prompt: "/buscar ",
+    category: "search",
+  },
+  {
+    id: "organize_folders",
+    label: "📁 Organizar carpetas",
+    icon: <FolderOpen className="h-4 w-4" />,
+    prompt: "Ayúdame a organizar las carpetas de mi cliente según el sistema Sur-Realista",
+    category: "search",
+  },
+  {
+    id: "classify_documents",
+    label: "📄 Clasificar documentos",
+    icon: <FileText className="h-4 w-4" />,
+    prompt: "Necesito clasificar documentos automáticamente en las carpetas correctas",
+    category: "search",
+  },
+  {
     id: "search_lake_view",
     label: "Casas con vista al lago",
     icon: <Home className="h-4 w-4" />,
@@ -142,6 +163,40 @@ const complexQuestions: QuickAction[] = [
   },
 ]
 
+const processBulkFiles = async (files: File[]) => {
+  const results = []
+  for (const file of files) {
+    try {
+      const formData = new FormData()
+      formData.append("file", file)
+
+      const response = await fetch("/api/v1/documents/classify", {
+        method: "POST",
+        body: formData,
+      })
+
+      const result = await response.json()
+      results.push({ file: file.name, ...result })
+    } catch (error) {
+      results.push({ file: file.name, error: error.message })
+    }
+  }
+  return results
+}
+
+const analyzeDocumentContent = async (documentId: string) => {
+  try {
+    const response = await fetch(`/api/v1/documents/${documentId}/analyze`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+    })
+    return await response.json()
+  } catch (error) {
+    console.error("Document analysis error:", error)
+    return { error: "Failed to analyze document" }
+  }
+}
+
 export function AIAssistantChat() {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -192,6 +247,46 @@ export function AIAssistantChat() {
   const getIntelligentResponse = async (userMessage: string): Promise<Message> => {
     const message = userMessage.toLowerCase()
 
+    const isFileRelated =
+      /(?:archivo|documento|carpeta|folder|pdf|buscar|organizar|clasificar|subir|descargar|guardar|encontrar)/i.test(
+        message,
+      )
+    const isCommandQuery = message.startsWith("/")
+
+    // If it's not file-related and not a command, redirect to file operations
+    if (!isFileRelated && !isCommandQuery) {
+      return {
+        id: uuidv4(),
+        role: "assistant",
+        content: `🤖 **Asistente IA Sur-Realista - Especializado en Gestión de Archivos**
+
+Soy tu asistente especializado en organización y gestión de documentos inmobiliarios. 
+
+**🎯 ¿En qué puedo ayudarte con tus archivos?**
+
+**📁 ORGANIZACIÓN:**
+• \`/carpetas\` - Ver estructura de carpetas Sur-Realista
+• \`/organizar [cliente]\` - Organizar carpetas de cliente específico
+• \`/clasificar\` - Clasificar documentos automáticamente
+
+**🔍 BÚSQUEDA:**
+• \`/buscar [término]\` - Buscar documentos específicos
+• \`/buscar contrato [cliente]\` - Contratos de cliente
+• \`/buscar avalúo [dirección]\` - Tasaciones por dirección
+
+**📋 GESTIÓN:**
+• Subir y clasificar documentos nuevos
+• Verificar documentos faltantes
+• Sugerir mejoras en organización
+
+**💡 Ejemplo:** Escribe "/buscar escritura" o "organizar carpetas cliente López"
+
+¿Qué documentos o carpetas necesitas gestionar hoy?`,
+        timestamp: new Date(),
+        metadata: { type: "file_redirect", confidence: 0.9 },
+      }
+    }
+
     const complexityIndicators = {
       high: /(?:análisis completo|proyecciones|estrategia|factibilidad|múltiples variables|comparar.*considerando|evaluar.*factores)/i,
       investment: /(?:invertir|inversión|roi|rentabilidad|cartera|diversificación|riesgo)/i,
@@ -219,12 +314,18 @@ export function AIAssistantChat() {
     }
 
     const searchPatterns = {
-      document_search: /(?:buscar|encontrar|localizar).*(documento|archivo|pdf|contrato|escritura)/i,
+      document_search: /(?:buscar|encontrar|localizar).*(documento|archivo|pdf|contrato|escritura|tasación|avalúo)/i,
       folder_search: /(?:buscar|encontrar|organizar).*(carpeta|folder|directorio)/i,
       property_search: /(?:buscar|encontrar).*(propiedad|casa|departamento|terreno)/i,
       client_search: /(?:buscar|encontrar).*(cliente|propietario|comprador)/i,
       organization_help: /(?:organizar|estructurar|ordenar).*(carpetas|documentos|archivos)/i,
-      search_command: /^\/buscar\s+(.+)/i,
+      search_command: /^\/(buscar|search)\s+(.+)/i,
+      folder_command: /^\/(carpetas|folders)\s*(.+)?/i,
+      classify_command: /^\/(clasificar|classify)\s*(.+)?/i,
+      help_command: /^\/(ayuda|help)/i,
+      upload_help: /(?:subir|cargar|agregar).*(archivo|documento|pdf)/i,
+      organize_help: /(?:organizar|estructurar|ordenar)/i,
+      file_management: /(?:gestión|administrar|manejar).*(archivo|documento)/i,
     }
 
     let responseType = "general"
@@ -245,7 +346,7 @@ export function AIAssistantChat() {
         confidence = 0.95
 
         if (type === "search_command") {
-          const searchQuery = userMessage.match(searchPatterns.search_command)?.[1]
+          const searchQuery = userMessage.match(searchPatterns.search_command)?.[2]
           if (searchQuery) {
             const searchResults = await searchDocuments(searchQuery)
             let content = `🔍 **Resultados de búsqueda para: "${searchQuery}"**\n\n`
@@ -255,18 +356,21 @@ export function AIAssistantChat() {
                 .slice(0, 5)
                 .map(
                   (doc: any, index: number) =>
-                    `**${index + 1}.** ${doc.title}\n📁 ${doc.folder_path}\n📅 ${new Date(doc.created_at).toLocaleDateString()}\n`,
+                    `**${index + 1}.** ${doc.title}\n📁 ${doc.folder_path}\n📅 ${new Date(doc.created_at).toLocaleDateString()}\n📊 Calidad: ${doc.quality_score || "N/A"}%\n`,
                 )
                 .join("\n")
 
               if (searchResults.total > 5) {
                 content += `\n... y ${searchResults.total - 5} resultados más.\n`
               }
+
+              content += `\n💡 **Acciones rápidas:**\n• \`/analizar ${searchQuery}\` - Analizar contenido con IA\n• \`/organizar ${searchQuery}\` - Reorganizar documentos encontrados\n• \`/duplicados ${searchQuery}\` - Detectar duplicados\n`
             } else {
               content += "No se encontraron documentos con esos criterios.\n"
+              content += `\n🤖 **Sugerencias:**\n• Intenta términos más generales\n• Usa \`/carpetas\` para ver la estructura\n• Verifica la ortografía del término\n`
             }
 
-            content += `\n💡 **Comandos de búsqueda disponibles:**\n• \`/buscar [término]\` - Búsqueda general\n• \`/carpetas [cliente]\` - Estructura de carpetas\n• \`/documentos [tipo]\` - Documentos por tipo\n• \`/propiedades [filtros]\` - Búsqueda de propiedades`
+            content += `\n💡 **Comandos avanzados:**\n• \`/buscar [término] --tipo=contrato\` - Búsqueda por tipo\n• \`/buscar [término] --fecha=2024\` - Búsqueda por fecha\n• \`/buscar [término] --cliente=[nombre]\` - Búsqueda por cliente\n• \`/ayuda\` - Ver todos los comandos`
 
             const metadata: any = { type: responseType, confidence, isComplex, searchResults }
             return {
@@ -276,6 +380,37 @@ export function AIAssistantChat() {
               timestamp: new Date(),
               metadata,
             }
+          }
+        }
+
+        if (type === "folder_command") {
+          const clientName = userMessage.match(searchPatterns.folder_command)?.[2]
+          return {
+            id: uuidv4(),
+            role: "assistant",
+            content: `📁 **Estructura de Carpetas ${clientName ? `para ${clientName}` : "Sistema Sur-Realista"}**\n\n**🎯 Sistema Estándar (6 Carpetas):**\n\n**1_FOTOS** 📸\n• Subcarpetas por fecha (YYYY-MM-DD)\n• Drone/ y Seleccionadas/ cuando aplique\n• Formato: JPG, PNG, HEIC\n\n**2_DOCUMENTOS** 📄\n• **a_Antecedentes/** - Escrituras, títulos, certificados\n• **b_Tasacion/** - Avalúos, tasaciones, informes técnicos\n• **c_Comerciales/** - Contratos, ofertas, promesas\n\n**3_COMUNICACIONES** 💬\n• Emails con compradores/propietarios\n• WhatsApp, llamadas, reuniones\n• Seguimiento de interacciones\n\n**4_MARKETING** 🎬\n• Videos promocionales, reels\n• Material publicitario\n• Publicaciones portales\n\n**5_PDF_SUELTO** 📋\n• Presentaciones independientes\n• Brochures, fichas técnicas\n• Documentos únicos\n\n**6_KMZ_SUELTO** 🗺️\n• Archivos de ubicación\n• Mapas, coordenadas GPS\n• Planos de ubicación\n\n**💡 Comandos útiles:**\n• \`/buscar [documento]\` - Encontrar archivos específicos\n• \`/clasificar\` - Clasificar documentos automáticamente\n• \`/organizar [ruta]\` - Sugerir organización personalizada`,
+            timestamp: new Date(),
+            metadata: { type: responseType, confidence, isComplex },
+          }
+        }
+
+        if (type === "classify_command") {
+          return {
+            id: uuidv4(),
+            role: "assistant",
+            content: `🤖 **Clasificación Automática de Documentos**\n\n**📋 Tipos que puedo clasificar automáticamente:**\n\n**📄 DOCUMENTOS LEGALES:**\n• Escrituras → 2_DOCUMENTOS/a_Antecedentes/\n• Certificados de hipotecas → 2_DOCUMENTOS/a_Antecedentes/\n• Títulos de dominio → 2_DOCUMENTOS/a_Antecedentes/\n\n**💰 DOCUMENTOS COMERCIALES:**\n• Contratos compraventa → 2_DOCUMENTOS/c_Comerciales/\n• Ofertas de compra → 2_DOCUMENTOS/c_Comerciales/\n• Promesas de compraventa → 2_DOCUMENTOS/c_Comerciales/\n\n**📊 TASACIONES Y AVALÚOS:**\n• Informes de tasación → 2_DOCUMENTOS/b_Tasacion/\n• Avalúos fiscales → 2_DOCUMENTOS/b_Tasacion/\n• Estudios de mercado → 2_DOCUMENTOS/b_Tasacion/\n\n**📸 MEDIOS:**\n• Fotos → 1_FOTOS/[YYYY-MM-DD]/\n• Videos → 4_MARKETING/\n• Tours virtuales → 4_MARKETING/\n\n**🎯 Proceso de clasificación:**\n1. Analizo el contenido del documento\n2. Identifico tipo y categoría\n3. Sugiero ubicación según sistema Sur-Realista\n4. Verifico duplicados\n5. Organizo automáticamente\n\n**💡 Para clasificar:** Sube documentos o dime qué archivos necesitas organizar`,
+            timestamp: new Date(),
+            metadata: { type: responseType, confidence, isComplex },
+          }
+        }
+
+        if (type === "help_command") {
+          return {
+            id: uuidv4(),
+            role: "assistant",
+            content: `🤖 **Comandos del Asistente IA Sur-Realista**\n\n**🔍 BÚSQUEDA Y ARCHIVOS:**\n• \`/buscar [término]\` - Buscar documentos, propiedades, clientes\n• \`/carpetas [cliente]\` - Ver estructura de carpetas\n• \`/clasificar\` - Clasificar documentos automáticamente\n• \`/organizar [ruta]\` - Sugerir organización personalizada\n\n**🏡 PROPIEDADES:**\n• \`/propiedades [filtros]\` - Buscar propiedades específicas\n• \`/valorar [dirección]\` - Valoración automática\n• \`/mercado [zona]\` - Análisis de mercado\n\n**💰 ANÁLISIS FINANCIERO:**\n• \`/credito [monto]\` - Simular crédito hipotecario\n• \`/inversion [presupuesto]\` - Análisis de inversión\n• \`/roi [propiedad]\` - Calcular retorno de inversión\n\n**📊 REPORTES:**\n• \`/reporte [tipo]\` - Generar reportes automáticos\n• \`/estadisticas [zona]\` - Estadísticas de mercado\n• \`/tendencias\` - Tendencias del mercado\n\n**💡 TIPS:**\n• Usa lenguaje natural para consultas complejas\n• Combina comandos con filtros específicos\n• Pregunta por análisis detallados cuando necesites más información\n\n**🎯 Ejemplos:**\n• "Buscar contratos de Puerto Varas del último mes"\n• "Organizar carpetas del cliente Juan Pérez"\n• "Valorar casa en Av. Costanera 123, Puerto Varas"`,
+            timestamp: new Date(),
+            metadata: { type: responseType, confidence, isComplex },
           }
         }
 
@@ -295,6 +430,80 @@ export function AIAssistantChat() {
               id: uuidv4(),
               role: "assistant",
               content: `🔍 **Búsqueda Inteligente de Documentos**\n\n**📋 Tipos de documentos que puedo encontrar:**\n• Escrituras y títulos de dominio\n• Contratos de compraventa\n• Avalúos y tasaciones\n• Certificados de hipotecas\n• Planos y permisos\n• Documentos tributarios\n\n**🎯 Usa comandos específicos:**\n• \`/buscar escritura [ROL]\` - Buscar por ROL\n• \`/buscar contrato [cliente]\` - Contratos de cliente\n• \`/buscar avalúo [dirección]\` - Tasaciones por dirección\n• \`/buscar [término general]\` - Búsqueda amplia\n\n**📁 También puedo ayudarte a:**\n• Clasificar documentos automáticamente\n• Sugerir ubicación según tipo\n• Verificar documentos faltantes\n• Organizar por fecha o importancia`,
+              timestamp: new Date(),
+              metadata: { type: responseType, confidence, isComplex },
+            }
+
+          case "upload_help":
+            return {
+              id: uuidv4(),
+              role: "assistant",
+              content: `📤 **Subir y Gestionar Documentos**
+
+**🎯 Proceso de Subida Inteligente:**
+
+**1. SUBIR DOCUMENTOS:**
+• Arrastra archivos aquí o usa el botón de subida
+• Formatos soportados: PDF, DOC, JPG, PNG, KMZ
+• Máximo 10MB por archivo
+
+**2. CLASIFICACIÓN AUTOMÁTICA:**
+• Analizo el contenido del documento
+• Identifico tipo (contrato, escritura, avalúo, etc.)
+• Sugiero ubicación en sistema Sur-Realista
+
+**3. ORGANIZACIÓN:**
+• Asigno a carpeta correcta automáticamente
+• Verifico duplicados
+• Actualizo índice de búsqueda
+
+**📁 Destinos automáticos:**
+• **Contratos** → 2_DOCUMENTOS/c_Comerciales/
+• **Escrituras** → 2_DOCUMENTOS/a_Antecedentes/
+• **Avalúos** → 2_DOCUMENTOS/b_Tasacion/
+• **Fotos** → 1_FOTOS/[fecha]/
+• **Videos** → 4_MARKETING/
+
+**💡 Tip:** Después de subir, usa \`/clasificar\` para revisar la organización automática.
+
+¿Qué documentos necesitas subir?`,
+              timestamp: new Date(),
+              metadata: { type: responseType, confidence, isComplex },
+            }
+
+          case "organize_help":
+            return {
+              id: uuidv4(),
+              role: "assistant",
+              content: `📋 **Organización Inteligente de Archivos**
+
+**🎯 Sistema Sur-Realista - 6 Carpetas Estándar:**
+
+**📁 ESTRUCTURA RECOMENDADA:**
+• **1_FOTOS** - Organizadas por fecha (YYYY-MM-DD)
+• **2_DOCUMENTOS** - 3 subcarpetas (Antecedentes/Tasación/Comerciales)
+• **3_COMUNICACIONES** - Interacciones con clientes
+• **4_MARKETING** - Material promocional y videos
+• **5_PDF_SUELTO** - Presentaciones independientes
+• **6_KMZ_SUELTO** - Archivos de ubicación
+
+**🤖 ORGANIZACIÓN AUTOMÁTICA:**
+• Analizo contenido de documentos
+• Sugiero ubicación óptima
+• Detecto duplicados
+• Creo estructura faltante
+
+**💡 COMANDOS ÚTILES:**
+• \`/carpetas [cliente]\` - Ver estructura específica
+• \`/organizar [ruta]\` - Reorganizar carpeta
+• \`/clasificar\` - Clasificar documentos sueltos
+
+**🎯 ¿Qué necesitas organizar?**
+• Carpeta de cliente específico
+• Documentos sin clasificar
+• Estructura completa de proyecto
+
+Dime qué carpetas o archivos necesitas organizar.`,
               timestamp: new Date(),
               metadata: { type: responseType, confidence, isComplex },
             }
@@ -981,15 +1190,26 @@ Estoy aquí para ayudarte con:
                 </div>
               </div>
             </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setShowComplexQuestions(!showComplexQuestions)}
-              className="text-white hover:bg-white/20"
-            >
-              <Calculator className="h-4 w-4 mr-2" />
-              Consultas Complejas
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleSendMessage("/ayuda")}
+                className="text-white hover:bg-white/20"
+              >
+                <HelpCircle className="h-4 w-4 mr-2" />
+                Comandos
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowComplexQuestions(!showComplexQuestions)}
+                className="text-white hover:bg-white/20"
+              >
+                <Calculator className="h-4 w-4 mr-2" />
+                Consultas Complejas
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -1071,61 +1291,64 @@ Estoy aquí para ayudarte con:
           )}
 
           {/* Quick Actions */}
-          {showQuickActions && messages.length <= 1 && !showComplexQuestions && (
-            <div className="space-y-3 border-t pt-4">
-              <div className="text-sm text-gray-600 font-medium flex items-center gap-2">
-                <Search className="h-4 w-4" />
-                Búsquedas Rápidas:
+          {showQuickActions && (
+            <div className="border-t p-4 space-y-3">
+              <div className="space-y-2">
+                <div className="text-xs font-medium text-gray-600 uppercase tracking-wide">
+                  🗂️ Interacción con Archivos
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {quickActions
+                    .filter((action) =>
+                      ["search_documents", "organize_folders", "classify_documents"].includes(action.id),
+                    )
+                    .map((action) => (
+                      <Button
+                        key={action.id}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleQuickAction(action)}
+                        className="justify-start text-xs h-8"
+                      >
+                        {action.icon}
+                        <span className="ml-2 truncate">{action.label}</span>
+                      </Button>
+                    ))}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleSendMessage("/ayuda")}
+                    className="justify-start text-xs h-8"
+                  >
+                    <HelpCircle className="h-4 w-4" />
+                    <span className="ml-2">Ver comandos</span>
+                  </Button>
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleSendMessage("/buscar documentos pendientes")}
-                  className="justify-start text-left h-auto py-2"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  <div>
-                    <div className="font-medium">Documentos Pendientes</div>
-                    <div className="text-xs text-gray-500">Buscar archivos sin clasificar</div>
-                  </div>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleSendMessage("organizar carpetas cliente nuevo")}
-                  className="justify-start text-left h-auto py-2"
-                >
-                  <FolderOpen className="h-4 w-4 mr-2" />
-                  <div>
-                    <div className="font-medium">Organizar Carpetas</div>
-                    <div className="text-xs text-gray-500">Estructura estándar Sur-Realista</div>
-                  </div>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleSendMessage("/buscar propiedades Puerto Varas")}
-                  className="justify-start text-left h-auto py-2"
-                >
-                  <Home className="h-4 w-4 mr-2" />
-                  <div>
-                    <div className="font-medium">Buscar Propiedades</div>
-                    <div className="text-xs text-gray-500">Por ubicación y características</div>
-                  </div>
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleSendMessage("ayuda comandos de búsqueda")}
-                  className="justify-start text-left h-auto py-2"
-                >
-                  <HelpCircle className="h-4 w-4 mr-2" />
-                  <div>
-                    <div className="font-medium">Comandos de Búsqueda</div>
-                    <div className="text-xs text-gray-500">Ver todos los comandos disponibles</div>
-                  </div>
-                </Button>
+
+              <div className="space-y-2">
+                <div className="text-xs font-medium text-gray-600 uppercase tracking-wide">
+                  🏡 Búsqueda de Propiedades
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {quickActions
+                    .filter(
+                      (action) => !["search_documents", "organize_folders", "classify_documents"].includes(action.id),
+                    )
+                    .slice(0, 4)
+                    .map((action) => (
+                      <Button
+                        key={action.id}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleQuickAction(action)}
+                        className="justify-start text-xs h-8"
+                      >
+                        {action.icon}
+                        <span className="ml-2 truncate">{action.label}</span>
+                      </Button>
+                    ))}
+                </div>
               </div>
             </div>
           )}
