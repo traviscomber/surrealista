@@ -354,6 +354,7 @@ interface CoordinateResult {
   comuna: string
   manzana: string
   predio: string
+  rollNumber: string
   coordinates: {
     lat: number
     lng: number
@@ -363,6 +364,30 @@ interface CoordinateResult {
   region?: string
   source: string
   extractedAt: string
+  propertyType?: string
+  surfaceArea?: number
+  builtArea?: number
+  taxValuation?: number
+  yearBuilt?: number
+  ownershipType?: string
+  zoning?: string
+  utilities?: {
+    water: boolean
+    electricity: boolean
+    gas: boolean
+    sewage: boolean
+    internet: boolean
+  }
+  rolPredial?: string
+  direccionPropiedad?: string
+  ubicacion?: string
+  destino?: string
+  reavaluo?: string
+  areaHomogenea?: string
+  avaluoTotal?: number
+  avaluoAfecto?: number
+  avaluoExento?: number
+  periodoAvaluo?: string
 }
 
 interface SIIFormData {
@@ -587,45 +612,161 @@ export function SIICoordinateExtractor() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-green-800">
               <MapPin className="h-5 w-5" />
-              Coordenadas Extraídas
+              Datos Extraídos del SII
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <CardContent className="space-y-6">
+            {/* Basic Property Info */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-white rounded-lg border">
               <div>
-                <Label className="text-sm font-medium">Comuna</Label>
+                <Label className="text-sm font-medium text-orange-600">Comuna</Label>
                 <p className="text-lg font-mono">{result.comuna}</p>
               </div>
               <div>
-                <Label className="text-sm font-medium">Manzana</Label>
+                <Label className="text-sm font-medium text-orange-600">Manzana</Label>
                 <p className="text-lg font-mono">{result.manzana}</p>
               </div>
               <div>
-                <Label className="text-sm font-medium">Predio</Label>
+                <Label className="text-sm font-medium text-orange-600">Predio</Label>
                 <p className="text-lg font-mono">{result.predio}</p>
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label className="text-sm font-medium">Latitud</Label>
-                <p className="text-lg font-mono text-blue-600">{result.coordinates.lat}</p>
-              </div>
-              <div>
-                <Label className="text-sm font-medium">Longitud</Label>
-                <p className="text-lg font-mono text-blue-600">{result.coordinates.lng}</p>
+                <Label className="text-sm font-medium text-orange-600">Rol Predial</Label>
+                <p className="text-lg font-mono font-bold text-orange-700">
+                  {result.rolPredial || `${result.manzana}-${result.predio}`}
+                </p>
               </div>
             </div>
 
-            {result.address && (
-              <div>
-                <Label className="text-sm font-medium">Dirección</Label>
-                <p className="text-sm">{result.address}</p>
-                {result.city && result.region && (
-                  <p className="text-sm text-muted-foreground">
-                    {result.city}, {result.region}
+            {/* Catastro Legal */}
+            <div className="p-4 bg-white rounded-lg border">
+              <h3 className="text-lg font-semibold text-orange-600 mb-3">Catastro Legal</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium">Dirección o Nombre de la Propiedad</Label>
+                  <p className="text-sm">{result.direccionPropiedad || result.address || "No disponible"}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Ubicación</Label>
+                  <p className="text-sm">{result.ubicacion || "No disponible"}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Destino</Label>
+                  <p className="text-sm">{result.destino || "No disponible"}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Reavalúo</Label>
+                  <p className="text-sm">{result.reavaluo || "No disponible"}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Área Homogénea</Label>
+                  <p className="text-sm">{result.areaHomogenea || "No disponible"}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Catastro Valorizado */}
+            <div className="p-4 bg-white rounded-lg border">
+              <h3 className="text-lg font-semibold text-orange-600 mb-3">Catastro Valorizado</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <Label className="text-sm font-medium">Avalúo Total</Label>
+                  <p className="text-lg font-bold text-green-600">
+                    {result.avaluoTotal ? `$${result.avaluoTotal.toLocaleString("es-CL")}` : "No disponible"}
                   </p>
-                )}
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Avalúo Afecto</Label>
+                  <p className="text-lg font-bold text-blue-600">
+                    {result.avaluoAfecto ? `$${result.avaluoAfecto.toLocaleString("es-CL")}` : "No disponible"}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Avalúo Exento</Label>
+                  <p className="text-lg font-bold text-gray-600">
+                    {result.avaluoExento !== undefined
+                      ? `$${result.avaluoExento.toLocaleString("es-CL")}`
+                      : "No disponible"}
+                  </p>
+                </div>
+              </div>
+              {result.periodoAvaluo && (
+                <div className="mt-3">
+                  <Label className="text-sm font-medium">Período de Avalúo</Label>
+                  <p className="text-sm text-muted-foreground">{result.periodoAvaluo}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Coordinates */}
+            <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <h3 className="text-lg font-semibold text-blue-600 mb-3">Coordenadas</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-sm font-medium">Latitud</Label>
+                  <p className="text-lg font-mono text-blue-600">{result.coordinates.lat}</p>
+                </div>
+                <div>
+                  <Label className="text-sm font-medium">Longitud</Label>
+                  <p className="text-lg font-mono text-blue-600">{result.coordinates.lng}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Additional Property Details */}
+            {(result.propertyType || result.surfaceArea || result.builtArea || result.yearBuilt) && (
+              <div className="p-4 bg-gray-50 rounded-lg border">
+                <h3 className="text-lg font-semibold text-gray-600 mb-3">Detalles Adicionales</h3>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  {result.propertyType && (
+                    <div>
+                      <Label className="text-sm font-medium">Tipo de Propiedad</Label>
+                      <p className="text-sm">{result.propertyType}</p>
+                    </div>
+                  )}
+                  {result.surfaceArea && (
+                    <div>
+                      <Label className="text-sm font-medium">Superficie (m²)</Label>
+                      <p className="text-sm">{result.surfaceArea.toLocaleString("es-CL")}</p>
+                    </div>
+                  )}
+                  {result.builtArea && (
+                    <div>
+                      <Label className="text-sm font-medium">Área Construida (m²)</Label>
+                      <p className="text-sm">{result.builtArea.toLocaleString("es-CL")}</p>
+                    </div>
+                  )}
+                  {result.yearBuilt && (
+                    <div>
+                      <Label className="text-sm font-medium">Año de Construcción</Label>
+                      <p className="text-sm">{result.yearBuilt}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Utilities */}
+            {result.utilities && (
+              <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                <h3 className="text-lg font-semibold text-green-600 mb-3">Servicios Disponibles</h3>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                  <div className={`text-sm ${result.utilities.water ? "text-green-600" : "text-red-600"}`}>
+                    {result.utilities.water ? "✓" : "✗"} Agua
+                  </div>
+                  <div className={`text-sm ${result.utilities.electricity ? "text-green-600" : "text-red-600"}`}>
+                    {result.utilities.electricity ? "✓" : "✗"} Electricidad
+                  </div>
+                  <div className={`text-sm ${result.utilities.gas ? "text-green-600" : "text-red-600"}`}>
+                    {result.utilities.gas ? "✓" : "✗"} Gas
+                  </div>
+                  <div className={`text-sm ${result.utilities.sewage ? "text-green-600" : "text-red-600"}`}>
+                    {result.utilities.sewage ? "✓" : "✗"} Alcantarillado
+                  </div>
+                  <div className={`text-sm ${result.utilities.internet ? "text-green-600" : "text-red-600"}`}>
+                    {result.utilities.internet ? "✓" : "✗"} Internet
+                  </div>
+                </div>
               </div>
             )}
 
