@@ -26,6 +26,7 @@ import {
   Rocket,
   Activity,
   Target,
+  FolderOpen,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -64,6 +65,13 @@ const menuItems: MenuItem[] = [
     icon: Search,
     badge: "Beta",
     badgeColor: "bg-orange-500",
+  },
+  {
+    title: "Explorador de Archivos",
+    href: "/admin/file-explorer",
+    icon: FolderOpen,
+    badge: "New",
+    badgeColor: "bg-purple-500",
   },
   {
     title: "MVP & Desarrollo",
@@ -159,6 +167,7 @@ const getPageTitle = (pathname: string): string => {
   const routes: Record<string, string> = {
     "/admin": "Dashboard",
     "/admin/sii-extractor": "Extractor de Coordenadas SII",
+    "/admin/file-explorer": "Explorador de Archivos",
     "/mvp/seguimiento": "Seguimiento MVP",
     "/admin/fase-1-mvp": "Fase 1 MVP",
     "/admin/fase-2-mvp": "Fase 2 MVP",
@@ -324,6 +333,13 @@ export function AdminSidebar() {
               <Search className="h-4 w-4" />
               Extractor SII
               <Badge className="ml-auto bg-orange-500 text-white text-xs">Beta</Badge>
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
+            <Link href="/admin/file-explorer">
+              <FolderOpen className="h-4 w-4" />
+              Explorador de Archivos
+              <Badge className="ml-auto bg-purple-500 text-white text-xs">New</Badge>
             </Link>
           </Button>
         </div>

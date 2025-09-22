@@ -25,9 +25,11 @@ import {
   Building,
   BookOpen,
   Archive,
+  Settings,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PARAOrganizer, type PARAClassification } from "@/lib/para-method/para-organizer"
+import { EnhancedFolderView } from "@/components/google-drive/enhanced-folder-view"
 
 let realDriveService: any = null
 
@@ -279,51 +281,7 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
               </div>
             </div>
 
-            <div className="space-y-4">
-              {Object.entries(organizedContents.files).map(([categoryName, category]) => {
-                const totalItems = category.files.length + category.subfolders.length
-
-                return (
-                  <div key={categoryName} className="bg-white rounded-lg shadow-sm border border-gray-200">
-                    <div className="p-4">
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className={category.color}>{category.icon}</div>
-                        <h3 className="font-semibold text-gray-900">{categoryName}</h3>
-                        <Badge variant="outline" className="text-xs">
-                          {totalItems} elementos
-                        </Badge>
-                      </div>
-
-                      {totalItems > 0 ? (
-                        <div className="ml-7 space-y-2">
-                          {category.subfolders.map((subfolder: any) => (
-                            <div key={subfolder.id} className="flex items-center gap-2 py-2 px-3 bg-blue-50 rounded-md">
-                              <Folder className="h-4 w-4 text-blue-500" />
-                              <span className="text-sm text-gray-700 font-medium">{subfolder.name}</span>
-                              <Badge variant="outline" className="text-xs ml-auto">
-                                Carpeta
-                              </Badge>
-                            </div>
-                          ))}
-
-                          {category.files.map((file: any) => (
-                            <div key={file.id} className="flex items-center gap-2 py-2 px-3 bg-gray-50 rounded-md">
-                              <FileText className="h-4 w-4 text-gray-500" />
-                              <span className="text-sm text-gray-700">{file.name}</span>
-                              <Badge variant="outline" className="text-xs ml-auto">
-                                {file.mimeType?.split("/")[1]?.toUpperCase() || "Archivo"}
-                              </Badge>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="ml-7 text-sm text-gray-500 italic">No hay archivos en esta categoría</div>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+            <EnhancedFolderView folderId={folder.id} folderName={folder.name} />
           </div>
         )}
       </div>
@@ -750,6 +708,15 @@ export default function HomePage() {
               </p>
             </div>
             <div className="flex gap-2">
+              <Button
+                onClick={() => window.open("/admin/file-explorer", "_blank")}
+                variant="outline"
+                size="sm"
+                className="bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
+              >
+                <Settings className="h-4 w-4 mr-2" />
+                Explorador de Archivos
+              </Button>
               {!isAuthenticated && (
                 <Button onClick={loadRealData} variant="outline" size="sm">
                   Conectar Google Drive
@@ -760,6 +727,26 @@ export default function HomePage() {
                 {loading ? "Cargando..." : "Actualizar"}
               </Button>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="container mx-auto px-4 py-4">
+        <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200 p-4 mb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-1">Organización de Archivos</h3>
+              <p className="text-sm text-gray-600">
+                Accede al explorador completo para ver todos los archivos y carpetas del proyecto
+              </p>
+            </div>
+            <Button
+              onClick={() => (window.location.href = "/admin/file-explorer")}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Ver Explorador
+            </Button>
           </div>
         </div>
       </div>
