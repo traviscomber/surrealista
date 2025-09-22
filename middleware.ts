@@ -1,28 +1,26 @@
-import { createMiddlewareClient } from "@supabase/auth-helpers-nextjs"
-import { NextResponse } from "next/server"
+import { updateSession } from "@/lib/supabase/middleware"
 import type { NextRequest } from "next/server"
 
-export async function middleware(req: NextRequest) {
-  const res = NextResponse.next()
-  const supabase = createMiddlewareClient({ req, res })
-
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-
-  // If the user is not signed in and the route requires authentication, redirect to login
-  const protectedRoutes = ["/dashboard", "/perfil"]
-  const isProtectedRoute = protectedRoutes.some((route) => req.nextUrl.pathname.startsWith(route))
-
-  if (!session && isProtectedRoute) {
-    const redirectUrl = new URL("/auth/login", req.url)
-    redirectUrl.searchParams.set("redirect", req.nextUrl.pathname)
-    return NextResponse.redirect(redirectUrl)
+export async function middleware(request: NextRequest) {
+  // Skip middleware for admin routes entirely to improve performance
+  if (request.nextUrl.pathname.startsWith("/admin")) {
+    return
   }
 
-  return res
+  return await updateSession(request)
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/perfil/:path*"],
+  matcher: [
+    /*
+     * Match all request paths except:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - images - .svg, .png, .jpg, .jpeg, .gif, .webp
+     * - admin routes (they don't need Supabase auth)
+     * - api routes (they handle auth separately)
+     */
+    "/((?!_next/static|_next/image|favicon.ico|admin|api|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+  ],
 }
