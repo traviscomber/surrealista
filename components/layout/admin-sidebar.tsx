@@ -59,6 +59,13 @@ const menuItems: MenuItem[] = [
     icon: LayoutDashboard,
   },
   {
+    title: "Extractor SII",
+    href: "/admin/sii-extractor",
+    icon: Search,
+    badge: "Beta",
+    badgeColor: "bg-orange-500",
+  },
+  {
     title: "MVP & Desarrollo",
     icon: Rocket,
     badge: "Live",
@@ -151,6 +158,7 @@ const menuItems: MenuItem[] = [
 const getPageTitle = (pathname: string): string => {
   const routes: Record<string, string> = {
     "/admin": "Dashboard",
+    "/admin/sii-extractor": "Extractor de Coordenadas SII",
     "/mvp/seguimiento": "Seguimiento MVP",
     "/admin/fase-1-mvp": "Fase 1 MVP",
     "/admin/fase-2-mvp": "Fase 2 MVP",
@@ -309,6 +317,13 @@ export function AdminSidebar() {
               <HelpCircle className="h-4 w-4" />
               Método PARA
               <Badge className="ml-auto bg-indigo-500 text-white text-xs">Guía</Badge>
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
+            <Link href="/admin/sii-extractor">
+              <Search className="h-4 w-4" />
+              Extractor SII
+              <Badge className="ml-auto bg-orange-500 text-white text-xs">Beta</Badge>
             </Link>
           </Button>
         </div>
