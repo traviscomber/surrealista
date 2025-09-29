@@ -448,6 +448,83 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
     )
   }
 
+  const renderFilteredFiles = () => {
+    if (filteredFiles.length === 0) {
+      return (
+        <div className="text-center py-8 text-gray-500">
+          <Filter className="h-8 w-8 mx-auto mb-2 opacity-50" />
+          <p>No se encontraron archivos que coincidan con los filtros</p>
+        </div>
+      )
+    }
+
+    return (
+      <div className="space-y-2">
+        {filteredFiles.map((file) => (
+          <div
+            key={file.id}
+            className={`flex items-center gap-3 py-3 px-4 hover:bg-gray-50 rounded-lg cursor-pointer border ${
+              selectedItems.has(file.id) ? "bg-blue-50 border-blue-200" : "border-gray-100"
+            }`}
+            onClick={() => {
+              const newSelected = new Set(selectedItems)
+              if (newSelected.has(file.id)) {
+                newSelected.delete(file.id)
+              } else {
+                newSelected.add(file.id)
+              }
+              setSelectedItems(newSelected)
+            }}
+          >
+            {file.mimeType.startsWith("image/") ? (
+              <ImageIcon className="h-5 w-5 text-green-500 flex-shrink-0" />
+            ) : file.mimeType.startsWith("video/") ? (
+              <Video className="h-5 w-5 text-purple-500 flex-shrink-0" />
+            ) : file.mimeType.includes("pdf") ? (
+              <FileText className="h-5 w-5 text-red-500 flex-shrink-0" />
+            ) : file.name.toLowerCase().includes("kmz") || file.name.toLowerCase().includes("kml") ? (
+              <MapPin className="h-5 w-5 text-blue-500 flex-shrink-0" />
+            ) : (
+              <FileText className="h-5 w-5 text-gray-500 flex-shrink-0" />
+            )}
+
+            <div className="flex-1 min-w-0">
+              <div className="font-medium text-gray-900 truncate">{file.name}</div>
+              <div className="text-sm text-gray-500">
+                {new Date(file.modifiedTime).toLocaleDateString("es-CL")}
+                {file.size && ` • ${(file.size / 1024 / 1024).toFixed(1)} MB`}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {file.name.toLowerCase().includes("kmz") || file.name.toLowerCase().includes("kml") ? (
+                <Badge className="bg-blue-100 text-blue-800 text-xs">KMZ/KML</Badge>
+              ) : file.mimeType.includes("pdf") ? (
+                <Badge className="bg-red-100 text-red-800 text-xs">PDF</Badge>
+              ) : file.mimeType.startsWith("image/") ? (
+                <Badge className="bg-green-100 text-green-800 text-xs">IMG</Badge>
+              ) : null}
+
+              {file.webViewLink && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    window.open(file.webViewLink, "_blank")
+                  }}
+                  className="h-8 w-8 p-0"
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -690,11 +767,11 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {viewMode === "tree" && folderTree && (
+          {searchTerm || filterType !== "all" || quickFilters.length > 0 ? (
+            renderFilteredFiles()
+          ) : viewMode === "tree" && folderTree ? (
             <div className="space-y-1 max-h-96 overflow-y-auto">{renderTreeNode(folderTree)}</div>
-          )}
-
-          {viewMode === "grid" && (
+          ) : viewMode === "grid" ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {filteredFiles.map((file) => (
                 <Card key={file.id} className="hover:shadow-md transition-shadow cursor-pointer">
@@ -719,7 +796,7 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
                 </Card>
               ))}
             </div>
-          )}
+          ) : null}
         </CardContent>
       </Card>
 
