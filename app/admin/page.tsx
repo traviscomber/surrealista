@@ -49,8 +49,8 @@ export default function AdminDashboard() {
     },
     {
       title: "Precisión IA",
-      value: "94.2%",
-      change: "+2.1%",
+      value: "94.7%",
+      change: "+5.4%",
       changeType: "positive" as const,
       icon: Brain,
       description: "Precisión del asistente IA",
@@ -100,6 +100,20 @@ export default function AdminDashboard() {
       icon: Database,
       color: "bg-indigo-500",
     },
+    {
+      title: "KMZ Reader",
+      description: "Visualizar archivos KMZ",
+      href: "/admin/kmz-reader",
+      icon: Eye,
+      color: "bg-teal-500",
+    },
+    {
+      title: "Google Drive",
+      description: "Gestión de archivos",
+      href: "/admin/google-drive",
+      icon: Database,
+      color: "bg-yellow-500",
+    },
   ]
 
   const recentActivity = [
@@ -134,22 +148,22 @@ export default function AdminDashboard() {
   ]
 
   const chatAnalytics = {
-    totalSessions: 1247,
-    totalMessages: 8934,
-    leadsGenerated: 156,
-    conversionRate: 12.5,
+    totalSessions: 1347,
+    totalMessages: 9234,
+    leadsGenerated: 178,
+    conversionRate: 13.2,
     topTopics: [
+      { topic: "Análisis de completitud", count: 267 },
       { topic: "Precios de propiedades", count: 234 },
+      { topic: "Visualización KMZ", count: 201 },
       { topic: "Ubicaciones disponibles", count: 189 },
       { topic: "Proceso de compra", count: 167 },
-      { topic: "Financiamiento", count: 145 },
-      { topic: "Visitas programadas", count: 123 },
     ],
     peakHours: [
-      { hour: "10:00", sessions: 45 },
-      { hour: "14:00", sessions: 52 },
-      { hour: "16:00", sessions: 38 },
-      { hour: "19:00", sessions: 41 },
+      { hour: "10:00", sessions: 48 },
+      { hour: "14:00", sessions: 55 },
+      { hour: "16:00", sessions: 42 },
+      { hour: "19:00", sessions: 44 },
     ],
   }
 

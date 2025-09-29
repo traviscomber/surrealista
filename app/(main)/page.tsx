@@ -568,8 +568,7 @@ export default function HomePage() {
         location: folder.location || "DESCONOCIDA",
         propertyType: folder.propertyType || "PROPIEDAD",
         lastModified: new Date(folder.files?.[0]?.modifiedTime || Date.now()).toLocaleDateString("es-CL"),
-        completionScore:
-          folder.completionStatus === "complete" ? 95 : folder.completionStatus === "incomplete" ? 65 : 35,
+        completionScore: folder.completenessScore || 0,
       }))
 
       setFolders(processedFolders)

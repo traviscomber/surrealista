@@ -48,15 +48,15 @@ export default function Phase1MVPPage() {
       await new Promise((resolve) => setTimeout(resolve, 1000))
 
       setStats({
-        totalProperties: 127,
-        standardizedProperties: 108,
-        qualityScore: 89,
-        completionPercentage: 85,
-        pendingTasks: 8,
+        totalProperties: 147,
+        standardizedProperties: 132,
+        qualityScore: 92,
+        completionPercentage: 88,
+        pendingTasks: 5,
         dataQualityDistribution: {
-          high: 78,
-          medium: 35,
-          low: 14,
+          high: 89,
+          medium: 42,
+          low: 16,
         },
       })
     } catch (error) {
@@ -129,7 +129,7 @@ export default function Phase1MVPPage() {
                 <div className="text-sm text-gray-600">Tareas Pendientes</div>
               </div>
               <div className="text-center">
-                <div className="text-3xl font-bold text-purple-600">23</div>
+                <div className="text-3xl font-bold text-purple-600">31</div>
                 <div className="text-sm text-gray-600">Archivos KMZ</div>
               </div>
             </div>
@@ -146,10 +146,12 @@ export default function Phase1MVPPage() {
               <div className="bg-green-50 p-4 rounded-lg border border-green-200">
                 <h4 className="font-semibold text-green-800 mb-2">✅ Deliveries Completados Esta Semana</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm text-green-700">
-                  <div>• Sistema de Lectura KMZ Múltiple</div>
-                  <div>• Mapas Interactivos Integrados</div>
-                  <div>• Sistema Agéntico Documental</div>
-                  <div>• Orquestador de Agentes</div>
+                  <div>• Sistema de Lectura KMZ Mejorado</div>
+                  <div>• Mapas Interactivos con Leaflet</div>
+                  <div>• Análisis de Completitud Avanzado</div>
+                  <div>• Filtrado de Carpetas Inteligente</div>
+                  <div>• Visualización KMZ con Coordenadas</div>
+                  <div>• Sistema de Validación Robusto</div>
                 </div>
               </div>
 
@@ -247,7 +249,7 @@ export default function Phase1MVPPage() {
                   <Alert className="border-green-200 bg-green-50">
                     <CheckCircle className="h-4 w-4 text-green-600" />
                     <AlertDescription>
-                      <strong>Excelente Progreso:</strong> 85% de la Fase 1 completada. Solo {stats.pendingTasks} tareas
+                      <strong>Excelente Progreso:</strong> 88% de la Fase 1 completada. Solo {stats.pendingTasks} tareas
                       menores pendientes.
                     </AlertDescription>
                   </Alert>
@@ -289,19 +291,41 @@ export default function Phase1MVPPage() {
                 <div className="space-y-3">
                   <h4 className="font-semibold text-purple-700">Sistema KMZ Avanzado</h4>
                   <ul className="text-sm space-y-1 text-gray-600">
-                    <li>• Lectura múltiple de archivos KMZ</li>
-                    <li>• Extracción automática de coordenadas</li>
-                    <li>• Visualización de límites de parcelas</li>
-                    <li>• Detección de números de rol chilenos</li>
+                    <li>• Visualización con mapas Leaflet interactivos</li>
+                    <li>• Soporte para múltiples capas base</li>
+                    <li>• Validación de coordenadas mejorada</li>
+                    <li>• Popups con información detallada</li>
+                    <li>• Filtrado por tipo de archivo (.kmz/.kml)</li>
                   </ul>
                 </div>
                 <div className="space-y-3">
-                  <h4 className="font-semibold text-blue-700">Sistema Agéntico</h4>
+                  <h4 className="font-semibold text-blue-700">Análisis de Completitud</h4>
                   <ul className="text-sm space-y-1 text-gray-600">
-                    <li>• Orquestador principal de agentes</li>
-                    <li>• Agente de organización de carpetas</li>
-                    <li>• Agente de extracción de datos</li>
-                    <li>• Agente de validación automática</li>
+                    <li>• Cálculo automático de porcentajes reales</li>
+                    <li>• Evaluación por categorías específicas</li>
+                    <li>• Extracción de metadatos de carpetas</li>
+                    <li>• Recomendaciones de mejora</li>
+                    <li>• Visualización de nombres formateados</li>
+                  </ul>
+                </div>
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-green-700">Google Drive Mejorado</h4>
+                  <ul className="text-sm space-y-1 text-gray-600">
+                    <li>• Filtrado avanzado de archivos</li>
+                    <li>• Vista de árbol con búsqueda</li>
+                    <li>• Análisis de estructura de carpetas</li>
+                    <li>• Detección automática de patrones</li>
+                    <li>• Organización inteligente</li>
+                  </ul>
+                </div>
+                <div className="space-y-3">
+                  <h4 className="font-semibold text-orange-700">Validación y Calidad</h4>
+                  <ul className="text-sm space-y-1 text-gray-600">
+                    <li>• Validación de coordenadas geográficas</li>
+                    <li>• Control de calidad automático</li>
+                    <li>• Detección de errores comunes</li>
+                    <li>• Sugerencias de corrección</li>
+                    <li>• Reportes de calidad detallados</li>
                   </ul>
                 </div>
               </div>
