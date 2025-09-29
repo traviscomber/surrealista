@@ -25,6 +25,10 @@ export class GoogleDriveService {
     this.apiKey = apiKey
   }
 
+  get apiKey() {
+    return this.apiKey
+  }
+
   async listFiles(
     folderId?: string,
     pageToken?: string,
@@ -229,6 +233,102 @@ export class GoogleDriveService {
       console.error("Error testing connection:", error)
       return false
     }
+  }
+
+  async searchKMZFiles(query?: string, folderId?: string): Promise<DriveFile[]> {
+    try {
+      let searchQuery =
+        "(name contains '.kmz' or mimeType contains 'kmz' or mimeType contains 'google-earth') and trashed=false"
+
+      if (query && query.trim()) {
+        searchQuery = `name contains '${query}' and ${searchQuery}`
+      }
+
+      if (folderId) {
+        searchQuery = `'${folderId}' in parents and ${searchQuery}`
+      }
+
+      const params = new URLSearchParams({
+        key: this.apiKey,
+        q: searchQuery,
+        fields: "files(id,name,mimeType,size,modifiedTime,webViewLink,parents,thumbnailLink)",
+        pageSize: "100",
+      })
+
+      const response = await fetch(`${this.baseUrl}/files?${params}`)
+
+      if (!response.ok) {
+        throw new Error(`Google Drive API error: ${response.status}`)
+      }
+
+      const data = await response.json()
+      return data.files || []
+    } catch (error) {
+      console.error("Error searching KMZ files:", error)
+      throw error
+    }
+  }
+
+  async searchKMZInAllFolders(
+    rootFolderId?: string,
+    query?: string,
+  ): Promise<
+    {
+      file: DriveFile
+      folderPath: string[]
+      depth: number
+    }[]
+  > {
+    const results: { file: DriveFile; folderPath: string[]; depth: number }[] = []
+
+    const searchInFolder = async (folderId: string, currentPath: string[], depth: number) => {
+      try {
+        // Search KMZ files in current folder
+        const kmzFiles = await this.searchKMZFiles(query, folderId)
+
+        for (const file of kmzFiles) {
+          results.push({
+            file,
+            folderPath: [...currentPath],
+            depth,
+          })
+        }
+
+        // Get subfolders and search recursively
+        const { files } = await this.listFiles(folderId)
+        const subfolders = files.filter((file) => file.mimeType === "application/vnd.google-apps.folder")
+
+        for (const subfolder of subfolders) {
+          await searchInFolder(subfolder.id, [...currentPath, subfolder.name], depth + 1)
+        }
+      } catch (error) {
+        console.error(`Error searching in folder ${folderId}:`, error)
+      }
+    }
+
+    if (rootFolderId) {
+      // Get root folder name
+      try {
+        const folderResponse = await fetch(`${this.baseUrl}/files/${rootFolderId}?key=${this.apiKey}&fields=name`)
+        const folderInfo = await folderResponse.json()
+        await searchInFolder(rootFolderId, [folderInfo.name], 0)
+      } catch (error) {
+        console.error("Error getting root folder info:", error)
+        await searchInFolder(rootFolderId, ["Root"], 0)
+      }
+    } else {
+      // Search in all accessible folders
+      const kmzFiles = await this.searchKMZFiles(query)
+      for (const file of kmzFiles) {
+        results.push({
+          file,
+          folderPath: ["Root"],
+          depth: 0,
+        })
+      }
+    }
+
+    return results
   }
 }
 

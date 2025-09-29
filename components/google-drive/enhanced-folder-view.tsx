@@ -1,5 +1,7 @@
 "use client"
 
+import type React from "react"
+
 import { useState, useEffect, useMemo } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -22,6 +24,8 @@ import {
   Move,
   Trash2,
   RefreshCw,
+  Filter,
+  X,
 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
@@ -52,10 +56,12 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
   const [folderTree, setFolderTree] = useState<FolderNode | null>(null)
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
+  const [searchInput, setSearchInput] = useState("")
   const [viewMode, setViewMode] = useState<"tree" | "grid" | "list">("tree")
   const [sortBy, setSortBy] = useState<"name" | "date" | "size" | "type">("name")
-  const [filterType, setFilterType] = useState<"all" | "folders" | "files" | "images" | "documents">("all")
+  const [filterType, setFilterType] = useState<"all" | "folders" | "files" | "images" | "documents" | "kmz">("all")
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
+  const [quickFilters, setQuickFilters] = useState<string[]>([])
 
   const loadFolderStructure = async (folderId: string, level = 0): Promise<FolderNode> => {
     try {
@@ -67,18 +73,16 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
         name: data.name || folderName,
         files: [],
         subfolders: [],
-        isExpanded: level < 2, // Auto-expand first 2 levels
+        isExpanded: level < 2,
         level,
         paraCategory: classifyPARACategory(data.name || folderName),
         completionStatus: assessCompletionStatus(data.files || []),
       }
 
       if (data.files) {
-        // Separate files and folders
         const files = data.files.filter((item: any) => item.mimeType !== "application/vnd.google-apps.folder")
         const folders = data.files.filter((item: any) => item.mimeType === "application/vnd.google-apps.folder")
 
-        // Add files to current node
         node.files = files.map((file: any) => ({
           id: file.id,
           name: file.name,
@@ -90,7 +94,6 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
           isFolder: false,
         }))
 
-        // Recursively load subfolders (limit depth to prevent infinite loading)
         if (level < 3) {
           const subfolderPromises = folders.map((folder: any) =>
             loadFolderStructure(folder.id, level + 1).catch((error) => {
@@ -121,19 +124,17 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
   const classifyPARACategory = (folderName: string): string => {
     const name = folderName.toLowerCase()
 
-    // Projects - Active cases with deadlines
     if (
       name.includes("proyecto") ||
       name.includes("caso") ||
       name.includes("cliente") ||
       name.includes("venta") ||
       name.includes("compra") ||
-      /\d{4}/.test(name) // Contains year
+      /\d{4}/.test(name)
     ) {
       return "projects"
     }
 
-    // Areas - Ongoing responsibilities
     if (
       name.includes("marketing") ||
       name.includes("legal") ||
@@ -144,7 +145,6 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
       return "areas"
     }
 
-    // Archive - Completed projects
     if (
       name.includes("archivo") ||
       name.includes("completado") ||
@@ -156,7 +156,6 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
       return "archive"
     }
 
-    // Resources - Reference materials
     return "resources"
   }
 
@@ -197,17 +196,49 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
     return allFiles
   }
 
+  const performSearch = () => {
+    setSearchTerm(searchInput)
+  }
+
+  const clearSearch = () => {
+    setSearchInput("")
+    setSearchTerm("")
+  }
+
+  const handleSearchKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      performSearch()
+    }
+  }
+
   const filteredFiles = useMemo(() => {
     if (!folderTree) return []
 
     let files = getAllFiles(folderTree)
 
-    // Apply search filter
     if (searchTerm) {
-      files = files.filter((file) => file.name.toLowerCase().includes(searchTerm.toLowerCase()))
+      const searchLower = searchTerm.toLowerCase()
+      files = files.filter((file) => {
+        const fileName = file.name.toLowerCase()
+        const fileExtension = fileName.split(".").pop() || ""
+
+        if (searchLower.includes("kmz") || searchLower.includes("kml")) {
+          return (
+            fileName.includes("kmz") ||
+            fileName.includes("kml") ||
+            fileExtension === "kmz" ||
+            fileExtension === "kml" ||
+            file.mimeType.includes("kmz") ||
+            file.mimeType.includes("kml") ||
+            file.mimeType.includes("application/vnd.google-earth.kmz") ||
+            file.mimeType.includes("application/vnd.google-earth.kml+xml")
+          )
+        }
+
+        return fileName.includes(searchLower)
+      })
     }
 
-    // Apply type filter
     switch (filterType) {
       case "folders":
         files = files.filter((file) => file.isFolder)
@@ -221,9 +252,41 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
       case "documents":
         files = files.filter((file) => file.mimeType.includes("pdf") || file.mimeType.includes("document"))
         break
+      case "kmz":
+        files = files.filter((file) => {
+          const fileName = file.name.toLowerCase()
+          const fileExtension = fileName.split(".").pop() || ""
+          return (
+            fileName.includes("kmz") ||
+            fileName.includes("kml") ||
+            fileExtension === "kmz" ||
+            fileExtension === "kml" ||
+            file.mimeType.includes("kmz") ||
+            file.mimeType.includes("kml") ||
+            file.mimeType.includes("application/vnd.google-earth.kmz") ||
+            file.mimeType.includes("application/vnd.google-earth.kml+xml")
+          )
+        })
+        break
     }
 
-    // Apply sorting
+    if (quickFilters.length > 0) {
+      files = files.filter((file) =>
+        quickFilters.some((filter) => {
+          const fileName = file.name.toLowerCase()
+          const filterLower = filter.toLowerCase()
+
+          if (filterLower.startsWith(".")) {
+            const extension = filterLower.substring(1)
+            const fileExtension = fileName.split(".").pop() || ""
+            return fileExtension === extension || fileName.includes(extension)
+          }
+
+          return fileName.includes(filterLower)
+        }),
+      )
+    }
+
     files.sort((a, b) => {
       switch (sortBy) {
         case "name":
@@ -240,7 +303,23 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
     })
 
     return files
-  }, [folderTree, searchTerm, filterType, sortBy])
+  }, [folderTree, searchTerm, filterType, sortBy, quickFilters])
+
+  const addQuickFilter = (filter: string) => {
+    if (!quickFilters.includes(filter)) {
+      setQuickFilters([...quickFilters, filter])
+    }
+  }
+
+  const removeQuickFilter = (filter: string) => {
+    setQuickFilters(quickFilters.filter((f) => f !== filter))
+  }
+
+  const clearAllFilters = () => {
+    setSearchTerm("")
+    setFilterType("all")
+    setQuickFilters([])
+  }
 
   const renderTreeNode = (node: FolderNode) => {
     const hasSubfolders = node.subfolders.length > 0
@@ -317,10 +396,8 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
 
         {node.isExpanded && (
           <div>
-            {/* Render subfolders */}
             {node.subfolders.map((subfolder) => renderTreeNode(subfolder))}
 
-            {/* Render files */}
             {node.files.map((file) => (
               <div
                 key={file.id}
@@ -345,7 +422,7 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
                   <Video className="h-4 w-4 text-purple-500" />
                 ) : file.mimeType.includes("pdf") ? (
                   <FileText className="h-4 w-4 text-red-500" />
-                ) : file.name.toLowerCase().includes("kmz") ? (
+                ) : file.name.toLowerCase().includes("kmz") || file.name.toLowerCase().includes("kml") ? (
                   <MapPin className="h-4 w-4 text-blue-500" />
                 ) : (
                   <FileText className="h-4 w-4 text-gray-500" />
@@ -398,17 +475,39 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
 
   return (
     <div className="space-y-6">
-      {/* Controls */}
       <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
         <div className="flex flex-col sm:flex-row gap-4 flex-1">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
-              placeholder="Buscar archivos y carpetas..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+              placeholder="Buscar archivos KMZ, KML y carpetas..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyPress={handleSearchKeyPress}
+              className="pl-10 pr-20"
             />
+            <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex gap-1">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={performSearch}
+                className="h-6 w-6 p-0 hover:bg-blue-100"
+                title="Buscar"
+              >
+                <Search className="h-3 w-3 text-blue-600" />
+              </Button>
+              {(searchInput || searchTerm) && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={clearSearch}
+                  className="h-6 w-6 p-0 hover:bg-gray-100"
+                  title="Limpiar búsqueda"
+                >
+                  <X className="h-3 w-3 text-gray-600" />
+                </Button>
+              )}
+            </div>
           </div>
 
           <Select value={filterType} onValueChange={setFilterType}>
@@ -421,6 +520,7 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
               <SelectItem value="files">Archivos</SelectItem>
               <SelectItem value="images">Imágenes</SelectItem>
               <SelectItem value="documents">Documentos</SelectItem>
+              <SelectItem value="kmz">Archivos KMZ/KML</SelectItem>
             </SelectContent>
           </Select>
 
@@ -447,7 +547,73 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
         </div>
       </div>
 
-      {/* Statistics */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <span className="text-sm font-medium text-gray-700">Búsqueda rápida:</span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            addQuickFilter(".kmz")
+            if (!searchTerm) setSearchTerm(" ")
+          }}
+          className="text-blue-600 border-blue-200 hover:bg-blue-50"
+        >
+          <MapPin className="h-3 w-3 mr-1" />
+          .kmz
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            addQuickFilter(".kml")
+            if (!searchTerm) setSearchTerm(" ")
+          }}
+          className="text-blue-600 border-blue-200 hover:bg-blue-50"
+        >
+          <MapPin className="h-3 w-3 mr-1" />
+          .kml
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => addQuickFilter(".pdf")}
+          className="text-red-600 border-red-200 hover:bg-red-50"
+        >
+          <FileText className="h-3 w-3 mr-1" />
+          .pdf
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => addQuickFilter("plano")}
+          className="text-green-600 border-green-200 hover:bg-green-50"
+        >
+          <FileText className="h-3 w-3 mr-1" />
+          plano
+        </Button>
+
+        {(searchTerm || filterType !== "all" || quickFilters.length > 0) && (
+          <Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-gray-500 hover:text-gray-700">
+            <X className="h-3 w-3 mr-1" />
+            Limpiar filtros
+          </Button>
+        )}
+      </div>
+
+      {quickFilters.length > 0 && (
+        <div className="flex flex-wrap gap-2 items-center">
+          <span className="text-sm text-gray-600">Filtros activos:</span>
+          {quickFilters.map((filter) => (
+            <Badge key={filter} variant="secondary" className="flex items-center gap-1 bg-blue-100 text-blue-800">
+              {filter}
+              <button onClick={() => removeQuickFilter(filter)} className="ml-1 hover:bg-blue-200 rounded-full p-0.5">
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+        </div>
+      )}
+
       {folderTree && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card>
@@ -475,15 +641,42 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
           <Card>
             <CardContent className="p-4">
               <div className="text-2xl font-bold text-purple-600">
-                {getAllFiles(folderTree).filter((f) => f.name.toLowerCase().includes("kmz")).length}
+                {
+                  getAllFiles(folderTree).filter(
+                    (f) => f.name.toLowerCase().includes("kmz") || f.name.toLowerCase().includes("kml"),
+                  ).length
+                }
               </div>
-              <div className="text-sm text-gray-600">Archivos KMZ</div>
+              <div className="text-sm text-gray-600">Archivos KMZ/KML</div>
             </CardContent>
           </Card>
         </div>
       )}
 
-      {/* Content */}
+      {(searchTerm || filterType !== "all" || quickFilters.length > 0) && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-blue-600" />
+            <span className="text-sm font-medium text-blue-900">
+              Mostrando {filteredFiles.length} de {folderTree ? getAllFiles(folderTree).length : 0} archivos
+              {searchTerm && <span className="ml-2 text-blue-700">• Búsqueda: "{searchTerm}"</span>}
+            </span>
+          </div>
+          {filteredFiles.filter((f) => f.name.toLowerCase().includes("kmz") || f.name.toLowerCase().includes("kml"))
+            .length > 0 && (
+            <div className="mt-2 text-sm text-green-700">
+              ✓{" "}
+              {
+                filteredFiles.filter(
+                  (f) => f.name.toLowerCase().includes("kmz") || f.name.toLowerCase().includes("kml"),
+                ).length
+              }{" "}
+              archivos KMZ/KML encontrados
+            </div>
+          )}
+        </div>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -530,7 +723,6 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
         </CardContent>
       </Card>
 
-      {/* Actions for selected items */}
       {selectedItems.size > 0 && (
         <Card className="border-blue-200 bg-blue-50">
           <CardContent className="p-4">
