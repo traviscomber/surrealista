@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
 import { Badge } from "@/components/ui/badge"
-import { ChevronDown, ChevronUp, X } from 'lucide-react'
+import { ChevronDown, ChevronUp, X } from "lucide-react"
 
 interface Property {
   id: string
@@ -49,18 +49,10 @@ export default function PropertyFilters({ filters, onFiltersChange, properties }
     { id: "departamento", label: "Departamento" },
     { id: "terreno", label: "Terreno" },
     { id: "comercial", label: "Comercial" },
-    { id: "oficina", label: "Oficina" }
+    { id: "oficina", label: "Oficina" },
   ]
 
-  const locations = [
-    "Puerto Varas",
-    "Pucón",
-    "Valdivia",
-    "Puerto Montt",
-    "Osorno",
-    "Frutillar",
-    "Chiloé"
-  ]
+  const locations = ["Puerto Varas", "Pucón", "Valdivia", "Puerto Montt", "Osorno", "Frutillar", "Chiloé"]
 
   const features = [
     "Vista al lago",
@@ -70,44 +62,44 @@ export default function PropertyFilters({ filters, onFiltersChange, properties }
     "Quincho",
     "Estacionamiento",
     "Amoblado",
-    "Acceso al agua"
+    "Acceso al agua",
   ]
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('es-CL', {
-      style: 'currency',
-      currency: 'CLP',
+    return new Intl.NumberFormat("es-CL", {
+      style: "currency",
+      currency: "CLP",
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0
+      maximumFractionDigits: 0,
     }).format(price)
   }
 
   const handleTypeChange = (typeId: string, checked: boolean) => {
-    const newTypes = checked
-      ? [...filters.types, typeId]
-      : filters.types.filter(t => t !== typeId)
-    
+    const newTypes = checked ? [...filters.types, typeId] : filters.types.filter((t) => t !== typeId)
+
     onFiltersChange({ ...filters, types: newTypes })
   }
 
   const handleLocationChange = (location: string, checked: boolean) => {
-    const newLocations = checked
-      ? [...filters.locations, location]
-      : filters.locations.filter(l => l !== location)
-    
+    const newLocations = checked ? [...filters.locations, location] : filters.locations.filter((l) => l !== location)
+
     onFiltersChange({ ...filters, locations: newLocations })
   }
 
   const handleFeatureChange = (feature: string, checked: boolean) => {
-    const newFeatures = checked
-      ? [...filters.features, feature]
-      : filters.features.filter(f => f !== feature)
-    
+    const newFeatures = checked ? [...filters.features, feature] : filters.features.filter((f) => f !== feature)
+
     onFiltersChange({ ...filters, features: newFeatures })
   }
 
   const handlePriceRangeChange = (value: number[]) => {
     onFiltersChange({ ...filters, priceRange: [value[0], value[1]] as [number, number] })
+  }
+
+  const handleAreaChange = (field: "minArea" | "maxArea", value: string) => {
+    // Only allow numeric values
+    const numericValue = value.replace(/[^0-9]/g, "")
+    onFiltersChange({ ...filters, [field]: numericValue })
   }
 
   const clearAllFilters = () => {
@@ -119,7 +111,7 @@ export default function PropertyFilters({ filters, onFiltersChange, properties }
       bathrooms: "any",
       minArea: "",
       maxArea: "",
-      features: []
+      features: [],
     })
   }
 
@@ -142,15 +134,8 @@ export default function PropertyFilters({ filters, onFiltersChange, properties }
           Filtros
           {getActiveFiltersCount() > 0 && (
             <div className="flex items-center gap-2">
-              <Badge variant="secondary">
-                {getActiveFiltersCount()} activos
-              </Badge>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearAllFilters}
-                className="h-6 w-6 p-0"
-              >
+              <Badge variant="secondary">{getActiveFiltersCount()} activos</Badge>
+              <Button variant="ghost" size="sm" onClick={clearAllFilters} className="h-6 w-6 p-0">
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -219,7 +204,10 @@ export default function PropertyFilters({ filters, onFiltersChange, properties }
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label className="text-sm font-medium">Dormitorios</Label>
-            <Select value={filters.bedrooms} onValueChange={(value) => onFiltersChange({ ...filters, bedrooms: value })}>
+            <Select
+              value={filters.bedrooms}
+              onValueChange={(value) => onFiltersChange({ ...filters, bedrooms: value })}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Cualquiera" />
               </SelectTrigger>
@@ -236,7 +224,10 @@ export default function PropertyFilters({ filters, onFiltersChange, properties }
 
           <div className="space-y-2">
             <Label className="text-sm font-medium">Baños</Label>
-            <Select value={filters.bathrooms} onValueChange={(value) => onFiltersChange({ ...filters, bathrooms: value })}>
+            <Select
+              value={filters.bathrooms}
+              onValueChange={(value) => onFiltersChange({ ...filters, bathrooms: value })}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Cualquiera" />
               </SelectTrigger>
@@ -252,11 +243,7 @@ export default function PropertyFilters({ filters, onFiltersChange, properties }
         </div>
 
         {/* Advanced Filters Toggle */}
-        <Button
-          variant="ghost"
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          className="w-full justify-between"
-        >
+        <Button variant="ghost" onClick={() => setShowAdvanced(!showAdvanced)} className="w-full justify-between">
           Filtros Avanzados
           {showAdvanced ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </Button>
@@ -272,7 +259,7 @@ export default function PropertyFilters({ filters, onFiltersChange, properties }
                   type="number"
                   placeholder="0"
                   value={filters.minArea}
-                  onChange={(e) => onFiltersChange({ ...filters, minArea: e.target.value })}
+                  onChange={(e) => handleAreaChange("minArea", e.target.value)}
                 />
               </div>
               <div className="space-y-2">
@@ -281,7 +268,7 @@ export default function PropertyFilters({ filters, onFiltersChange, properties }
                   type="number"
                   placeholder="Sin límite"
                   value={filters.maxArea}
-                  onChange={(e) => onFiltersChange({ ...filters, maxArea: e.target.value })}
+                  onChange={(e) => handleAreaChange("maxArea", e.target.value)}
                 />
               </div>
             </div>

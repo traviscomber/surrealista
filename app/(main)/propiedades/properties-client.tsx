@@ -6,7 +6,7 @@ import PropertyFilters from "@/components/properties/property-filters"
 import PropertyListView from "@/components/properties/property-list-view"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Search, Grid, List } from 'lucide-react'
+import { Search, Grid, List } from "lucide-react"
 
 interface Property {
   id: string
@@ -40,12 +40,12 @@ function PropertiesContent({ initialProperties }: PropertiesClientProps) {
     bathrooms: "any",
     minArea: "",
     maxArea: "",
-    features: [] as string[]
+    features: [] as string[],
   })
 
   // Update search term from URL params
   useEffect(() => {
-    const search = searchParams.get('search')
+    const search = searchParams.get("search")
     if (search) {
       setSearchTerm(search)
     }
@@ -53,53 +53,64 @@ function PropertiesContent({ initialProperties }: PropertiesClientProps) {
 
   // Filter properties based on search and filters
   const filteredProperties = useMemo(() => {
-    return properties.filter(property => {
+    return properties.filter((property) => {
       // Search term filter
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase()
-        const matchesSearch = 
-          property.title.toLowerCase().includes(searchLower) ||
-          property.location.toLowerCase().includes(searchLower) ||
-          property.description.toLowerCase().includes(searchLower)
+        const matchesSearch =
+          (property.title || "").toLowerCase().includes(searchLower) ||
+          (property.location || "").toLowerCase().includes(searchLower) ||
+          (property.description || "").toLowerCase().includes(searchLower)
         if (!matchesSearch) return false
       }
 
       // Type filter
-      if (filters.types.length > 0 && !filters.types.includes(property.type)) {
+      if (filters.types.length > 0 && !filters.types.includes(property.type || "")) {
         return false
       }
 
       // Location filter
       if (filters.locations.length > 0) {
-        const matchesLocation = filters.locations.some(location => 
-          property.location.toLowerCase().includes(location.toLowerCase())
+        const matchesLocation = filters.locations.some((location) =>
+          (property.location || "").toLowerCase().includes(location.toLowerCase()),
         )
         if (!matchesLocation) return false
       }
 
       // Price range filter
-      if (property.price < filters.priceRange[0] || property.price > filters.priceRange[1]) {
+      const propertyPrice = property.price || 0
+      if (propertyPrice < filters.priceRange[0] || propertyPrice > filters.priceRange[1]) {
         return false
       }
 
       // Bedrooms filter
       if (filters.bedrooms !== "any") {
-        const bedroomCount = parseInt(filters.bedrooms)
-        if (property.bedrooms !== bedroomCount) return false
+        const bedroomCount = Number.parseInt(filters.bedrooms)
+        const propertyBedrooms = property.bedrooms || 0
+        if (propertyBedrooms !== bedroomCount) return false
       }
 
       // Bathrooms filter
       if (filters.bathrooms !== "any") {
-        const bathroomCount = parseInt(filters.bathrooms)
-        if (property.bathrooms !== bathroomCount) return false
+        const bathroomCount = Number.parseInt(filters.bathrooms)
+        const propertyBathrooms = property.bathrooms || 0
+        if (propertyBathrooms !== bathroomCount) return false
       }
 
       // Area filters
-      if (filters.minArea && property.area < parseInt(filters.minArea)) {
+      const propertyArea = property.area || 0
+      if (filters.minArea && propertyArea < Number.parseInt(filters.minArea)) {
         return false
       }
-      if (filters.maxArea && property.area > parseInt(filters.maxArea)) {
+      if (filters.maxArea && propertyArea > Number.parseInt(filters.maxArea)) {
         return false
+      }
+
+      // Features filter functionality
+      if (filters.features.length > 0) {
+        const propertyDescription = (property.description || "").toLowerCase()
+        const matchesFeatures = filters.features.some((feature) => propertyDescription.includes(feature.toLowerCase()))
+        if (!matchesFeatures) return false
       }
 
       return true
@@ -112,12 +123,8 @@ function PropertiesContent({ initialProperties }: PropertiesClientProps) {
       <div className="relative bg-gradient-to-r from-blue-600 to-purple-600 text-white py-20">
         <div className="container mx-auto px-4">
           <div className="max-w-4xl mx-auto text-center space-y-6">
-            <h1 className="text-4xl md:text-6xl font-bold">
-              Encuentra tu Hogar Ideal
-            </h1>
-            <p className="text-xl opacity-90">
-              Descubre las mejores propiedades en el sur de Chile
-            </p>
+            <h1 className="text-4xl md:text-6xl font-bold">Encuentra tu Hogar Ideal</h1>
+            <p className="text-xl opacity-90">Descubre las mejores propiedades en el sur de Chile</p>
             <div className="max-w-2xl mx-auto">
               <div className="relative">
                 <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
@@ -138,19 +145,13 @@ function PropertiesContent({ initialProperties }: PropertiesClientProps) {
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Filters Sidebar */}
           <div className="lg:w-1/4">
-            <PropertyFilters
-              filters={filters}
-              onFiltersChange={setFilters}
-              properties={properties}
-            />
+            <PropertyFilters filters={filters} onFiltersChange={setFilters} properties={properties} />
           </div>
 
           {/* Properties List */}
           <div className="lg:w-3/4">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">
-                {filteredProperties.length} propiedades encontradas
-              </h2>
+              <h2 className="text-2xl font-bold text-gray-900">{filteredProperties.length} propiedades encontradas</h2>
               <div className="flex gap-2">
                 <Button
                   variant={viewMode === "grid" ? "default" : "outline"}
@@ -169,10 +170,7 @@ function PropertiesContent({ initialProperties }: PropertiesClientProps) {
               </div>
             </div>
 
-            <PropertyListView
-              properties={filteredProperties}
-              viewMode={viewMode}
-            />
+            <PropertyListView properties={filteredProperties} viewMode={viewMode} />
           </div>
         </div>
       </div>
