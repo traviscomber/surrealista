@@ -1,21 +1,239 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect, useRef } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Upload, MapPin, FileText, Map, Eye, Trash2, AlertCircle, CheckCircle, Sparkles } from "lucide-react"
+import { Upload, MapPin, FileText, Eye, Trash2, AlertCircle, CheckCircle, Sparkles } from "lucide-react"
 import { useDropzone } from "react-dropzone"
 import { kmzReader, type KMZData } from "@/lib/kmz/kmz-reader"
-import { KMZMapDisplay } from "@/components/kmz/kmz-map-display"
 
-export function KMZViewer() {
+export function EnhancedKMZViewer() {
   const [kmzFiles, setKmzFiles] = useState<KMZData[]>([])
   const [loading, setLoading] = useState(false)
   const [progress, setProgress] = useState(0)
   const [selectedKMZ, setSelectedKMZ] = useState<KMZData | null>(null)
+  const [mapInstance, setMapInstance] = useState<any>(null)
+  const [leafletLoaded, setLeafletLoaded] = useState(false)
+  const [mapError, setMapError] = useState<string | null>(null)
+  const mapRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const loadLeaflet = async () => {
+      if (typeof window === "undefined" || (window as any).L) {
+        setLeafletLoaded(true)
+        return
+      }
+
+      try {
+        // Load Leaflet CSS
+        const cssLink = document.createElement("link")
+        cssLink.rel = "stylesheet"
+        cssLink.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        cssLink.integrity = "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        cssLink.crossOrigin = ""
+        document.head.appendChild(cssLink)
+
+        // Load Leaflet JS
+        const script = document.createElement("script")
+        script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        script.integrity = "sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        script.crossOrigin = ""
+
+        await new Promise((resolve, reject) => {
+          script.onload = resolve
+          script.onerror = reject
+          document.head.appendChild(script)
+        })
+
+        setLeafletLoaded(true)
+      } catch (error) {
+        console.error("Error loading Leaflet:", error)
+        setMapError("Error cargando el mapa")
+      }
+    }
+
+    loadLeaflet()
+  }, [])
+
+  useEffect(() => {
+    if (!leafletLoaded || !mapRef.current || mapInstance) return
+
+    const initMap = async () => {
+      try {
+        const L = (window as any).L
+        if (!L) return
+
+        // Clear any existing map
+        if (mapRef.current) {
+          mapRef.current.innerHTML = ""
+        }
+
+        // Create map with Chile-focused view
+        const map = L.map(mapRef.current, {
+          center: [-41.0, -72.5], // Centro de Chile
+          zoom: 8,
+          zoomControl: false, // We'll add custom controls
+        })
+
+        // Add multiple tile layer options for better KMZ visualization
+        const osmLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution: "© OpenStreetMap contributors",
+          maxZoom: 18,
+        })
+
+        const satelliteLayer = L.tileLayer(
+          "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+          {
+            attribution: "© Esri",
+            maxZoom: 18,
+          },
+        )
+
+        const topoLayer = L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
+          attribution: "© OpenTopoMap contributors",
+          maxZoom: 17,
+        })
+
+        // Add default layer
+        osmLayer.addTo(map)
+
+        // Layer control
+        const baseLayers = {
+          OpenStreetMap: osmLayer,
+          Satélite: satelliteLayer,
+          Topográfico: topoLayer,
+        }
+        L.control.layers(baseLayers).addTo(map)
+
+        // Custom zoom controls
+        L.control
+          .zoom({
+            position: "topright",
+          })
+          .addTo(map)
+
+        setMapInstance(map)
+      } catch (error) {
+        console.error("Error initializing map:", error)
+        setMapError("Error inicializando el mapa")
+      }
+    }
+
+    initMap()
+  }, [leafletLoaded, mapInstance])
+
+  useEffect(() => {
+    if (!mapInstance || !kmzFiles.length) return
+
+    const L = (window as any).L
+    if (!L) return
+
+    // Clear existing KMZ layers
+    mapInstance.eachLayer((layer: any) => {
+      if (layer.options && layer.options.isKMZ) {
+        mapInstance.removeLayer(layer)
+      }
+    })
+
+    const allBounds: any[] = []
+
+    kmzFiles.forEach((kmzData, kmzIndex) => {
+      const colors = ["#e74c3c", "#3498db", "#2ecc71", "#f39c12", "#9b59b6", "#1abc9c"]
+      const color = colors[kmzIndex % colors.length]
+
+      kmzData.placemarks.forEach((placemark, placemarkIndex) => {
+        // Handle different geometry types properly
+        if (placemark.type === "Point" && placemark.coordinates.length > 0) {
+          const [lng, lat] = placemark.coordinates[0]
+
+          // Validate coordinates
+          if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+            console.warn(`Invalid coordinates for ${placemark.name}: [${lng}, ${lat}]`)
+            return
+          }
+
+          const marker = L.marker([lat, lng], {
+            isKMZ: true,
+            icon: L.divIcon({
+              html: `<div style="background-color: ${color}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 1px 3px rgba(0,0,0,0.3);"></div>`,
+              className: "kmz-point-marker",
+              iconSize: [12, 12],
+              iconAnchor: [6, 6],
+            }),
+          }).addTo(mapInstance)
+
+          marker.bindPopup(`
+            <div style="min-width: 200px;">
+              <h4 style="margin: 0 0 8px 0; color: ${color}; font-weight: bold;">${placemark.name}</h4>
+              <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Archivo:</strong> ${kmzData.fileName}</p>
+              <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Tipo:</strong> ${placemark.type}</p>
+              <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Coordenadas:</strong> ${lat.toFixed(6)}, ${lng.toFixed(6)}</p>
+              ${placemark.description ? `<p style="margin: 4px 0 0 0; font-size: 11px; color: #666;">${placemark.description.substring(0, 100)}...</p>` : ""}
+            </div>
+          `)
+
+          allBounds.push([lat, lng])
+        } else if (
+          (placemark.type === "LineString" || placemark.type === "Polygon") &&
+          placemark.coordinates.length > 1
+        ) {
+          // Convert coordinates from [lng, lat] to [lat, lng] for Leaflet
+          const leafletCoords = placemark.coordinates
+            .filter(([lng, lat]) => !isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180)
+            .map(([lng, lat]) => [lat, lng] as [number, number])
+
+          if (leafletCoords.length < 2) {
+            console.warn(`Insufficient valid coordinates for ${placemark.name}`)
+            return
+          }
+
+          let shape: any
+          if (placemark.type === "Polygon") {
+            shape = L.polygon(leafletCoords, {
+              color: color,
+              weight: 2,
+              opacity: 0.8,
+              fillColor: color,
+              fillOpacity: 0.2,
+              isKMZ: true,
+            }).addTo(mapInstance)
+          } else {
+            shape = L.polyline(leafletCoords, {
+              color: color,
+              weight: 3,
+              opacity: 0.8,
+              isKMZ: true,
+            }).addTo(mapInstance)
+          }
+
+          shape.bindPopup(`
+            <div style="min-width: 200px;">
+              <h4 style="margin: 0 0 8px 0; color: ${color}; font-weight: bold;">${placemark.name}</h4>
+              <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Archivo:</strong> ${kmzData.fileName}</p>
+              <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Tipo:</strong> ${placemark.type}</p>
+              <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Puntos:</strong> ${leafletCoords.length}</p>
+              ${placemark.description ? `<p style="margin: 4px 0 0 0; font-size: 11px; color: #666;">${placemark.description.substring(0, 100)}...</p>` : ""}
+            </div>
+          `)
+
+          allBounds.push(...leafletCoords)
+        }
+      })
+    })
+
+    // Fit map to show all KMZ data
+    if (allBounds.length > 0) {
+      try {
+        const bounds = L.latLngBounds(allBounds)
+        mapInstance.fitBounds(bounds, { padding: [20, 20] })
+      } catch (error) {
+        console.warn("Error fitting bounds:", error)
+      }
+    }
+  }, [mapInstance, kmzFiles])
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const kmzFiles = acceptedFiles.filter(
@@ -89,10 +307,10 @@ export function KMZViewer() {
                 <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
                   <Sparkles className="h-6 w-6" />
                 </div>
-                <h1 className="text-4xl font-bold tracking-tight">Lector de Archivos KMZ</h1>
+                <h1 className="text-4xl font-bold tracking-tight">Visualizador KMZ Mejorado</h1>
               </div>
               <p className="text-blue-100 text-lg font-medium">
-                Carga y visualiza múltiples archivos KMZ de propiedades con tecnología avanzada
+                Visualización avanzada de archivos KMZ con mapas interactivos y coordenadas precisas
               </p>
             </div>
             <div className="flex gap-3">
@@ -107,7 +325,6 @@ export function KMZViewer() {
             </div>
           </div>
         </div>
-        {/* </CHANGE> */}
 
         <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm">
           <CardContent className="p-8">
@@ -132,7 +349,7 @@ export function KMZViewer() {
                       Arrastra archivos KMZ aquí o haz clic para seleccionar
                     </p>
                     <p className="text-slate-500 font-medium">
-                      Soporta archivos .kmz y .kml • Múltiples archivos permitidos
+                      Soporta archivos .kmz y .kml • Visualización mejorada con coordenadas precisas
                     </p>
                   </div>
                 )}
@@ -150,85 +367,23 @@ export function KMZViewer() {
             )}
           </CardContent>
         </Card>
-        {/* </CHANGE> */}
-
-        {kmzFiles.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-500 to-blue-600 text-white overflow-hidden relative">
-              <div className="absolute inset-0 bg-white/10"></div>
-              <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-semibold opacity-90">Archivos KMZ</CardTitle>
-                <div className="p-2 bg-white/20 rounded-lg">
-                  <FileText className="h-4 w-4" />
-                </div>
-              </CardHeader>
-              <CardContent className="relative">
-                <div className="text-3xl font-bold">{kmzFiles.length}</div>
-                <p className="text-xs opacity-80 mt-1">archivos cargados</p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-emerald-500 to-emerald-600 text-white overflow-hidden relative">
-              <div className="absolute inset-0 bg-white/10"></div>
-              <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-semibold opacity-90">Ubicaciones</CardTitle>
-                <div className="p-2 bg-white/20 rounded-lg">
-                  <MapPin className="h-4 w-4" />
-                </div>
-              </CardHeader>
-              <CardContent className="relative">
-                <div className="text-3xl font-bold">{getTotalPlacemarks()}</div>
-                <p className="text-xs opacity-80 mt-1">puntos geográficos</p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-orange-500 to-orange-600 text-white overflow-hidden relative">
-              <div className="absolute inset-0 bg-white/10"></div>
-              <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-semibold opacity-90">Números de Rol</CardTitle>
-                <div className="p-2 bg-white/20 rounded-lg">
-                  <CheckCircle className="h-4 w-4" />
-                </div>
-              </CardHeader>
-              <CardContent className="relative">
-                <div className="text-3xl font-bold">{getAllRoles().length}</div>
-                <p className="text-xs opacity-80 mt-1">propiedades identificadas</p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-500 to-purple-600 text-white overflow-hidden relative">
-              <div className="absolute inset-0 bg-white/10"></div>
-              <CardHeader className="relative flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-semibold opacity-90">Estado</CardTitle>
-                <div className="p-2 bg-white/20 rounded-lg">
-                  <Map className="h-4 w-4" />
-                </div>
-              </CardHeader>
-              <CardContent className="relative">
-                <div className="text-3xl font-bold">Listo</div>
-                <p className="text-xs opacity-80 mt-1">sistema operativo</p>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-        {/* </CHANGE> */}
 
         {kmzFiles.length > 0 && (
           <Card className="border-0 shadow-xl bg-white/90 backdrop-blur-sm">
             <CardContent className="p-6">
-              <Tabs defaultValue="list" className="space-y-6">
+              <Tabs defaultValue="map" className="space-y-6">
                 <TabsList className="grid w-full grid-cols-3 bg-slate-100 p-1 rounded-xl">
+                  <TabsTrigger
+                    value="map"
+                    className="rounded-lg font-semibold data-[state=active]:bg-white data-[state=active]:shadow-sm"
+                  >
+                    Mapa Interactivo
+                  </TabsTrigger>
                   <TabsTrigger
                     value="list"
                     className="rounded-lg font-semibold data-[state=active]:bg-white data-[state=active]:shadow-sm"
                   >
                     Lista de Archivos
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="map"
-                    className="rounded-lg font-semibold data-[state=active]:bg-white data-[state=active]:shadow-sm"
-                  >
-                    Vista de Mapa
                   </TabsTrigger>
                   <TabsTrigger
                     value="roles"
@@ -237,6 +392,78 @@ export function KMZViewer() {
                     Números de Rol
                   </TabsTrigger>
                 </TabsList>
+
+                <TabsContent value="map">
+                  <div className="space-y-6">
+                    <div className="text-center space-y-2">
+                      <h3 className="text-2xl font-bold text-slate-800">Visualización Mejorada de KMZ</h3>
+                      <p className="text-slate-600 font-medium">
+                        Mapa interactivo con coordenadas precisas y múltiples capas base
+                      </p>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-slate-50 to-blue-50 p-6 rounded-2xl">
+                      <div className="h-[600px] w-full rounded-xl overflow-hidden shadow-lg relative">
+                        {mapError ? (
+                          <div className="flex items-center justify-center h-full bg-red-50">
+                            <div className="text-center">
+                              <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+                              <p className="text-red-600 font-medium">{mapError}</p>
+                            </div>
+                          </div>
+                        ) : !leafletLoaded ? (
+                          <div className="flex items-center justify-center h-full bg-gray-100">
+                            <div className="text-center">
+                              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                              <p className="text-gray-600">Cargando mapa...</p>
+                            </div>
+                          </div>
+                        ) : (
+                          <div ref={mapRef} className="w-full h-full" />
+                        )}
+                      </div>
+
+                      {/* Enhanced map statistics */}
+                      <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="bg-white p-4 rounded-xl shadow-sm">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-green-100 rounded-lg">
+                              <CheckCircle className="h-5 w-5 text-green-600" />
+                            </div>
+                            <div>
+                              <div className="font-bold text-green-700">Archivos Cargados</div>
+                              <div className="text-sm text-slate-600">{kmzFiles.length} archivos KMZ</div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="bg-white p-4 rounded-xl shadow-sm">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-blue-100 rounded-lg">
+                              <MapPin className="h-5 w-5 text-blue-600" />
+                            </div>
+                            <div>
+                              <div className="font-bold text-blue-700">Ubicaciones</div>
+                              <div className="text-sm text-slate-600">{getTotalPlacemarks()} puntos visualizados</div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="bg-white p-4 rounded-xl shadow-sm">
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 bg-orange-100 rounded-lg">
+                              <FileText className="h-5 w-5 text-orange-600" />
+                            </div>
+                            <div>
+                              <div className="font-bold text-orange-700">Números de Rol</div>
+                              <div className="text-sm text-slate-600">{getAllRoles().length} identificados</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
 
                 <TabsContent value="list" className="space-y-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -305,64 +532,6 @@ export function KMZViewer() {
                   </div>
                 </TabsContent>
 
-                <TabsContent value="map">
-                  <div className="space-y-6">
-                    <div className="text-center space-y-2">
-                      <h3 className="text-2xl font-bold text-slate-800">Vista de Mapa Integrado</h3>
-                      <p className="text-slate-600 font-medium">
-                        Visualización interactiva de todas las ubicaciones KMZ
-                      </p>
-                    </div>
-
-                    <div className="bg-gradient-to-br from-slate-50 to-blue-50 p-6 rounded-2xl">
-                      <div className="h-[600px] w-full rounded-xl overflow-hidden shadow-lg">
-                        <KMZMapDisplay kmzFiles={kmzFiles} height="600px" />
-                      </div>
-
-                      {/* Enhanced map statistics */}
-                      <div className="mt-6 flex justify-between items-center p-4 bg-white rounded-xl shadow-sm">
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-green-100 rounded-lg">
-                            <CheckCircle className="h-5 w-5 text-green-600" />
-                          </div>
-                          <div>
-                            <div className="font-bold text-green-700">Mapa Activo</div>
-                            <div className="text-sm text-slate-600">
-                              {getTotalPlacemarks()} ubicaciones visualizadas
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="text-right">
-                          <div className="font-bold text-slate-700">
-                            {kmzFiles.length} archivo{kmzFiles.length !== 1 ? "s" : ""} KMZ
-                          </div>
-                          <div className="text-sm text-slate-500">cargado{kmzFiles.length !== 1 ? "s" : ""}</div>
-                        </div>
-                      </div>
-
-                      {/* Enhanced KMZ files summary */}
-                      <div className="mt-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {kmzFiles.map((kmz, index) => (
-                          <div
-                            key={index}
-                            className="bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-4 shadow-sm"
-                          >
-                            <div className="font-bold text-slate-800 truncate">{kmz.fileName}</div>
-                            <div className="text-sm text-slate-600 mt-1">{kmz.placemarks.length} ubicaciones</div>
-                            {kmzReader.extractPropertyRoles(kmz).length > 0 && (
-                              <div className="text-xs text-orange-600 font-mono mt-2 bg-orange-50 px-2 py-1 rounded">
-                                Roles: {kmzReader.extractPropertyRoles(kmz).slice(0, 2).join(", ")}
-                                {kmzReader.extractPropertyRoles(kmz).length > 2 && "..."}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </TabsContent>
-
                 <TabsContent value="roles">
                   <div className="space-y-6">
                     <div className="text-center space-y-2">
@@ -404,7 +573,6 @@ export function KMZViewer() {
             </CardContent>
           </Card>
         )}
-        {/* </CHANGE> */}
 
         {selectedKMZ && (
           <Card className="border-0 shadow-2xl bg-white">
@@ -440,6 +608,11 @@ export function KMZViewer() {
                         <span className="font-medium">Tipo:</span> {placemark.type} •
                         <span className="font-medium"> Coordenadas:</span> {placemark.coordinates.length} puntos
                       </div>
+                      {placemark.coordinates.length > 0 && (
+                        <div className="text-xs mt-2 text-slate-500 bg-slate-50 p-2 rounded font-mono">
+                          Lat: {placemark.coordinates[0][1]?.toFixed(6)}, Lng: {placemark.coordinates[0][0]?.toFixed(6)}
+                        </div>
+                      )}
                       {placemark.description && (
                         <div className="text-xs mt-2 text-slate-500 bg-slate-50 p-2 rounded">
                           {placemark.description.substring(0, 150)}...
@@ -452,7 +625,6 @@ export function KMZViewer() {
             </CardContent>
           </Card>
         )}
-        {/* </CHANGE> */}
       </div>
     </div>
   )
