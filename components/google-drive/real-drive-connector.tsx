@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, CheckCircle, AlertCircle, FolderOpen, FileText, Download } from "lucide-react"
 import { realDriveService, type FolderStructure } from "@/lib/google-drive/real-drive-service"
+import { completenessAnalyzer } from "@/lib/google-drive/completeness-analyzer"
 
 export default function RealDriveConnector() {
   const [isConnecting, setIsConnecting] = useState(false)
@@ -170,11 +171,22 @@ export default function RealDriveConnector() {
                       <div className="flex items-start justify-between">
                         <div className="space-y-2">
                           <div className="flex items-center gap-2">
-                            <h3 className="font-semibold">{folder.name}</h3>
+                            <h3 className="font-semibold">{folder.displayName}</h3>
                             <Badge className={getStatusColor(folder.completionStatus)}>
                               {getStatusText(folder.completionStatus)}
                             </Badge>
+                            <Badge
+                              variant="outline"
+                              className={completenessAnalyzer.getCompletenessColor(folder.completenessScore)}
+                            >
+                              {completenessAnalyzer.getCompletenessIcon(folder.completenessScore)}{" "}
+                              {folder.completenessScore}%
+                            </Badge>
                           </div>
+
+                          {folder.originalName !== folder.displayName && (
+                            <p className="text-xs text-muted-foreground">Nombre original: {folder.originalName}</p>
+                          )}
 
                           <div className="grid grid-cols-3 gap-4 text-sm text-muted-foreground">
                             <div>
@@ -185,18 +197,41 @@ export default function RealDriveConnector() {
                               <Download className="inline h-4 w-4 mr-1" />
                               {(folder.totalSize / 1024 / 1024).toFixed(1)} MB
                             </div>
-                            <div>ID: {folder.id}</div>
+                            <div>
+                              {folder.extractedInfo.location && <span>📍 {folder.extractedInfo.location}</span>}
+                            </div>
                           </div>
 
-                          {(folder as any).extractedRols && (
+                          {(folder.extractedInfo.area || folder.extractedInfo.rolNumbers.length > 0) && (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {folder.extractedInfo.area && (
+                                <Badge variant="secondary">🏞️ {folder.extractedInfo.area}</Badge>
+                              )}
+                              {folder.extractedInfo.rolNumbers.map((rol, idx) => (
+                                <Badge key={idx} variant="secondary">
+                                  📋 {rol}
+                                </Badge>
+                              ))}
+                              {folder.extractedInfo.year && (
+                                <Badge variant="secondary">📅 {folder.extractedInfo.year}</Badge>
+                              )}
+                            </div>
+                          )}
+
+                          {folder.completenessDetails.missingElements.length > 0 && (
                             <div className="mt-2">
-                              <strong>Números de Rol Extraídos:</strong>
-                              <div className="flex flex-wrap gap-1 mt-1">
-                                {(folder as any).extractedRols.map((rol: string, idx: number) => (
-                                  <Badge key={idx} variant="outline">
-                                    {rol}
+                              <p className="text-xs font-medium text-muted-foreground mb-1">Elementos faltantes:</p>
+                              <div className="flex flex-wrap gap-1">
+                                {folder.completenessDetails.missingElements.slice(0, 3).map((element, idx) => (
+                                  <Badge key={idx} variant="outline" className="text-xs">
+                                    {element}
                                   </Badge>
                                 ))}
+                                {folder.completenessDetails.missingElements.length > 3 && (
+                                  <Badge variant="outline" className="text-xs">
+                                    +{folder.completenessDetails.missingElements.length - 3} más
+                                  </Badge>
+                                )}
                               </div>
                             </div>
                           )}

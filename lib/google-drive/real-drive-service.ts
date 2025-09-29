@@ -15,14 +15,27 @@ interface DriveFile {
   webViewLink: string
 }
 
+import { completenessAnalyzer, type CompletenessResult } from "./completeness-analyzer"
+
 interface FolderStructure {
   id: string
   name: string
+  originalName: string // Added original name field
+  displayName: string // Added formatted display name
   files: DriveFile[]
   subfolders: FolderStructure[]
   totalFiles: number
   totalSize: number
   completionStatus: "complete" | "incomplete" | "pending"
+  completenessScore: number // Added detailed completeness score
+  completenessDetails: CompletenessResult // Added detailed analysis
+  extractedInfo: {
+    // Added extracted information
+    rolNumbers: string[]
+    location: string
+    area: string
+    year: string
+  }
 }
 
 class RealGoogleDriveService {
@@ -185,34 +198,130 @@ class RealGoogleDriveService {
 
       const filesData = await response.json()
       const files: DriveFile[] = filesData.files || []
+      const folders = files.filter((f) => f.mimeType === "application/vnd.google-apps.folder")
+      const regularFiles = files.filter((f) => f.mimeType !== "application/vnd.google-apps.folder")
 
-      // Analyze completion based on standard 6-folder structure
-      const completionStatus = this.analyzeCompletionStatus(files)
+      const completenessDetails = completenessAnalyzer.analyzeCompleteness(regularFiles, folders)
+      const completionStatus = this.getCompletionStatusFromScore(completenessDetails.overallScore)
+
+      const extractedInfo = this.extractFolderInfo(folderName)
+      const displayName = this.formatDisplayName(folderName, extractedInfo)
 
       return {
         id: folderId,
         name: folderName,
-        files: files,
+        originalName: folderName, // Store original name
+        displayName, // Store formatted display name
+        files: regularFiles,
         subfolders: [], // Could be expanded to analyze subfolders
-        totalFiles: files.length,
-        totalSize: files.reduce((sum, file) => sum + Number.parseInt(file.size || "0"), 0),
+        totalFiles: regularFiles.length,
+        totalSize: regularFiles.reduce((sum, file) => sum + Number.parseInt(file.size || "0"), 0),
         completionStatus,
+        completenessScore: completenessDetails.overallScore, // Store detailed score
+        completenessDetails, // Store full analysis
+        extractedInfo, // Store extracted information
       }
     } catch (error) {
       console.error("[v0] Error analyzing folder:", error)
       return {
         id: folderId,
         name: folderName,
+        originalName: folderName,
+        displayName: folderName,
         files: [],
         subfolders: [],
         totalFiles: 0,
         totalSize: 0,
         completionStatus: "pending",
+        completenessScore: 0,
+        completenessDetails: {
+          overallScore: 0,
+          criteriaResults: [],
+          recommendations: [],
+          missingElements: [],
+          status: "poor",
+        },
+        extractedInfo: {
+          rolNumbers: [],
+          location: "",
+          area: "",
+          year: "",
+        },
       }
     }
   }
 
+  private extractFolderInfo(folderName: string): {
+    rolNumbers: string[]
+    location: string
+    area: string
+    year: string
+  } {
+    const info = {
+      rolNumbers: [] as string[],
+      location: "",
+      area: "",
+      year: "",
+    }
+
+    // Extract rol numbers
+    const rolMatches = folderName.match(/\b\d{1,3}[-_]\d{1,4}\b/g)
+    if (rolMatches) {
+      info.rolNumbers = rolMatches
+    }
+
+    // Extract location
+    const locationKeywords = ["valdivia", "temuco", "osorno", "puerto", "lago", "villarrica", "pucon", "frutillar"]
+    for (const keyword of locationKeywords) {
+      if (folderName.toLowerCase().includes(keyword)) {
+        info.location = keyword.charAt(0).toUpperCase() + keyword.slice(1)
+        break
+      }
+    }
+
+    // Extract area
+    const areaMatch = folderName.match(/(\d+[._]?\d*)\s*(has?|hectáreas?)/i)
+    if (areaMatch) {
+      info.area = `${areaMatch[1]} has`
+    }
+
+    // Extract year
+    const yearMatch = folderName.match(/\b(20\d{2})\b/)
+    if (yearMatch) {
+      info.year = yearMatch[1]
+    }
+
+    return info
+  }
+
+  private formatDisplayName(originalName: string, extractedInfo: any): string {
+    let displayName = originalName
+
+    // If we have extracted info, create a more readable format
+    if (extractedInfo.location || extractedInfo.area || extractedInfo.year) {
+      const parts = []
+
+      if (extractedInfo.location) parts.push(extractedInfo.location)
+      if (extractedInfo.area) parts.push(extractedInfo.area)
+      if (extractedInfo.year) parts.push(`(${extractedInfo.year})`)
+      if (extractedInfo.rolNumbers.length > 0) parts.push(`Rol: ${extractedInfo.rolNumbers[0]}`)
+
+      if (parts.length > 0) {
+        displayName = parts.join(" - ")
+      }
+    }
+
+    return displayName
+  }
+
+  private getCompletionStatusFromScore(score: number): "complete" | "incomplete" | "pending" {
+    if (score >= 75) return "complete"
+    if (score >= 40) return "incomplete"
+    return "pending"
+  }
+
   private analyzeCompletionStatus(files: DriveFile[]): "complete" | "incomplete" | "pending" {
+    // Keeping for backward compatibility
     const requiredFolders = [
       "1_FOTOS",
       "2_DOCUMENTOS",
@@ -283,6 +392,8 @@ class RealGoogleDriveService {
       {
         id: "1wJRhFJNpIqoJ_O9FPIhpPglmypnwgt5F",
         name: "Valdivia 142 has Teresa F...",
+        originalName: "Valdivia 142 has Teresa F...",
+        displayName: "Valdivia 142 has Teresa F...",
         files: [
           {
             id: "1",
@@ -327,6 +438,20 @@ class RealGoogleDriveService {
         totalFiles: 8,
         totalSize: 7200000,
         completionStatus: "complete",
+        completenessScore: 100,
+        completenessDetails: {
+          overallScore: 100,
+          criteriaResults: [],
+          recommendations: [],
+          missingElements: [],
+          status: "excellent",
+        },
+        extractedInfo: {
+          rolNumbers: [],
+          location: "",
+          area: "",
+          year: "",
+        },
       },
     ]
   }
