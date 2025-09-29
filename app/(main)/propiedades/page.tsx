@@ -6,18 +6,19 @@ async function getProperties() {
   const supabase = await createClient()
 
   try {
-    const { data: properties, error } = await supabase
-      .from("properties")
+    const { data: enhancedProperties, error } = await supabase
+      .from("properties_enhanced")
       .select("*")
       .eq("status", "active")
       .order("created_at", { ascending: false })
 
     if (error) {
-      console.error("Error fetching properties:", error)
+      console.error("Database query error:", error)
       return []
     }
 
-    return properties || []
+    console.log("[v0] Found", enhancedProperties?.length || 0, "scraped properties")
+    return enhancedProperties || []
   } catch (error) {
     console.error("Database connection error:", error)
     return []

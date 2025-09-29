@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Heart, MapPin, Bed, Bath, Square, Eye } from 'lucide-react'
+import { Heart, MapPin, Bed, Bath, Square, Eye } from "lucide-react"
 import Link from "next/link"
 
 interface Property {
@@ -34,20 +34,16 @@ export default function PropertyListView({ properties = [], viewMode }: Property
   const safeProperties = Array.isArray(properties) ? properties : []
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('es-CL', {
-      style: 'currency',
-      currency: 'CLP',
+    return new Intl.NumberFormat("es-CL", {
+      style: "currency",
+      currency: "CLP",
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0
+      maximumFractionDigits: 0,
     }).format(price)
   }
 
   const toggleFavorite = (propertyId: string) => {
-    setFavorites(prev => 
-      prev.includes(propertyId)
-        ? prev.filter(id => id !== propertyId)
-        : [...prev, propertyId]
-    )
+    setFavorites((prev) => (prev.includes(propertyId) ? prev.filter((id) => id !== propertyId) : [...prev, propertyId]))
   }
 
   const getPropertyImage = (property: Property) => {
@@ -67,9 +63,8 @@ export default function PropertyListView({ properties = [], viewMode }: Property
       return property.images[0]
     }
 
-    // Smart mapping based on title and location
-    const title = property.title.toLowerCase()
-    const location = property.location.toLowerCase()
+    const title = (property.title && typeof property.title === "string" ? property.title : "").toLowerCase()
+    const location = (property.location && typeof property.location === "string" ? property.location : "").toLowerCase()
 
     if (title.includes("lago") || location.includes("puerto varas") || location.includes("frutillar")) {
       return "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800&h=600&fit=crop&crop=center"
@@ -91,7 +86,7 @@ export default function PropertyListView({ properties = [], viewMode }: Property
   }
 
   const handleImageError = (propertyId: string) => {
-    setImageErrors(prev => ({ ...prev, [propertyId]: true }))
+    setImageErrors((prev) => ({ ...prev, [propertyId]: true }))
   }
 
   if (safeProperties.length === 0) {
@@ -101,15 +96,9 @@ export default function PropertyListView({ properties = [], viewMode }: Property
           <div className="w-24 h-24 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
             <MapPin className="w-12 h-12 text-gray-400" />
           </div>
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">
-            No se encontraron propiedades
-          </h3>
-          <p className="text-gray-600 mb-6">
-            Intenta ajustar tus filtros de búsqueda para encontrar más opciones.
-          </p>
-          <Button variant="outline">
-            Limpiar Filtros
-          </Button>
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">No se encontraron propiedades</h3>
+          <p className="text-gray-600 mb-6">Intenta ajustar tus filtros de búsqueda para encontrar más opciones.</p>
+          <Button variant="outline">Limpiar Filtros</Button>
         </div>
       </div>
     )
@@ -148,24 +137,18 @@ export default function PropertyListView({ properties = [], viewMode }: Property
               </div>
               <CardContent className="md:w-2/3 p-6">
                 <div className="flex justify-between items-start mb-2">
-                  <h3 className="text-xl font-semibold text-gray-900 line-clamp-1">
-                    {property.title}
-                  </h3>
+                  <h3 className="text-xl font-semibold text-gray-900 line-clamp-1">{property.title || "Sin título"}</h3>
                   <div className="text-right">
-                    <div className="text-2xl font-bold text-blue-600">
-                      {formatPrice(property.price)}
-                    </div>
+                    <div className="text-2xl font-bold text-blue-600">{formatPrice(property.price)}</div>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center text-gray-600 mb-3">
                   <MapPin className="h-4 w-4 mr-1" />
-                  <span className="text-sm">{property.location}</span>
+                  <span className="text-sm">{property.location || "Ubicación no disponible"}</span>
                 </div>
 
-                <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                  {property.description}
-                </p>
+                <p className="text-gray-600 text-sm mb-4 line-clamp-2">{property.description}</p>
 
                 <div className="flex items-center gap-4 mb-4">
                   {property.bedrooms > 0 && (
@@ -191,7 +174,10 @@ export default function PropertyListView({ properties = [], viewMode }: Property
                     {property.type}
                   </Badge>
                   <Link href={`/propiedades/${property.id}`}>
-                    <Button size="sm" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
+                    <Button
+                      size="sm"
+                      className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                    >
                       <Eye className="h-4 w-4 mr-2" />
                       Ver Detalles
                     </Button>
@@ -223,31 +209,25 @@ export default function PropertyListView({ properties = [], viewMode }: Property
               onClick={() => toggleFavorite(property.id)}
             >
               <Heart
-                className={`h-4 w-4 ${
-                  favorites.includes(property.id) ? "fill-red-500 text-red-500" : "text-gray-600"
-                }`}
+                className={`h-4 w-4 ${favorites.includes(property.id) ? "fill-red-500 text-red-500" : "text-gray-600"}`}
               />
             </Button>
             {property.featured && (
-              <Badge className="absolute top-2 left-2 bg-gradient-to-r from-yellow-400 to-orange-500">
-                Destacada
-              </Badge>
+              <Badge className="absolute top-2 left-2 bg-gradient-to-r from-yellow-400 to-orange-500">Destacada</Badge>
             )}
           </div>
           <CardContent className="p-4">
             <div className="mb-2">
               <h3 className="text-lg font-semibold text-gray-900 line-clamp-1 mb-1">
-                {property.title}
+                {property.title || "Sin título"}
               </h3>
               <div className="flex items-center text-gray-600 mb-2">
                 <MapPin className="h-4 w-4 mr-1" />
-                <span className="text-sm">{property.location}</span>
+                <span className="text-sm">{property.location || "Ubicación no disponible"}</span>
               </div>
             </div>
 
-            <div className="text-xl font-bold text-blue-600 mb-3">
-              {formatPrice(property.price)}
-            </div>
+            <div className="text-xl font-bold text-blue-600 mb-3">{formatPrice(property.price)}</div>
 
             <div className="flex items-center gap-4 mb-4">
               {property.bedrooms > 0 && (
@@ -273,7 +253,10 @@ export default function PropertyListView({ properties = [], viewMode }: Property
                 {property.type}
               </Badge>
               <Link href={`/propiedades/${property.id}`}>
-                <Button size="sm" className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
+                <Button
+                  size="sm"
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                >
                   <Eye className="h-4 w-4 mr-2" />
                   Ver Detalles
                 </Button>
