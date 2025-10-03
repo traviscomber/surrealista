@@ -350,15 +350,21 @@ const CanvasMap = ({
   const handleKmzLegendClick = () => {
     if (kmzData.length === 0) return
 
-    const firstKmz = kmzData[0]
-    if (!firstKmz.placemarks || firstKmz.placemarks.length === 0) return
+    let allCoordinates: Array<[number, number]> = []
 
-    const firstPlacemark = firstKmz.placemarks[0]
-    if (!firstPlacemark.coordinates || firstPlacemark.coordinates.length === 0) return
+    kmzData.forEach((data) => {
+      data.placemarks.forEach((placemark) => {
+        allCoordinates = allCoordinates.concat(placemark.coordinates)
+      })
+    })
 
-    const [lat, lng] = firstPlacemark.coordinates[0]
+    if (allCoordinates.length === 0) return
 
-    const centerCanvas = latLngToCanvas(lat, lng)
+    // Calculate average position of all KMZ points
+    const avgLat = allCoordinates.reduce((sum, coord) => sum + coord[0], 0) / allCoordinates.length
+    const avgLng = allCoordinates.reduce((sum, coord) => sum + coord[1], 0) / allCoordinates.length
+
+    const centerCanvas = latLngToCanvas(avgLat, avgLng)
 
     const canvas = canvasRef.current
     if (!canvas) return
@@ -437,7 +443,7 @@ const CanvasMap = ({
         </div>
       )}
 
-      <div className="absolute bottom-4 right-4 bg-white p-3 rounded-lg shadow-lg border min-w-[200px]">
+      <div className="absolute bottom-4 right-4 bg-white p-3 rounded-lg shadow-lg border min-w-[280px]">
         <h4 className="font-semibold text-sm mb-2">Leyenda</h4>
         <div className="space-y-1 text-xs">
           <button

@@ -346,7 +346,7 @@ export function KMZMapDisplay({ kmzFiles, height = "600px" }: KMZMapDisplayProps
       <div ref={mapRef} className="flex-1 h-full rounded-lg overflow-hidden border" />
 
       {layers.length > 0 && (
-        <Card className="w-80 p-4">
+        <Card className="w-96 p-4">
           <h3 className="font-semibold mb-3 flex items-center gap-2">
             <MapPin className="h-4 w-4" />
             Capas del Mapa ({layers.length})
@@ -358,12 +358,12 @@ export function KMZMapDisplay({ kmzFiles, height = "600px" }: KMZMapDisplayProps
                   key={index}
                   className="flex items-center gap-2 p-2 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
                 >
-                  <div className="w-4 h-4 rounded" style={{ backgroundColor: layer.color }} />
+                  <div className="w-4 h-4 rounded flex-shrink-0" style={{ backgroundColor: layer.color }} />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{layer.name}</p>
                     <p className="text-xs text-muted-foreground truncate">{layer.fileName}</p>
                   </div>
-                  <div className="flex gap-1">
+                  <div className="flex gap-1 flex-shrink-0">
                     <Button
                       variant="ghost"
                       size="sm"
