@@ -21,6 +21,10 @@ import {
   AlertCircle,
   CheckCircle2,
   Loader2,
+  Anchor,
+  Trees,
+  CloudRain,
+  Mountain,
 } from "lucide-react"
 import { useDropzone } from "react-dropzone"
 import { kmzReader, type KMZData } from "@/lib/kmz/kmz-reader"
@@ -113,6 +117,11 @@ export function KMZNeighborhoodAnalyzer() {
     } finally {
       setAnalyzing(false)
     }
+  }
+
+  const estimateTravelTime = (distance: number): string => {
+    // Placeholder function for estimating travel time based on distance
+    return `${Math.round(distance / 50)} horas`
   }
 
   return (
@@ -287,8 +296,17 @@ export function KMZNeighborhoodAnalyzer() {
                     <FileText className="h-4 w-4" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-bold">{analysis.dataSources.length}</div>
-                    <p className="text-xs opacity-80 mt-1">fuentes consultadas</p>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                      {analysis.dataSources.map((source, index) => (
+                        <Badge
+                          key={index}
+                          variant="outline"
+                          className="justify-center py-2 bg-gradient-to-r from-emerald-50 to-teal-50 border-emerald-200 text-emerald-700 font-semibold"
+                        >
+                          {source}
+                        </Badge>
+                      ))}
+                    </div>
                   </CardContent>
                 </Card>
 
@@ -502,22 +520,167 @@ export function KMZNeighborhoodAnalyzer() {
                             {distance.type === "commune_capital" && <Building2 className="h-5 w-5 text-emerald-600" />}
                             {distance.type === "nearest_town" && <ShoppingCart className="h-5 w-5 text-orange-600" />}
                             {distance.type === "airport" && <Plane className="h-5 w-5 text-purple-600" />}
+                            {distance.type === "city" && <Building2 className="h-5 w-5 text-teal-600" />}
+                            {distance.type === "port" && <Anchor className="h-5 w-5 text-cyan-600" />}
+                            {distance.type === "national_park" && <Trees className="h-5 w-5 text-green-600" />}
                             <span className="font-bold text-slate-800">{distance.name}</span>
                           </div>
                           <Badge variant="outline" className="font-semibold">
                             {distance.distance} km
                           </Badge>
                         </div>
-                        <div className="text-sm text-slate-600">
-                          <div className="mb-1">
+                        <div className="text-sm text-slate-600 space-y-1">
+                          <div>
                             <span className="font-medium">Tipo:</span> {distance.typeLabel}
                           </div>
+                          {distance.travelTime && (
+                            <div>
+                              <span className="font-medium">Tiempo estimado:</span> {distance.travelTime}
+                            </div>
+                          )}
                           {distance.description && (
                             <div className="mt-2 pt-2 border-t text-slate-500">{distance.description}</div>
                           )}
                         </div>
                       </div>
                     ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Contextual Information */}
+              <Card className="border-0 shadow-xl bg-gradient-to-br from-blue-50 to-cyan-50">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Mountain className="h-5 w-5 text-blue-600" />
+                    Información Contextual
+                  </CardTitle>
+                  <CardDescription>Contexto geográfico, climático y turístico de la ubicación</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Climate Zone */}
+                  {analysis.contextualInfo.climateZone && (
+                    <div className="bg-white rounded-xl p-6 border border-blue-200">
+                      <div className="flex items-center gap-2 mb-3">
+                        <CloudRain className="h-5 w-5 text-blue-600" />
+                        <h3 className="font-bold text-lg text-slate-800">Zona Climática</h3>
+                      </div>
+                      <div className="space-y-2">
+                        <div>
+                          <span className="font-semibold text-blue-900">
+                            {analysis.contextualInfo.climateZone.name}
+                          </span>
+                        </div>
+                        <p className="text-sm text-slate-600">{analysis.contextualInfo.climateZone.description}</p>
+                        <div className="mt-3">
+                          <span className="text-sm font-medium text-slate-700">Características:</span>
+                          <ul className="mt-1 space-y-1">
+                            {analysis.contextualInfo.climateZone.characteristics.map((char, idx) => (
+                              <li key={idx} className="text-sm text-slate-600 flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>
+                                {char}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Nearest Cities */}
+                  <div className="bg-white rounded-xl p-6 border border-emerald-200">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Building2 className="h-5 w-5 text-emerald-600" />
+                      <h3 className="font-bold text-lg text-slate-800">Ciudades Cercanas</h3>
+                    </div>
+                    <div className="space-y-3">
+                      {analysis.contextualInfo.nearestCities.slice(0, 5).map((city, idx) => (
+                        <div key={idx} className="flex items-center justify-between py-2 border-b last:border-0">
+                          <div>
+                            <div className="font-semibold text-slate-800">{city.name}</div>
+                            <div className="text-xs text-slate-500">
+                              {city.population.toLocaleString("es-CL")} habitantes
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-semibold text-emerald-600">{Math.round(city.distance)} km</div>
+                            <div className="text-xs text-slate-500">{city.type}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Nearest Port */}
+                  {analysis.contextualInfo.nearestPort && (
+                    <div className="bg-white rounded-xl p-6 border border-cyan-200">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Anchor className="h-5 w-5 text-cyan-600" />
+                        <h3 className="font-bold text-lg text-slate-800">Puerto Más Cercano</h3>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-slate-800">
+                            {analysis.contextualInfo.nearestPort.name}
+                          </span>
+                          <Badge variant="outline" className="bg-cyan-50 border-cyan-200 text-cyan-700">
+                            {Math.round(analysis.contextualInfo.nearestPort.distance)} km
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-slate-600">{analysis.contextualInfo.nearestPort.description}</p>
+                        <div className="text-sm">
+                          <span className="font-medium text-slate-700">Tipo:</span>{" "}
+                          <span className="text-slate-600 capitalize">{analysis.contextualInfo.nearestPort.type}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Nearest National Park */}
+                  {analysis.contextualInfo.nearestNationalPark && (
+                    <div className="bg-white rounded-xl p-6 border border-green-200">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Trees className="h-5 w-5 text-green-600" />
+                        <h3 className="font-bold text-lg text-slate-800">Área Protegida Más Cercana</h3>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-slate-800">
+                            {analysis.contextualInfo.nearestNationalPark.name}
+                          </span>
+                          <Badge variant="outline" className="bg-green-50 border-green-200 text-green-700">
+                            {Math.round(analysis.contextualInfo.nearestNationalPark.distance)} km
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-slate-600">
+                          {analysis.contextualInfo.nearestNationalPark.description}
+                        </p>
+                        <div className="text-sm">
+                          <span className="font-medium text-slate-700">Superficie:</span>{" "}
+                          <span className="text-slate-600">
+                            {analysis.contextualInfo.nearestNationalPark.area.toLocaleString("es-CL")} hectáreas
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Distance to Santiago */}
+                  <div className="bg-gradient-to-r from-slate-100 to-slate-50 rounded-xl p-6 border border-slate-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-bold text-lg text-slate-800">Distancia a Santiago</div>
+                        <div className="text-sm text-slate-600 mt-1">Capital de Chile</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-3xl font-bold text-slate-800">
+                          {analysis.contextualInfo.distanceToSantiago} km
+                        </div>
+                        <div className="text-sm text-slate-600 mt-1">
+                          {estimateTravelTime(analysis.contextualInfo.distanceToSantiago)}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

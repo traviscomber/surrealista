@@ -23,6 +23,43 @@ export interface Airport {
   description: string
 }
 
+export interface Port {
+  name: string
+  type: "commercial" | "fishing" | "tourist"
+  lat: number
+  lng: number
+  city: string
+  region: string
+  description: string
+}
+
+export interface NationalPark {
+  name: string
+  type: "national_park" | "national_reserve" | "natural_monument"
+  lat: number
+  lng: number
+  region: string
+  area: number // hectares
+  description: string
+}
+
+export interface MajorCity {
+  name: string
+  lat: number
+  lng: number
+  population: number
+  region: string
+  type: "capital" | "major_city" | "city" | "town"
+  description?: string
+}
+
+export interface ClimateZone {
+  name: string
+  description: string
+  characteristics: string[]
+  latRange: { min: number; max: number }
+}
+
 export interface RegionData {
   code: string
   name: string
@@ -873,62 +910,401 @@ export function findLocationDetails(
   }
 }
 
-// Major Chilean cities for reference
-export const MAJOR_CHILEAN_CITIES: GeographicLocation[] = [
+// Chilean ports with real coordinates
+export const CHILEAN_PORTS: Port[] = [
+  {
+    name: "Puerto de Valparaíso",
+    type: "commercial",
+    lat: -33.0239,
+    lng: -71.6277,
+    city: "Valparaíso",
+    region: "Región de Valparaíso",
+    description: "Principal puerto comercial de Chile",
+  },
+  {
+    name: "Puerto de San Antonio",
+    type: "commercial",
+    lat: -33.5933,
+    lng: -71.6106,
+    city: "San Antonio",
+    region: "Región de Valparaíso",
+    description: "Segundo puerto más importante de Chile",
+  },
+  {
+    name: "Puerto de Talcahuano",
+    type: "commercial",
+    lat: -36.7167,
+    lng: -73.1167,
+    city: "Talcahuano",
+    region: "Región del Biobío",
+    description: "Puerto comercial y naval",
+  },
+  {
+    name: "Puerto Montt",
+    type: "commercial",
+    lat: -41.4693,
+    lng: -72.9424,
+    city: "Puerto Montt",
+    region: "Región de Los Lagos",
+    description: "Puerto comercial y pesquero, conexión con Patagonia",
+  },
+  {
+    name: "Puerto de Corral",
+    type: "commercial",
+    lat: -39.8833,
+    lng: -73.4333,
+    city: "Corral",
+    region: "Región de Los Ríos",
+    description: "Puerto histórico y comercial",
+  },
+  {
+    name: "Caleta Tortel",
+    type: "fishing",
+    lat: -47.7833,
+    lng: -73.5333,
+    city: "Tortel",
+    region: "Región de Aysén",
+    description: "Caleta pesquera en la Patagonia",
+  },
+  {
+    name: "Puerto de Castro",
+    type: "fishing",
+    lat: -42.4833,
+    lng: -73.7667,
+    city: "Castro",
+    region: "Región de Los Lagos",
+    description: "Puerto pesquero en Chiloé",
+  },
+]
+
+// Chilean national parks and protected areas
+export const CHILEAN_NATIONAL_PARKS: NationalPark[] = [
+  {
+    name: "Parque Nacional Vicente Pérez Rosales",
+    type: "national_park",
+    lat: -41.1333,
+    lng: -72.5,
+    region: "Región de Los Lagos",
+    area: 251320,
+    description: "Primer parque nacional de Chile, incluye Volcán Osorno y Lago Todos los Santos",
+  },
+  {
+    name: "Parque Nacional Puyehue",
+    type: "national_park",
+    lat: -40.7333,
+    lng: -72.3167,
+    region: "Región de Los Lagos",
+    area: 107000,
+    description: "Parque con termas naturales y bosques templados",
+  },
+  {
+    name: "Parque Nacional Alerce Andino",
+    type: "national_park",
+    lat: -41.5833,
+    lng: -72.5833,
+    region: "Región de Los Lagos",
+    area: 39255,
+    description: "Protege bosques de alerces milenarios",
+  },
+  {
+    name: "Parque Nacional Chiloé",
+    type: "national_park",
+    lat: -42.6333,
+    lng: -74.1,
+    region: "Región de Los Lagos",
+    area: 43057,
+    description: "Parque costero en la Isla Grande de Chiloé",
+  },
+  {
+    name: "Parque Nacional Hornopirén",
+    type: "national_park",
+    lat: -41.9667,
+    lng: -72.4333,
+    region: "Región de Los Lagos",
+    area: 48232,
+    description: "Parque con volcanes, fiordos y bosques templados",
+  },
+  {
+    name: "Parque Nacional Villarrica",
+    type: "national_park",
+    lat: -39.4167,
+    lng: -71.9333,
+    region: "Región de La Araucanía",
+    area: 63000,
+    description: "Incluye el Volcán Villarrica activo",
+  },
+  {
+    name: "Parque Nacional Huerquehue",
+    type: "national_park",
+    lat: -39.15,
+    lng: -71.7333,
+    region: "Región de La Araucanía",
+    area: 12500,
+    description: "Parque con lagos de altura y bosques de araucarias",
+  },
+  {
+    name: "Parque Nacional Conguillío",
+    type: "national_park",
+    lat: -38.65,
+    lng: -71.6333,
+    region: "Región de La Araucanía",
+    area: 60832,
+    description: "Parque con araucarias milenarias y Volcán Llaima",
+  },
+  {
+    name: "Reserva Nacional Valdivia",
+    type: "national_reserve",
+    lat: -39.6667,
+    lng: -72.2,
+    region: "Región de Los Ríos",
+    area: 9727,
+    description: "Reserva con bosques nativos cerca de Valdivia",
+  },
+  {
+    name: "Reserva Nacional Mocho-Choshuenco",
+    type: "national_reserve",
+    lat: -39.9333,
+    lng: -72.0333,
+    region: "Región de Los Ríos",
+    area: 7537,
+    description: "Reserva con volcanes y lagos",
+  },
+]
+
+// Major Chilean cities with real data
+export const MAJOR_CHILEAN_CITIES: MajorCity[] = [
   {
     name: "Santiago",
     lat: -33.4489,
     lng: -70.6693,
-    type: "region_capital",
     population: 7112808,
     region: "Región Metropolitana",
+    type: "capital",
+    description: "Capital de Chile y principal centro urbano",
   },
   {
     name: "Valparaíso",
     lat: -33.0472,
     lng: -71.6127,
-    type: "region_capital",
     population: 296655,
     region: "Región de Valparaíso",
+    type: "capital",
+    description: "Capital regional, puerto principal y sede del Congreso",
   },
   {
     name: "Concepción",
     lat: -36.827,
     lng: -73.0498,
-    type: "region_capital",
     population: 223574,
     region: "Región del Biobío",
+    type: "capital",
+    description: "Segunda ciudad más poblada, centro universitario",
   },
   {
     name: "Temuco",
     lat: -38.7359,
     lng: -72.5904,
-    type: "region_capital",
     population: 282415,
     region: "Región de La Araucanía",
+    type: "capital",
+    description: "Capital regional, centro comercial del sur",
   },
   {
     name: "Valdivia",
     lat: -39.8142,
     lng: -73.2459,
-    type: "region_capital",
     population: 166080,
     region: "Región de Los Ríos",
+    type: "capital",
+    description: "Ciudad universitaria y turística, conocida por sus ríos",
   },
   {
     name: "Puerto Montt",
     lat: -41.4693,
     lng: -72.9424,
-    type: "region_capital",
     population: 245902,
     region: "Región de Los Lagos",
+    type: "capital",
+    description: "Capital regional, puerta de entrada a la Patagonia",
   },
   {
     name: "Osorno",
     lat: -40.5736,
     lng: -73.1322,
-    type: "provincial_capital",
     population: 161460,
     region: "Región de Los Lagos",
+    type: "major_city",
+    description: "Ciudad ganadera y agrícola",
+  },
+  {
+    name: "Puerto Varas",
+    lat: -41.3194,
+    lng: -72.9833,
+    population: 44578,
+    region: "Región de Los Lagos",
+    type: "city",
+    description: "Ciudad turística junto al Lago Llanquihue",
+  },
+  {
+    name: "Frutillar",
+    lat: -41.1267,
+    lng: -73.05,
+    population: 18283,
+    region: "Región de Los Lagos",
+    type: "town",
+    description: "Pueblo turístico conocido por su arquitectura alemana",
+  },
+  {
+    name: "Castro",
+    lat: -42.4833,
+    lng: -73.7667,
+    population: 43807,
+    region: "Región de Los Lagos",
+    type: "city",
+    description: "Capital de Chiloé, conocida por sus palafitos",
+  },
+  {
+    name: "Ancud",
+    lat: -41.8667,
+    lng: -73.8167,
+    population: 42458,
+    region: "Región de Los Lagos",
+    type: "city",
+    description: "Ciudad histórica en el norte de Chiloé",
+  },
+  {
+    name: "Pucón",
+    lat: -39.2833,
+    lng: -71.9667,
+    population: 29782,
+    region: "Región de La Araucanía",
+    type: "city",
+    description: "Centro turístico de aventura junto al Volcán Villarrica",
+  },
+  {
+    name: "Villarrica",
+    lat: -39.2833,
+    lng: -72.2333,
+    population: 59103,
+    region: "Región de La Araucanía",
+    type: "city",
+    description: "Ciudad turística junto al lago Villarrica",
+  },
+  {
+    name: "Angol",
+    lat: -37.795,
+    lng: -72.7142,
+    population: 56058,
+    region: "Región de La Araucanía",
+    type: "city",
+    description: "Capital de la Provincia de Malleco",
+  },
+  {
+    name: "La Unión",
+    lat: -40.2931,
+    lng: -73.0831,
+    population: 39447,
+    region: "Región de Los Ríos",
+    type: "city",
+    description: "Capital de la Provincia del Ranco",
   },
 ]
+
+// Chilean climate zones
+export const CHILEAN_CLIMATE_ZONES: ClimateZone[] = [
+  {
+    name: "Norte Grande",
+    description: "Clima desértico, extremadamente árido",
+    characteristics: ["Precipitaciones casi nulas", "Alta radiación solar", "Amplitud térmica"],
+    latRange: { min: -26, max: -17.5 },
+  },
+  {
+    name: "Norte Chico",
+    description: "Clima semiárido, transición al mediterráneo",
+    characteristics: ["Precipitaciones escasas", "Veranos secos", "Inviernos suaves"],
+    latRange: { min: -32, max: -26 },
+  },
+  {
+    name: "Zona Central",
+    description: "Clima mediterráneo, cuatro estaciones marcadas",
+    characteristics: ["Veranos secos y cálidos", "Inviernos lluviosos", "Temperaturas moderadas"],
+    latRange: { min: -37, max: -32 },
+  },
+  {
+    name: "Zona Sur",
+    description: "Clima templado lluvioso, alta precipitación",
+    characteristics: ["Lluvias abundantes todo el año", "Temperaturas moderadas", "Bosques templados"],
+    latRange: { min: -43, max: -37 },
+  },
+  {
+    name: "Zona Austral",
+    description: "Clima subpolar oceánico, frío y ventoso",
+    characteristics: ["Bajas temperaturas", "Vientos fuertes", "Precipitaciones frecuentes"],
+    latRange: { min: -56, max: -43 },
+  },
+]
+
+export function findNearestCities(lat: number, lng: number, count = 5): Array<MajorCity & { distance: number }> {
+  const citiesWithDistance = MAJOR_CHILEAN_CITIES.map((city) => ({
+    ...city,
+    distance: calculateDistance(lat, lng, city.lat, city.lng),
+  }))
+
+  return citiesWithDistance.sort((a, b) => a.distance - b.distance).slice(0, count)
+}
+
+export function findNearestPort(lat: number, lng: number): Port & { distance: number } {
+  let nearest = CHILEAN_PORTS[0]
+  let minDistance = calculateDistance(lat, lng, nearest.lat, nearest.lng)
+
+  for (const port of CHILEAN_PORTS) {
+    const distance = calculateDistance(lat, lng, port.lat, port.lng)
+    if (distance < minDistance) {
+      minDistance = distance
+      nearest = port
+    }
+  }
+
+  return { ...nearest, distance: minDistance }
+}
+
+export function findNearestNationalPark(lat: number, lng: number): NationalPark & { distance: number } {
+  let nearest = CHILEAN_NATIONAL_PARKS[0]
+  let minDistance = calculateDistance(lat, lng, nearest.lat, nearest.lng)
+
+  for (const park of CHILEAN_NATIONAL_PARKS) {
+    const distance = calculateDistance(lat, lng, park.lat, park.lng)
+    if (distance < minDistance) {
+      minDistance = distance
+      nearest = park
+    }
+  }
+
+  return { ...nearest, distance: minDistance }
+}
+
+export function getClimateZone(lat: number): ClimateZone | null {
+  for (const zone of CHILEAN_CLIMATE_ZONES) {
+    if (lat >= zone.latRange.min && lat <= zone.latRange.max) {
+      return zone
+    }
+  }
+  return null
+}
+
+export function estimateTravelTime(distanceKm: number): string {
+  // Average speeds: highway 100 km/h, regional roads 60 km/h, local roads 40 km/h
+  // Using conservative estimate of 70 km/h average
+  const hours = distanceKm / 70
+
+  if (hours < 1) {
+    return `${Math.round(hours * 60)} minutos`
+  } else if (hours < 2) {
+    const minutes = Math.round((hours % 1) * 60)
+    return `1 hora ${minutes > 0 ? `${minutes} minutos` : ""}`
+  } else {
+    const wholeHours = Math.floor(hours)
+    const minutes = Math.round((hours % 1) * 60)
+    return `${wholeHours} horas ${minutes > 0 ? `${minutes} minutos` : ""}`
+  }
+}

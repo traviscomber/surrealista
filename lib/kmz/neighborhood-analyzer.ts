@@ -4,6 +4,15 @@ import {
   findNearestAirport,
   findNearestInternationalAirport,
   findLocationDetails,
+  findNearestCities,
+  findNearestPort,
+  findNearestNationalPark,
+  getClimateZone,
+  estimateTravelTime,
+  type MajorCity,
+  type Port,
+  type NationalPark,
+  type ClimateZone,
 } from "@/lib/chile-geographic-data"
 
 export interface NeighboringProperty {
@@ -28,10 +37,20 @@ export interface AccessRoute {
 
 export interface DistanceInfo {
   name: string
-  type: "provincial_capital" | "commune_capital" | "nearest_town" | "airport"
+  type: "provincial_capital" | "commune_capital" | "nearest_town" | "airport" | "city" | "port" | "national_park"
   typeLabel: string
   distance: number // km
+  travelTime?: string
   description?: string
+}
+
+export interface ContextualInfo {
+  climateZone: ClimateZone | null
+  nearestCities: Array<MajorCity & { distance: number }>
+  nearestPort: (Port & { distance: number }) | null
+  nearestNationalPark: (NationalPark & { distance: number }) | null
+  distanceToSantiago: number
+  elevation?: number
 }
 
 export interface NeighborhoodAnalysis {
@@ -43,6 +62,7 @@ export interface NeighborhoodAnalysis {
   neighboringProperties: NeighboringProperty[]
   accessRoutes: AccessRoute[]
   distances: DistanceInfo[]
+  contextualInfo: ContextualInfo
   dataSources: string[]
 }
 
@@ -223,33 +243,39 @@ class NeighborhoodAnalyzer {
 
     // Add regional capital
     if (locationDetails.nearestRegionalCapital && locationDetails.region) {
+      const distance = Math.round(locationDetails.nearestRegionalCapital.distance)
       distances.push({
         name: locationDetails.nearestRegionalCapital.name,
         type: "provincial_capital",
         typeLabel: `Capital Regional (${locationDetails.region.name})`,
-        distance: Math.round(locationDetails.nearestRegionalCapital.distance),
+        distance,
+        travelTime: estimateTravelTime(distance),
         description: `Capital de ${locationDetails.region.name}`,
       })
     }
 
     // Add provincial capital
     if (locationDetails.nearestProvincialCapital && locationDetails.province) {
+      const distance = Math.round(locationDetails.nearestProvincialCapital.distance)
       distances.push({
         name: locationDetails.nearestProvincialCapital.name,
         type: "provincial_capital",
         typeLabel: `Capital Provincial (${locationDetails.province.name})`,
-        distance: Math.round(locationDetails.nearestProvincialCapital.distance),
+        distance,
+        travelTime: estimateTravelTime(distance),
         description: `Capital de la Provincia de ${locationDetails.province.name}`,
       })
     }
 
     // Add commune capital
     if (locationDetails.nearestCommuneCapital && locationDetails.comuna) {
+      const distance = Math.round(locationDetails.nearestCommuneCapital.distance)
       distances.push({
         name: locationDetails.nearestCommuneCapital.name,
         type: "commune_capital",
         typeLabel: `Capital Comunal (${locationDetails.comuna.name})`,
-        distance: Math.round(locationDetails.nearestCommuneCapital.distance),
+        distance,
+        travelTime: estimateTravelTime(distance),
         description: `Centro administrativo de la comuna de ${locationDetails.comuna.name}`,
       })
     }
@@ -267,6 +293,7 @@ class NeighborhoodAnalyzer {
       type: "airport",
       typeLabel: nearestRegionalAirport.type === "international" ? "Aeropuerto Internacional" : "Aeropuerto Regional",
       distance: Math.round(distanceToRegional),
+      travelTime: estimateTravelTime(distanceToRegional),
       description: `${nearestRegionalAirport.description} - ${nearestRegionalAirport.city}`,
     })
 
@@ -285,11 +312,32 @@ class NeighborhoodAnalyzer {
         type: "airport",
         typeLabel: "Aeropuerto Internacional",
         distance: Math.round(distanceToInternational),
+        travelTime: estimateTravelTime(distanceToInternational),
         description: `${nearestInternational.description} - ${nearestInternational.city}`,
       })
     }
 
     return distances
+  }
+
+  private gatherContextualInfo(centerPoint: { lat: number; lng: number }): ContextualInfo {
+    const climateZone = getClimateZone(centerPoint.lat)
+    const nearestCities = findNearestCities(centerPoint.lat, centerPoint.lng, 5)
+    const nearestPort = findNearestPort(centerPoint.lat, centerPoint.lng)
+    const nearestNationalPark = findNearestNationalPark(centerPoint.lat, centerPoint.lng)
+
+    // Distance to Santiago
+    const santiagoLat = -33.4489
+    const santiagoLng = -70.6693
+    const distanceToSantiago = calculateDistance(santiagoLat, santiagoLng, centerPoint.lat, centerPoint.lng)
+
+    return {
+      climateZone,
+      nearestCities,
+      nearestPort,
+      nearestNationalPark,
+      distanceToSantiago: Math.round(distanceToSantiago),
+    }
   }
 
   /**
@@ -298,10 +346,11 @@ class NeighborhoodAnalyzer {
   async analyzeNeighborhood(kmzFiles: KMZData[], searchRadius: number): Promise<NeighborhoodAnalysis> {
     const centerPoint = this.getCenterPoint(kmzFiles)
 
-    const [neighboringProperties, accessRoutes, distances] = await Promise.all([
+    const [neighboringProperties, accessRoutes, distances, contextualInfo] = await Promise.all([
       this.findNeighboringProperties(centerPoint, searchRadius),
       Promise.resolve(this.calculateAccessRoutes(centerPoint)),
       Promise.resolve(this.calculateDistances(centerPoint)),
+      Promise.resolve(this.gatherContextualInfo(centerPoint)),
     ])
 
     const dataSources = ["SII", "CONAF", "INDAP", "CIREN", "ODEPA", "FAO"]
@@ -312,6 +361,7 @@ class NeighborhoodAnalyzer {
       neighboringProperties,
       accessRoutes,
       distances,
+      contextualInfo,
       dataSources,
     }
   }
