@@ -1,4 +1,10 @@
 import type { KMZData } from "./kmz-reader"
+import {
+  calculateDistance,
+  findNearestAirport,
+  findNearestInternationalAirport,
+  findLocationDetails,
+} from "@/lib/chile-geographic-data"
 
 export interface NeighboringProperty {
   rol: string
@@ -148,79 +154,142 @@ class NeighborhoodAnalyzer {
   }
 
   /**
-   * Calculate access routes from Santiago and nearby cities
+   * Calculate access routes from Santiago and nearby cities with REAL data
    */
   private calculateAccessRoutes(centerPoint: { lat: number; lng: number }): AccessRoute[] {
-    // Santiago coordinates
+    const routes: AccessRoute[] = []
+
     const santiagoLat = -33.4489
     const santiagoLng = -70.6693
 
-    const distanceFromSantiago = this.calculateDistance(santiagoLat, santiagoLng, centerPoint.lat, centerPoint.lng)
+    const distanceFromSantiago = calculateDistance(santiagoLat, santiagoLng, centerPoint.lat, centerPoint.lng)
 
-    const routes: AccessRoute[] = [
-      {
-        from: "Santiago",
-        to: "Propiedad",
-        type: "land",
-        distance: Math.round(distanceFromSantiago),
-        duration: `${Math.round(distanceFromSantiago / 80)} horas`,
-        description: "Ruta 5 Sur, luego camino rural",
-      },
-      {
-        from: "Santiago",
-        to: "Aeropuerto más cercano",
+    // Land route from Santiago
+    routes.push({
+      from: "Santiago",
+      to: "Propiedad",
+      type: "land",
+      distance: Math.round(distanceFromSantiago),
+      duration: `${Math.round(distanceFromSantiago / 80)} horas aprox.`,
+      description: "Ruta 5 Sur, luego caminos regionales",
+    })
+
+    const nearestAirport = findNearestAirport(centerPoint.lat, centerPoint.lng)
+    const distanceToAirport = calculateDistance(
+      centerPoint.lat,
+      centerPoint.lng,
+      nearestAirport.lat,
+      nearestAirport.lng,
+    )
+
+    if (nearestAirport.code !== "SCL") {
+      routes.push({
+        from: "Santiago (SCL)",
+        to: `${nearestAirport.city} (${nearestAirport.code})`,
         type: "air",
-        distance: Math.round(distanceFromSantiago * 0.8),
-        duration: "1.5 horas",
-        description: "Vuelo directo a aeropuerto regional",
-      },
-    ]
+        distance: Math.round(calculateDistance(santiagoLat, santiagoLng, nearestAirport.lat, nearestAirport.lng)),
+        duration: "1-2 horas",
+        description: `Vuelo a ${nearestAirport.name}, luego ${Math.round(distanceToAirport)} km por tierra`,
+      })
+    }
+
+    const locationDetails = findLocationDetails(centerPoint.lat, centerPoint.lng)
+    if (locationDetails.nearestRegionalCapital && locationDetails.region) {
+      const regionalCapitalDistance = locationDetails.nearestRegionalCapital.distance
+
+      if (regionalCapitalDistance > 10) {
+        // Only add if more than 10km away
+        routes.push({
+          from: locationDetails.nearestRegionalCapital.name,
+          to: "Propiedad",
+          type: "land",
+          distance: Math.round(regionalCapitalDistance),
+          duration: `${Math.round(regionalCapitalDistance / 60)} horas aprox.`,
+          description: `Desde capital regional por caminos locales`,
+        })
+      }
+    }
 
     return routes
   }
 
   /**
-   * Calculate distances to key locations
+   * Calculate distances to key locations with REAL Chilean data
    */
   private calculateDistances(centerPoint: { lat: number; lng: number }): DistanceInfo[] {
-    // Mock data - In production, use real coordinates from Chilean cities database
-    return [
-      {
-        name: "Capital Provincial",
+    const distances: DistanceInfo[] = []
+
+    const locationDetails = findLocationDetails(centerPoint.lat, centerPoint.lng)
+
+    // Add regional capital
+    if (locationDetails.nearestRegionalCapital && locationDetails.region) {
+      distances.push({
+        name: locationDetails.nearestRegionalCapital.name,
         type: "provincial_capital",
-        typeLabel: "Capital Provincial",
-        distance: 45,
-        description: "Ciudad principal de la provincia",
-      },
-      {
-        name: "Capital Comunal",
+        typeLabel: `Capital Regional (${locationDetails.region.name})`,
+        distance: Math.round(locationDetails.nearestRegionalCapital.distance),
+        description: `Capital de ${locationDetails.region.name}`,
+      })
+    }
+
+    // Add provincial capital
+    if (locationDetails.nearestProvincialCapital && locationDetails.province) {
+      distances.push({
+        name: locationDetails.nearestProvincialCapital.name,
+        type: "provincial_capital",
+        typeLabel: `Capital Provincial (${locationDetails.province.name})`,
+        distance: Math.round(locationDetails.nearestProvincialCapital.distance),
+        description: `Capital de la Provincia de ${locationDetails.province.name}`,
+      })
+    }
+
+    // Add commune capital
+    if (locationDetails.nearestCommuneCapital && locationDetails.comuna) {
+      distances.push({
+        name: locationDetails.nearestCommuneCapital.name,
         type: "commune_capital",
-        typeLabel: "Capital de la Comuna",
-        distance: 18,
-        description: "Centro administrativo de la comuna",
-      },
-      {
-        name: "Pueblo más cercano",
-        type: "nearest_town",
-        typeLabel: "Pueblo con Servicios Básicos",
-        distance: 8,
-        description: "Supermercado, farmacia, servicios básicos",
-      },
-      {
-        name: "Aeropuerto Regional",
-        type: "airport",
-        typeLabel: "Aeropuerto",
-        distance: 52,
-        description: "Vuelos diarios a Santiago",
-      },
-      {
-        name: "Aeropuerto Internacional SCL",
+        typeLabel: `Capital Comunal (${locationDetails.comuna.name})`,
+        distance: Math.round(locationDetails.nearestCommuneCapital.distance),
+        description: `Centro administrativo de la comuna de ${locationDetails.comuna.name}`,
+      })
+    }
+
+    const nearestRegionalAirport = findNearestAirport(centerPoint.lat, centerPoint.lng)
+    const distanceToRegional = calculateDistance(
+      centerPoint.lat,
+      centerPoint.lng,
+      nearestRegionalAirport.lat,
+      nearestRegionalAirport.lng,
+    )
+
+    distances.push({
+      name: `${nearestRegionalAirport.name} (${nearestRegionalAirport.code})`,
+      type: "airport",
+      typeLabel: nearestRegionalAirport.type === "international" ? "Aeropuerto Internacional" : "Aeropuerto Regional",
+      distance: Math.round(distanceToRegional),
+      description: `${nearestRegionalAirport.description} - ${nearestRegionalAirport.city}`,
+    })
+
+    const nearestInternational = findNearestInternationalAirport(centerPoint.lat, centerPoint.lng)
+    const distanceToInternational = calculateDistance(
+      centerPoint.lat,
+      centerPoint.lng,
+      nearestInternational.lat,
+      nearestInternational.lng,
+    )
+
+    // Only add if different from regional airport
+    if (nearestInternational.code !== nearestRegionalAirport.code) {
+      distances.push({
+        name: `${nearestInternational.name} (${nearestInternational.code})`,
         type: "airport",
         typeLabel: "Aeropuerto Internacional",
-        distance: 680,
-        description: "Aeropuerto Arturo Merino Benítez, Santiago",
-      },
-    ]
+        distance: Math.round(distanceToInternational),
+        description: `${nearestInternational.description} - ${nearestInternational.city}`,
+      })
+    }
+
+    return distances
   }
 
   /**
