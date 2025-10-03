@@ -1,18 +1,31 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { AlertCircle } from "lucide-react"
+import { AlertCircle, Eye, EyeOff, MapPin } from "lucide-react"
 import type { KMZData } from "@/lib/kmz/kmz-reader"
+import { Button } from "@/components/ui/button"
+import { Card } from "@/components/ui/card"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 interface KMZMapDisplayProps {
   kmzFiles: KMZData[]
   height?: string
 }
 
+interface LayerInfo {
+  name: string
+  fileName: string
+  layer: any
+  visible: boolean
+  color: string
+  bounds: any[]
+}
+
 export function KMZMapDisplay({ kmzFiles, height = "600px" }: KMZMapDisplayProps) {
   const [mapInstance, setMapInstance] = useState<any>(null)
   const [leafletLoaded, setLeafletLoaded] = useState(false)
   const [mapError, setMapError] = useState<string | null>(null)
+  const [layers, setLayers] = useState<LayerInfo[]>([])
   const mapRef = useRef<HTMLDivElement>(null)
 
   console.log("[v0] KMZMapDisplay received", kmzFiles.length, "KMZ files")
@@ -130,15 +143,31 @@ export function KMZMapDisplay({ kmzFiles, height = "600px" }: KMZMapDisplayProps
     })
 
     const allBounds: any[] = []
-    let totalPlacemarks = 0
+    const newLayers: LayerInfo[] = []
+    const colors = [
+      "#e74c3c", // red
+      "#3498db", // blue
+      "#2ecc71", // green
+      "#f39c12", // orange
+      "#9b59b6", // purple
+      "#1abc9c", // turquoise
+      "#e67e22", // carrot
+      "#16a085", // green sea
+      "#c0392b", // dark red
+      "#2980b9", // belize blue
+      "#27ae60", // nephritis
+      "#f1c40f", // sunflower
+    ]
+
+    let placemarkIndex = 0
 
     kmzFiles.forEach((kmzData, kmzIndex) => {
-      const colors = ["#e74c3c", "#3498db", "#2ecc71", "#f39c12", "#9b59b6", "#1abc9c"]
-      const color = colors[kmzIndex % colors.length]
-
       console.log("[v0] Processing KMZ file:", kmzData.fileName, "with", kmzData.placemarks.length, "placemarks")
 
-      kmzData.placemarks.forEach((placemark, placemarkIndex) => {
+      kmzData.placemarks.forEach((placemark) => {
+        const color = colors[placemarkIndex % colors.length]
+        placemarkIndex++
+
         console.log(
           "[v0] Processing placemark:",
           placemark.name,
@@ -152,7 +181,6 @@ export function KMZMapDisplay({ kmzFiles, height = "600px" }: KMZMapDisplayProps
         if (placemark.type === "Point" && placemark.coordinates.length > 0) {
           const [lng, lat] = placemark.coordinates[0]
 
-          // Validate coordinates
           if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
             console.warn(`[v0] Invalid coordinates for ${placemark.name}: [${lng}, ${lat}]`)
             return
@@ -174,13 +202,21 @@ export function KMZMapDisplay({ kmzFiles, height = "600px" }: KMZMapDisplayProps
             </div>
           `)
 
+          const bounds = [[lat, lng]]
           allBounds.push([lat, lng])
-          totalPlacemarks++
+
+          newLayers.push({
+            name: placemark.name,
+            fileName: kmzData.fileName,
+            layer: marker,
+            visible: true,
+            color: color,
+            bounds: bounds,
+          })
         } else if (
           (placemark.type === "LineString" || placemark.type === "Polygon") &&
           placemark.coordinates.length > 1
         ) {
-          // Convert coordinates from [lng, lat] to [lat, lng] for Leaflet
           const leafletCoords = placemark.coordinates
             .filter(([lng, lat]) => !isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180)
             .map(([lng, lat]) => [lat, lng] as [number, number])
@@ -196,17 +232,17 @@ export function KMZMapDisplay({ kmzFiles, height = "600px" }: KMZMapDisplayProps
           if (placemark.type === "Polygon") {
             shape = L.polygon(leafletCoords, {
               color: color,
-              weight: 2,
-              opacity: 0.8,
+              weight: 3,
+              opacity: 1,
               fillColor: color,
-              fillOpacity: 0.2,
+              fillOpacity: 0.4,
               isKMZ: true,
             }).addTo(mapInstance)
           } else {
             shape = L.polyline(leafletCoords, {
               color: color,
-              weight: 3,
-              opacity: 0.8,
+              weight: 4,
+              opacity: 1,
               isKMZ: true,
             }).addTo(mapInstance)
           }
@@ -222,24 +258,66 @@ export function KMZMapDisplay({ kmzFiles, height = "600px" }: KMZMapDisplayProps
           `)
 
           allBounds.push(...leafletCoords)
-          totalPlacemarks++
+
+          newLayers.push({
+            name: placemark.name,
+            fileName: kmzData.fileName,
+            layer: shape,
+            visible: true,
+            color: color,
+            bounds: leafletCoords,
+          })
         }
       })
     })
 
-    console.log("[v0] Added", totalPlacemarks, "placemarks to map")
+    console.log("[v0] Added", newLayers.length, "placemarks to map")
+    setLayers(newLayers)
 
     // Fit map to show all KMZ data
     if (allBounds.length > 0) {
       try {
         const bounds = L.latLngBounds(allBounds)
-        mapInstance.fitBounds(bounds, { padding: [20, 20] })
+        mapInstance.fitBounds(bounds, { padding: [50, 50] })
         console.log("[v0] Map bounds fitted to show all data")
       } catch (error) {
         console.warn("[v0] Error fitting bounds:", error)
       }
     }
   }, [mapInstance, kmzFiles])
+
+  const toggleLayerVisibility = (index: number) => {
+    if (!mapInstance) return
+
+    const updatedLayers = [...layers]
+    const layer = updatedLayers[index]
+
+    if (layer.visible) {
+      mapInstance.removeLayer(layer.layer)
+    } else {
+      layer.layer.addTo(mapInstance)
+    }
+
+    layer.visible = !layer.visible
+    setLayers(updatedLayers)
+  }
+
+  const zoomToLayer = (index: number) => {
+    if (!mapInstance) return
+
+    const L = (window as any).L
+    const layer = layers[index]
+
+    if (layer.bounds.length > 0) {
+      const bounds = L.latLngBounds(layer.bounds)
+      mapInstance.fitBounds(bounds, { padding: [50, 50] })
+
+      // Open popup if available
+      if (layer.layer.openPopup) {
+        layer.layer.openPopup()
+      }
+    }
+  }
 
   if (mapError) {
     return (
@@ -263,5 +341,54 @@ export function KMZMapDisplay({ kmzFiles, height = "600px" }: KMZMapDisplayProps
     )
   }
 
-  return <div ref={mapRef} className="w-full h-full" style={{ height }} />
+  return (
+    <div className="flex gap-4 w-full" style={{ height }}>
+      <div ref={mapRef} className="flex-1 h-full rounded-lg overflow-hidden border" />
+
+      {layers.length > 0 && (
+        <Card className="w-80 p-4">
+          <h3 className="font-semibold mb-3 flex items-center gap-2">
+            <MapPin className="h-4 w-4" />
+            Capas del Mapa ({layers.length})
+          </h3>
+          <ScrollArea className="h-[calc(100%-2rem)]">
+            <div className="space-y-2">
+              {layers.map((layer, index) => (
+                <div
+                  key={index}
+                  className="flex items-center gap-2 p-2 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                >
+                  <div className="w-4 h-4 rounded" style={{ backgroundColor: layer.color }} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{layer.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{layer.fileName}</p>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={() => toggleLayerVisibility(index)}
+                      title={layer.visible ? "Ocultar" : "Mostrar"}
+                    >
+                      {layer.visible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={() => zoomToLayer(index)}
+                      title="Centrar en mapa"
+                    >
+                      <MapPin className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </Card>
+      )}
+    </div>
+  )
 }

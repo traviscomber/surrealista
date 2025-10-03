@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Progress } from "@/components/ui/progress"
 import {
   TrendingUp,
   Folder,
@@ -26,12 +27,42 @@ import {
   BookOpen,
   Archive,
   Settings,
+  Database,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PARAOrganizer, type PARAClassification } from "@/lib/para-method/para-organizer"
-import { EnhancedFolderView } from "@/components/google-drive/enhanced-folder-view"
+import dynamic from "next/dynamic"
+
+const EnhancedFolderView = dynamic(
+  () => import("@/components/google-drive/enhanced-folder-view").then((mod) => ({ default: mod.EnhancedFolderView })),
+  {
+    loading: () => (
+      <div className="flex items-center justify-center p-8">
+        <RefreshCw className="h-6 w-6 animate-spin text-blue-600" />
+      </div>
+    ),
+    ssr: false,
+  },
+)
 
 let realDriveService: any = null
+
+interface SearchIndexItem {
+  id: string
+  name: string
+  type: "folder" | "file"
+  path: string
+  parentId: string
+  mimeType?: string
+}
+
+interface IndexingProgress {
+  isIndexing: boolean
+  currentFolder: string
+  foldersProcessed: number
+  filesProcessed: number
+  totalProgress: number
+}
 
 function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void }) {
   const [folderContents, setFolderContents] = useState<any>(null)
@@ -58,7 +89,7 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
         const classification = paraOrganizer.classifyFolder(folder.name, contents.files || [])
         setParaClassification(classification)
       } catch (error) {
-        console.error("[v0] Error loading folder contents:", error)
+        console.error("Error loading folder contents:", error)
         setContentsError("Error al cargar el contenido de la carpeta")
       } finally {
         setLoadingContents(false)
@@ -68,7 +99,7 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
     if (folder.id) {
       loadFolderContents()
     }
-  }, [folder.id, paraOrganizer])
+  }, [folder.id, folder.name, paraOrganizer])
 
   const organizedContents = useMemo(() => {
     if (!folderContents?.files || !paraClassification) return null
@@ -425,8 +456,15 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null)
   const [selectedFolder, setSelectedFolder] = useState<any | null>(null)
   const [serviceInitialized, setServiceInitialized] = useState(false)
-  const [searchIndex, setSearchIndex] = useState<Map<string, any>>(new Map())
-  const [indexLoading, setIndexLoading] = useState(false)
+
+  const [searchIndex, setSearchIndex] = useState<SearchIndexItem[]>([])
+  const [indexingProgress, setIndexingProgress] = useState<IndexingProgress>({
+    isIndexing: false,
+    currentFolder: "",
+    foldersProcessed: 0,
+    filesProcessed: 0,
+    totalProgress: 0,
+  })
 
   const paraOrganizer = useMemo(() => new PARAOrganizer(), [])
   const paraStats = useMemo(() => paraOrganizer.getCategoryStats(folders), [folders, paraOrganizer])
@@ -437,66 +475,60 @@ export default function HomePage() {
         setServiceInitialized(true)
         const { RealDriveService } = await import("@/lib/google-drive/real-drive-service")
         realDriveService = new RealDriveService()
-        console.log("[v0] Google Drive service loaded successfully")
       } catch (err) {
-        console.error("[v0] Error loading drive service:", err)
-        setError(null) // Clear error to allow demo mode
+        console.error("Error loading drive service:", err)
+        setError(null)
         realDriveService = null
-        console.log("[v0] Falling back to demo mode due to chunk loading error")
       }
     }
   }, [serviceInitialized])
 
-  const buildSearchIndex = useCallback(async (foldersList: any[]) => {
-    if (!foldersList.length) return
-
-    setIndexLoading(true)
-    const newIndex = new Map()
+  const buildSearchIndex = useCallback(async (folderId: string, path = ""): Promise<SearchIndexItem[]> => {
+    if (!realDriveService) return []
 
     try {
-      foldersList.forEach((folder) => {
-        const searchableContent = {
-          folderId: folder.id,
-          folderName: folder.name,
-          type: "folder",
-          content: [folder.name, folder.location, folder.propertyType].join(" ").toLowerCase(),
-        }
-        newIndex.set(`folder-${folder.id}`, searchableContent)
-      })
+      const response = await fetch(`/api/drive/folders/${folderId}`)
+      if (!response.ok) return []
 
-      const contentPromises = foldersList.map(async (folder) => {
-        try {
-          const response = await fetch(`/api/drive/folders/${folder.id}`)
-          if (response.ok) {
-            const contents = await response.json()
+      const contents = await response.json()
+      const items: SearchIndexItem[] = []
 
-            if (contents.files) {
-              contents.files.forEach((item: any) => {
-                const searchableContent = {
-                  folderId: folder.id,
-                  folderName: folder.name,
-                  type: item.mimeType === "application/vnd.google-apps.folder" ? "subfolder" : "file",
-                  name: item.name,
-                  content: [item.name, folder.name].join(" ").toLowerCase(),
-                }
-                newIndex.set(
-                  `${item.mimeType === "application/vnd.google-apps.folder" ? "subfolder" : "file"}-${item.id}`,
-                  searchableContent,
-                )
-              })
-            }
+      setIndexingProgress((prev) => ({
+        ...prev,
+        currentFolder: path || "Root",
+        foldersProcessed: prev.foldersProcessed + 1,
+      }))
+
+      if (contents.files && Array.isArray(contents.files)) {
+        for (const item of contents.files) {
+          const itemPath = path ? `${path}/${item.name}` : item.name
+          const isFolder = item.mimeType === "application/vnd.google-apps.folder"
+
+          items.push({
+            id: item.id,
+            name: item.name,
+            type: isFolder ? "folder" : "file",
+            path: itemPath,
+            parentId: folderId,
+            mimeType: item.mimeType,
+          })
+
+          if (isFolder) {
+            const subItems = await buildSearchIndex(item.id, itemPath)
+            items.push(...subItems)
+          } else {
+            setIndexingProgress((prev) => ({
+              ...prev,
+              filesProcessed: prev.filesProcessed + 1,
+            }))
           }
-        } catch (error) {
-          console.error(`[v0] Error fetching contents for folder ${folder.id}:`, error)
         }
-      })
+      }
 
-      await Promise.all(contentPromises)
-      setSearchIndex(newIndex)
+      return items
     } catch (error) {
-      console.error("[v0] Error building search index:", error)
-    } finally {
-      setIndexLoading(false)
+      console.error(`Error indexing folder ${folderId}:`, error)
+      return []
     }
   }, [])
 
@@ -513,7 +545,6 @@ export default function HomePage() {
       await initializeService()
 
       if (!realDriveService) {
-        console.log("[v0] Service not available, using demo data")
         const demoFolders = [
           {
             id: "demo-1",
@@ -540,7 +571,6 @@ export default function HomePage() {
         ]
         setFolders(demoFolders)
         setIsAuthenticated(false)
-        await buildSearchIndex(demoFolders)
         return
       }
 
@@ -572,10 +602,35 @@ export default function HomePage() {
       }))
 
       setFolders(processedFolders)
-      await buildSearchIndex(processedFolders)
+
+      setIndexingProgress({
+        isIndexing: true,
+        currentFolder: "Iniciando...",
+        foldersProcessed: 0,
+        filesProcessed: 0,
+        totalProgress: 0,
+      })
+
+      const allItems: SearchIndexItem[] = []
+      for (let i = 0; i < realFolders.length; i++) {
+        const folder = realFolders[i]
+        const items = await buildSearchIndex(folder.id, folder.name)
+        allItems.push(...items)
+
+        setIndexingProgress((prev) => ({
+          ...prev,
+          totalProgress: Math.round(((i + 1) / realFolders.length) * 100),
+        }))
+      }
+
+      setSearchIndex(allItems)
+      setIndexingProgress((prev) => ({
+        ...prev,
+        isIndexing: false,
+        currentFolder: "Completado",
+      }))
     } catch (err) {
-      console.error("[v0] Error loading real Google Drive data:", err)
-      console.log("[v0] Loading demo data due to error")
+      console.error("Error loading real Google Drive data:", err)
       const demoFolders = [
         {
           id: "demo-1",
@@ -591,7 +646,7 @@ export default function HomePage() {
       ]
       setFolders(demoFolders)
       setIsAuthenticated(false)
-      setError(null) // Clear error to show demo data
+      setError(null)
     } finally {
       setLoading(false)
     }
@@ -600,31 +655,39 @@ export default function HomePage() {
   const filteredAndSortedFolders = useMemo(() => {
     if (!folders.length) return []
 
-    const filtered = folders.filter((folder) => {
+    let filtered = folders.filter((folder) => {
       const matchesStatus = statusFilter === "all" || folder.status === statusFilter
       const matchesLocation = locationFilter === "all" || folder.location === locationFilter
-
-      let matchesSearch = true
-      if (searchTerm.trim()) {
-        const searchLower = searchTerm.toLowerCase()
-
-        const folderNameMatch = folder.name.toLowerCase().includes(searchLower)
-
-        let contentMatch = false
-        if (searchIndex.size > 0) {
-          for (const [key, item] of searchIndex.entries()) {
-            if (item.folderId === folder.id && item.content.includes(searchLower)) {
-              contentMatch = true
-              break
-            }
-          }
-        }
-
-        matchesSearch = folderNameMatch || contentMatch
-      }
-
-      return matchesSearch && matchesStatus && matchesLocation
+      return matchesStatus && matchesLocation
     })
+
+    // Enhanced search using the full index
+    if (searchTerm.trim() && searchIndex.length > 0) {
+      const searchLower = searchTerm.toLowerCase()
+      const matchingItems = searchIndex.filter(
+        (item) => item.name.toLowerCase().includes(searchLower) || item.path.toLowerCase().includes(searchLower),
+      )
+
+      // Get unique folder IDs from matching items
+      const matchingFolderIds = new Set(matchingItems.map((item) => item.parentId))
+
+      filtered = filtered.filter(
+        (folder) =>
+          folder.name.toLowerCase().includes(searchLower) ||
+          folder.location.toLowerCase().includes(searchLower) ||
+          folder.propertyType.toLowerCase().includes(searchLower) ||
+          matchingFolderIds.has(folder.id),
+      )
+    } else if (searchTerm.trim()) {
+      // Fallback to basic search if index not ready
+      const searchLower = searchTerm.toLowerCase()
+      filtered = filtered.filter(
+        (folder) =>
+          folder.name.toLowerCase().includes(searchLower) ||
+          folder.location.toLowerCase().includes(searchLower) ||
+          folder.propertyType.toLowerCase().includes(searchLower),
+      )
+    }
 
     return filtered.sort((a, b) => {
       switch (sortBy) {
@@ -641,6 +704,20 @@ export default function HomePage() {
       }
     })
   }, [folders, searchTerm, statusFilter, locationFilter, sortBy, searchIndex])
+
+  const searchResults = useMemo(() => {
+    if (!searchTerm.trim() || searchIndex.length === 0) return null
+
+    const searchLower = searchTerm.toLowerCase()
+    const matching = searchIndex.filter(
+      (item) => item.name.toLowerCase().includes(searchLower) || item.path.toLowerCase().includes(searchLower),
+    )
+
+    const folders = matching.filter((item) => item.type === "folder")
+    const files = matching.filter((item) => item.type === "file")
+
+    return { folders, files, total: matching.length }
+  }, [searchTerm, searchIndex])
 
   const totalPages = Math.ceil(filteredAndSortedFolders.length / itemsPerPage)
   const paginatedFolders = filteredAndSortedFolders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
@@ -663,8 +740,6 @@ export default function HomePage() {
   const handleBackToList = useCallback(() => {
     setSelectedFolder(null)
   }, [])
-
-  useEffect(() => {}, [buildSearchIndex])
 
   if (error && !isAuthenticated && loading) {
     return (
@@ -700,6 +775,12 @@ export default function HomePage() {
                 <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
                   Método PARA Activo
                 </Badge>
+                {searchIndex.length > 0 && (
+                  <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                    <Database className="h-3 w-3 mr-1" />
+                    {searchIndex.length} items indexados
+                  </Badge>
+                )}
               </h1>
               <p className="text-gray-600 mt-1">
                 {isAuthenticated ? "Datos reales desde Google Drive" : "Datos de demostración"} - Casos de éxito
@@ -729,6 +810,27 @@ export default function HomePage() {
           </div>
         </div>
       </div>
+
+      {indexingProgress.isIndexing && (
+        <div className="bg-blue-50 border-b border-blue-200">
+          <div className="container mx-auto px-4 py-4">
+            <div className="flex items-center gap-4">
+              <RefreshCw className="h-5 w-5 animate-spin text-blue-600" />
+              <div className="flex-1">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-medium text-blue-900">
+                    Indexando carpetas y archivos: {indexingProgress.currentFolder}
+                  </p>
+                  <p className="text-sm text-blue-700">
+                    {indexingProgress.foldersProcessed} carpetas • {indexingProgress.filesProcessed} archivos
+                  </p>
+                </div>
+                <Progress value={indexingProgress.totalProgress} className="h-2" />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="container mx-auto px-4 py-4">
         <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200 p-4 mb-4">
@@ -803,16 +905,11 @@ export default function HomePage() {
               <div className="relative flex-1 max-w-md">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <Input
-                  placeholder="Buscar en carpetas, subcarpetas y archivos..."
+                  placeholder="Buscar en todas las carpetas y archivos..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10"
                 />
-                {indexLoading && (
-                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                    <RefreshCw className="h-4 w-4 animate-spin text-blue-500" />
-                  </div>
-                )}
               </div>
 
               <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -873,6 +970,54 @@ export default function HomePage() {
             </div>
           </div>
         </div>
+
+        {searchResults && searchResults.total > 0 && (
+          <div className="bg-blue-50 rounded-lg border border-blue-200 p-4 mb-6">
+            <h3 className="font-semibold text-blue-900 mb-3">
+              Resultados de búsqueda: {searchResults.total} items encontrados
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {searchResults.folders.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-blue-800 mb-2 flex items-center gap-2">
+                    <Folder className="h-4 w-4" />
+                    Carpetas ({searchResults.folders.length})
+                  </h4>
+                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                    {searchResults.folders.slice(0, 10).map((item) => (
+                      <div key={item.id} className="text-sm text-blue-700 bg-white rounded px-2 py-1">
+                        {item.path}
+                      </div>
+                    ))}
+                    {searchResults.folders.length > 10 && (
+                      <p className="text-xs text-blue-600 italic">
+                        +{searchResults.folders.length - 10} carpetas más...
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+              {searchResults.files.length > 0 && (
+                <div>
+                  <h4 className="text-sm font-medium text-blue-800 mb-2 flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Archivos ({searchResults.files.length})
+                  </h4>
+                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                    {searchResults.files.slice(0, 10).map((item) => (
+                      <div key={item.id} className="text-sm text-blue-700 bg-white rounded px-2 py-1">
+                        {item.path}
+                      </div>
+                    ))}
+                    {searchResults.files.length > 10 && (
+                      <p className="text-xs text-blue-600 italic">+{searchResults.files.length - 10} archivos más...</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         <div
           className={
