@@ -353,10 +353,24 @@ export function KMZNeighborhoodAnalyzer() {
                     Propiedades Vecinas (Radio: {analysis.searchRadius} km)
                   </CardTitle>
                   <CardDescription>
-                    Roles identificados en el vecindario con información del SII y otras fuentes
+                    Propiedades identificadas en los archivos KMZ dentro del radio de búsqueda
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
+                  <div className="mb-6 bg-blue-50 border border-blue-200 rounded-xl p-4">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
+                      <div className="space-y-1">
+                        <p className="font-semibold text-blue-900">Fuente de Datos</p>
+                        <p className="text-sm text-blue-700">
+                          Las propiedades vecinas se identifican a partir de los archivos KMZ cargados. Para obtener
+                          información completa del vecindario, asegúrate de cargar todos los archivos KMZ relevantes de
+                          la zona.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="space-y-4">
                     {analysis.neighboringProperties.map((property, index) => (
                       <div
@@ -365,7 +379,7 @@ export function KMZNeighborhoodAnalyzer() {
                       >
                         <div className="flex justify-between items-start mb-4">
                           <div>
-                            <div className="font-bold text-lg text-slate-800">Rol: {property.rol}</div>
+                            <div className="font-bold text-lg text-slate-800">{property.rol}</div>
                             <div className="text-sm text-slate-600 mt-1">
                               Distancia: {property.distance.toFixed(2)} km
                             </div>
@@ -387,7 +401,7 @@ export function KMZNeighborhoodAnalyzer() {
                           </div>
                           {property.additionalInfo && (
                             <div>
-                              <span className="font-medium text-slate-600">Info Adicional:</span>
+                              <span className="font-medium text-slate-600">Descripción:</span>
                               <div className="text-slate-800 text-xs mt-1">{property.additionalInfo}</div>
                             </div>
                           )}
@@ -398,9 +412,15 @@ export function KMZNeighborhoodAnalyzer() {
                     {analysis.neighboringProperties.length === 0 && (
                       <div className="text-center py-12">
                         <AlertCircle className="h-12 w-12 text-slate-400 mx-auto mb-4" />
-                        <p className="text-slate-500 font-medium">
-                          No se encontraron propiedades vecinas en el radio de {analysis.searchRadius} km
-                        </p>
+                        <div className="space-y-2">
+                          <p className="text-slate-700 font-semibold">
+                            No se encontraron propiedades vecinas en el radio de {analysis.searchRadius} km
+                          </p>
+                          <p className="text-slate-500 text-sm">
+                            Las propiedades vecinas se identifican a partir de los archivos KMZ cargados. Intenta cargar
+                            más archivos KMZ de la zona o aumentar el radio de búsqueda.
+                          </p>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -466,7 +486,7 @@ export function KMZNeighborhoodAnalyzer() {
                         .map((route, index) => (
                           <div
                             key={index}
-                            className="border border-slate-200 rounded-xl p-4 bg-gradient-to-r from-white to-slate-50"
+                            className="border border-slate-200 rounded-xl p-4 bg-gradient-to-br from-white to-slate-50"
                           >
                             <div className="flex items-center justify-between mb-2">
                               <div className="flex items-center gap-2">

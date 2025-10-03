@@ -110,67 +110,59 @@ class NeighborhoodAnalyzer {
   }
 
   /**
-   * Find neighboring properties within radius
-   * In production, this would query SII, CONAF, INDAP, CIREN, ODEPA, FAO APIs
+   * Find neighboring properties from loaded KMZ files within radius
+   * Uses actual placemarks from the KMZ files as neighboring properties
    */
   private async findNeighboringProperties(
     centerPoint: { lat: number; lng: number },
     radius: number,
+    kmzFiles: KMZData[],
   ): Promise<NeighboringProperty[]> {
-    const dataSources = [
-      this.querySII(centerPoint, radius),
-      this.queryCONAF(centerPoint, radius),
-      this.queryINDAP(centerPoint, radius),
-    ]
+    const properties: NeighboringProperty[] = []
 
-    const results = await Promise.all(dataSources)
-    return results.flat().filter((prop) => prop.distance <= radius)
-  }
+    // Extract all placemarks from KMZ files
+    for (const kmz of kmzFiles) {
+      for (const placemark of kmz.placemarks) {
+        // Calculate center of this placemark
+        let placemarkLat = 0
+        let placemarkLng = 0
+        let coordCount = 0
 
-  private async querySII(centerPoint: { lat: number; lng: number }, radius: number): Promise<NeighboringProperty[]> {
-    // Mock SII data - In production, query real SII API
-    return [
-      {
-        rol: "1234-567",
-        distance: 1.2,
-        coordinates: { lat: centerPoint.lat + 0.01, lng: centerPoint.lng + 0.01 },
-        source: "SII",
-        additionalInfo: "Propiedad agrícola, 50 hectáreas",
-      },
-      {
-        rol: "1234-568",
-        distance: 2.5,
-        coordinates: { lat: centerPoint.lat - 0.02, lng: centerPoint.lng + 0.015 },
-        source: "SII",
-        additionalInfo: "Propiedad forestal, 120 hectáreas",
-      },
-    ]
-  }
+        for (const coord of placemark.coordinates) {
+          placemarkLng += coord[0]
+          placemarkLat += coord[1]
+          coordCount++
+        }
 
-  private async queryCONAF(centerPoint: { lat: number; lng: number }, radius: number): Promise<NeighboringProperty[]> {
-    // Mock CONAF data
-    return [
-      {
-        rol: "1234-569",
-        distance: 3.8,
-        coordinates: { lat: centerPoint.lat + 0.03, lng: centerPoint.lng - 0.02 },
-        source: "CONAF",
-        additionalInfo: "Área protegida, bosque nativo",
-      },
-    ]
-  }
+        if (coordCount === 0) continue
 
-  private async queryINDAP(centerPoint: { lat: number; lng: number }, radius: number): Promise<NeighboringProperty[]> {
-    // Mock INDAP data
-    return [
-      {
-        rol: "1234-570",
-        distance: 4.2,
-        coordinates: { lat: centerPoint.lat - 0.035, lng: centerPoint.lng - 0.025 },
-        source: "INDAP",
-        additionalInfo: "Pequeño productor agrícola",
-      },
-    ]
+        placemarkLat /= coordCount
+        placemarkLng /= coordCount
+
+        // Calculate distance from center point
+        const distance = this.calculateDistance(centerPoint.lat, centerPoint.lng, placemarkLat, placemarkLng)
+
+        // Only include if within radius and not the exact center point (to avoid including the main property)
+        if (distance <= radius && distance > 0.01) {
+          // 0.01 km = 10 meters threshold
+          properties.push({
+            rol: placemark.name || "Sin nombre",
+            distance: Math.round(distance * 100) / 100, // Round to 2 decimals
+            coordinates: {
+              lat: placemarkLat,
+              lng: placemarkLng,
+            },
+            source: "KMZ",
+            additionalInfo: placemark.description || `Propiedad de ${kmz.fileName}`,
+          })
+        }
+      }
+    }
+
+    // Sort by distance
+    properties.sort((a, b) => a.distance - b.distance)
+
+    return properties
   }
 
   /**
@@ -347,13 +339,13 @@ class NeighborhoodAnalyzer {
     const centerPoint = this.getCenterPoint(kmzFiles)
 
     const [neighboringProperties, accessRoutes, distances, contextualInfo] = await Promise.all([
-      this.findNeighboringProperties(centerPoint, searchRadius),
+      this.findNeighboringProperties(centerPoint, searchRadius, kmzFiles),
       Promise.resolve(this.calculateAccessRoutes(centerPoint)),
       Promise.resolve(this.calculateDistances(centerPoint)),
       Promise.resolve(this.gatherContextualInfo(centerPoint)),
     ])
 
-    const dataSources = ["SII", "CONAF", "INDAP", "CIREN", "ODEPA", "FAO"]
+    const dataSources = ["KMZ"]
 
     return {
       centerPoint,
