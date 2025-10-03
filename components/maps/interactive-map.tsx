@@ -2,14 +2,16 @@
 
 import type React from "react"
 import CanvasMap from "@/components/maps/canvas-map" // Import CanvasMap component
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { KMZReader } from "@/lib/kmz/kmz-reader"
+import { RefreshCw } from "lucide-react"
+import { kmzStorageService } from "@/lib/kmz/kmz-storage-service"
+
 import {
   MapPin,
   Home,
@@ -181,6 +183,34 @@ export function InteractiveMap() {
   })
   const [kmzData, setKmzData] = useState<KMZData[]>([])
   const [showKmzOverlay, setShowKmzOverlay] = useState(true)
+  const [loadingKMZ, setLoadingKMZ] = useState(true)
+
+  useEffect(() => {
+    loadStoredKMZ()
+  }, [])
+
+  const loadStoredKMZ = async () => {
+    console.log("[v0] Loading stored KMZ files from database...")
+    setLoadingKMZ(true)
+    try {
+      const storedKMZ = await kmzStorageService.loadAllKMZ()
+      console.log("[v0] Loaded KMZ files:", storedKMZ.length)
+
+      const kmzDataArray: KMZData[] = storedKMZ.map((kmz) => ({
+        fileName: kmz.fileName,
+        coordinates: kmz.coordinates,
+        rolNumbers: kmz.rolNumbers,
+        properties: [],
+      }))
+
+      setKmzData(kmzDataArray)
+      console.log("[v0] KMZ files loaded and ready for display")
+    } catch (error) {
+      console.error("[v0] Error loading stored KMZ:", error)
+    } finally {
+      setLoadingKMZ(false)
+    }
+  }
 
   const handleFilterChange = (key: string, value: string) => {
     const newFilters = { ...filters, [key]: value }
@@ -287,6 +317,7 @@ export function InteractiveMap() {
         <div>
           <h1 className="text-3xl font-bold">Mapa Interactivo de Propiedades</h1>
           <p className="text-muted-foreground">Explora propiedades en el sur de Chile</p>
+          {loadingKMZ && <p className="text-sm text-blue-600 mt-1">Cargando archivos KMZ...</p>}
         </div>
         <div className="flex gap-2">
           <div className="relative">
@@ -302,6 +333,10 @@ export function InteractiveMap() {
               Cargar KMZ
             </Button>
           </div>
+          <Button variant="outline" onClick={loadStoredKMZ} disabled={loadingKMZ} className="gap-2 bg-transparent">
+            <RefreshCw className={`h-4 w-4 ${loadingKMZ ? "animate-spin" : ""}`} />
+            Recargar KMZ
+          </Button>
           <Button className="gap-2">
             <Share2 className="h-4 w-4" />
             Compartir Mapa
@@ -364,7 +399,6 @@ export function InteractiveMap() {
         </Card>
       </div>
 
-      {/* Filters */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -428,7 +462,6 @@ export function InteractiveMap() {
         </CardContent>
       </Card>
 
-      {/* Map Simulation */}
       <div>
         <div className="flex justify-between items-center mb-4">
           <div>
@@ -452,7 +485,6 @@ export function InteractiveMap() {
         />
       </div>
 
-      {/* Property List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredProperties.map((property) => (
           <Card key={property.id} className="hover:shadow-lg transition-shadow">

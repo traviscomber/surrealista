@@ -47,6 +47,7 @@ interface CanvasMapProps {
   showKMZOverlay?: boolean
   onPropertySelect: (property: Property | null) => void
   selectedProperty: Property | null
+  onToggleKmzOverlay?: () => void
 }
 
 const CanvasMap = ({
@@ -55,6 +56,7 @@ const CanvasMap = ({
   showKMZOverlay = true,
   onPropertySelect,
   selectedProperty,
+  onToggleKmzOverlay,
 }: CanvasMapProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [zoom, setZoom] = useState(1)
@@ -63,6 +65,7 @@ const CanvasMap = ({
   const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 })
   const [hoveredProperty, setHoveredProperty] = useState<Property | null>(null)
   const [canvasReady, setCanvasReady] = useState(false)
+  const [highlightedType, setHighlightedType] = useState<string | null>(null)
 
   const bounds = {
     north: -38.5,
@@ -163,9 +166,9 @@ const CanvasMap = ({
 
     ctx.fillStyle = "#3B82F6"
     const lakes = [
-      { lat: -41.1, lng: -72.8, radius: 15 }, // Lago Llanquihue
-      { lat: -39.3, lng: -71.9, radius: 8 }, // Lago Villarrica
-      { lat: -40.6, lng: -72.1, radius: 6 }, // Lago Puyehue
+      { lat: -41.1, lng: -72.8, radius: 15 },
+      { lat: -39.3, lng: -71.9, radius: 8 },
+      { lat: -40.6, lng: -72.1, radius: 6 },
     ]
 
     lakes.forEach((lake) => {
@@ -181,20 +184,22 @@ const CanvasMap = ({
       if (x < -50 || x > canvas.width + 50 || y < -50 || y > canvas.height + 50) return
 
       const color = getPropertyColor(property.type)
-      const radius = property.featured ? 8 : 6
+      const baseRadius = property.featured ? 8 : 6
+      const radius = highlightedType === property.type ? baseRadius * 1.5 : baseRadius
       const isSelected = selectedProperty?.id === property.id
       const isHovered = hoveredProperty?.id === property.id
+      const isHighlighted = highlightedType === property.type
 
       ctx.fillStyle = color
-      ctx.strokeStyle = isSelected ? "#EF4444" : isHovered ? "#F59E0B" : "#FFFFFF"
-      ctx.lineWidth = isSelected ? 3 : isHovered ? 2 : 1
+      ctx.strokeStyle = isSelected ? "#EF4444" : isHovered ? "#F59E0B" : isHighlighted ? "#FBBF24" : "#FFFFFF"
+      ctx.lineWidth = isSelected ? 3 : isHovered ? 2 : isHighlighted ? 3 : 1
 
       ctx.beginPath()
       ctx.arc(x, y, radius * zoom, 0, 2 * Math.PI)
       ctx.fill()
       ctx.stroke()
 
-      if (property.featured || isSelected || isHovered) {
+      if (property.featured || isSelected || isHovered || isHighlighted) {
         ctx.fillStyle = "#1F2937"
         ctx.font = `${12 * Math.min(zoom, 1.5)}px Inter, sans-serif`
         ctx.textAlign = "center"
@@ -319,6 +324,52 @@ const CanvasMap = ({
     onPropertySelect(null)
   }
 
+  const handleLegendClick = (type: string) => {
+    const propertiesOfType = properties.filter((p) => p.type === type)
+
+    if (propertiesOfType.length === 0) return
+
+    const avgLat = propertiesOfType.reduce((sum, p) => sum + p.location.coordinates[0], 0) / propertiesOfType.length
+    const avgLng = propertiesOfType.reduce((sum, p) => sum + p.location.coordinates[1], 0) / propertiesOfType.length
+
+    const centerCanvas = latLngToCanvas(avgLat, avgLng)
+
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const targetX = canvas.width / 2 - centerCanvas.x / zoom
+    const targetY = canvas.height / 2 - centerCanvas.y / zoom
+
+    setPan({ x: targetX, y: targetY })
+    setZoom(1.5)
+
+    setHighlightedType(type)
+    setTimeout(() => setHighlightedType(null), 3000)
+  }
+
+  const handleKmzLegendClick = () => {
+    if (kmzData.length === 0) return
+
+    const firstKmz = kmzData[0]
+    if (!firstKmz.placemarks || firstKmz.placemarks.length === 0) return
+
+    const firstPlacemark = firstKmz.placemarks[0]
+    if (!firstPlacemark.coordinates || firstPlacemark.coordinates.length === 0) return
+
+    const [lat, lng] = firstPlacemark.coordinates[0]
+
+    const centerCanvas = latLngToCanvas(lat, lng)
+
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const targetX = canvas.width / 2 - centerCanvas.x / zoom
+    const targetY = canvas.height / 2 - centerCanvas.y / zoom
+
+    setPan({ x: targetX, y: targetY })
+    setZoom(2)
+  }
+
   useEffect(() => {
     const canvas = canvasRef.current
     if (canvas) {
@@ -332,7 +383,7 @@ const CanvasMap = ({
       console.log("[v0] Drawing map - canvas ready")
       drawMap()
     }
-  }, [properties, kmzData, showKMZOverlay, zoom, pan, selectedProperty, hoveredProperty, canvasReady])
+  }, [properties, kmzData, showKMZOverlay, zoom, pan, selectedProperty, hoveredProperty, canvasReady, highlightedType])
 
   return (
     <div className="relative bg-white rounded-lg border shadow-sm">
@@ -389,23 +440,35 @@ const CanvasMap = ({
       <div className="absolute bottom-4 right-4 bg-white p-3 rounded-lg shadow-lg border">
         <h4 className="font-semibold text-sm mb-2">Leyenda</h4>
         <div className="space-y-1 text-xs">
-          <div className="flex items-center gap-2">
+          <button
+            onClick={() => handleLegendClick("casa")}
+            className="flex items-center gap-2 w-full hover:bg-gray-100 p-1 rounded transition-colors cursor-pointer"
+          >
             <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-            <span>Casas</span>
-          </div>
-          <div className="flex items-center gap-2">
+            <span>Casas ({properties.filter((p) => p.type === "casa").length})</span>
+          </button>
+          <button
+            onClick={() => handleLegendClick("departamento")}
+            className="flex items-center gap-2 w-full hover:bg-gray-100 p-1 rounded transition-colors cursor-pointer"
+          >
             <div className="w-3 h-3 rounded-full bg-green-500"></div>
-            <span>Departamentos</span>
-          </div>
-          <div className="flex items-center gap-2">
+            <span>Departamentos ({properties.filter((p) => p.type === "departamento").length})</span>
+          </button>
+          <button
+            onClick={() => handleLegendClick("terreno")}
+            className="flex items-center gap-2 w-full hover:bg-gray-100 p-1 rounded transition-colors cursor-pointer"
+          >
             <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-            <span>Terrenos</span>
-          </div>
+            <span>Terrenos ({properties.filter((p) => p.type === "terreno").length})</span>
+          </button>
           {showKMZOverlay && (
-            <div className="flex items-center gap-2">
+            <button
+              onClick={handleKmzLegendClick}
+              className="flex items-center gap-2 w-full hover:bg-gray-100 p-1 rounded transition-colors cursor-pointer"
+            >
               <div className="w-3 h-3 rounded-full bg-purple-500"></div>
-              <span>Puntos KMZ</span>
-            </div>
+              <span>Puntos KMZ ({kmzData.reduce((sum, d) => sum + d.placemarks.length, 0)})</span>
+            </button>
           )}
         </div>
       </div>
