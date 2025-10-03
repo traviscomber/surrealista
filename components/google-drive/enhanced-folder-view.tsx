@@ -26,6 +26,9 @@ import {
   RefreshCw,
   Filter,
   X,
+  CheckCircle,
+  AlertCircle,
+  Settings,
 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
@@ -50,6 +53,47 @@ interface FolderNode {
   parentId?: string
   paraCategory?: string
   completionStatus?: string
+  structureCompliance?: "compliant" | "partial" | "non-compliant"
+  standardFolderType?: string
+}
+
+const STANDARD_FOLDER_STRUCTURE = {
+  "1_FOTOS": {
+    icon: "📸",
+    description: "Fotos organizadas por fecha, drone y selección",
+    subfolders: ["fotos_dron", "seleccion_jorge"],
+    color: "text-green-600 bg-green-50 border-green-200",
+  },
+  "2_DOCUMENTOS": {
+    icon: "📄",
+    description: "Documentos por categorías a, b, c",
+    subfolders: ["a_Antecedentes_titulo", "b_Tasacion_info_campo", "c_Documentos_comerciales"],
+    color: "text-blue-600 bg-blue-50 border-blue-200",
+  },
+  "3_COMUNICACIONES": {
+    icon: "💬",
+    description: "Interacciones con compradores, dueños y clientes",
+    subfolders: ["a_interaccion_compradores", "b_interaccion_dueno_contacto", "c_sugerencia_clientes"],
+    color: "text-orange-600 bg-orange-50 border-orange-200",
+  },
+  "4_MARKETING": {
+    icon: "📈",
+    description: "Videos, reels y publicaciones",
+    subfolders: ["videos_promocionales", "reels_instagram", "publicaciones_portales"],
+    color: "text-pink-600 bg-pink-50 border-pink-200",
+  },
+  "5_PDF_SUELTO": {
+    icon: "📋",
+    description: "Presentaciones y PDFs directos",
+    subfolders: [],
+    color: "text-red-600 bg-red-50 border-red-200",
+  },
+  "6_KMZ_SUELTO": {
+    icon: "🗺️",
+    description: "Archivos KMZ/KML de ubicación",
+    subfolders: [],
+    color: "text-purple-600 bg-purple-50 border-purple-200",
+  },
 }
 
 export function EnhancedFolderView({ folderId, folderName }: { folderId: string; folderName: string }) {
@@ -77,6 +121,7 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
         level,
         paraCategory: classifyPARACategory(data.name || folderName),
         completionStatus: assessCompletionStatus(data.files || []),
+        standardFolderType: detectStandardFolder(data.name || folderName) || undefined,
       }
 
       if (data.files) {
@@ -106,6 +151,7 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
                 isExpanded: false,
                 level: level + 1,
                 paraCategory: classifyPARACategory(folder.name),
+                standardFolderType: detectStandardFolder(folder.name) || undefined,
               }
             }),
           )
@@ -113,6 +159,8 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
           node.subfolders = await Promise.all(subfolderPromises)
         }
       }
+
+      node.structureCompliance = assessStructureCompliance(node)
 
       return node
     } catch (error) {
@@ -321,6 +369,73 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
     setQuickFilters([])
   }
 
+  const detectStandardFolder = (folderName: string): string | null => {
+    const normalizedName = folderName.toLowerCase().trim()
+
+    for (const [standardName, config] of Object.entries(STANDARD_FOLDER_STRUCTURE)) {
+      const standardLower = standardName.toLowerCase()
+
+      // Exact match
+      if (normalizedName === standardLower) {
+        return standardName
+      }
+
+      // Partial match for key terms
+      if (standardLower.includes("fotos") && normalizedName.includes("fotos")) {
+        return standardName
+      }
+      if (standardLower.includes("documentos") && normalizedName.includes("documentos")) {
+        return standardName
+      }
+      if (standardLower.includes("comunicaciones") && normalizedName.includes("comunicaciones")) {
+        return standardName
+      }
+      if (standardLower.includes("marketing") && normalizedName.includes("marketing")) {
+        return standardName
+      }
+      if (standardLower.includes("pdf") && normalizedName.includes("pdf")) {
+        return standardName
+      }
+      if (standardLower.includes("kmz") && normalizedName.includes("kmz")) {
+        return standardName
+      }
+    }
+
+    return null
+  }
+
+  const assessStructureCompliance = (node: FolderNode): "compliant" | "partial" | "non-compliant" => {
+    const standardType = detectStandardFolder(node.name)
+
+    if (!standardType) {
+      // Check if this is a property folder that should contain the 6 standard folders
+      const hasStandardSubfolders = node.subfolders.filter((sub) => detectStandardFolder(sub.name) !== null).length
+
+      if (hasStandardSubfolders >= 4) return "compliant"
+      if (hasStandardSubfolders >= 2) return "partial"
+      return "non-compliant"
+    }
+
+    const config = STANDARD_FOLDER_STRUCTURE[standardType as keyof typeof STANDARD_FOLDER_STRUCTURE]
+
+    if (config.subfolders.length === 0) {
+      // For folders without required subfolders (PDF_SUELTO, KMZ_SUELTO)
+      return "compliant"
+    }
+
+    // Check if required subfolders exist
+    const existingSubfolders = node.subfolders.map((sub) => sub.name.toLowerCase())
+    const requiredSubfolders = config.subfolders.map((name) => name.toLowerCase())
+
+    const matchCount = requiredSubfolders.filter((required) =>
+      existingSubfolders.some((existing) => existing.includes(required.split("_").pop() || "")),
+    ).length
+
+    if (matchCount === requiredSubfolders.length) return "compliant"
+    if (matchCount > 0) return "partial"
+    return "non-compliant"
+  }
+
   const renderTreeNode = (node: FolderNode) => {
     const hasSubfolders = node.subfolders.length > 0
     const totalFiles = node.files.length + node.subfolders.reduce((sum, sub) => sum + getAllFiles(sub).length, 0)
@@ -353,12 +468,29 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
       }
     }
 
+    const getComplianceColor = (compliance?: string) => {
+      switch (compliance) {
+        case "compliant":
+          return "text-green-600 bg-green-50 border-green-200"
+        case "partial":
+          return "text-yellow-600 bg-yellow-50 border-yellow-200"
+        case "non-compliant":
+          return "text-gray-600 bg-gray-50 border-gray-200"
+        default:
+          return "text-gray-600 bg-gray-50 border-gray-200"
+      }
+    }
+
+    const standardConfig = node.standardFolderType
+      ? STANDARD_FOLDER_STRUCTURE[node.standardFolderType as keyof typeof STANDARD_FOLDER_STRUCTURE]
+      : null
+
     return (
       <div key={node.id} className="select-none">
         <div
           className={`flex items-center gap-2 py-2 px-3 hover:bg-gray-50 rounded-md cursor-pointer ${
             selectedItems.has(node.id) ? "bg-blue-50 border border-blue-200" : ""
-          }`}
+          } ${node.standardFolderType ? "border-l-4 " + (standardConfig?.color.split(" ")[2] || "") : ""}`}
           style={{ paddingLeft: `${node.level * 20 + 12}px` }}
           onClick={() => toggleFolder(node.id)}
         >
@@ -369,23 +501,46 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
           )}
           {!hasSubfolders && <div className="w-4" />}
 
-          {node.isExpanded ? (
+          {standardConfig ? (
+            <span className="text-lg">{standardConfig.icon}</span>
+          ) : node.isExpanded ? (
             <FolderOpen className="h-4 w-4 text-blue-500" />
           ) : (
             <Folder className="h-4 w-4 text-blue-500" />
           )}
 
-          <span className="font-medium text-gray-900 flex-1">{node.name}</span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="font-medium text-gray-900">{node.name}</span>
+
+              {node.standardFolderType && (
+                <Badge className={`text-xs ${standardConfig?.color}`}>
+                  <Settings className="h-3 w-3 mr-1" />
+                  ESTÁNDAR
+                </Badge>
+              )}
+
+              {node.structureCompliance === "compliant" && (
+                <Badge className="text-xs bg-green-100 text-green-800">
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  COMPLETO
+                </Badge>
+              )}
+              {node.structureCompliance === "partial" && (
+                <Badge className="text-xs bg-yellow-100 text-yellow-800">
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  PARCIAL
+                </Badge>
+              )}
+            </div>
+
+            {standardConfig && <p className="text-xs text-gray-500 mt-1">{standardConfig.description}</p>}
+          </div>
 
           <div className="flex items-center gap-2">
-            {node.paraCategory && (
+            {node.paraCategory && !node.standardFolderType && (
               <Badge className={`text-xs ${getCategoryColor(node.paraCategory)}`}>
                 {node.paraCategory.toUpperCase()}
-              </Badge>
-            )}
-            {node.completionStatus && (
-              <Badge variant="outline" className={`text-xs ${getStatusColor(node.completionStatus)}`}>
-                {node.completionStatus.toUpperCase()}
               </Badge>
             )}
             <Badge variant="outline" className="text-xs">
@@ -552,6 +707,31 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
 
   return (
     <div className="space-y-6">
+      {folderTree && (
+        <Card className="border-blue-200 bg-blue-50">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <Settings className="h-5 w-5 text-blue-600" />
+              <span className="font-medium text-blue-800">Estructura Estandarizada Sur-Realista</span>
+            </div>
+            <p className="text-sm text-blue-700 mb-3">
+              Sistema de 6 carpetas principales: 1_FOTOS, 2_DOCUMENTOS, 3_COMUNICACIONES, 4_MARKETING, 5_PDF_SUELTO,
+              6_KMZ_SUELTO
+            </p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+              {Object.entries(STANDARD_FOLDER_STRUCTURE).map(([name, config]) => (
+                <div key={name} className={`p-2 rounded border ${config.color}`}>
+                  <strong>
+                    {config.icon} {name}:
+                  </strong>{" "}
+                  {config.description}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
         <div className="flex flex-col sm:flex-row gap-4 flex-1">
           <div className="relative flex-1 max-w-md">
