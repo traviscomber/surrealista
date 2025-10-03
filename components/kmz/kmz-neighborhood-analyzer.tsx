@@ -25,7 +25,16 @@ import {
 import { useDropzone } from "react-dropzone"
 import { kmzReader, type KMZData } from "@/lib/kmz/kmz-reader"
 import { neighborhoodAnalyzer, type NeighborhoodAnalysis } from "@/lib/kmz/neighborhood-analyzer"
-import { KMZMapDisplay } from "@/components/kmz/kmz-map-display"
+import dynamic from "next/dynamic"
+
+const KMZMapDisplay = dynamic(() => import("@/components/kmz/kmz-map-display").then((mod) => mod.KMZMapDisplay), {
+  ssr: false,
+  loading: () => (
+    <div className="h-[600px] w-full flex items-center justify-center bg-slate-100 rounded-xl">
+      <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+    </div>
+  ),
+})
 
 export function KMZNeighborhoodAnalyzer() {
   const [kmzFiles, setKmzFiles] = useState<KMZData[]>([])
@@ -33,6 +42,7 @@ export function KMZNeighborhoodAnalyzer() {
   const [analyzing, setAnalyzing] = useState(false)
   const [analysis, setAnalysis] = useState<NeighborhoodAnalysis | null>(null)
   const [searchRadius, setSearchRadius] = useState(5) // km
+  const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null)
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const kmzFiles = acceptedFiles.filter(
@@ -45,24 +55,35 @@ export function KMZNeighborhoodAnalyzer() {
     }
 
     setLoading(true)
+    setUploadProgress({ current: 0, total: kmzFiles.length })
 
     try {
-      const results = []
-      for (const file of kmzFiles) {
-        try {
-          const kmzData = await kmzReader.readKMZFile(file)
-          results.push(kmzData)
-        } catch (error) {
-          console.error(`Error processing ${file.name}:`, error)
-        }
-      }
+      const results = await Promise.allSettled(
+        kmzFiles.map(async (file, index) => {
+          try {
+            const kmzData = await kmzReader.readKMZFile(file)
+            setUploadProgress({ current: index + 1, total: kmzFiles.length })
+            return kmzData
+          } catch (error) {
+            console.error(`Error processing ${file.name}:`, error)
+            return null
+          }
+        }),
+      )
 
-      setKmzFiles((prev) => [...prev, ...results])
+      const successfulResults = results
+        .filter(
+          (result): result is PromiseFulfilledResult<KMZData> => result.status === "fulfilled" && result.value !== null,
+        )
+        .map((result) => result.value)
+
+      setKmzFiles((prev) => [...prev, ...successfulResults])
     } catch (error) {
       console.error("Error processing KMZ files:", error)
       alert("Error al procesar los archivos KMZ")
     } finally {
       setLoading(false)
+      setUploadProgress(null)
     }
   }, [])
 
@@ -142,10 +163,20 @@ export function KMZNeighborhoodAnalyzer() {
               </div>
             </div>
 
-            {loading && (
-              <div className="mt-6 flex items-center justify-center gap-3 text-emerald-600">
-                <Loader2 className="h-5 w-5 animate-spin" />
-                <span className="font-semibold">Procesando archivos KMZ...</span>
+            {loading && uploadProgress && (
+              <div className="mt-6 space-y-3">
+                <div className="flex items-center justify-center gap-3 text-emerald-600">
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span className="font-semibold">
+                    Procesando archivos KMZ... ({uploadProgress.current}/{uploadProgress.total})
+                  </span>
+                </div>
+                <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-emerald-500 to-teal-600 h-full transition-all duration-300"
+                    style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
+                  />
+                </div>
               </div>
             )}
           </CardContent>

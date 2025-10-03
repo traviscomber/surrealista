@@ -37,6 +37,7 @@ const getPageTitle = (pathname: string): string => {
     "/admin/seed": "Seed Database",
     "/admin/scraper-guide": "Guía de Scraper",
     "/admin/import-data": "Importar Datos",
+    "/admin/kmz-vecindario": "Análisis de Vecindario KMZ",
   }
 
   return routes[pathname] || "Panel de Administración"

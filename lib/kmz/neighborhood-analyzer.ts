@@ -91,8 +91,19 @@ class NeighborhoodAnalyzer {
     centerPoint: { lat: number; lng: number },
     radius: number,
   ): Promise<NeighboringProperty[]> {
-    // Mock data - In production, query real government APIs
-    const mockProperties: NeighboringProperty[] = [
+    const dataSources = [
+      this.querySII(centerPoint, radius),
+      this.queryCONAF(centerPoint, radius),
+      this.queryINDAP(centerPoint, radius),
+    ]
+
+    const results = await Promise.all(dataSources)
+    return results.flat().filter((prop) => prop.distance <= radius)
+  }
+
+  private async querySII(centerPoint: { lat: number; lng: number }, radius: number): Promise<NeighboringProperty[]> {
+    // Mock SII data - In production, query real SII API
+    return [
       {
         rol: "1234-567",
         distance: 1.2,
@@ -107,6 +118,12 @@ class NeighborhoodAnalyzer {
         source: "SII",
         additionalInfo: "Propiedad forestal, 120 hectáreas",
       },
+    ]
+  }
+
+  private async queryCONAF(centerPoint: { lat: number; lng: number }, radius: number): Promise<NeighboringProperty[]> {
+    // Mock CONAF data
+    return [
       {
         rol: "1234-569",
         distance: 3.8,
@@ -114,6 +131,12 @@ class NeighborhoodAnalyzer {
         source: "CONAF",
         additionalInfo: "Área protegida, bosque nativo",
       },
+    ]
+  }
+
+  private async queryINDAP(centerPoint: { lat: number; lng: number }, radius: number): Promise<NeighboringProperty[]> {
+    // Mock INDAP data
+    return [
       {
         rol: "1234-570",
         distance: 4.2,
@@ -122,9 +145,6 @@ class NeighborhoodAnalyzer {
         additionalInfo: "Pequeño productor agrícola",
       },
     ]
-
-    // Filter by radius
-    return mockProperties.filter((prop) => prop.distance <= radius)
   }
 
   /**
@@ -207,21 +227,13 @@ class NeighborhoodAnalyzer {
    * Main analysis function
    */
   async analyzeNeighborhood(kmzFiles: KMZData[], searchRadius: number): Promise<NeighborhoodAnalysis> {
-    console.log("[v0] Starting neighborhood analysis...")
-    console.log("[v0] KMZ files:", kmzFiles.length)
-    console.log("[v0] Search radius:", searchRadius, "km")
-
     const centerPoint = this.getCenterPoint(kmzFiles)
-    console.log("[v0] Center point:", centerPoint)
 
-    const neighboringProperties = await this.findNeighboringProperties(centerPoint, searchRadius)
-    console.log("[v0] Found neighboring properties:", neighboringProperties.length)
-
-    const accessRoutes = this.calculateAccessRoutes(centerPoint)
-    console.log("[v0] Calculated access routes:", accessRoutes.length)
-
-    const distances = this.calculateDistances(centerPoint)
-    console.log("[v0] Calculated distances:", distances.length)
+    const [neighboringProperties, accessRoutes, distances] = await Promise.all([
+      this.findNeighboringProperties(centerPoint, searchRadius),
+      Promise.resolve(this.calculateAccessRoutes(centerPoint)),
+      Promise.resolve(this.calculateDistances(centerPoint)),
+    ])
 
     const dataSources = ["SII", "CONAF", "INDAP", "CIREN", "ODEPA", "FAO"]
 

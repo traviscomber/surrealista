@@ -82,6 +82,13 @@ const menuItems: MenuItem[] = [
     badgeColor: "bg-purple-500",
   },
   {
+    title: "Análisis Vecindario KMZ",
+    href: "/admin/kmz-vecindario",
+    icon: MapPin,
+    badge: "New",
+    badgeColor: "bg-blue-500",
+  },
+  {
     title: "MVP & Desarrollo",
     icon: Rocket,
     badge: "Live",
@@ -177,6 +184,7 @@ const getPageTitle = (pathname: string): string => {
     "/admin/sii-extractor": "Extractor de Coordenadas SII",
     "/admin/ichiloe-sync": "Sincronización iChiloe.cl",
     "/admin/file-explorer": "Explorador de Archivos",
+    "/admin/kmz-vecindario": "Análisis de Vecindario KMZ",
     "/mvp/seguimiento": "Seguimiento MVP",
     "/admin/fase-1-mvp": "Fase 1 MVP",
     "/admin/fase-2-mvp": "Fase 2 MVP",
@@ -356,6 +364,13 @@ export function AdminSidebar() {
               <FolderOpen className="h-4 w-4" />
               Explorador de Archivos
               <Badge className="ml-auto bg-purple-500 text-white text-xs">New</Badge>
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
+            <Link href="/admin/kmz-vecindario">
+              <MapPin className="h-4 w-4" />
+              Análisis Vecindario KMZ
+              <Badge className="ml-auto bg-blue-500 text-white text-xs">New</Badge>
             </Link>
           </Button>
         </div>
