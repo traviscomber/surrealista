@@ -20,9 +20,68 @@ export interface DriveFolder {
 export class GoogleDriveService {
   private apiKey: string
   private baseUrl = "https://www.googleapis.com/drive/v3"
+  private maxRetries = 3
+  private retryDelay = 1000
+  private cache: Map<string, { data: any; timestamp: number }> = new Map()
+  private cacheTimeout = 5 * 60 * 1000 // 5 minutes
 
   constructor(apiKey: string) {
     this.apiKey = apiKey
+  }
+
+  private async fetchWithRetry(url: string, options: RequestInit = {}, retries = this.maxRetries): Promise<Response> {
+    try {
+      console.log("[v0] Fetching:", url)
+      const response = await fetch(url, {
+        ...options,
+        signal: AbortSignal.timeout(30000), // 30 second timeout
+      })
+
+      if (!response.ok) {
+        if (response.status === 429 && retries > 0) {
+          // Rate limit - wait and retry
+          console.log("[v0] Rate limited, retrying in", this.retryDelay * 2, "ms")
+          await new Promise((resolve) => setTimeout(resolve, this.retryDelay * 2))
+          return this.fetchWithRetry(url, options, retries - 1)
+        }
+
+        if (response.status >= 500 && retries > 0) {
+          // Server error - retry
+          console.log("[v0] Server error, retrying in", this.retryDelay, "ms")
+          await new Promise((resolve) => setTimeout(resolve, this.retryDelay))
+          return this.fetchWithRetry(url, options, retries - 1)
+        }
+
+        throw new Error(`API error: ${response.status} ${response.statusText}`)
+      }
+
+      return response
+    } catch (error) {
+      if (retries > 0 && (error instanceof TypeError || error.name === "AbortError")) {
+        // Network error or timeout - retry
+        console.log("[v0] Network error, retrying in", this.retryDelay, "ms", error)
+        await new Promise((resolve) => setTimeout(resolve, this.retryDelay))
+        return this.fetchWithRetry(url, options, retries - 1)
+      }
+      throw error
+    }
+  }
+
+  private getCached(key: string): any | null {
+    const cached = this.cache.get(key)
+    if (cached && Date.now() - cached.timestamp < this.cacheTimeout) {
+      console.log("[v0] Using cached data for:", key)
+      return cached.data
+    }
+    return null
+  }
+
+  private setCache(key: string, data: any): void {
+    this.cache.set(key, { data, timestamp: Date.now() })
+  }
+
+  private clearCache(): void {
+    this.cache.clear()
   }
 
   get apiKey() {
@@ -36,6 +95,10 @@ export class GoogleDriveService {
     files: DriveFile[]
     nextPageToken?: string
   }> {
+    const cacheKey = `listFiles_${folderId}_${pageToken}`
+    const cached = this.getCached(cacheKey)
+    if (cached) return cached
+
     try {
       const params = new URLSearchParams({
         key: this.apiKey,
@@ -53,33 +116,34 @@ export class GoogleDriveService {
         params.append("pageToken", pageToken)
       }
 
-      const response = await fetch(`${this.baseUrl}/files?${params}`)
-
-      if (!response.ok) {
-        throw new Error(`Google Drive API error: ${response.status}`)
-      }
-
+      const response = await this.fetchWithRetry(`${this.baseUrl}/files?${params}`)
       const data = await response.json()
 
-      return {
+      const result = {
         files: data.files || [],
         nextPageToken: data.nextPageToken,
       }
+
+      this.setCache(cacheKey, result)
+      return result
     } catch (error) {
-      console.error("Error listing files:", error)
+      console.error("[v0] Error listing files:", error)
       throw error
     }
   }
 
   async getFolderStructure(folderId: string): Promise<DriveFolder> {
+    const cacheKey = `folderStructure_${folderId}`
+    const cached = this.getCached(cacheKey)
+    if (cached) return cached
+
     try {
+      console.log("[v0] Getting folder structure for:", folderId)
+
       // Get folder info
-      const folderResponse = await fetch(`${this.baseUrl}/files/${folderId}?key=${this.apiKey}&fields=id,name`)
-
-      if (!folderResponse.ok) {
-        throw new Error(`Error getting folder info: ${folderResponse.status}`)
-      }
-
+      const folderResponse = await this.fetchWithRetry(
+        `${this.baseUrl}/files/${folderId}?key=${this.apiKey}&fields=id,name`,
+      )
       const folderInfo = await folderResponse.json()
 
       // Get folder contents
@@ -89,26 +153,30 @@ export class GoogleDriveService {
       const regularFiles = files.filter((file) => file.mimeType !== "application/vnd.google-apps.folder")
       const subfolderFiles = files.filter((file) => file.mimeType === "application/vnd.google-apps.folder")
 
-      // Recursively get subfolders
+      // Recursively get subfolders with error handling
       const subfolders: DriveFolder[] = []
       for (const subfolder of subfolderFiles) {
         try {
           const subfolderStructure = await this.getFolderStructure(subfolder.id)
           subfolders.push(subfolderStructure)
         } catch (error) {
-          console.error(`Error getting subfolder ${subfolder.name}:`, error)
+          console.error(`[v0] Error getting subfolder ${subfolder.name}:`, error)
+          // Continue with other subfolders even if one fails
         }
       }
 
-      return {
+      const result = {
         id: folderInfo.id,
         name: folderInfo.name,
         files: regularFiles,
         subfolders,
         totalFiles: regularFiles.length + subfolders.reduce((sum, sf) => sum + sf.totalFiles, 0),
       }
+
+      this.setCache(cacheKey, result)
+      return result
     } catch (error) {
-      console.error("Error getting folder structure:", error)
+      console.error("[v0] Error getting folder structure:", error)
       throw error
     }
   }
@@ -122,7 +190,7 @@ export class GoogleDriveService {
         pageSize: "50",
       })
 
-      const response = await fetch(`${this.baseUrl}/files?${params}`)
+      const response = await this.fetchWithRetry(`${this.baseUrl}/files?${params}`)
 
       if (!response.ok) {
         throw new Error(`Google Drive API error: ${response.status}`)
@@ -138,7 +206,7 @@ export class GoogleDriveService {
 
   async getFileContent(fileId: string): Promise<string> {
     try {
-      const response = await fetch(`${this.baseUrl}/files/${fileId}?alt=media&key=${this.apiKey}`)
+      const response = await this.fetchWithRetry(`${this.baseUrl}/files/${fileId}?alt=media&key=${this.apiKey}`)
 
       if (!response.ok) {
         throw new Error(`Error getting file content: ${response.status}`)
@@ -151,7 +219,6 @@ export class GoogleDriveService {
     }
   }
 
-  // Método específico para extraer números de rol de documentos
   async extractRolNumbers(files: DriveFile[]): Promise<
     {
       fileId: string
@@ -227,10 +294,12 @@ export class GoogleDriveService {
 
   async testConnection(): Promise<boolean> {
     try {
-      const response = await fetch(`${this.baseUrl}/about?key=${this.apiKey}&fields=user`)
+      console.log("[v0] Testing Google Drive connection...")
+      const response = await this.fetchWithRetry(`${this.baseUrl}/about?key=${this.apiKey}&fields=user`)
+      console.log("[v0] Connection test successful")
       return response.ok
     } catch (error) {
-      console.error("Error testing connection:", error)
+      console.error("[v0] Connection test failed:", error)
       return false
     }
   }
@@ -255,7 +324,7 @@ export class GoogleDriveService {
         pageSize: "100",
       })
 
-      const response = await fetch(`${this.baseUrl}/files?${params}`)
+      const response = await this.fetchWithRetry(`${this.baseUrl}/files?${params}`)
 
       if (!response.ok) {
         throw new Error(`Google Drive API error: ${response.status}`)
@@ -309,7 +378,9 @@ export class GoogleDriveService {
     if (rootFolderId) {
       // Get root folder name
       try {
-        const folderResponse = await fetch(`${this.baseUrl}/files/${rootFolderId}?key=${this.apiKey}&fields=name`)
+        const folderResponse = await this.fetchWithRetry(
+          `${this.baseUrl}/files/${rootFolderId}?key=${this.apiKey}&fields=name`,
+        )
         const folderInfo = await folderResponse.json()
         await searchInFolder(rootFolderId, [folderInfo.name], 0)
       } catch (error) {

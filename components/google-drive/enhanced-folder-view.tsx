@@ -99,6 +99,9 @@ const STANDARD_FOLDER_STRUCTURE = {
 export function EnhancedFolderView({ folderId, folderName }: { folderId: string; folderName: string }) {
   const [folderTree, setFolderTree] = useState<FolderNode | null>(null)
   const [loading, setLoading] = useState(true)
+  const [connectionStatus, setConnectionStatus] = useState<"connected" | "disconnected" | "reconnecting">("connected")
+  const [error, setError] = useState<string | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
   const [searchTerm, setSearchTerm] = useState("")
   const [searchInput, setSearchInput] = useState("")
   const [viewMode, setViewMode] = useState<"tree" | "grid" | "list">("tree")
@@ -107,9 +110,20 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
   const [quickFilters, setQuickFilters] = useState<string[]>([])
 
-  const loadFolderStructure = async (folderId: string, level = 0): Promise<FolderNode> => {
+  const loadFolderStructure = async (folderId: string, level = 0, retries = 3): Promise<FolderNode> => {
     try {
-      const response = await fetch(`/api/drive/folders/${folderId}`)
+      console.log("[v0] Loading folder structure, level:", level, "retries left:", retries)
+      setConnectionStatus("connected")
+      setError(null)
+
+      const response = await fetch(`/api/drive/folders/${folderId}`, {
+        signal: AbortSignal.timeout(30000), // 30 second timeout
+      })
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`)
+      }
+
       const data = await response.json()
 
       const node: FolderNode = {
@@ -140,9 +154,9 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
         }))
 
         if (level < 3) {
-          const subfolderPromises = folders.map((folder: any) =>
-            loadFolderStructure(folder.id, level + 1).catch((error) => {
-              console.error(`Error loading subfolder ${folder.name}:`, error)
+          const subfolderPromises = folders.slice(0, 50).map((folder: any) =>
+            loadFolderStructure(folder.id, level + 1, retries).catch((error) => {
+              console.error(`[v0] Error loading subfolder ${folder.name}:`, error)
               return {
                 id: folder.id,
                 name: folder.name,
@@ -164,7 +178,19 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
 
       return node
     } catch (error) {
-      console.error("Error loading folder structure:", error)
+      console.error("[v0] Error loading folder structure:", error)
+
+      if (retries > 0) {
+        setConnectionStatus("reconnecting")
+        setRetryCount((prev) => prev + 1)
+        const delay = Math.min(1000 * Math.pow(2, 3 - retries), 8000)
+        console.log(`[v0] Retrying in ${delay}ms...`)
+        await new Promise((resolve) => setTimeout(resolve, delay))
+        return loadFolderStructure(folderId, level, retries - 1)
+      }
+
+      setConnectionStatus("disconnected")
+      setError(error instanceof Error ? error.message : "Error de conexión")
       throw error
     }
   }
@@ -375,12 +401,10 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
     for (const [standardName, config] of Object.entries(STANDARD_FOLDER_STRUCTURE)) {
       const standardLower = standardName.toLowerCase()
 
-      // Exact match
       if (normalizedName === standardLower) {
         return standardName
       }
 
-      // Partial match for key terms
       if (standardLower.includes("fotos") && normalizedName.includes("fotos")) {
         return standardName
       }
@@ -408,7 +432,6 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
     const standardType = detectStandardFolder(node.name)
 
     if (!standardType) {
-      // Check if this is a property folder that should contain the 6 standard folders
       const hasStandardSubfolders = node.subfolders.filter((sub) => detectStandardFolder(sub.name) !== null).length
 
       if (hasStandardSubfolders >= 4) return "compliant"
@@ -419,11 +442,9 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
     const config = STANDARD_FOLDER_STRUCTURE[standardType as keyof typeof STANDARD_FOLDER_STRUCTURE]
 
     if (config.subfolders.length === 0) {
-      // For folders without required subfolders (PDF_SUELTO, KMZ_SUELTO)
       return "compliant"
     }
 
-    // Check if required subfolders exist
     const existingSubfolders = node.subfolders.map((sub) => sub.name.toLowerCase())
     const requiredSubfolders = config.subfolders.map((name) => name.toLowerCase())
 
@@ -684,10 +705,15 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
     const loadData = async () => {
       try {
         setLoading(true)
+        setError(null)
+        setRetryCount(0)
         const tree = await loadFolderStructure(folderId)
         setFolderTree(tree)
+        setConnectionStatus("connected")
       } catch (error) {
-        console.error("Error loading folder structure:", error)
+        console.error("[v0] Error loading folder structure:", error)
+        setConnectionStatus("disconnected")
+        setError("No se pudo cargar la estructura de carpetas. Verifica tu conexión.")
       } finally {
         setLoading(false)
       }
@@ -696,17 +722,78 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
     loadData()
   }, [folderId, folderName])
 
+  const handleRetry = () => {
+    setLoading(true)
+    setError(null)
+    setRetryCount(0)
+    loadFolderStructure(folderId)
+      .then((tree) => {
+        setFolderTree(tree)
+        setConnectionStatus("connected")
+      })
+      .catch((error) => {
+        console.error("[v0] Error on manual retry:", error)
+        setConnectionStatus("disconnected")
+        setError("No se pudo reconectar. Intenta nuevamente.")
+      })
+      .finally(() => {
+        setLoading(false)
+      })
+  }
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center p-8">
+      <div className="flex flex-col items-center justify-center p-8 space-y-4">
         <RefreshCw className="h-8 w-8 animate-spin text-blue-600" />
-        <span className="ml-2 text-gray-600">Cargando estructura completa...</span>
+        <div className="text-center">
+          <span className="text-gray-600">Cargando estructura completa...</span>
+          {connectionStatus === "reconnecting" && (
+            <div className="text-sm text-yellow-600 mt-2">Reconectando... (intento {retryCount})</div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  if (error || connectionStatus === "disconnected") {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 space-y-4">
+        <AlertCircle className="h-12 w-12 text-red-500" />
+        <div className="text-center">
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Error de Conexión</h3>
+          <p className="text-gray-600 mb-4">{error || "Se perdió la conexión con Google Drive"}</p>
+          <Button onClick={handleRetry} className="gap-2">
+            <RefreshCw className="h-4 w-4" />
+            Reintentar Conexión
+          </Button>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
+      {connectionStatus === "reconnecting" && (
+        <Card className="border-yellow-200 bg-yellow-50">
+          <CardContent className="p-4 flex items-center gap-3">
+            <RefreshCw className="h-5 w-5 animate-spin text-yellow-600" />
+            <div>
+              <span className="font-medium text-yellow-800">Reconectando...</span>
+              <p className="text-sm text-yellow-700">Intento {retryCount} de restablecer la conexión</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {connectionStatus === "connected" && retryCount > 0 && (
+        <Card className="border-green-200 bg-green-50">
+          <CardContent className="p-4 flex items-center gap-3">
+            <CheckCircle className="h-5 w-5 text-green-600" />
+            <span className="font-medium text-green-800">Conexión restablecida exitosamente</span>
+          </CardContent>
+        </Card>
+      )}
+
       {folderTree && (
         <Card className="border-blue-200 bg-blue-50">
           <CardContent className="p-4">
