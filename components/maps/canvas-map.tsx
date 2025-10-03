@@ -437,37 +437,43 @@ const CanvasMap = ({
         </div>
       )}
 
-      <div className="absolute bottom-4 right-4 bg-white p-3 rounded-lg shadow-lg border">
+      <div className="absolute bottom-4 right-4 bg-white p-3 rounded-lg shadow-lg border min-w-[200px]">
         <h4 className="font-semibold text-sm mb-2">Leyenda</h4>
         <div className="space-y-1 text-xs">
           <button
             onClick={() => handleLegendClick("casa")}
-            className="flex items-center gap-2 w-full hover:bg-gray-100 p-1 rounded transition-colors cursor-pointer"
+            className="flex items-center gap-2 w-full hover:bg-gray-100 p-1 rounded transition-colors cursor-pointer text-left"
           >
-            <div className="w-3 h-3 rounded-full bg-blue-500"></div>
-            <span>Casas ({properties.filter((p) => p.type === "casa").length})</span>
+            <div className="w-3 h-3 rounded-full bg-blue-500 flex-shrink-0"></div>
+            <span className="whitespace-nowrap">Casas ({properties.filter((p) => p.type === "casa").length})</span>
           </button>
           <button
             onClick={() => handleLegendClick("departamento")}
-            className="flex items-center gap-2 w-full hover:bg-gray-100 p-1 rounded transition-colors cursor-pointer"
+            className="flex items-center gap-2 w-full hover:bg-gray-100 p-1 rounded transition-colors cursor-pointer text-left"
           >
-            <div className="w-3 h-3 rounded-full bg-green-500"></div>
-            <span>Departamentos ({properties.filter((p) => p.type === "departamento").length})</span>
+            <div className="w-3 h-3 rounded-full bg-green-500 flex-shrink-0"></div>
+            <span className="whitespace-nowrap">
+              Departamentos ({properties.filter((p) => p.type === "departamento").length})
+            </span>
           </button>
           <button
             onClick={() => handleLegendClick("terreno")}
-            className="flex items-center gap-2 w-full hover:bg-gray-100 p-1 rounded transition-colors cursor-pointer"
+            className="flex items-center gap-2 w-full hover:bg-gray-100 p-1 rounded transition-colors cursor-pointer text-left"
           >
-            <div className="w-3 h-3 rounded-full bg-yellow-500"></div>
-            <span>Terrenos ({properties.filter((p) => p.type === "terreno").length})</span>
+            <div className="w-3 h-3 rounded-full bg-yellow-500 flex-shrink-0"></div>
+            <span className="whitespace-nowrap">
+              Terrenos ({properties.filter((p) => p.type === "terreno").length})
+            </span>
           </button>
           {showKMZOverlay && (
             <button
               onClick={handleKmzLegendClick}
-              className="flex items-center gap-2 w-full hover:bg-gray-100 p-1 rounded transition-colors cursor-pointer"
+              className="flex items-center gap-2 w-full hover:bg-gray-100 p-1 rounded transition-colors cursor-pointer text-left"
             >
-              <div className="w-3 h-3 rounded-full bg-purple-500"></div>
-              <span>Puntos KMZ ({kmzData.reduce((sum, d) => sum + d.placemarks.length, 0)})</span>
+              <div className="w-3 h-3 rounded-full bg-purple-500 flex-shrink-0"></div>
+              <span className="whitespace-nowrap">
+                Puntos KMZ ({kmzData.reduce((sum, d) => sum + d.placemarks.length, 0)})
+              </span>
             </button>
           )}
         </div>
