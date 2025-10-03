@@ -7,18 +7,29 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, Loader2, MapPin } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import {
+  getAllRegions,
+  getProvinciasForRegion,
+  getAllComunasForRegion,
+  type Region,
+  type Provincia,
+  type Comuna,
+} from "@/lib/chile-locations"
 
 interface PropertyLocationFormProps {
   data: {
     address: string
     city: string
     region: string
+    provincia?: string // Added provincia field
+    comuna?: string // Added comuna field
     postal_code: string
     latitude: string | number
     longitude: string | number
-    roll_number?: string // Added roll number field
+    roll_number?: string
   }
   onChange: (data: any) => void
 }
@@ -28,13 +39,67 @@ export function PropertyLocationForm({ data, onChange }: PropertyLocationFormPro
   const [isLookingUp, setIsLookingUp] = useState(false)
   const { toast } = useToast()
 
+  const [regions] = useState<Region[]>(getAllRegions())
+  const [provincias, setProvincias] = useState<Provincia[]>([])
+  const [comunas, setComunas] = useState<Comuna[]>([])
+  const [selectedRegionCode, setSelectedRegionCode] = useState<string>("")
+
   useEffect(() => {
     setFormData(data)
-  }, [data])
+    if (data.region) {
+      const region = regions.find((r) => r.name === data.region || r.shortName === data.region)
+      if (region) {
+        setSelectedRegionCode(region.code)
+        const provs = getProvinciasForRegion(region.code)
+        setProvincias(provs)
+        const coms = getAllComunasForRegion(region.code)
+        setComunas(coms)
+      }
+    }
+  }, [data, regions])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     const updatedData = { ...formData, [name]: value }
+    setFormData(updatedData)
+    onChange(updatedData)
+  }
+
+  const handleRegionChange = (regionCode: string) => {
+    const region = regions.find((r) => r.code === regionCode)
+    if (!region) return
+
+    setSelectedRegionCode(regionCode)
+    const provs = getProvinciasForRegion(regionCode)
+    setProvincias(provs)
+    const coms = getAllComunasForRegion(regionCode)
+    setComunas(coms)
+
+    const updatedData = {
+      ...formData,
+      region: region.shortName,
+      provincia: "",
+      comuna: "",
+    }
+    setFormData(updatedData)
+    onChange(updatedData)
+  }
+
+  const handleProvinciaChange = (provinciaName: string) => {
+    const updatedData = {
+      ...formData,
+      provincia: provinciaName,
+    }
+    setFormData(updatedData)
+    onChange(updatedData)
+  }
+
+  const handleComunaChange = (comunaName: string) => {
+    const updatedData = {
+      ...formData,
+      comuna: comunaName,
+      city: comunaName, // Also set city to comuna name
+    }
     setFormData(updatedData)
     onChange(updatedData)
   }
@@ -69,9 +134,23 @@ export function PropertyLocationForm({ data, onChange }: PropertyLocationFormPro
           address: result.data.address || formData.address,
           city: result.data.city || formData.city,
           region: result.data.region || formData.region,
+          provincia: result.data.provincia || formData.provincia,
+          comuna: result.data.comuna || formData.comuna,
         }
         setFormData(updatedData)
         onChange(updatedData)
+
+        // Update dropdowns if region changed
+        if (result.data.region) {
+          const region = regions.find((r) => r.name === result.data.region || r.shortName === result.data.region)
+          if (region) {
+            setSelectedRegionCode(region.code)
+            const provs = getProvinciasForRegion(region.code)
+            setProvincias(provs)
+            const coms = getAllComunasForRegion(region.code)
+            setComunas(coms)
+          }
+        }
 
         toast({
           title: "Coordenadas encontradas",
@@ -148,21 +227,55 @@ export function PropertyLocationForm({ data, onChange }: PropertyLocationFormPro
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2">
-          <Label htmlFor="city">Ciudad</Label>
-          <Input id="city" name="city" value={formData.city} onChange={handleChange} placeholder="Ej: Puerto Varas" />
+          <Label htmlFor="region">Región *</Label>
+          <Select value={selectedRegionCode} onValueChange={handleRegionChange}>
+            <SelectTrigger id="region">
+              <SelectValue placeholder="Seleccione región" />
+            </SelectTrigger>
+            <SelectContent>
+              {regions.map((region) => (
+                <SelectItem key={region.code} value={region.code}>
+                  {region.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="region">Región</Label>
-          <Input
-            id="region"
-            name="region"
-            value={formData.region}
-            onChange={handleChange}
-            placeholder="Ej: Los Lagos"
-          />
+          <Label htmlFor="provincia">Provincia</Label>
+          <Select value={formData.provincia || ""} onValueChange={handleProvinciaChange} disabled={!selectedRegionCode}>
+            <SelectTrigger id="provincia">
+              <SelectValue placeholder={selectedRegionCode ? "Seleccione provincia" : "Primero seleccione región"} />
+            </SelectTrigger>
+            <SelectContent>
+              {provincias.map((provincia) => (
+                <SelectItem key={provincia.code} value={provincia.name}>
+                  {provincia.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="space-y-2">
+          <Label htmlFor="comuna">Comuna *</Label>
+          <Select value={formData.comuna || ""} onValueChange={handleComunaChange} disabled={!selectedRegionCode}>
+            <SelectTrigger id="comuna">
+              <SelectValue placeholder={selectedRegionCode ? "Seleccione comuna" : "Primero seleccione región"} />
+            </SelectTrigger>
+            <SelectContent>
+              {comunas.map((comuna) => (
+                <SelectItem key={comuna.code} value={comuna.name}>
+                  {comuna.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="space-y-2">
@@ -214,6 +327,12 @@ export function PropertyLocationForm({ data, onChange }: PropertyLocationFormPro
               <p className="text-xs text-muted-foreground">
                 {formData.latitude}, {formData.longitude}
               </p>
+              {formData.comuna && formData.region && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {formData.comuna}, {formData.provincia && `${formData.provincia}, `}
+                  {formData.region}
+                </p>
+              )}
             </div>
           ) : (
             <p className="text-muted-foreground">Mapa interactivo para seleccionar ubicación (próximamente)</p>

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { AlertCircle, Eye, EyeOff, MapPin } from "lucide-react"
 import type { KMZData } from "@/lib/kmz/kmz-reader"
+import { reverseGeocoder, type ChileanLocationDetails } from "@/lib/geocoding/reverse-geocode"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -19,6 +20,8 @@ interface LayerInfo {
   visible: boolean
   color: string
   bounds: any[]
+  locationDetails?: ChileanLocationDetails
+  isLoadingLocation?: boolean
 }
 
 export function KMZMapDisplay({ kmzFiles, height = "600px" }: KMZMapDisplayProps) {
@@ -193,26 +196,66 @@ export function KMZMapDisplay({ kmzFiles, height = "600px" }: KMZMapDisplayProps
           }).addTo(mapInstance)
 
           marker.bindPopup(`
-            <div style="min-width: 200px;">
+            <div style="min-width: 250px;">
               <h4 style="margin: 0 0 8px 0; color: ${color}; font-weight: bold;">${placemark.name}</h4>
               <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Archivo:</strong> ${kmzData.fileName}</p>
-              <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Tipo:</strong> ${placemark.type}</p>
               <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Coordenadas:</strong> ${lat.toFixed(6)}, ${lng.toFixed(6)}</p>
-              ${placemark.description ? `<p style="margin: 4px 0 0 0; font-size: 11px; color: #666;">${placemark.description.substring(0, 100)}...</p>` : ""}
+              <div id="location-details-${placemarkIndex}" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
+                <p style="margin: 0; font-size: 11px; color: #666;">Cargando información de ubicación...</p>
+              </div>
+              ${placemark.description ? `<p style="margin: 8px 0 0 0; font-size: 11px; color: #666;">${placemark.description.substring(0, 100)}...</p>` : ""}
             </div>
           `)
 
           const bounds = [[lat, lng]]
           allBounds.push([lat, lng])
 
-          newLayers.push({
+          const layerInfo: LayerInfo = {
             name: placemark.name,
             fileName: kmzData.fileName,
             layer: marker,
             visible: true,
             color: color,
             bounds: bounds,
-          })
+            isLoadingLocation: true,
+          }
+
+          newLayers.push(layerInfo)
+
+          reverseGeocoder
+            .getLocationDetails(lat, lng)
+            .then((details) => {
+              layerInfo.locationDetails = details
+              layerInfo.isLoadingLocation = false
+
+              // Update popup with location details
+              const locationHtml = `
+              <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
+                ${details.region ? `<p style="margin: 0 0 3px 0; font-size: 12px;"><strong>Región:</strong> ${details.region}</p>` : ""}
+                ${details.provincia ? `<p style="margin: 0 0 3px 0; font-size: 12px;"><strong>Provincia:</strong> ${details.provincia}</p>` : ""}
+                ${details.comuna ? `<p style="margin: 0 0 3px 0; font-size: 12px;"><strong>Comuna:</strong> ${details.comuna}</p>` : ""}
+                ${details.city ? `<p style="margin: 0 0 3px 0; font-size: 12px;"><strong>Ciudad:</strong> ${details.city}</p>` : ""}
+                ${details.nearbyCities && details.nearbyCities.length > 0 ? `<p style="margin: 0 0 3px 0; font-size: 11px; color: #666;"><strong>Cerca de:</strong> ${details.nearbyCities.join(", ")}</p>` : ""}
+              </div>
+            `
+
+              marker.setPopupContent(`
+              <div style="min-width: 250px;">
+                <h4 style="margin: 0 0 8px 0; color: ${color}; font-weight: bold;">${placemark.name}</h4>
+                <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Archivo:</strong> ${kmzData.fileName}</p>
+                <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Coordenadas:</strong> ${lat.toFixed(6)}, ${lng.toFixed(6)}</p>
+                ${locationHtml}
+                ${placemark.description ? `<p style="margin: 8px 0 0 0; font-size: 11px; color: #666; padding-top: 8px; border-top: 1px solid #e0e0e0;">${placemark.description.substring(0, 100)}...</p>` : ""}
+              </div>
+            `)
+
+              // Trigger re-render
+              setLayers([...newLayers])
+            })
+            .catch((error) => {
+              console.error("[v0] Error fetching location details:", error)
+              layerInfo.isLoadingLocation = false
+            })
         } else if (
           (placemark.type === "LineString" || placemark.type === "Polygon") &&
           placemark.coordinates.length > 1
@@ -247,26 +290,68 @@ export function KMZMapDisplay({ kmzFiles, height = "600px" }: KMZMapDisplayProps
             }).addTo(mapInstance)
           }
 
+          const centerLat = leafletCoords.reduce((sum, coord) => sum + coord[0], 0) / leafletCoords.length
+          const centerLng = leafletCoords.reduce((sum, coord) => sum + coord[1], 0) / leafletCoords.length
+
           shape.bindPopup(`
-            <div style="min-width: 200px;">
+            <div style="min-width: 250px;">
               <h4 style="margin: 0 0 8px 0; color: ${color}; font-weight: bold;">${placemark.name}</h4>
               <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Archivo:</strong> ${kmzData.fileName}</p>
               <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Tipo:</strong> ${placemark.type}</p>
               <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Puntos:</strong> ${leafletCoords.length}</p>
-              ${placemark.description ? `<p style="margin: 4px 0 0 0; font-size: 11px; color: #666;">${placemark.description.substring(0, 100)}...</p>` : ""}
+              <div id="location-details-${placemarkIndex}" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
+                <p style="margin: 0; font-size: 11px; color: #666;">Cargando información de ubicación...</p>
+              </div>
+              ${placemark.description ? `<p style="margin: 8px 0 0 0; font-size: 11px; color: #666;">${placemark.description.substring(0, 100)}...</p>` : ""}
             </div>
           `)
 
           allBounds.push(...leafletCoords)
 
-          newLayers.push({
+          const layerInfo: LayerInfo = {
             name: placemark.name,
             fileName: kmzData.fileName,
             layer: shape,
             visible: true,
             color: color,
             bounds: leafletCoords,
-          })
+            isLoadingLocation: true,
+          }
+
+          newLayers.push(layerInfo)
+
+          reverseGeocoder
+            .getLocationDetails(centerLat, centerLng)
+            .then((details) => {
+              layerInfo.locationDetails = details
+              layerInfo.isLoadingLocation = false
+
+              const locationHtml = `
+              <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
+                ${details.region ? `<p style="margin: 0 0 3px 0; font-size: 12px;"><strong>Región:</strong> ${details.region}</p>` : ""}
+                ${details.provincia ? `<p style="margin: 0 0 3px 0; font-size: 12px;"><strong>Provincia:</strong> ${details.provincia}</p>` : ""}
+                ${details.comuna ? `<p style="margin: 0 0 3px 0; font-size: 12px;"><strong>Comuna:</strong> ${details.comuna}</p>` : ""}
+                ${details.nearbyCities && details.nearbyCities.length > 0 ? `<p style="margin: 0 0 3px 0; font-size: 11px; color: #666;"><strong>Cerca de:</strong> ${details.nearbyCities.join(", ")}</p>` : ""}
+              </div>
+            `
+
+              shape.setPopupContent(`
+              <div style="min-width: 250px;">
+                <h4 style="margin: 0 0 8px 0; color: ${color}; font-weight: bold;">${placemark.name}</h4>
+                <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Archivo:</strong> ${kmzData.fileName}</p>
+                <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Tipo:</strong> ${placemark.type}</p>
+                <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Puntos:</strong> ${leafletCoords.length}</p>
+                ${locationHtml}
+                ${placemark.description ? `<p style="margin: 8px 0 0 0; font-size: 11px; color: #666; padding-top: 8px; border-top: 1px solid #e0e0e0;">${placemark.description.substring(0, 100)}...</p>` : ""}
+              </div>
+            `)
+
+              setLayers([...newLayers])
+            })
+            .catch((error) => {
+              console.error("[v0] Error fetching location details:", error)
+              layerInfo.isLoadingLocation = false
+            })
         }
       })
     })
@@ -356,12 +441,27 @@ export function KMZMapDisplay({ kmzFiles, height = "600px" }: KMZMapDisplayProps
               {layers.map((layer, index) => (
                 <div
                   key={index}
-                  className="flex items-center gap-2 p-2 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                  className="flex items-start gap-2 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
                 >
-                  <div className="w-4 h-4 rounded flex-shrink-0" style={{ backgroundColor: layer.color }} />
+                  <div className="w-4 h-4 rounded flex-shrink-0 mt-0.5" style={{ backgroundColor: layer.color }} />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{layer.name}</p>
                     <p className="text-xs text-muted-foreground truncate">{layer.fileName}</p>
+                    {layer.isLoadingLocation && (
+                      <p className="text-xs text-muted-foreground mt-1">Cargando ubicación...</p>
+                    )}
+                    {layer.locationDetails && !layer.isLoadingLocation && (
+                      <div className="mt-2 space-y-0.5">
+                        {layer.locationDetails.comuna && (
+                          <p className="text-xs text-muted-foreground">📍 {layer.locationDetails.comuna}</p>
+                        )}
+                        {layer.locationDetails.region && (
+                          <p className="text-xs text-muted-foreground">
+                            {layer.locationDetails.region.replace("Región de ", "")}
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="flex gap-1 flex-shrink-0">
                     <Button
