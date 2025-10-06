@@ -109,26 +109,20 @@ export function KMZMapDisplay({ kmzFiles, height = "600px" }: KMZMapDisplayProps
 
         const osmLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
           attribution: "© OpenStreetMap contributors",
-          maxZoom: 18,
+          maxZoom: 19,
+          updateWhenIdle: true,
+          keepBuffer: 2,
         })
 
         const satelliteLayer = L.tileLayer(
           "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
           {
             attribution: "© Esri",
-            maxZoom: 18,
+            maxZoom: 19,
+            updateWhenIdle: true,
+            keepBuffer: 2,
           },
         )
-
-        const topoLayer = L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
-          attribution: "© OpenTopoMap contributors",
-          maxZoom: 17,
-        })
-
-        const terrainLayer = L.tileLayer("https://stamen-tiles-{s}.a.ssl.fastly.net/terrain/{z}/{x}/{y}.jpg", {
-          attribution: "© Stamen Design, © OpenStreetMap contributors",
-          maxZoom: 16,
-        })
 
         // Add default layer
         osmLayer.addTo(map)
@@ -136,9 +130,8 @@ export function KMZMapDisplay({ kmzFiles, height = "600px" }: KMZMapDisplayProps
         const baseLayers = {
           Calles: osmLayer,
           Satélite: satelliteLayer,
-          Topográfico: topoLayer,
-          Terreno: terrainLayer,
         }
+
         L.control.layers(baseLayers, null, { position: "topright" }).addTo(map)
 
         L.control
