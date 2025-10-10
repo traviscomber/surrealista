@@ -1,12 +1,13 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { AlertCircle, Eye, EyeOff, MapPin } from "lucide-react"
+import { AlertCircle, Eye, EyeOff, MapPin, ChevronLeft, ChevronRight, Layers } from "lucide-react"
 import type { KMZData } from "@/lib/kmz/kmz-reader"
 import { reverseGeocoder, type ChileanLocationDetails } from "@/lib/geocoding/reverse-geocode"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Badge } from "@/components/ui/badge"
 
 interface KMZMapDisplayProps {
   kmzFiles: KMZData[]
@@ -29,6 +30,7 @@ export function KMZMapDisplay({ kmzFiles, height = "600px" }: KMZMapDisplayProps
   const [leafletLoaded, setLeafletLoaded] = useState(false)
   const [mapError, setMapError] = useState<string | null>(null)
   const [layers, setLayers] = useState<LayerInfo[]>([])
+  const [legendCollapsed, setLegendCollapsed] = useState(false)
   const mapRef = useRef<HTMLDivElement>(null)
 
   console.log("[v0] KMZMapDisplay received", kmzFiles.length, "KMZ files")
@@ -453,68 +455,172 @@ export function KMZMapDisplay({ kmzFiles, height = "600px" }: KMZMapDisplayProps
     )
   }
 
+  const layersByFile = layers.reduce(
+    (acc, layer) => {
+      if (!acc[layer.fileName]) {
+        acc[layer.fileName] = []
+      }
+      acc[layer.fileName].push(layer)
+      return acc
+    },
+    {} as Record<string, LayerInfo[]>,
+  )
+
+  const visibleLayersCount = layers.filter((l) => l.visible).length
+
   return (
-    <div className="flex gap-4 w-full" style={{ height }}>
-      <div ref={mapRef} className="flex-1 h-full rounded-lg overflow-hidden border" />
+    <div className="relative w-full" style={{ height }}>
+      <div ref={mapRef} className="w-full h-full rounded-lg overflow-hidden" />
 
       {layers.length > 0 && (
-        <Card className="w-96 p-4">
-          <h3 className="font-semibold mb-3 flex items-center gap-2">
-            <MapPin className="h-4 w-4" />
-            Capas del Mapa ({layers.length})
-          </h3>
-          <ScrollArea className="h-[calc(100%-2rem)]">
-            <div className="space-y-2">
-              {layers.map((layer, index) => (
-                <div
-                  key={index}
-                  className="flex items-start gap-2 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+        <div
+          className={`absolute top-4 right-4 bottom-4 transition-all duration-300 ${legendCollapsed ? "w-12" : "w-80"} z-[1000]`}
+        >
+          <Card className="h-full shadow-xl border-2 flex flex-col">
+            {legendCollapsed ? (
+              <div className="flex flex-col items-center justify-center h-full gap-4 p-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setLegendCollapsed(false)}
+                  className="h-10 w-10 p-0"
+                  title="Mostrar leyenda"
                 >
-                  <div className="w-4 h-4 rounded flex-shrink-0 mt-0.5" style={{ backgroundColor: layer.color }} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{layer.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{layer.fileName}</p>
-                    {layer.isLoadingLocation && (
-                      <p className="text-xs text-muted-foreground mt-1">Cargando ubicación...</p>
-                    )}
-                    {layer.locationDetails && !layer.isLoadingLocation && (
-                      <div className="mt-2 space-y-0.5">
-                        {layer.locationDetails.comuna && (
-                          <p className="text-xs text-muted-foreground">📍 {layer.locationDetails.comuna}</p>
-                        )}
-                        {layer.locationDetails.region && (
-                          <p className="text-xs text-muted-foreground">
-                            {layer.locationDetails.region.replace("Región de ", "")}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex gap-1 flex-shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0"
-                      onClick={() => toggleLayerVisibility(index)}
-                      title={layer.visible ? "Ocultar" : "Mostrar"}
-                    >
-                      {layer.visible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0"
-                      onClick={() => zoomToLayer(index)}
-                      title="Centrar en mapa"
-                    >
-                      <MapPin className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
+                  <ChevronLeft className="h-5 w-5" />
+                </Button>
+                <div className="flex flex-col gap-2">
+                  <Layers className="h-5 w-5 text-muted-foreground" />
+                  <Badge variant="secondary" className="rotate-90 origin-center whitespace-nowrap">
+                    {visibleLayersCount}/{layers.length}
+                  </Badge>
                 </div>
-              ))}
-            </div>
-          </ScrollArea>
-        </Card>
+              </div>
+            ) : (
+              <>
+                <div className="p-4 border-b bg-muted/30 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Layers className="h-5 w-5 text-primary" />
+                    <div>
+                      <h3 className="font-semibold text-sm">Capas del Mapa</h3>
+                      <p className="text-xs text-muted-foreground">
+                        {visibleLayersCount} de {layers.length} visible{layers.length !== 1 ? "s" : ""}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setLegendCollapsed(true)}
+                    className="h-8 w-8 p-0"
+                    title="Ocultar leyenda"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+
+                <ScrollArea className="flex-1 p-3">
+                  <div className="space-y-4">
+                    {Object.entries(layersByFile).map(([fileName, fileLayers]) => (
+                      <div key={fileName} className="space-y-2">
+                        <div className="flex items-center gap-2 pb-2 border-b">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-primary truncate" title={fileName}>
+                              {fileName}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {fileLayers.filter((l) => l.visible).length}/{fileLayers.length} capas
+                            </p>
+                          </div>
+                        </div>
+
+                        {fileLayers.map((layer, index) => {
+                          const globalIndex = layers.indexOf(layer)
+                          return (
+                            <div
+                              key={globalIndex}
+                              className={`group rounded-lg border-2 transition-all ${
+                                layer.visible
+                                  ? "bg-card border-border hover:border-primary/50"
+                                  : "bg-muted/50 border-muted opacity-60"
+                              }`}
+                            >
+                              <div className="p-2.5">
+                                <div className="flex items-start gap-2 mb-2">
+                                  <div
+                                    className="w-6 h-6 rounded border-2 border-white shadow-sm flex-shrink-0"
+                                    style={{ backgroundColor: layer.color }}
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium leading-tight truncate" title={layer.name}>
+                                      {layer.name}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                {layer.isLoadingLocation && (
+                                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
+                                    <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                                    <span>Cargando ubicación...</span>
+                                  </div>
+                                )}
+
+                                {layer.locationDetails && !layer.isLoadingLocation && (
+                                  <div className="space-y-1 mb-2">
+                                    {layer.locationDetails.comuna && (
+                                      <div className="flex items-center gap-1.5">
+                                        <MapPin className="h-3 w-3 text-primary flex-shrink-0" />
+                                        <p className="text-xs font-medium truncate">{layer.locationDetails.comuna}</p>
+                                      </div>
+                                    )}
+                                    {layer.locationDetails.region && (
+                                      <p className="text-xs text-muted-foreground pl-4.5 truncate">
+                                        {layer.locationDetails.region.replace("Región de ", "")}
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+
+                                <div className="flex gap-1.5 pt-2 border-t">
+                                  <Button
+                                    variant={layer.visible ? "default" : "outline"}
+                                    size="sm"
+                                    className="flex-1 h-7 text-xs"
+                                    onClick={() => toggleLayerVisibility(globalIndex)}
+                                  >
+                                    {layer.visible ? (
+                                      <>
+                                        <Eye className="h-3 w-3 mr-1" />
+                                        Visible
+                                      </>
+                                    ) : (
+                                      <>
+                                        <EyeOff className="h-3 w-3 mr-1" />
+                                        Oculta
+                                      </>
+                                    )}
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 px-2 bg-transparent"
+                                    onClick={() => zoomToLayer(globalIndex)}
+                                    title="Centrar en mapa"
+                                  >
+                                    <MapPin className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </>
+            )}
+          </Card>
+        </div>
       )}
     </div>
   )
