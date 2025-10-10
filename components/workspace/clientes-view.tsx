@@ -5,21 +5,13 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Search, Users, MapPin, Mail, Phone, Building, ChevronRight } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Search, Users, MapPin, Mail, Phone, Building, ChevronRight, Upload, Loader2, CheckCircle } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
-import dynamic from "next/dynamic"
-
-const CanvasMap = dynamic(() => import("@/components/maps/canvas-map"), {
-  ssr: false,
-  loading: () => (
-    <div className="w-full h-full bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
-      <div className="text-center">
-        <MapPin className="h-12 w-12 text-purple-600 mx-auto mb-4 animate-pulse" />
-        <p className="text-gray-600 font-medium">Cargando mapa...</p>
-      </div>
-    </div>
-  ),
-})
+import { KMZMapDisplay } from "@/components/kmz/kmz-map-display"
+import { kmzReader, type KMZData } from "@/lib/kmz/kmz-reader"
+import { realDriveService } from "@/lib/google-drive/real-drive-service"
+import { useDropzone } from "react-dropzone"
 
 interface Cliente {
   id: string
@@ -39,12 +31,29 @@ export function ClientesView() {
   const [clientes, setClientes] = useState<Cliente[]>([])
   const [selectedCliente, setSelectedCliente] = useState<Cliente | null>(null)
   const [loading, setLoading] = useState(true)
+  const [kmzFiles, setKmzFiles] = useState<KMZData[]>([])
+  const [loadingKMZ, setLoadingKMZ] = useState(false)
+  const [driveConnected, setDriveConnected] = useState(false)
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number; zoom?: number } | undefined>()
 
   const supabase = createClient()
 
   useEffect(() => {
     loadClientes()
+    connectToDrive()
   }, [])
+
+  const connectToDrive = async () => {
+    try {
+      const success = await realDriveService.authenticate()
+      if (success) {
+        setDriveConnected(true)
+        console.log("[v0] Successfully connected to Google Drive")
+      }
+    } catch (error) {
+      console.error("[v0] Error connecting to Google Drive:", error)
+    }
+  }
 
   const loadClientes = async () => {
     try {
@@ -129,6 +138,15 @@ export function ClientesView() {
 
   const handleClienteClick = (cliente: Cliente) => {
     setSelectedCliente(cliente)
+
+    if (cliente.coordinates) {
+      console.log("[v0] Zooming to client location:", cliente.coordinates)
+      setMapCenter({
+        lat: cliente.coordinates[0],
+        lng: cliente.coordinates[1],
+        zoom: 13,
+      })
+    }
   }
 
   const getClientTypeColor = (type: Cliente["client_type"]) => {
@@ -177,11 +195,91 @@ export function ClientesView() {
       featured: false,
     }))
 
+  const onDropKMZ = async (acceptedFiles: File[]) => {
+    const kmzFilesOnly = acceptedFiles.filter(
+      (file) => file.name.toLowerCase().endsWith(".kmz") || file.name.toLowerCase().endsWith(".kml"),
+    )
+
+    if (kmzFilesOnly.length === 0) {
+      alert("Por favor selecciona archivos KMZ o KML válidos")
+      return
+    }
+
+    setLoadingKMZ(true)
+
+    try {
+      const results = []
+      for (const file of kmzFilesOnly) {
+        try {
+          const kmzData = await kmzReader.readKMZFile(file)
+          results.push(kmzData)
+        } catch (error) {
+          console.error(`Error processing ${file.name}:`, error)
+        }
+      }
+
+      setKmzFiles((prev) => [...prev, ...results])
+      console.log("[v0] Loaded", results.length, "KMZ files")
+    } catch (error) {
+      console.error("Error processing KMZ files:", error)
+      alert("Error al procesar los archivos KMZ")
+    } finally {
+      setLoadingKMZ(false)
+    }
+  }
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop: onDropKMZ,
+    accept: {
+      "application/vnd.google-earth.kmz": [".kmz"],
+      "application/vnd.google-earth.kml+xml": [".kml"],
+    },
+    multiple: true,
+    noClick: false,
+  })
+
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(100vh-16rem)]">
+    <div className="flex gap-6 h-[calc(100vh-16rem)]">
       {/* Left Panel: Client List */}
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden w-[400px] flex-shrink-0">
         <CardContent className="p-6 h-full flex flex-col">
+          {driveConnected && (
+            <Alert className="mb-4 bg-green-50 border-green-200">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              <AlertDescription className="text-green-800">Conectado a Google Drive</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="mb-4">
+            <div
+              {...getRootProps()}
+              className={`border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-all ${
+                isDragActive
+                  ? "border-purple-400 bg-purple-50"
+                  : "border-gray-300 hover:border-purple-400 hover:bg-gray-50"
+              }`}
+            >
+              <input {...getInputProps()} />
+              <Upload className="h-6 w-6 text-gray-400 mx-auto mb-2" />
+              {isDragActive ? (
+                <p className="text-sm text-purple-600 font-medium">Suelta los archivos KMZ aquí</p>
+              ) : (
+                <div>
+                  <p className="text-sm text-gray-600 font-medium">Arrastra archivos KMZ o haz clic</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {kmzFiles.length > 0 ? `${kmzFiles.length} archivo(s) cargado(s)` : "Soporta .kmz y .kml"}
+                  </p>
+                </div>
+              )}
+            </div>
+            {loadingKMZ && (
+              <div className="mt-2 flex items-center gap-2 text-sm text-purple-600">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Cargando archivos KMZ...</span>
+              </div>
+            )}
+          </div>
+
           <div className="mb-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -285,27 +383,32 @@ export function ClientesView() {
       </Card>
 
       {/* Right Panel: Map with Client Relationships */}
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden flex-1">
         <CardContent className="p-0 h-full relative">
           {selectedCliente && (
-            <div className="absolute top-4 left-4 right-4 z-10">
-              <Card className="shadow-lg">
+            <div className="absolute top-4 left-4 z-[999] max-w-md">
+              <Card className="shadow-xl border-2">
                 <CardContent className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h4 className="font-semibold text-gray-900">{selectedCliente.name}</h4>
-                      <p className="text-sm text-gray-600">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-gray-900 mb-1">{selectedCliente.name}</h4>
+                      <p className="text-sm text-gray-600 mb-2">
                         {getClientTypeLabel(selectedCliente.client_type)} • {selectedCliente.related_properties}{" "}
                         propiedades
                       </p>
                       {selectedCliente.location && (
-                        <p className="text-xs text-gray-500 mt-1">
+                        <p className="text-xs text-gray-500">
                           {selectedCliente.location}, {selectedCliente.region}
                         </p>
                       )}
                     </div>
-                    <Button size="sm" variant="outline" onClick={() => setSelectedCliente(null)}>
-                      Cerrar
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setSelectedCliente(null)}
+                      className="flex-shrink-0"
+                    >
+                      ✕
                     </Button>
                   </div>
                 </CardContent>
@@ -313,31 +416,7 @@ export function ClientesView() {
             </div>
           )}
 
-          {clientesAsProperties.length > 0 ? (
-            <CanvasMap
-              properties={clientesAsProperties}
-              kmzData={[]}
-              showKmzOverlay={false}
-              onToggleKmzOverlay={() => {}}
-              onPropertySelect={(prop) => {
-                const cliente = clientes.find((c) => c.id === prop?.id)
-                if (cliente) setSelectedCliente(cliente)
-              }}
-              selectedProperty={
-                selectedCliente ? clientesAsProperties.find((p) => p.id === selectedCliente.id) || null : null
-              }
-            />
-          ) : (
-            <div className="w-full h-full bg-gradient-to-br from-purple-50 to-blue-50 flex items-center justify-center">
-              <div className="text-center">
-                <MapPin className="h-12 w-12 text-purple-600 mx-auto mb-4" />
-                <p className="text-gray-600 font-medium">Mapa de Relaciones</p>
-                <p className="text-sm text-gray-500 mt-2">
-                  Selecciona un cliente para ver sus propiedades relacionadas
-                </p>
-              </div>
-            </div>
-          )}
+          <KMZMapDisplay kmzFiles={kmzFiles} height="100%" center={mapCenter} />
         </CardContent>
       </Card>
     </div>

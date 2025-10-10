@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge"
 interface KMZMapDisplayProps {
   kmzFiles: KMZData[]
   height?: string
+  center?: { lat: number; lng: number; zoom?: number }
 }
 
 interface LayerInfo {
@@ -25,7 +26,7 @@ interface LayerInfo {
   isLoadingLocation?: boolean
 }
 
-export function KMZMapDisplay({ kmzFiles, height = "600px" }: KMZMapDisplayProps) {
+export function KMZMapDisplay({ kmzFiles, height = "600px", center }: KMZMapDisplayProps) {
   const [mapInstance, setMapInstance] = useState<any>(null)
   const [leafletLoaded, setLeafletLoaded] = useState(false)
   const [mapError, setMapError] = useState<string | null>(null)
@@ -400,6 +401,21 @@ export function KMZMapDisplay({ kmzFiles, height = "600px" }: KMZMapDisplayProps
     }
   }, [mapInstance, kmzFiles])
 
+  useEffect(() => {
+    if (!mapInstance || !center) return
+
+    const L = (window as any).L
+    if (!L) return
+
+    console.log("[v0] Zooming map to center:", center)
+
+    // Fly to the new center with animation
+    mapInstance.flyTo([center.lat, center.lng], center.zoom || 13, {
+      duration: 1.5,
+      easeLinearity: 0.25,
+    })
+  }, [mapInstance, center])
+
   const toggleLayerVisibility = (index: number) => {
     if (!mapInstance) return
 
@@ -474,26 +490,32 @@ export function KMZMapDisplay({ kmzFiles, height = "600px" }: KMZMapDisplayProps
 
       {layers.length > 0 && (
         <div
-          className={`absolute top-4 right-4 bottom-4 transition-all duration-300 ${legendCollapsed ? "w-12" : "w-80"} z-[1000]`}
+          className={`absolute top-4 bottom-4 transition-all duration-300 z-[1000] ${
+            legendCollapsed
+              ? "right-2 w-14" // Keep visible at right edge when collapsed
+              : "right-4 w-80" // Normal position when expanded
+          }`}
         >
           <Card className="h-full shadow-xl border-2 flex flex-col">
             {legendCollapsed ? (
-              <div className="flex flex-col items-center justify-center h-full gap-4 p-2">
+              <div className="flex flex-col items-center justify-between h-full gap-2 p-2 bg-background">
                 <Button
-                  variant="ghost"
+                  variant="default"
                   size="sm"
                   onClick={() => setLegendCollapsed(false)}
-                  className="h-10 w-10 p-0"
+                  className="h-10 w-10 p-0 shadow-md"
                   title="Mostrar leyenda"
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </Button>
-                <div className="flex flex-col gap-2">
-                  <Layers className="h-5 w-5 text-muted-foreground" />
-                  <Badge variant="secondary" className="rotate-90 origin-center whitespace-nowrap">
+                <div className="flex flex-col items-center gap-3 flex-1 justify-center">
+                  <Layers className="h-6 w-6 text-primary" />
+                  <div className="writing-mode-vertical text-xs font-medium text-muted-foreground">CAPAS</div>
+                  <Badge variant="secondary" className="text-xs px-1.5 py-0.5">
                     {visibleLayersCount}/{layers.length}
                   </Badge>
                 </div>
+                <div className="h-10" /> {/* Spacer for balance */}
               </div>
             ) : (
               <>

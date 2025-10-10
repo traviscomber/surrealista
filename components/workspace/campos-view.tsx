@@ -478,140 +478,46 @@ export function CamposView() {
         </CardContent>
       </Card>
 
-      {/* Middle + Right: Map and Legend */}
-      <div className="flex-1 flex gap-4 min-w-0">
-        {/* Map Container */}
-        <Card className="overflow-hidden flex-1">
-          <CardContent className="p-0 h-full relative">
-            {selectedCampo && (
-              <div className="absolute top-4 left-4 z-[999] max-w-md">
-                <Card className="shadow-xl border-2">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-gray-900 mb-1">{selectedCampo.name}</h4>
-                        <p className="text-sm text-gray-600 mb-2">
-                          {selectedCampo.hectares} hectáreas • {selectedCampo.location}, {selectedCampo.region}
-                        </p>
-                        {selectedCampo.driveFolder && (
-                          <div className="flex flex-wrap gap-1.5">
-                            {selectedCampo.driveFolder.extractedInfo.rolNumbers.map((rol, idx) => (
-                              <Badge key={idx} variant="secondary" className="text-xs">
-                                📋 {rol}
-                              </Badge>
-                            ))}
-                            {selectedCampo.driveFolder.extractedInfo.year && (
-                              <Badge variant="secondary" className="text-xs">
-                                📅 {selectedCampo.driveFolder.extractedInfo.year}
-                              </Badge>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => setSelectedCampo(null)}
-                        className="flex-shrink-0"
-                      >
-                        ✕
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
-
-            <KMZMapDisplay kmzFiles={kmzFiles} height="100%" showLegend={false} />
-          </CardContent>
-        </Card>
-
-        {/* Legend Panel */}
-        <Card className="overflow-hidden w-[320px] flex-shrink-0">
-          <CardContent className="p-4 h-full flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-semibold text-gray-900 flex items-center gap-2">
-                <Layers className="h-5 w-5 text-blue-600" />
-                Capas del Mapa
-              </h3>
-              <Badge variant="outline" className="bg-blue-50 text-blue-700">
-                {kmzFiles.reduce((sum, kmz) => sum + kmz.placemarks.length, 0)}
-              </Badge>
-            </div>
-
-            {kmzFiles.length === 0 ? (
-              <div className="flex-1 flex items-center justify-center">
-                <div className="text-center">
-                  <Layers className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-sm text-gray-600 font-medium">No hay capas cargadas</p>
-                  <p className="text-xs text-gray-500 mt-1">Arrastra archivos KMZ o selecciona un campo</p>
-                </div>
-              </div>
-            ) : (
-              <div className="flex-1 overflow-y-auto space-y-3">
-                {kmzFiles.map((kmz, kmzIndex) => (
-                  <div key={kmzIndex} className="border rounded-lg p-3 bg-gray-50">
-                    <div className="flex items-start gap-2 mb-2">
-                      <div
-                        className="w-4 h-4 rounded border-2 border-white shadow-sm flex-shrink-0 mt-0.5"
-                        style={{
-                          backgroundColor: [
-                            "#ef4444",
-                            "#3b82f6",
-                            "#10b981",
-                            "#f59e0b",
-                            "#8b5cf6",
-                            "#06b6d4",
-                            "#ec4899",
-                          ][kmzIndex % 7],
-                        }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm text-gray-900 truncate">{kmz.fileName}</p>
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          {kmz.placemarks.length} {kmz.placemarks.length === 1 ? "capa" : "capas"}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2 mt-3">
-                      {kmz.placemarks.map((placemark, placemarkIndex) => (
-                        <div key={placemarkIndex} className="bg-white rounded p-2 text-xs">
-                          <p className="font-medium text-gray-900 mb-1">{placemark.name}</p>
-                          {placemark.description && (
-                            <p className="text-gray-600 mb-2 line-clamp-2">{placemark.description}</p>
+      {/* Map Container - Now takes full remaining width */}
+      <Card className="overflow-hidden flex-1">
+        <CardContent className="p-0 h-full relative">
+          {selectedCampo && (
+            <div className="absolute top-4 left-4 z-[999] max-w-md">
+              <Card className="shadow-xl border-2">
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-gray-900 mb-1">{selectedCampo.name}</h4>
+                      <p className="text-sm text-gray-600 mb-2">
+                        {selectedCampo.hectares} hectáreas • {selectedCampo.location}, {selectedCampo.region}
+                      </p>
+                      {selectedCampo.driveFolder && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {selectedCampo.driveFolder.extractedInfo.rolNumbers.map((rol, idx) => (
+                            <Badge key={idx} variant="secondary" className="text-xs">
+                              📋 {rol}
+                            </Badge>
+                          ))}
+                          {selectedCampo.driveFolder.extractedInfo.year && (
+                            <Badge variant="secondary" className="text-xs">
+                              📅 {selectedCampo.driveFolder.extractedInfo.year}
+                            </Badge>
                           )}
-                          <div className="flex flex-wrap gap-1">
-                            {placemark.geometry && (
-                              <>
-                                <Badge variant="secondary" className="text-xs">
-                                  {placemark.geometry.type === "Polygon"
-                                    ? "Polígono"
-                                    : placemark.geometry.type || "Desconocido"}
-                                </Badge>
-                                {placemark.geometry.type === "Polygon" && placemark.geometry.coordinates?.[0] && (
-                                  <Badge variant="secondary" className="text-xs">
-                                    {placemark.geometry.coordinates[0].length} puntos
-                                  </Badge>
-                                )}
-                              </>
-                            )}
-                            {!placemark.geometry && (
-                              <Badge variant="secondary" className="text-xs text-gray-500">
-                                Sin geometría
-                              </Badge>
-                            )}
-                          </div>
                         </div>
-                      ))}
+                      )}
                     </div>
+                    <Button size="sm" variant="ghost" onClick={() => setSelectedCampo(null)} className="flex-shrink-0">
+                      ✕
+                    </Button>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
+          <KMZMapDisplay kmzFiles={kmzFiles} height="100%" />
+        </CardContent>
+      </Card>
     </div>
   )
 }
