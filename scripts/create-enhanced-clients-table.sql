@@ -86,7 +86,7 @@ EXECUTE FUNCTION update_clients_updated_at();
 CREATE TABLE IF NOT EXISTS client_property_relationships (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
-  property_id UUID REFERENCES properties(id) ON DELETE CASCADE,
+  property_id BIGINT REFERENCES properties(id) ON DELETE CASCADE,
   relationship_type VARCHAR(50) CHECK (relationship_type IN ('bought', 'sold', 'quoted_email', 'quoted_whatsapp', 'quoted_phone', 'viewed', 'favorited', 'task_related')) NOT NULL,
   relationship_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   notes TEXT,

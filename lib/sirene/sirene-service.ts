@@ -12,13 +12,20 @@ import type {
 } from "./types"
 
 export class SIRENEService {
-  private baseUrl: string
-  private apiKey: string
+  private _baseUrl: string
+  private _apiKey: string
 
   constructor() {
-    // Demo credentials for testing
-    this.baseUrl = process.env.SIRENE_API_URL || "https://demo.sirene.cl/api/v1"
-    this.apiKey = process.env.SIRENE_API_KEY || "demo_sirene_key_2024"
+    this._baseUrl = ""
+    this._apiKey = ""
+  }
+
+  get apiKey() {
+    return this._apiKey
+  }
+
+  get baseUrl() {
+    return this._baseUrl
   }
 
   /**

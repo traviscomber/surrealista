@@ -253,42 +253,20 @@ const COMUNAS_BY_REGION: Record<string, string[]> = {
 let demoCompanies: CirenCompany[] = [...DEMO_COMPANIES]
 
 export class CirenService {
-  private apiKey: string
-  private baseUrl: string
+  private _apiKey: string
+  private _baseUrl: string
 
   constructor() {
-    this.apiKey = process.env.CIREN_API_KEY || "demo"
-    this.baseUrl = process.env.CIREN_API_URL || "https://api.ciren.cl"
+    this._apiKey = ""
+    this._baseUrl = ""
+  }
+
+  get apiKey() {
+    return this._apiKey
   }
 
   async searchCompanies(params: CirenSearchParams): Promise<CirenCompany[]> {
-    if (this.apiKey === "demo") {
-      return this.searchDemoCompanies(params)
-    }
-
-    try {
-      const queryParams = new URLSearchParams()
-      if (params.rut) queryParams.append("rut", params.rut)
-      if (params.razonSocial) queryParams.append("razon_social", params.razonSocial)
-      if (params.region) queryParams.append("region", params.region)
-      if (params.actividadEconomica) queryParams.append("actividad", params.actividadEconomica)
-
-      const response = await fetch(`${this.baseUrl}/companies/search?${queryParams}`, {
-        headers: {
-          Authorization: `Bearer ${this.apiKey}`,
-          "Content-Type": "application/json",
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error(`CIREN API error: ${response.status}`)
-      }
-
-      return await response.json()
-    } catch (error) {
-      console.error("Error searching companies:", error)
-      return this.searchDemoCompanies(params)
-    }
+    return this.searchDemoCompanies(params)
   }
 
   private searchDemoCompanies(params: CirenSearchParams): CirenCompany[] {
@@ -320,75 +298,15 @@ export class CirenService {
   }
 
   async getCompanyDetails(rut: string): Promise<CirenCompany | null> {
-    if (this.apiKey === "demo") {
-      return demoCompanies.find((company) => company.rut === rut) || null
-    }
-
-    try {
-      const response = await fetch(`${this.baseUrl}/companies/${rut}`, {
-        headers: {
-          Authorization: `Bearer ${this.apiKey}`,
-          "Content-Type": "application/json",
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error(`CIREN API error: ${response.status}`)
-      }
-
-      return await response.json()
-    } catch (error) {
-      console.error("Error getting company details:", error)
-      return demoCompanies.find((company) => company.rut === rut) || null
-    }
+    return demoCompanies.find((company) => company.rut === rut) || null
   }
 
   async getFinancialData(rut: string): Promise<CirenFinancialData | null> {
-    if (this.apiKey === "demo") {
-      return this.generateDemoFinancialData(rut)
-    }
-
-    try {
-      const response = await fetch(`${this.baseUrl}/companies/${rut}/financial`, {
-        headers: {
-          Authorization: `Bearer ${this.apiKey}`,
-          "Content-Type": "application/json",
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error(`CIREN API error: ${response.status}`)
-      }
-
-      return await response.json()
-    } catch (error) {
-      console.error("Error getting financial data:", error)
-      return this.generateDemoFinancialData(rut)
-    }
+    return this.generateDemoFinancialData(rut)
   }
 
   async getRiskAnalysis(rut: string): Promise<CirenRiskAnalysis | null> {
-    if (this.apiKey === "demo") {
-      return this.generateDemoRiskAnalysis(rut)
-    }
-
-    try {
-      const response = await fetch(`${this.baseUrl}/companies/${rut}/risk`, {
-        headers: {
-          Authorization: `Bearer ${this.apiKey}`,
-          "Content-Type": "application/json",
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error(`CIREN API error: ${response.status}`)
-      }
-
-      return await response.json()
-    } catch (error) {
-      console.error("Error getting risk analysis:", error)
-      return this.generateDemoRiskAnalysis(rut)
-    }
+    return this.generateDemoRiskAnalysis(rut)
   }
 
   // Demo data management methods

@@ -1,3 +1,4 @@
+-- Use CREATE POLICY IF NOT EXISTS to avoid "already exists" error
 -- Add roll number field to properties table
 ALTER TABLE properties ADD COLUMN IF NOT EXISTS roll_number TEXT;
 
@@ -26,6 +27,11 @@ CREATE INDEX IF NOT EXISTS idx_roll_lookups_date ON roll_number_lookups(lookup_d
 -- Add RLS policies
 ALTER TABLE roll_number_lookups ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies if they exist
+DROP POLICY IF EXISTS "Allow authenticated users to view roll lookups" ON roll_number_lookups;
+DROP POLICY IF EXISTS "Allow authenticated users to insert roll lookups" ON roll_number_lookups;
+
+-- Create policies
 CREATE POLICY "Allow authenticated users to view roll lookups" ON roll_number_lookups
     FOR SELECT USING (auth.role() = 'authenticated');
 

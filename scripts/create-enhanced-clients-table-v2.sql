@@ -50,10 +50,11 @@ CREATE TABLE IF NOT EXISTS clients (
 );
 
 -- Create client-property relationships table
+-- Changed property_id from UUID to BIGINT to match properties.id type
 CREATE TABLE IF NOT EXISTS client_properties (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
-  property_id UUID REFERENCES properties(id) ON DELETE CASCADE,
+  property_id BIGINT REFERENCES properties(id) ON DELETE CASCADE,
   relationship_type TEXT NOT NULL, -- 'bought', 'sold', 'quoted', 'interested', 'visited'
   relationship_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   notes TEXT,
