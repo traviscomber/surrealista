@@ -8,3 +8,5 @@ export const supabase = createClientComponentClient<Database>()
 
 // Export a createClient function for components that need a fresh client
 export const createClient = () => createClientComponentClient<Database>()
+
+export const createBrowserClient = createClient

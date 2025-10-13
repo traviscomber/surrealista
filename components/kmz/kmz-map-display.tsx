@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 interface KMZMapDisplayProps {
   kmzFiles: KMZData[]
   height?: string
+  centerCoordinates?: { lat: number; lng: number }
 }
 
 interface LayerInfo {
@@ -24,7 +25,7 @@ interface LayerInfo {
   isLoadingLocation?: boolean
 }
 
-export function KMZMapDisplay({ kmzFiles, height = "600px" }: KMZMapDisplayProps) {
+export function KMZMapDisplay({ kmzFiles, height = "600px", centerCoordinates }: KMZMapDisplayProps) {
   const [mapInstance, setMapInstance] = useState<any>(null)
   const [leafletLoaded, setLeafletLoaded] = useState(false)
   const [mapError, setMapError] = useState<string | null>(null)
@@ -32,6 +33,7 @@ export function KMZMapDisplay({ kmzFiles, height = "600px" }: KMZMapDisplayProps
   const [isFullscreen, setIsFullscreen] = useState(false)
   const mapRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const clientMarkerRef = useRef<any>(null)
 
   console.log("[v0] KMZMapDisplay received", kmzFiles.length, "KMZ files")
 
@@ -407,6 +409,87 @@ export function KMZMapDisplay({ kmzFiles, height = "600px" }: KMZMapDisplayProps
       }
     }
   }, [mapInstance, kmzFiles])
+
+  useEffect(() => {
+    if (!mapInstance || !centerCoordinates) return
+
+    const L = (window as any).L
+    if (!L) return
+
+    console.log("[v0] Centering map on coordinates:", centerCoordinates)
+
+    // Remove previous client marker if exists
+    if (clientMarkerRef.current) {
+      mapInstance.removeLayer(clientMarkerRef.current)
+    }
+
+    // Create custom icon for client marker
+    const clientIcon = L.divIcon({
+      className: "custom-client-marker",
+      html: `
+        <div style="
+          background-color: #3b82f6;
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          border: 3px solid white;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          animation: pulse 2s infinite;
+        ">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+          </svg>
+        </div>
+      `,
+      iconSize: [32, 32],
+      iconAnchor: [16, 16],
+    })
+
+    // Add new client marker
+    const marker = L.marker([centerCoordinates.lat, centerCoordinates.lng], {
+      icon: clientIcon,
+      zIndexOffset: 1000, // Ensure it appears above other markers
+    }).addTo(mapInstance)
+
+    marker
+      .bindPopup(`
+      <div style="min-width: 200px;">
+        <h4 style="margin: 0 0 8px 0; color: #3b82f6; font-weight: bold;">Ubicación del Cliente</h4>
+        <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Coordenadas:</strong> ${centerCoordinates.lat.toFixed(6)}, ${centerCoordinates.lng.toFixed(6)}</p>
+      </div>
+    `)
+      .openPopup()
+
+    clientMarkerRef.current = marker
+
+    // Fly to the location with animation
+    mapInstance.flyTo([centerCoordinates.lat, centerCoordinates.lng], 13, {
+      duration: 1.5,
+      easeLinearity: 0.25,
+    })
+
+    // Add CSS animation for pulse effect
+    if (!document.getElementById("client-marker-styles")) {
+      const style = document.createElement("style")
+      style.id = "client-marker-styles"
+      style.textContent = `
+        @keyframes pulse {
+          0%, 100% {
+            transform: scale(1);
+            opacity: 1;
+          }
+          50% {
+            transform: scale(1.1);
+            opacity: 0.8;
+          }
+        }
+      `
+      document.head.appendChild(style)
+    }
+  }, [mapInstance, centerCoordinates])
 
   const toggleLayerVisibility = (index: number) => {
     if (!mapInstance) return
