@@ -2,23 +2,15 @@
 CREATE TABLE IF NOT EXISTS import_batches (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   batch_name TEXT NOT NULL,
-  file_name TEXT,
   total_records INTEGER DEFAULT 0,
   successful_records INTEGER DEFAULT 0,
   failed_records INTEGER DEFAULT 0,
   import_status TEXT DEFAULT 'pending',
+  import_source TEXT DEFAULT 'manual',
   error_log TEXT[],
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   completed_at TIMESTAMP WITH TIME ZONE
 );
-
--- Add import_source column to import_batches table
-DO $$ 
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'import_batches' AND column_name = 'import_source') THEN
-        ALTER TABLE import_batches ADD COLUMN import_source TEXT DEFAULT 'manual';
-    END IF;
-END $$;
 
 -- Add missing columns to properties table if they don't exist
 DO $$ 

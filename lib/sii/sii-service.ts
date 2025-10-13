@@ -13,37 +13,25 @@ import type {
 } from "./types"
 
 export class SIIService {
-  private _baseUrl: string
-  private _apiKey: string
-  private _userToken: string
+  private baseUrl: string
+  private apiKey: string
+  private userToken: string
 
   constructor() {
-    this._baseUrl = ""
-    this._apiKey = ""
-    this._userToken = ""
-  }
-
-  get apiKey() {
-    return this._apiKey
-  }
-
-  get baseUrl() {
-    return this._baseUrl
-  }
-
-  get userToken() {
-    return this._userToken
+    this.baseUrl = process.env.SII_API_URL || ""
+    this.apiKey = process.env.SII_API_KEY || ""
+    this.userToken = process.env.SII_USER_TOKEN || ""
   }
 
   /**
    * Busca propiedad por rol de avalúo
    */
   async getPropertyByRol(rolAvaluo: string): Promise<SIIResponse<SIIProperty>> {
-    if (!this._apiKey || !this._baseUrl) {
+    if (!this.apiKey || !this.baseUrl) {
       return {
         success: false,
         data: {} as SIIProperty,
-        error: "SII API no configurada - Funcionalidad opcional, no requerida para operación básica",
+        error: "SII API no configurada - Variables de entorno faltantes (SII_API_KEY, SII_API_URL)",
       }
     }
 
@@ -63,7 +51,7 @@ export class SIIService {
    * Obtiene historial de transacciones de una propiedad
    */
   async getPropertyTransactions(rolAvaluo: string, years = 5): Promise<SIIResponse<SIITransaction[]>> {
-    if (!this._apiKey || !this._baseUrl) {
+    if (!this.apiKey || !this.baseUrl) {
       return {
         success: false,
         data: [],
@@ -82,7 +70,7 @@ export class SIIService {
    * Obtiene estado de contribuciones
    */
   async getContributions(rolAvaluo: string, year?: number): Promise<SIIResponse<SIIContributions>> {
-    if (!this._apiKey || !this._baseUrl) {
+    if (!this.apiKey || !this.baseUrl) {
       return {
         success: false,
         data: {} as SIIContributions,
@@ -101,7 +89,7 @@ export class SIIService {
    * Obtiene datos de mercado por comuna
    */
   async getMarketData(comuna: string, months = 12): Promise<SIIResponse<SIIMarketData>> {
-    if (!this._apiKey || !this._baseUrl) {
+    if (!this.apiKey || !this.baseUrl) {
       return {
         success: false,
         data: {} as SIIMarketData,
@@ -120,7 +108,7 @@ export class SIIService {
    * Busca propiedades por filtros
    */
   async searchProperties(filters: SIISearchFilters, page = 1, limit = 20): Promise<SIIResponse<SIIProperty[]>> {
-    if (!this._apiKey || !this._baseUrl) {
+    if (!this.apiKey || !this.baseUrl) {
       return {
         success: false,
         data: [],
@@ -139,7 +127,7 @@ export class SIIService {
    * Obtiene valoración comercial de propiedad
    */
   async getPropertyValuation(rolAvaluo: string): Promise<SIIResponse<SIIPropertyValuation>> {
-    if (!this._apiKey || !this._baseUrl) {
+    if (!this.apiKey || !this.baseUrl) {
       return {
         success: false,
         data: {} as SIIPropertyValuation,

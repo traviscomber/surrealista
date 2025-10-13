@@ -1,18 +1,16 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { AlertCircle, Eye, EyeOff, MapPin, ChevronLeft, ChevronRight, Layers } from "lucide-react"
+import { AlertCircle, Eye, EyeOff, MapPin, Maximize, Minimize } from "lucide-react"
 import type { KMZData } from "@/lib/kmz/kmz-reader"
 import { reverseGeocoder, type ChileanLocationDetails } from "@/lib/geocoding/reverse-geocode"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Badge } from "@/components/ui/badge"
 
 interface KMZMapDisplayProps {
   kmzFiles: KMZData[]
   height?: string
-  center?: { lat: number; lng: number; zoom?: number }
 }
 
 interface LayerInfo {
@@ -26,13 +24,14 @@ interface LayerInfo {
   isLoadingLocation?: boolean
 }
 
-export function KMZMapDisplay({ kmzFiles, height = "600px", center }: KMZMapDisplayProps) {
+export function KMZMapDisplay({ kmzFiles, height = "600px" }: KMZMapDisplayProps) {
   const [mapInstance, setMapInstance] = useState<any>(null)
   const [leafletLoaded, setLeafletLoaded] = useState(false)
   const [mapError, setMapError] = useState<string | null>(null)
   const [layers, setLayers] = useState<LayerInfo[]>([])
-  const [legendCollapsed, setLegendCollapsed] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
   const mapRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   console.log("[v0] KMZMapDisplay received", kmzFiles.length, "KMZ files")
 
@@ -127,12 +126,20 @@ export function KMZMapDisplay({ kmzFiles, height = "600px", center }: KMZMapDisp
           },
         )
 
+        const topoLayer = L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
+          attribution: "© OpenTopoMap contributors",
+          maxZoom: 17,
+          updateWhenIdle: true,
+          keepBuffer: 2,
+        })
+
         // Add default layer
         osmLayer.addTo(map)
 
         const baseLayers = {
           Calles: osmLayer,
           Satélite: satelliteLayer,
+          Topográfico: topoLayer,
         }
 
         L.control.layers(baseLayers, null, { position: "topright" }).addTo(map)
@@ -401,21 +408,6 @@ export function KMZMapDisplay({ kmzFiles, height = "600px", center }: KMZMapDisp
     }
   }, [mapInstance, kmzFiles])
 
-  useEffect(() => {
-    if (!mapInstance || !center) return
-
-    const L = (window as any).L
-    if (!L) return
-
-    console.log("[v0] Zooming map to center:", center)
-
-    // Fly to the new center with animation
-    mapInstance.flyTo([center.lat, center.lng], center.zoom || 13, {
-      duration: 1.5,
-      easeLinearity: 0.25,
-    })
-  }, [mapInstance, center])
-
   const toggleLayerVisibility = (index: number) => {
     if (!mapInstance) return
 
@@ -449,6 +441,37 @@ export function KMZMapDisplay({ kmzFiles, height = "600px", center }: KMZMapDisp
     }
   }
 
+  const toggleFullscreen = () => {
+    if (!containerRef.current) return
+
+    if (!isFullscreen) {
+      if (containerRef.current.requestFullscreen) {
+        containerRef.current.requestFullscreen()
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen()
+      }
+    }
+  }
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement)
+      // Invalidate map size when entering/exiting fullscreen
+      if (mapInstance) {
+        setTimeout(() => {
+          mapInstance.invalidateSize()
+        }, 100)
+      }
+    }
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange)
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange)
+    }
+  }, [mapInstance])
+
   if (mapError) {
     return (
       <div className="flex items-center justify-center h-full bg-red-50" style={{ height }}>
@@ -471,178 +494,78 @@ export function KMZMapDisplay({ kmzFiles, height = "600px", center }: KMZMapDisp
     )
   }
 
-  const layersByFile = layers.reduce(
-    (acc, layer) => {
-      if (!acc[layer.fileName]) {
-        acc[layer.fileName] = []
-      }
-      acc[layer.fileName].push(layer)
-      return acc
-    },
-    {} as Record<string, LayerInfo[]>,
-  )
-
-  const visibleLayersCount = layers.filter((l) => l.visible).length
-
   return (
-    <div className="relative w-full" style={{ height }}>
-      <div ref={mapRef} className="w-full h-full rounded-lg overflow-hidden" />
+    <div ref={containerRef} className="flex gap-4 w-full relative" style={{ height: isFullscreen ? "100vh" : height }}>
+      <Button
+        variant="secondary"
+        size="sm"
+        className="absolute top-4 left-4 z-[1000] shadow-lg"
+        onClick={toggleFullscreen}
+        title={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
+      >
+        {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+      </Button>
+
+      <div ref={mapRef} className="flex-1 h-full rounded-lg overflow-hidden border" />
 
       {layers.length > 0 && (
-        <div
-          className={`absolute top-4 bottom-4 transition-all duration-300 z-[1000] ${
-            legendCollapsed
-              ? "right-2 w-14" // Keep visible at right edge when collapsed
-              : "right-4 w-80" // Normal position when expanded
-          }`}
-        >
-          <Card className="h-full shadow-xl border-2 flex flex-col">
-            {legendCollapsed ? (
-              <div className="flex flex-col items-center justify-between h-full gap-2 p-2 bg-background">
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={() => setLegendCollapsed(false)}
-                  className="h-10 w-10 p-0 shadow-md"
-                  title="Mostrar leyenda"
+        <Card className="w-96 p-4">
+          <h3 className="font-semibold mb-3 flex items-center gap-2">
+            <MapPin className="h-4 w-4" />
+            Capas del Mapa ({layers.length})
+          </h3>
+          <ScrollArea className="h-[calc(100%-2rem)]">
+            <div className="space-y-2">
+              {layers.map((layer, index) => (
+                <div
+                  key={index}
+                  className="flex items-start gap-2 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
                 >
-                  <ChevronLeft className="h-5 w-5" />
-                </Button>
-                <div className="flex flex-col items-center gap-3 flex-1 justify-center">
-                  <Layers className="h-6 w-6 text-primary" />
-                  <div className="writing-mode-vertical text-xs font-medium text-muted-foreground">CAPAS</div>
-                  <Badge variant="secondary" className="text-xs px-1.5 py-0.5">
-                    {visibleLayersCount}/{layers.length}
-                  </Badge>
-                </div>
-                <div className="h-10" /> {/* Spacer for balance */}
-              </div>
-            ) : (
-              <>
-                <div className="p-4 border-b bg-muted/30 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Layers className="h-5 w-5 text-primary" />
-                    <div>
-                      <h3 className="font-semibold text-sm">Capas del Mapa</h3>
-                      <p className="text-xs text-muted-foreground">
-                        {visibleLayersCount} de {layers.length} visible{layers.length !== 1 ? "s" : ""}
-                      </p>
-                    </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setLegendCollapsed(true)}
-                    className="h-8 w-8 p-0"
-                    title="Ocultar leyenda"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                <ScrollArea className="flex-1 p-3">
-                  <div className="space-y-4">
-                    {Object.entries(layersByFile).map(([fileName, fileLayers]) => (
-                      <div key={fileName} className="space-y-2">
-                        <div className="flex items-center gap-2 pb-2 border-b">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs font-semibold text-primary truncate" title={fileName}>
-                              {fileName}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {fileLayers.filter((l) => l.visible).length}/{fileLayers.length} capas
-                            </p>
-                          </div>
-                        </div>
-
-                        {fileLayers.map((layer, index) => {
-                          const globalIndex = layers.indexOf(layer)
-                          return (
-                            <div
-                              key={globalIndex}
-                              className={`group rounded-lg border-2 transition-all ${
-                                layer.visible
-                                  ? "bg-card border-border hover:border-primary/50"
-                                  : "bg-muted/50 border-muted opacity-60"
-                              }`}
-                            >
-                              <div className="p-2.5">
-                                <div className="flex items-start gap-2 mb-2">
-                                  <div
-                                    className="w-6 h-6 rounded border-2 border-white shadow-sm flex-shrink-0"
-                                    style={{ backgroundColor: layer.color }}
-                                  />
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium leading-tight truncate" title={layer.name}>
-                                      {layer.name}
-                                    </p>
-                                  </div>
-                                </div>
-
-                                {layer.isLoadingLocation && (
-                                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-2">
-                                    <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                                    <span>Cargando ubicación...</span>
-                                  </div>
-                                )}
-
-                                {layer.locationDetails && !layer.isLoadingLocation && (
-                                  <div className="space-y-1 mb-2">
-                                    {layer.locationDetails.comuna && (
-                                      <div className="flex items-center gap-1.5">
-                                        <MapPin className="h-3 w-3 text-primary flex-shrink-0" />
-                                        <p className="text-xs font-medium truncate">{layer.locationDetails.comuna}</p>
-                                      </div>
-                                    )}
-                                    {layer.locationDetails.region && (
-                                      <p className="text-xs text-muted-foreground pl-4.5 truncate">
-                                        {layer.locationDetails.region.replace("Región de ", "")}
-                                      </p>
-                                    )}
-                                  </div>
-                                )}
-
-                                <div className="flex gap-1.5 pt-2 border-t">
-                                  <Button
-                                    variant={layer.visible ? "default" : "outline"}
-                                    size="sm"
-                                    className="flex-1 h-7 text-xs"
-                                    onClick={() => toggleLayerVisibility(globalIndex)}
-                                  >
-                                    {layer.visible ? (
-                                      <>
-                                        <Eye className="h-3 w-3 mr-1" />
-                                        Visible
-                                      </>
-                                    ) : (
-                                      <>
-                                        <EyeOff className="h-3 w-3 mr-1" />
-                                        Oculta
-                                      </>
-                                    )}
-                                  </Button>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 px-2 bg-transparent"
-                                    onClick={() => zoomToLayer(globalIndex)}
-                                    title="Centrar en mapa"
-                                  >
-                                    <MapPin className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
-                          )
-                        })}
+                  <div className="w-4 h-4 rounded flex-shrink-0 mt-0.5" style={{ backgroundColor: layer.color }} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{layer.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{layer.fileName}</p>
+                    {layer.isLoadingLocation && (
+                      <p className="text-xs text-muted-foreground mt-1">Cargando ubicación...</p>
+                    )}
+                    {layer.locationDetails && !layer.isLoadingLocation && (
+                      <div className="mt-2 space-y-0.5">
+                        {layer.locationDetails.comuna && (
+                          <p className="text-xs text-muted-foreground">📍 {layer.locationDetails.comuna}</p>
+                        )}
+                        {layer.locationDetails.region && (
+                          <p className="text-xs text-muted-foreground">
+                            {layer.locationDetails.region.replace("Región de ", "")}
+                          </p>
+                        )}
                       </div>
-                    ))}
+                    )}
                   </div>
-                </ScrollArea>
-              </>
-            )}
-          </Card>
-        </div>
+                  <div className="flex gap-1 flex-shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={() => toggleLayerVisibility(index)}
+                      title={layer.visible ? "Ocultar" : "Mostrar"}
+                    >
+                      {layer.visible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={() => zoomToLayer(index)}
+                      title="Centrar en mapa"
+                    >
+                      <MapPin className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </Card>
       )}
     </div>
   )

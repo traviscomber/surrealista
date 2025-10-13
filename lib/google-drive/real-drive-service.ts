@@ -343,35 +343,14 @@ class RealGoogleDriveService {
 
   async extractRolNumbers(folderId: string): Promise<string[]> {
     try {
-      // Try to get the folder from the current list
-      const response = await fetch(`/api/drive/folders/${folderId}`)
+      const response = await fetch(`/api/drive/extract-rol/${folderId}`)
 
       if (!response.ok) {
-        console.log("[v0] Folder not found, extracting from folder name")
-        return []
+        throw new Error(`Failed to extract rol numbers: ${response.status}`)
       }
 
       const data = await response.json()
-      const folderName = data.name || ""
-
-      // Extract ROL numbers from folder name using regex
-      const extractedInfo = this.extractFolderInfo(folderName)
-
-      // Also search in file names
-      const files = data.files || []
-      const rolsFromFiles: string[] = []
-
-      for (const file of files) {
-        const fileInfo = this.extractFolderInfo(file.name)
-        rolsFromFiles.push(...fileInfo.rolNumbers)
-      }
-
-      // Combine and deduplicate
-      const allRols = [...extractedInfo.rolNumbers, ...rolsFromFiles]
-      const uniqueRols = Array.from(new Set(allRols))
-
-      console.log("[v0] Extracted ROL numbers:", uniqueRols)
-      return uniqueRols
+      return data.rolNumbers || []
     } catch (error) {
       console.error("[v0] Error extracting rol numbers:", error)
       return []

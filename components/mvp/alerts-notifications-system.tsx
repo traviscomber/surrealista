@@ -126,7 +126,8 @@ const mockAlerts: AlertItem[] = [
     type: "critical",
     category: "config",
     title: "Variables de Entorno Faltantes",
-    description: "Faltan 2 variables de entorno críticas: OPENAI_API_KEY, GOOGLE_DRIVE_CLIENT_ID.",
+    description:
+      "Faltan 4 variables de entorno críticas: OPENAI_API_KEY, GOOGLE_DRIVE_CLIENT_ID, SII_API_KEY, BANCO_CENTRAL_API_KEY.",
     timestamp: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
     resolved: false,
     assignee: "DevOps",

@@ -51,6 +51,11 @@ export interface ContextualInfo {
   nearestNationalPark: (NationalPark & { distance: number }) | null
   distanceToSantiago: number
   elevation?: number
+  roadType?: {
+    type: "paved" | "rural" | "highway" | "unknown"
+    name?: string
+    description: string
+  }
 }
 
 export interface NeighborhoodAnalysis {
@@ -312,11 +317,106 @@ class NeighborhoodAnalyzer {
     return distances
   }
 
-  private gatherContextualInfo(centerPoint: { lat: number; lng: number }): ContextualInfo {
+  private async getRoadType(
+    lat: number,
+    lng: number,
+  ): Promise<{
+    type: "paved" | "rural" | "highway" | "unknown"
+    name?: string
+    description: string
+  }> {
+    try {
+      // Use Nominatim reverse geocoding to get road information
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+        {
+          headers: {
+            "User-Agent": "SurRealista-Property-Analysis/1.0",
+          },
+        },
+      )
+
+      if (!response.ok) {
+        return {
+          type: "unknown",
+          description: "No se pudo determinar el tipo de camino",
+        }
+      }
+
+      const data = await response.json()
+
+      // Extract road information from the response
+      const roadName = data.address?.road || data.address?.path || data.address?.footway
+      const roadType = data.address?.highway || data.extratags?.highway
+
+      // Determine road type based on OSM highway classification
+      let type: "paved" | "rural" | "highway" | "unknown" = "unknown"
+      let description = "Tipo de camino no especificado"
+
+      if (roadType) {
+        switch (roadType) {
+          case "motorway":
+          case "trunk":
+          case "motorway_link":
+          case "trunk_link":
+            type = "highway"
+            description = "Autopista o ruta principal pavimentada"
+            break
+          case "primary":
+          case "secondary":
+          case "tertiary":
+          case "primary_link":
+          case "secondary_link":
+          case "tertiary_link":
+            type = "paved"
+            description = "Camino pavimentado (ruta regional o comunal)"
+            break
+          case "unclassified":
+          case "residential":
+          case "service":
+            type = "paved"
+            description = "Camino local pavimentado"
+            break
+          case "track":
+          case "path":
+          case "footway":
+            type = "rural"
+            description = "Camino rural sin pavimentar"
+            break
+          default:
+            type = "unknown"
+            description = `Camino tipo: ${roadType}`
+        }
+      } else if (data.address?.road) {
+        // If we have a road name but no type, assume paved
+        type = "paved"
+        description = "Camino pavimentado"
+      } else {
+        type = "rural"
+        description = "Posible camino rural o sin clasificar"
+      }
+
+      return {
+        type,
+        name: roadName,
+        description,
+      }
+    } catch (error) {
+      console.error("Error fetching road type:", error)
+      return {
+        type: "unknown",
+        description: "No se pudo determinar el tipo de camino",
+      }
+    }
+  }
+
+  private async gatherContextualInfo(centerPoint: { lat: number; lng: number }): Promise<ContextualInfo> {
     const climateZone = getClimateZone(centerPoint.lat)
     const nearestCities = findNearestCities(centerPoint.lat, centerPoint.lng, 5)
     const nearestPort = findNearestPort(centerPoint.lat, centerPoint.lng)
     const nearestNationalPark = findNearestNationalPark(centerPoint.lat, centerPoint.lng)
+
+    const roadType = await this.getRoadType(centerPoint.lat, centerPoint.lng)
 
     // Distance to Santiago
     const santiagoLat = -33.4489
@@ -329,6 +429,7 @@ class NeighborhoodAnalyzer {
       nearestPort,
       nearestNationalPark,
       distanceToSantiago: Math.round(distanceToSantiago),
+      roadType,
     }
   }
 

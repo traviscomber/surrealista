@@ -51,7 +51,7 @@ $$ LANGUAGE plpgsql;
 CREATE OR REPLACE FUNCTION get_properties_within_distance(
     center_lat NUMERIC,
     center_lng NUMERIC,
-    max_distance_km NUMERIC DEFAULT 10
+    distance_km NUMERIC DEFAULT 10
 )
 RETURNS TABLE(
     id BIGINT,
@@ -82,7 +82,7 @@ BEGIN
             cos(radians(p.longitude) - radians(center_lng)) + 
             sin(radians(center_lat)) * 
             sin(radians(p.latitude))
-          )) <= max_distance_km
+          )) <= distance_km
     ORDER BY distance_km;
 END;
 $$ LANGUAGE plpgsql;
@@ -232,20 +232,6 @@ BEGIN
     WHERE c.table_name = get_table_schema.table_name
       AND c.table_schema = 'public'
     ORDER BY c.ordinal_position;
-END;
-$$ LANGUAGE plpgsql;
-
--- Function to update search vector
-CREATE OR REPLACE FUNCTION update_property_search_vector()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.search_vector := 
-        setweight(to_tsvector('spanish', COALESCE(NEW.title, '')), 'A') ||
-        setweight(to_tsvector('spanish', COALESCE(NEW.description, '')), 'B') ||
-        setweight(to_tsvector('spanish', COALESCE(NEW.location, '')), 'C') ||
-        setweight(to_tsvector('spanish', COALESCE(NEW.city, '')), 'C') ||
-        setweight(to_tsvector('spanish', COALESCE(NEW.region, '')), 'D');
-    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 

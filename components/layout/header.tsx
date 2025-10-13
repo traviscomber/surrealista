@@ -21,14 +21,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import {
   Building2,
@@ -49,7 +41,6 @@ import {
   FolderOpen,
   Map,
 } from "lucide-react"
-import RealDriveConnector from "@/components/google-drive/real-drive-connector"
 
 const toolsItems = [
   {
@@ -200,7 +191,6 @@ const docsItems = [
 export function Header() {
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
-  const [isDriveDialogOpen, setIsDriveDialogOpen] = useState(false)
 
   const isActive = (href: string) => {
     if (href === "/") {
@@ -321,27 +311,8 @@ export function Header() {
           </NavigationMenuList>
         </NavigationMenu>
 
-        {/* Admin Access and Google Drive Button */}
+        {/* Admin Access */}
         <div className="flex items-center space-x-4">
-          <Dialog open={isDriveDialogOpen} onOpenChange={setIsDriveDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="hidden md:flex bg-transparent">
-                <FolderOpen className="mr-2 h-4 w-4" />
-                Google Drive
-                <Badge className="ml-2 text-xs bg-green-500 text-white">Conectar</Badge>
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Conexión con Google Drive</DialogTitle>
-                <DialogDescription>
-                  Conecta con Google Drive para acceder a tus casos de éxito y archivos
-                </DialogDescription>
-              </DialogHeader>
-              <RealDriveConnector />
-            </DialogContent>
-          </Dialog>
-
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="hidden md:flex bg-transparent">
@@ -425,22 +396,12 @@ export function Header() {
                   <span className="text-lg font-bold">Sur-Realista</span>
                 </div>
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full justify-start bg-transparent"
-                  onClick={() => {
-                    setIsDriveDialogOpen(true)
-                    setIsOpen(false)
-                  }}
-                >
-                  <FolderOpen className="mr-2 h-4 w-4" />
-                  Conectar Google Drive
-                  <Badge className="ml-auto text-xs bg-green-500 text-white">Nuevo</Badge>
-                </Button>
-
                 {/* Mobile Tools */}
                 <div className="space-y-2">
+                  <h3 className="text-sm font-semibold text-muted-foreground px-3 flex items-center gap-2">
+                    Herramientas
+                    <Badge className="bg-green-500 text-white text-xs">Google Drive</Badge>
+                  </h3>
                   {toolsItems.map((item) => (
                     <Link
                       key={item.title}
@@ -463,6 +424,10 @@ export function Header() {
 
                 {/* Mobile MVP */}
                 <div className="space-y-2 pt-4 border-t">
+                  <h3 className="text-sm font-semibold text-muted-foreground px-3 flex items-center gap-2">
+                    MVP
+                    <Badge className="bg-green-500 text-white text-xs">Live</Badge>
+                  </h3>
                   {mvpItems.map((item) => (
                     <Link
                       key={item.title}
@@ -485,6 +450,7 @@ export function Header() {
 
                 {/* Mobile Documentation */}
                 <div className="space-y-2 pt-4 border-t">
+                  <h3 className="text-sm font-semibold text-muted-foreground px-3">Documentación</h3>
                   {docsItems.map((item) => (
                     <Link
                       key={item.title}

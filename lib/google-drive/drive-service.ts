@@ -18,7 +18,7 @@ export interface DriveFolder {
 }
 
 export class GoogleDriveService {
-  private _apiKey: string
+  private apiKey: string
   private baseUrl = "https://www.googleapis.com/drive/v3"
   private maxRetries = 3
   private retryDelay = 1000
@@ -26,7 +26,7 @@ export class GoogleDriveService {
   private cacheTimeout = 5 * 60 * 1000 // 5 minutes
 
   constructor(apiKey: string) {
-    this._apiKey = apiKey
+    this.apiKey = apiKey
   }
 
   private async fetchWithRetry(url: string, options: RequestInit = {}, retries = this.maxRetries): Promise<Response> {
@@ -85,7 +85,7 @@ export class GoogleDriveService {
   }
 
   get apiKey() {
-    return this._apiKey
+    return this.apiKey
   }
 
   async listFiles(

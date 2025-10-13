@@ -4,7 +4,7 @@ DROP TABLE IF EXISTS leads CASCADE;
 DROP TABLE IF EXISTS messages CASCADE;
 
 -- Create the properties table with ALL required columns from the start
-CREATE TABLE IF NOT EXISTS properties (
+CREATE TABLE properties (
     id BIGSERIAL PRIMARY KEY,
     title TEXT NOT NULL,
     description TEXT,
@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS properties (
 );
 
 -- Create other required tables
-CREATE TABLE IF NOT EXISTS leads (
+CREATE TABLE leads (
     id BIGSERIAL PRIMARY KEY,
     name TEXT NOT NULL,
     email TEXT NOT NULL,
@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS leads (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email TEXT UNIQUE NOT NULL,
     name TEXT,
@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
-CREATE TABLE IF NOT EXISTS messages (
+CREATE TABLE messages (
     id BIGSERIAL PRIMARY KEY,
     name TEXT NOT NULL,
     email TEXT NOT NULL,

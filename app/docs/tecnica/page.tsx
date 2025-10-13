@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Code, Database, Server, Globe, Shield, Layers, Download, CheckCircle } from "lucide-react"
+import { Code, Database, Server, Globe, Shield, Zap, Layers, GitBranch, Monitor, Settings, BookOpen, ExternalLink, Download, Copy, CheckCircle } from 'lucide-react'
 
 export default function DocumentacionTecnicaPage() {
   return (
@@ -16,11 +16,15 @@ export default function DocumentacionTecnicaPage() {
             <Code className="h-8 w-8 text-blue-600" />
             Documentación Técnica
           </h1>
-          <p className="text-gray-600 mt-2">Arquitectura, especificaciones técnicas y guías de desarrollo</p>
+          <p className="text-gray-600 mt-2">
+            Arquitectura, especificaciones técnicas y guías de desarrollo
+          </p>
         </div>
         <div className="flex items-center gap-4">
-          <Badge className="bg-green-500 text-white px-4 py-2 text-lg">v1.2.0</Badge>
-          <Button variant="outline" className="flex items-center gap-2 bg-transparent">
+          <Badge className="bg-green-500 text-white px-4 py-2 text-lg">
+            v1.2.0
+          </Badge>
+          <Button variant="outline" className="flex items-center gap-2">
             <Download className="h-4 w-4" />
             Descargar PDF
           </Button>
@@ -37,7 +41,9 @@ export default function DocumentacionTecnicaPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">Diseño del sistema y componentes principales</p>
+            <p className="text-sm text-muted-foreground">
+              Diseño del sistema y componentes principales
+            </p>
           </CardContent>
         </Card>
 
@@ -49,7 +55,9 @@ export default function DocumentacionTecnicaPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">Esquemas, relaciones y optimizaciones</p>
+            <p className="text-sm text-muted-foreground">
+              Esquemas, relaciones y optimizaciones
+            </p>
           </CardContent>
         </Card>
 
@@ -61,7 +69,9 @@ export default function DocumentacionTecnicaPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">Endpoints, autenticación y ejemplos</p>
+            <p className="text-sm text-muted-foreground">
+              Endpoints, autenticación y ejemplos
+            </p>
           </CardContent>
         </Card>
 
@@ -73,7 +83,9 @@ export default function DocumentacionTecnicaPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">Protocolos y mejores prácticas</p>
+            <p className="text-sm text-muted-foreground">
+              Protocolos y mejores prácticas
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -95,7 +107,9 @@ export default function DocumentacionTecnicaPage() {
                 <Layers className="h-5 w-5" />
                 Arquitectura del Sistema
               </CardTitle>
-              <CardDescription>Diseño general y componentes principales de Sur-Realista</CardDescription>
+              <CardDescription>
+                Diseño general y componentes principales de Sur-Realista
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -134,19 +148,27 @@ export default function DocumentacionTecnicaPage() {
                   <div className="space-y-3">
                     <div className="p-3 border rounded-lg">
                       <h4 className="font-medium text-blue-600">Frontend Layer</h4>
-                      <p className="text-sm text-muted-foreground mt-1">React components, UI/UX, estado global</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        React components, UI/UX, estado global
+                      </p>
                     </div>
                     <div className="p-3 border rounded-lg">
                       <h4 className="font-medium text-green-600">API Layer</h4>
-                      <p className="text-sm text-muted-foreground mt-1">REST endpoints, middleware, validaciones</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        REST endpoints, middleware, validaciones
+                      </p>
                     </div>
                     <div className="p-3 border rounded-lg">
                       <h4 className="font-medium text-purple-600">Business Logic</h4>
-                      <p className="text-sm text-muted-foreground mt-1">Servicios, utilidades, procesamiento IA</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Servicios, utilidades, procesamiento IA
+                      </p>
                     </div>
                     <div className="p-3 border rounded-lg">
                       <h4 className="font-medium text-orange-600">Data Layer</h4>
-                      <p className="text-sm text-muted-foreground mt-1">ORM, queries, migraciones, cache</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        ORM, queries, migraciones, cache
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -156,7 +178,7 @@ export default function DocumentacionTecnicaPage() {
                 <h3 className="text-lg font-semibold mb-3">Flujo de Datos</h3>
                 <div className="bg-gray-50 p-4 rounded-lg">
                   <pre className="text-sm overflow-x-auto">
-                    {`Usuario → Frontend (Next.js) → API Routes → Business Logic → Supabase
+{`Usuario → Frontend (Next.js) → API Routes → Business Logic → Supabase
                                     ↓
                               Integraciones Externas
                                     ↓
@@ -170,19 +192,27 @@ export default function DocumentacionTecnicaPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="p-4 border rounded-lg">
                     <h4 className="font-medium">Repository Pattern</h4>
-                    <p className="text-sm text-muted-foreground mt-1">Abstracción de acceso a datos</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Abstracción de acceso a datos
+                    </p>
                   </div>
                   <div className="p-4 border rounded-lg">
                     <h4 className="font-medium">Service Layer</h4>
-                    <p className="text-sm text-muted-foreground mt-1">Lógica de negocio centralizada</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Lógica de negocio centralizada
+                    </p>
                   </div>
                   <div className="p-4 border rounded-lg">
                     <h4 className="font-medium">Factory Pattern</h4>
-                    <p className="text-sm text-muted-foreground mt-1">Creación de instancias IA</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Creación de instancias IA
+                    </p>
                   </div>
                   <div className="p-4 border rounded-lg">
                     <h4 className="font-medium">Observer Pattern</h4>
-                    <p className="text-sm text-muted-foreground mt-1">Notificaciones y eventos del sistema</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Notificaciones y eventos del sistema
+                    </p>
                   </div>
                 </div>
               </div>
@@ -197,7 +227,9 @@ export default function DocumentacionTecnicaPage() {
                 <Database className="h-5 w-5" />
                 Esquema de Base de Datos
               </CardTitle>
-              <CardDescription>Estructura de datos y relaciones en PostgreSQL</CardDescription>
+              <CardDescription>
+                Estructura de datos y relaciones en PostgreSQL
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -206,25 +238,39 @@ export default function DocumentacionTecnicaPage() {
                   <div className="space-y-3">
                     <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                       <h4 className="font-medium text-blue-800">properties</h4>
-                      <p className="text-sm text-blue-600 mt-1">Información principal de propiedades</p>
+                      <p className="text-sm text-blue-600 mt-1">
+                        Información principal de propiedades
+                      </p>
                       <div className="text-xs text-blue-600 mt-2">
                         id, title, description, price, location, type, status
                       </div>
                     </div>
                     <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                       <h4 className="font-medium text-green-800">property_images</h4>
-                      <p className="text-sm text-green-600 mt-1">Imágenes asociadas a propiedades</p>
-                      <div className="text-xs text-green-600 mt-2">id, property_id, url, alt_text, order</div>
+                      <p className="text-sm text-green-600 mt-1">
+                        Imágenes asociadas a propiedades
+                      </p>
+                      <div className="text-xs text-green-600 mt-2">
+                        id, property_id, url, alt_text, order
+                      </div>
                     </div>
                     <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
                       <h4 className="font-medium text-purple-800">users</h4>
-                      <p className="text-sm text-purple-600 mt-1">Usuarios del sistema</p>
-                      <div className="text-xs text-purple-600 mt-2">id, email, name, role, created_at</div>
+                      <p className="text-sm text-purple-600 mt-1">
+                        Usuarios del sistema
+                      </p>
+                      <div className="text-xs text-purple-600 mt-2">
+                        id, email, name, role, created_at
+                      </div>
                     </div>
                     <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg">
                       <h4 className="font-medium text-orange-800">messages</h4>
-                      <p className="text-sm text-orange-600 mt-1">Sistema de mensajería</p>
-                      <div className="text-xs text-orange-600 mt-2">id, user_id, subject, content, status</div>
+                      <p className="text-sm text-orange-600 mt-1">
+                        Sistema de mensajería
+                      </p>
+                      <div className="text-xs text-orange-600 mt-2">
+                        id, user_id, subject, content, status
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -233,7 +279,7 @@ export default function DocumentacionTecnicaPage() {
                   <h3 className="text-lg font-semibold mb-3">Relaciones</h3>
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <pre className="text-sm overflow-x-auto">
-                      {`properties
+{`properties
 ├── property_images (1:N)
 ├── property_features (1:N)
 └── property_analytics (1:1)
@@ -285,7 +331,9 @@ ai_conversations
                 <Globe className="h-5 w-5" />
                 Documentación de APIs
               </CardTitle>
-              <CardDescription>Endpoints, autenticación y ejemplos de uso</CardDescription>
+              <CardDescription>
+                Endpoints, autenticación y ejemplos de uso
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -297,28 +345,36 @@ ai_conversations
                         <Badge className="bg-green-100 text-green-800">GET</Badge>
                         <code className="text-sm">/api/properties</code>
                       </div>
-                      <p className="text-sm text-muted-foreground">Obtener lista de propiedades con filtros</p>
+                      <p className="text-sm text-muted-foreground">
+                        Obtener lista de propiedades con filtros
+                      </p>
                     </div>
                     <div className="p-3 border rounded-lg">
                       <div className="flex items-center gap-2 mb-2">
                         <Badge className="bg-blue-100 text-blue-800">POST</Badge>
                         <code className="text-sm">/api/properties</code>
                       </div>
-                      <p className="text-sm text-muted-foreground">Crear nueva propiedad</p>
+                      <p className="text-sm text-muted-foreground">
+                        Crear nueva propiedad
+                      </p>
                     </div>
                     <div className="p-3 border rounded-lg">
                       <div className="flex items-center gap-2 mb-2">
                         <Badge className="bg-purple-100 text-purple-800">POST</Badge>
                         <code className="text-sm">/api/ai/chat</code>
                       </div>
-                      <p className="text-sm text-muted-foreground">Interactuar con asistente IA</p>
+                      <p className="text-sm text-muted-foreground">
+                        Interactuar con asistente IA
+                      </p>
                     </div>
                     <div className="p-3 border rounded-lg">
                       <div className="flex items-center gap-2 mb-2">
                         <Badge className="bg-orange-100 text-orange-800">GET</Badge>
                         <code className="text-sm">/api/integrations/sii</code>
                       </div>
-                      <p className="text-sm text-muted-foreground">Datos del SII Chile</p>
+                      <p className="text-sm text-muted-foreground">
+                        Datos del SII Chile
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -328,15 +384,21 @@ ai_conversations
                   <div className="space-y-3">
                     <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
                       <h4 className="font-medium text-blue-800">JWT Tokens</h4>
-                      <p className="text-sm text-blue-600 mt-1">Autenticación basada en tokens JWT</p>
+                      <p className="text-sm text-blue-600 mt-1">
+                        Autenticación basada en tokens JWT
+                      </p>
                     </div>
                     <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
                       <h4 className="font-medium text-green-800">Supabase Auth</h4>
-                      <p className="text-sm text-green-600 mt-1">Gestión de usuarios y sesiones</p>
+                      <p className="text-sm text-green-600 mt-1">
+                        Gestión de usuarios y sesiones
+                      </p>
                     </div>
                     <div className="p-4 bg-purple-50 border border-purple-200 rounded-lg">
                       <h4 className="font-medium text-purple-800">Rate Limiting</h4>
-                      <p className="text-sm text-purple-600 mt-1">Límites de requests por usuario</p>
+                      <p className="text-sm text-purple-600 mt-1">
+                        Límites de requests por usuario
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -346,7 +408,7 @@ ai_conversations
                 <h3 className="text-lg font-semibold mb-3">Ejemplo de Request</h3>
                 <div className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto">
                   <pre className="text-sm">
-                    {`// GET /api/properties
+{`// GET /api/properties
 curl -X GET "https://sur-realista.vercel.app/api/properties" \\
   -H "Authorization: Bearer YOUR_JWT_TOKEN" \\
   -H "Content-Type: application/json" \\
@@ -386,7 +448,9 @@ curl -X GET "https://sur-realista.vercel.app/api/properties" \\
                 <Server className="h-5 w-5" />
                 Deployment y DevOps
               </CardTitle>
-              <CardDescription>Configuración de despliegue y CI/CD</CardDescription>
+              <CardDescription>
+                Configuración de despliegue y CI/CD
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -395,18 +459,30 @@ curl -X GET "https://sur-realista.vercel.app/api/properties" \\
                   <div className="space-y-3">
                     <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                       <h4 className="font-medium text-green-800">Producción</h4>
-                      <p className="text-sm text-green-600 mt-1">Vercel + Supabase Production</p>
-                      <code className="text-xs text-green-600">https://sur-realista.vercel.app</code>
+                      <p className="text-sm text-green-600 mt-1">
+                        Vercel + Supabase Production
+                      </p>
+                      <code className="text-xs text-green-600">
+                        https://sur-realista.vercel.app
+                      </code>
                     </div>
                     <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                       <h4 className="font-medium text-blue-800">Staging</h4>
-                      <p className="text-sm text-blue-600 mt-1">Vercel Preview + Supabase Staging</p>
-                      <code className="text-xs text-blue-600">https://sur-realista-git-staging.vercel.app</code>
+                      <p className="text-sm text-blue-600 mt-1">
+                        Vercel Preview + Supabase Staging
+                      </p>
+                      <code className="text-xs text-blue-600">
+                        https://sur-realista-git-staging.vercel.app
+                      </code>
                     </div>
                     <div className="p-3 bg-purple-50 border border-purple-200 rounded-lg">
                       <h4 className="font-medium text-purple-800">Desarrollo</h4>
-                      <p className="text-sm text-purple-600 mt-1">Local + Supabase Local</p>
-                      <code className="text-xs text-purple-600">http://localhost:3000</code>
+                      <p className="text-sm text-purple-600 mt-1">
+                        Local + Supabase Local
+                      </p>
+                      <code className="text-xs text-purple-600">
+                        http://localhost:3000
+                      </code>
                     </div>
                   </div>
                 </div>
@@ -416,19 +492,27 @@ curl -X GET "https://sur-realista.vercel.app/api/properties" \\
                   <div className="space-y-3">
                     <div className="p-3 border rounded-lg">
                       <h4 className="font-medium">1. Code Push</h4>
-                      <p className="text-sm text-muted-foreground mt-1">Git push a GitHub repository</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Git push a GitHub repository
+                      </p>
                     </div>
                     <div className="p-3 border rounded-lg">
                       <h4 className="font-medium">2. Tests</h4>
-                      <p className="text-sm text-muted-foreground mt-1">Jest + Testing Library + E2E</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Jest + Testing Library + E2E
+                      </p>
                     </div>
                     <div className="p-3 border rounded-lg">
                       <h4 className="font-medium">3. Build</h4>
-                      <p className="text-sm text-muted-foreground mt-1">Next.js build + TypeScript check</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Next.js build + TypeScript check
+                      </p>
                     </div>
                     <div className="p-3 border rounded-lg">
                       <h4 className="font-medium">4. Deploy</h4>
-                      <p className="text-sm text-muted-foreground mt-1">Vercel automatic deployment</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Vercel automatic deployment
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -438,13 +522,17 @@ curl -X GET "https://sur-realista.vercel.app/api/properties" \\
                 <h3 className="text-lg font-semibold mb-3">Variables de Entorno</h3>
                 <div className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto">
                   <pre className="text-sm">
-                    {`# Database
+{`# Database
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
 
 # AI Services
 OPENAI_API_KEY=sk-your-openai-key
+
+# External APIs
+SII_API_KEY=your-sii-key
+CIREN_API_KEY=your-ciren-key
 
 # App Configuration
 NEXT_PUBLIC_APP_URL=https://sur-realista.vercel.app
@@ -463,7 +551,9 @@ NEXTAUTH_SECRET=your-nextauth-secret`}
                 <Shield className="h-5 w-5" />
                 Seguridad y Mejores Prácticas
               </CardTitle>
-              <CardDescription>Protocolos de seguridad implementados</CardDescription>
+              <CardDescription>
+                Protocolos de seguridad implementados
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -516,7 +606,7 @@ NEXTAUTH_SECRET=your-nextauth-secret`}
                 <h3 className="text-lg font-semibold mb-3">Headers de Seguridad</h3>
                 <div className="bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto">
                   <pre className="text-sm">
-                    {`// next.config.js
+{`// next.config.js
 const securityHeaders = [
   {
     key: 'X-DNS-Prefetch-Control',

@@ -348,11 +348,14 @@ SELECT
     'Messages: ' || COUNT(*) 
 FROM messages;
 
--- Show current table structure (fixed query)
+-- Show current table structure
+SELECT 
+    'Properties table structure:' as info
+UNION ALL
 SELECT 
     column_name || ' (' || data_type || ')' as info
 FROM information_schema.columns 
-WHERE table_name = 'properties'
+WHERE table_name = 'properties' 
 ORDER BY ordinal_position;
 
 -- Clean up helper function

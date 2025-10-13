@@ -25,6 +25,7 @@ import {
   Trees,
   CloudRain,
   Mountain,
+  Route,
 } from "lucide-react"
 import { useDropzone } from "react-dropzone"
 import { kmzReader, type KMZData } from "@/lib/kmz/kmz-reader"
@@ -578,6 +579,46 @@ export function KMZNeighborhoodAnalyzer() {
                   <CardDescription>Contexto geográfico, climático y turístico de la ubicación</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-6">
+                  {/* Road Type Section */}
+                  {analysis.contextualInfo.roadType && (
+                    <div className="bg-white rounded-xl p-6 border border-orange-200">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Route className="h-5 w-5 text-orange-600" />
+                        <h3 className="font-bold text-lg text-slate-800">Tipo de Camino</h3>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant="outline"
+                            className={`font-semibold ${
+                              analysis.contextualInfo.roadType.type === "highway"
+                                ? "bg-blue-50 border-blue-200 text-blue-700"
+                                : analysis.contextualInfo.roadType.type === "paved"
+                                  ? "bg-green-50 border-green-200 text-green-700"
+                                  : analysis.contextualInfo.roadType.type === "rural"
+                                    ? "bg-amber-50 border-amber-200 text-amber-700"
+                                    : "bg-slate-50 border-slate-200 text-slate-700"
+                            }`}
+                          >
+                            {analysis.contextualInfo.roadType.type === "highway"
+                              ? "Autopista"
+                              : analysis.contextualInfo.roadType.type === "paved"
+                                ? "Pavimentado"
+                                : analysis.contextualInfo.roadType.type === "rural"
+                                  ? "Rural"
+                                  : "Desconocido"}
+                          </Badge>
+                          {analysis.contextualInfo.roadType.name && (
+                            <span className="font-semibold text-slate-800">
+                              {analysis.contextualInfo.roadType.name}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm text-slate-600">{analysis.contextualInfo.roadType.description}</p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Climate Zone */}
                   {analysis.contextualInfo.climateZone && (
                     <div className="bg-white rounded-xl p-6 border border-blue-200">
