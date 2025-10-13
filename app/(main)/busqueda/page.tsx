@@ -1,7 +1,5 @@
 "use client"
 
-export const dynamic = "force-dynamic"
-
 import { useState, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
@@ -9,13 +7,9 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Search, Folder, Users, MessageSquare, CheckSquare, MapPin, Calendar, Map, Loader2, Plus } from "lucide-react"
+import dynamic from "next/dynamic"
 import { createBrowserClient } from "@/lib/supabase/client"
 import { TaskCreationDialog } from "@/components/tasks/task-creation-dialog"
-
-const loadDriveService = async () => {
-  const { driveService } = await import("@/lib/google-drive/drive-service")
-  return driveService
-}
 
 const KMZMapDisplay = dynamic(() => import("@/components/kmz/kmz-map-display").then((mod) => mod.KMZMapDisplay), {
   ssr: false,
@@ -40,7 +34,6 @@ interface Campo {
   location: string
   files: number
   kmzFileId?: string
-  driveFiles?: any[]
 }
 
 interface KMZFile {
@@ -71,14 +64,11 @@ export default function UnifiedSearchPage() {
   const [taskDialogOpen, setTaskDialogOpen] = useState(false)
   const [kmzFiles, setKmzFiles] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
-  const [driveLoading, setDriveLoading] = useState(false)
-  const [camposData, setCamposData] = useState<Campo[]>([])
 
   const supabase = createBrowserClient()
 
   useEffect(() => {
     loadTasks()
-    loadDriveFolders()
   }, [])
 
   const loadTasks = async () => {
@@ -93,76 +83,6 @@ export default function UnifiedSearchPage() {
       setTasks(data || [])
     } catch (error) {
       console.error("Error loading tasks:", error)
-    }
-  }
-
-  const loadDriveFolders = async () => {
-    setDriveLoading(true)
-    try {
-      console.log("[v0] Loading folders from Google Drive...")
-
-      const driveService = await loadDriveService()
-      const kmzFiles = await driveService.searchKMZFiles()
-      console.log("[v0] Found KMZ files:", kmzFiles.length)
-
-      const folderMap = new Map<string, any[]>()
-
-      for (const file of kmzFiles) {
-        const parentId = file.parents?.[0] || "root"
-        if (!folderMap.has(parentId)) {
-          folderMap.set(parentId, [])
-        }
-        folderMap.get(parentId)?.push(file)
-      }
-
-      const camposFromDrive: Campo[] = []
-      let index = 1
-
-      for (const [folderId, files] of folderMap.entries()) {
-        if (files.length > 0) {
-          let folderName = "Carpeta sin nombre"
-          let location = "Ubicación desconocida"
-
-          try {
-            if (folderId !== "root") {
-              const apiKey = driveService.apiKey
-              if (apiKey) {
-                const folderResponse = await fetch(
-                  `https://www.googleapis.com/drive/v3/files/${folderId}?key=${apiKey}&fields=name`,
-                )
-                if (folderResponse.ok) {
-                  const folderData = await folderResponse.json()
-                  folderName = folderData.name
-                  location = folderName.split(" ")[0] || "Chile"
-                }
-              }
-            }
-          } catch (error) {
-            console.error("[v0] Error getting folder name:", error)
-          }
-
-          camposFromDrive.push({
-            id: `drive-${index}`,
-            name: folderName,
-            location: location,
-            files: files.length,
-            driveFiles: files,
-          })
-          index++
-        }
-      }
-
-      console.log("[v0] Created campos from Drive:", camposFromDrive.length)
-      setCamposData(camposFromDrive)
-    } catch (error) {
-      console.error("[v0] Error loading Drive folders:", error)
-      setCamposData([
-        { id: "1", name: "Valdivia 142 has", location: "Valdivia", files: 8 },
-        { id: "2", name: "Pucon Lote 45", location: "Pucón", files: 12 },
-        { id: "3", name: "Castro Parcela 23", location: "Castro", files: 15 },
-      ])
-    } finally {
-      setDriveLoading(false)
     }
   }
 
@@ -183,42 +103,37 @@ export default function UnifiedSearchPage() {
     console.log("[v0] Campo clicked:", campo.name)
 
     try {
-      if (campo.driveFiles && campo.driveFiles.length > 0) {
-        console.log("[v0] Using Drive files for campo:", campo.driveFiles.length)
+      const { data, error } = await supabase
+        .from("kmz_collection")
+        .select("*")
+        .ilike("file_name", `%${campo.location}%`)
+        .eq("is_active", true)
+        .limit(5)
+
+      if (error) {
+        console.error("[v0] Error loading KMZ files:", error)
         setKmzFiles([])
       } else {
-        const { data, error } = await supabase
-          .from("kmz_collection")
-          .select("*")
-          .ilike("file_name", `%${campo.location}%`)
-          .eq("is_active", true)
-          .limit(5)
+        console.log("[v0] Loaded KMZ files:", data?.length || 0)
 
-        if (error) {
-          console.error("[v0] Error loading KMZ files:", error)
-          setKmzFiles([])
-        } else {
-          console.log("[v0] Loaded KMZ files from DB:", data?.length || 0)
+        const transformedData = (data || []).map((kmz: any) => ({
+          id: kmz.id,
+          name: kmz.file_name,
+          placemarks:
+            kmz.coordinates?.features?.map((feature: any) => ({
+              name: feature.properties?.name || kmz.file_name,
+              description: feature.properties?.description || "",
+              coordinates:
+                feature.geometry?.type === "Polygon"
+                  ? feature.geometry.coordinates[0].map((coord: number[]) => [coord[1], coord[0]])
+                  : feature.geometry?.type === "Point"
+                    ? [[feature.geometry.coordinates[1], feature.geometry.coordinates[0]]]
+                    : [],
+              type: feature.geometry?.type || "Point",
+            })) || [],
+        }))
 
-          const transformedData = (data || []).map((kmz: any) => ({
-            id: kmz.id,
-            name: kmz.file_name,
-            placemarks:
-              kmz.coordinates?.features?.map((feature: any) => ({
-                name: feature.properties?.name || kmz.file_name,
-                description: feature.properties?.description || "",
-                coordinates:
-                  feature.geometry?.type === "Polygon"
-                    ? feature.geometry.coordinates[0].map((coord: number[]) => [coord[1], coord[0]])
-                    : feature.geometry?.type === "Point"
-                      ? [[feature.geometry.coordinates[1], feature.geometry.coordinates[0]]]
-                      : [],
-                type: feature.geometry?.type || "Point",
-              })) || [],
-          }))
-
-          setKmzFiles(transformedData)
-        }
+        setKmzFiles(transformedData)
       }
     } catch (err) {
       console.error("[v0] Exception loading KMZ:", err)
@@ -251,6 +166,12 @@ export default function UnifiedSearchPage() {
     { name: "Roberto Fernández", company: "Forestal Los Andes", status: "cold", lat: -42.4827, lng: -73.7615 },
   ]
 
+  const campos: Campo[] = [
+    { id: "1", name: "Valdivia 142 has", location: "Valdivia", files: 8 },
+    { id: "2", name: "Pucon Lote 45", location: "Pucón", files: 12 },
+    { id: "3", name: "Castro Parcela 23", location: "Castro", files: 15 },
+  ]
+
   const handleTabChange = (value: string) => {
     console.log("[v0] Tab changed to:", value)
     setActiveTab(value)
@@ -263,18 +184,6 @@ export default function UnifiedSearchPage() {
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Búsqueda Unificada Sur-Realista</h1>
           <p className="text-gray-600">Sistema integrado de búsqueda para CAMPOS, Clientes, Comunicaciones y Tareas</p>
-          <div className="flex items-center gap-2 mt-2">
-            <Badge variant="outline" className="flex items-center gap-1">
-              <div className="h-2 w-2 rounded-full bg-green-500" />
-              Google Drive Conectado
-            </Badge>
-            {driveLoading && (
-              <Badge variant="outline" className="flex items-center gap-1">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Cargando carpetas...
-              </Badge>
-            )}
-          </div>
         </div>
 
         {/* Search Bar */}
@@ -332,22 +241,10 @@ export default function UnifiedSearchPage() {
                     <CardTitle className="flex items-center gap-2">
                       <Folder className="h-5 w-5" />
                       Carpetas CAMPOS
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={loadDriveFolders}
-                        disabled={driveLoading}
-                        className="ml-auto"
-                      >
-                        {driveLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Actualizar"}
-                      </Button>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
-                    {camposData.length === 0 && !driveLoading && (
-                      <p className="text-sm text-gray-500 text-center py-4">No se encontraron carpetas</p>
-                    )}
-                    {camposData.map((campo) => (
+                    {campos.map((campo) => (
                       <div
                         key={campo.id}
                         onClick={() => handleCampoClick(campo)}
