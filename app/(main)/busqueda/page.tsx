@@ -1,5 +1,7 @@
 "use client"
 
+export const dynamic = "force-dynamic"
+
 import { useState, useEffect } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
@@ -7,10 +9,13 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Search, Folder, Users, MessageSquare, CheckSquare, MapPin, Calendar, Map, Loader2, Plus } from "lucide-react"
-import dynamic from "next/dynamic"
 import { createBrowserClient } from "@/lib/supabase/client"
 import { TaskCreationDialog } from "@/components/tasks/task-creation-dialog"
-import { driveService, type DriveFile, type DriveFolder } from "@/lib/google-drive/drive-service"
+
+const loadDriveService = async () => {
+  const { driveService } = await import("@/lib/google-drive/drive-service")
+  return driveService
+}
 
 const KMZMapDisplay = dynamic(() => import("@/components/kmz/kmz-map-display").then((mod) => mod.KMZMapDisplay), {
   ssr: false,
@@ -35,7 +40,7 @@ interface Campo {
   location: string
   files: number
   kmzFileId?: string
-  driveFiles?: DriveFile[]
+  driveFiles?: any[]
 }
 
 interface KMZFile {
@@ -66,7 +71,6 @@ export default function UnifiedSearchPage() {
   const [taskDialogOpen, setTaskDialogOpen] = useState(false)
   const [kmzFiles, setKmzFiles] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
-  const [driveFolders, setDriveFolders] = useState<DriveFolder[]>([])
   const [driveLoading, setDriveLoading] = useState(false)
   const [camposData, setCamposData] = useState<Campo[]>([])
 
@@ -96,10 +100,12 @@ export default function UnifiedSearchPage() {
     setDriveLoading(true)
     try {
       console.log("[v0] Loading folders from Google Drive...")
+
+      const driveService = await loadDriveService()
       const kmzFiles = await driveService.searchKMZFiles()
       console.log("[v0] Found KMZ files:", kmzFiles.length)
 
-      const folderMap = new Map<string, DriveFile[]>()
+      const folderMap = new Map<string, any[]>()
 
       for (const file of kmzFiles) {
         const parentId = file.parents?.[0] || "root"
@@ -119,13 +125,16 @@ export default function UnifiedSearchPage() {
 
           try {
             if (folderId !== "root") {
-              const folderResponse = await fetch(
-                `https://www.googleapis.com/drive/v3/files/${folderId}?key=${driveService.apiKey}&fields=name`,
-              )
-              if (folderResponse.ok) {
-                const folderData = await folderResponse.json()
-                folderName = folderData.name
-                location = folderName.split(" ")[0] || "Chile"
+              const apiKey = driveService.apiKey
+              if (apiKey) {
+                const folderResponse = await fetch(
+                  `https://www.googleapis.com/drive/v3/files/${folderId}?key=${apiKey}&fields=name`,
+                )
+                if (folderResponse.ok) {
+                  const folderData = await folderResponse.json()
+                  folderName = folderData.name
+                  location = folderName.split(" ")[0] || "Chile"
+                }
               }
             }
           } catch (error) {
