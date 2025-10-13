@@ -284,7 +284,7 @@ export default function UnifiedSearchPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="h-full">
-                    <div className="h-[500px] w-full rounded-xl overflow-hidden">
+                    <div className="h-[500px] w-full rounded-xl overflow-hidden relative z-0">
                       <KMZMapDisplay kmzFiles={kmzFiles} height="500px" />
                     </div>
                   </CardContent>
@@ -356,7 +356,7 @@ export default function UnifiedSearchPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="h-full">
-                    <div className="h-[500px] w-full rounded-xl overflow-hidden">
+                    <div className="h-[500px] w-full rounded-xl overflow-hidden relative z-0">
                       <KMZMapDisplay
                         kmzFiles={[]}
                         height="500px"
@@ -519,7 +519,7 @@ export default function UnifiedSearchPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="h-full">
-                    <div className="h-[500px] w-full rounded-xl overflow-hidden">
+                    <div className="h-[500px] w-full rounded-xl overflow-hidden relative z-0">
                       <KMZMapDisplay
                         kmzFiles={[]}
                         height="500px"

@@ -40,6 +40,7 @@ import {
   Shield,
   FolderOpen,
   Map,
+  Search,
 } from "lucide-react"
 
 const toolsItems = [
@@ -215,6 +216,16 @@ export function Header() {
         {/* Desktop Navigation */}
         <NavigationMenu className="hidden lg:flex">
           <NavigationMenuList className="space-x-1">
+            <NavigationMenuItem>
+              <Link href="/busqueda">
+                <Button variant={isActive("/busqueda") ? "default" : "ghost"} size="sm" className="h-10">
+                  <Search className="mr-2 h-4 w-4" />
+                  Búsqueda
+                  <Badge className="ml-2 text-xs bg-green-500 text-white">New</Badge>
+                </Button>
+              </Link>
+            </NavigationMenuItem>
+
             {/* Tools Dropdown */}
             <NavigationMenuItem>
               <NavigationMenuTrigger className="h-10">
@@ -297,7 +308,7 @@ export function Header() {
                         <item.icon className="h-4 w-4" />
                         <div className="text-sm font-medium leading-none">{item.title}</div>
                         {item.badge && (
-                          <Badge variant="secondary" className="text-xs">
+                          <Badge className={cn("text-xs text-white", item.badgeColor || "bg-blue-500")}>
                             {item.badge}
                           </Badge>
                         )}
@@ -322,6 +333,14 @@ export function Header() {
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-56" align="end">
               <DropdownMenuLabel>Panel de Administración</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link href="/busqueda" className="flex items-center">
+                  <Search className="mr-2 h-4 w-4" />
+                  <span>Búsqueda Unificada</span>
+                  <Badge className="ml-auto bg-green-500 text-white text-xs">New</Badge>
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
                 <Link href="/admin" className="flex items-center">
@@ -394,6 +413,20 @@ export function Header() {
                     <Building2 className="h-4 w-4 text-white" />
                   </div>
                   <span className="text-lg font-bold">Sur-Realista</span>
+                </div>
+
+                <div className="space-y-2">
+                  <Link
+                    href="/busqueda"
+                    className="flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent bg-green-50"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <Search className="h-4 w-4" />
+                      <span>Búsqueda Unificada</span>
+                    </div>
+                    <Badge className="bg-green-500 text-white text-xs">New</Badge>
+                  </Link>
                 </div>
 
                 {/* Mobile Tools */}

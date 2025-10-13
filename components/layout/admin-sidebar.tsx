@@ -68,6 +68,13 @@ const menuItems: MenuItem[] = [
     badgeColor: "bg-green-500",
   },
   {
+    title: "Vista CAMPOS",
+    href: "/campos",
+    icon: FolderOpen,
+    badge: "New",
+    badgeColor: "bg-blue-500",
+  },
+  {
     title: "Extractor SII",
     href: "/admin/sii-extractor",
     icon: Search,
@@ -189,6 +196,7 @@ const getPageTitle = (pathname: string): string => {
   const routes: Record<string, string> = {
     "/admin": "Dashboard",
     "/busqueda": "Búsqueda Unificada",
+    "/campos": "Vista CAMPOS",
     "/admin/sii-extractor": "Extractor de Coordenadas SII",
     "/admin/ichiloe-sync": "Sincronización iChiloe.cl",
     "/admin/file-explorer": "Explorador de Archivos",
@@ -386,6 +394,13 @@ export function AdminSidebar() {
               <Search className="h-4 w-4" />
               Búsqueda Unificada
               <Badge className="ml-auto bg-green-500 text-white text-xs">New</Badge>
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
+            <Link href="/campos">
+              <FolderOpen className="h-4 w-4" />
+              Vista CAMPOS
+              <Badge className="ml-auto bg-blue-500 text-white text-xs">New</Badge>
             </Link>
           </Button>
         </div>
