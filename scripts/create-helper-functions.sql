@@ -47,6 +47,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Drop existing function to allow parameter name changes
+DROP FUNCTION IF EXISTS get_properties_within_distance(NUMERIC, NUMERIC, NUMERIC);
+
 -- Function to get properties within distance
 CREATE OR REPLACE FUNCTION get_properties_within_distance(
     center_lat NUMERIC,
@@ -57,7 +60,7 @@ RETURNS TABLE(
     id BIGINT,
     title TEXT,
     price NUMERIC,
-    distance_km NUMERIC
+    distance NUMERIC
 ) AS $$
 BEGIN
     RETURN QUERY
@@ -71,7 +74,7 @@ BEGIN
             cos(radians(p.longitude) - radians(center_lng)) + 
             sin(radians(center_lat)) * 
             sin(radians(p.latitude))
-        )) as distance_km
+        )) as distance
     FROM properties p
     WHERE p.latitude IS NOT NULL 
       AND p.longitude IS NOT NULL
@@ -83,7 +86,7 @@ BEGIN
             sin(radians(center_lat)) * 
             sin(radians(p.latitude))
           )) <= distance_km
-    ORDER BY distance_km;
+    ORDER BY distance;
 END;
 $$ LANGUAGE plpgsql;
 

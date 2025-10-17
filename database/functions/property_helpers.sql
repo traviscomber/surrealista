@@ -13,6 +13,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- Drop existing function to allow parameter name changes
+DROP FUNCTION IF EXISTS get_properties_within_radius(DECIMAL, DECIMAL, DECIMAL);
+
 -- Function to get properties within radius
 CREATE OR REPLACE FUNCTION get_properties_within_radius(
     center_lat DECIMAL,

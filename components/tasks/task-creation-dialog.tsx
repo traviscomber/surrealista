@@ -26,6 +26,7 @@ interface TaskCreationDialogProps {
   prefilledLocation?: { lat: number; lng: number; name?: string }
   relatedTo?: string
   relatedId?: string
+  currentUser?: any // Added currentUser prop to pass authenticated user
 }
 
 export function TaskCreationDialog({
@@ -35,6 +36,7 @@ export function TaskCreationDialog({
   prefilledLocation,
   relatedTo,
   relatedId,
+  currentUser, // Destructure currentUser prop
 }: TaskCreationDialogProps) {
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
@@ -51,23 +53,41 @@ export function TaskCreationDialog({
     try {
       const supabase = createBrowserClient()
 
-      const taskData = {
-        title,
-        description,
-        priority,
-        due_date: dueDate ? new Date(dueDate).toISOString() : null,
-        location: location || null,
-        status: "pending",
-        related_to: relatedTo || null,
-        related_id: relatedId || null,
-        notes: locationName ? `Ubicación: ${locationName}` : null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+      if (!title.trim()) {
+        alert("El título es requerido")
+        setLoading(false)
+        return
       }
 
-      const { error } = await supabase.from("tasks").insert([taskData])
+      const createdBy = currentUser?.email || currentUser?.id || "system"
 
-      if (error) throw error
+      const taskData = {
+        title: title.trim().substring(0, 255),
+        description: description.trim() || null,
+        priority: priority || "medium",
+        due_date: dueDate ? new Date(dueDate).toISOString() : null,
+        location: location.trim().substring(0, 255) || null, // Limit location to 255 chars
+        status: "pending",
+        related_to: relatedTo?.substring(0, 255) || null, // Limit to 255 chars
+        related_id: relatedId || null,
+        notes: locationName ? `Ubicación: ${locationName}`.substring(0, 1000) : null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        created_by: createdBy, // Use actual user email/id instead of null
+        assigned_to: null,
+        tags: [],
+      }
+
+      console.log("[v0] Creating task with data:", taskData)
+
+      const { data, error } = await supabase.from("tasks").insert([taskData]).select()
+
+      if (error) {
+        console.error("[v0] Error creating task:", error.message)
+        throw error
+      }
+
+      console.log("[v0] Task created successfully:", data)
 
       // Reset form
       setTitle("")
@@ -79,9 +99,9 @@ export function TaskCreationDialog({
 
       onOpenChange(false)
       onTaskCreated?.()
-    } catch (error) {
-      console.error("Error creating task:", error)
-      alert("Error al crear la tarea")
+    } catch (error: any) {
+      console.error("[v0] Exception creating task:", error.message)
+      alert(`Error al crear la tarea: ${error.message || "Error desconocido"}`)
     } finally {
       setLoading(false)
     }
