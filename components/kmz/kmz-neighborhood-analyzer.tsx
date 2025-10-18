@@ -1,12 +1,37 @@
 "use client"
 
-import { useState, useCallback } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { TabsContent } from "@/components/ui/tabs"
+
+import { TabsTrigger } from "@/components/ui/tabs"
+
+import { TabsList } from "@/components/ui/tabs"
+
+import { Tabs } from "@/components/ui/tabs"
+
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+
 import { Input } from "@/components/ui/input"
+
 import { Label } from "@/components/ui/label"
+
+import { CardDescription } from "@/components/ui/card"
+
+import { CardTitle } from "@/components/ui/card"
+
+import { CardHeader } from "@/components/ui/card"
+
+import { CardContent } from "@/components/ui/card"
+
+import { Card } from "@/components/ui/card"
+
+import { Badge } from "@/components/ui/badge"
+
+import { useState, useCallback, useEffect } from "react"
+import { useDropzone } from "react-dropzone"
+import { kmzReader, type KMZData } from "@/lib/kmz/kmz-reader"
+import { neighborhoodAnalyzer, type NeighborhoodAnalysis } from "@/lib/kmz/neighborhood-analyzer"
+import dynamic from "next/dynamic"
+import { useGoogleDrive } from "@/lib/contexts/google-drive-context"
 import {
   Upload,
   MapPin,
@@ -27,10 +52,6 @@ import {
   Mountain,
   Route,
 } from "lucide-react"
-import { useDropzone } from "react-dropzone"
-import { kmzReader, type KMZData } from "@/lib/kmz/kmz-reader"
-import { neighborhoodAnalyzer, type NeighborhoodAnalysis } from "@/lib/kmz/neighborhood-analyzer"
-import dynamic from "next/dynamic"
 
 const KMZMapDisplay = dynamic(() => import("@/components/kmz/kmz-map-display").then((mod) => mod.KMZMapDisplay), {
   ssr: false,
@@ -42,12 +63,20 @@ const KMZMapDisplay = dynamic(() => import("@/components/kmz/kmz-map-display").t
 })
 
 export function KMZNeighborhoodAnalyzer() {
+  const { isConnected, isLoading: driveLoading, error: driveError } = useGoogleDrive()
+
   const [kmzFiles, setKmzFiles] = useState<KMZData[]>([])
   const [loading, setLoading] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
   const [analysis, setAnalysis] = useState<NeighborhoodAnalysis | null>(null)
   const [searchRadius, setSearchRadius] = useState(5) // km
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null)
+
+  useEffect(() => {
+    if (driveError) {
+      console.error("[v0] Google Drive error:", driveError)
+    }
+  }, [driveError])
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const kmzFiles = acceptedFiles.filter(
@@ -132,11 +161,32 @@ export function KMZNeighborhoodAnalyzer() {
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-700 p-8 text-white">
           <div className="absolute inset-0 bg-black/10"></div>
           <div className="relative space-y-2">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                <MapPin className="h-6 w-6" />
+            <div className="flex items-center gap-3 justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                  <MapPin className="h-6 w-6" />
+                </div>
+                <h1 className="text-4xl font-bold tracking-tight">Análisis de Vecindario KMZ</h1>
               </div>
-              <h1 className="text-4xl font-bold tracking-tight">Análisis de Vecindario KMZ</h1>
+              {/* Drive connection indicator */}
+              {driveLoading && (
+                <Badge variant="secondary" className="bg-yellow-500/20 text-white border-white/30">
+                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                  Conectando Drive...
+                </Badge>
+              )}
+              {isConnected && (
+                <Badge variant="secondary" className="bg-green-500/20 text-white border-white/30">
+                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                  Drive Conectado
+                </Badge>
+              )}
+              {!isConnected && !driveLoading && (
+                <Badge variant="secondary" className="bg-red-500/20 text-white border-white/30">
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  Drive Desconectado
+                </Badge>
+              )}
             </div>
             <p className="text-emerald-100 text-lg font-medium">
               Identifica roles vecinos, accesos, distancias y obtén información de fuentes gubernamentales chilenas

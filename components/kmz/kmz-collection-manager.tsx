@@ -1,13 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useGoogleDrive } from "@/lib/contexts/google-drive-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Database, MapPin, Search, RefreshCw, Trash2, Tag, Layers, CheckCircle, AlertCircle } from "lucide-react"
 import { createBrowserClient } from "@supabase/ssr"
-import { driveService } from "@/lib/google-drive/drive-service"
 import { kmzReader } from "@/lib/kmz/kmz-reader"
 
 interface KMZRecord {
@@ -29,6 +29,8 @@ interface KMZRecord {
 }
 
 export function KMZCollectionManager() {
+  const { driveService, isConnected, isLoading: driveLoading, reconnect } = useGoogleDrive()
+
   const [kmzFiles, setKmzFiles] = useState<KMZRecord[]>([])
   const [loading, setLoading] = useState(false)
   const [scanning, setScanning] = useState(false)
@@ -124,6 +126,12 @@ export function KMZCollectionManager() {
   }
 
   const scanGoogleDrive = async () => {
+    if (!isConnected || !driveService) {
+      alert("Google Drive no está conectado. Intentando reconectar...")
+      await reconnect()
+      return
+    }
+
     setScanning(true)
     try {
       const supabase = createBrowserClient(
@@ -131,7 +139,7 @@ export function KMZCollectionManager() {
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       )
 
-      const rootFolderId = "1wJRhFJNpIqoJ_O9FPIhpPglmypnwgt5F"
+      const rootFolderId = "1wJRhFJNpIqoJ_O9FPIhpglmypnwgt5F"
       const allFiles: any[] = []
 
       const scanFolder = async (folderId: string, path = "") => {
@@ -268,6 +276,24 @@ export function KMZCollectionManager() {
                   <Database className="h-6 w-6" />
                 </div>
                 <h1 className="text-4xl font-bold tracking-tight">Colección de Archivos KMZ</h1>
+                {driveLoading && (
+                  <Badge variant="secondary" className="bg-yellow-500/20 text-white border-white/30">
+                    <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                    Conectando...
+                  </Badge>
+                )}
+                {isConnected && (
+                  <Badge variant="secondary" className="bg-green-500/20 text-white border-white/30">
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                    Drive Conectado
+                  </Badge>
+                )}
+                {!isConnected && !driveLoading && (
+                  <Badge variant="secondary" className="bg-red-500/20 text-white border-white/30">
+                    <AlertCircle className="h-3 w-3 mr-1" />
+                    Desconectado
+                  </Badge>
+                )}
               </div>
               <p className="text-purple-100 text-lg font-medium">
                 Gestiona y visualiza todos los archivos KMZ de Google Drive
@@ -295,7 +321,7 @@ export function KMZCollectionManager() {
               )}
               <Button
                 onClick={scanGoogleDrive}
-                disabled={scanning || tableExists === false}
+                disabled={scanning || tableExists === false || !isConnected}
                 className="bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm"
               >
                 {scanning ? (

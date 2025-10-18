@@ -11,12 +11,8 @@ import { Badge } from "@/components/ui/badge"
 import { Search, Folder, Users, MessageSquare, CheckSquare, MapPin, Calendar, Map, Loader2, Plus } from "lucide-react"
 import { createBrowserClient } from "@/lib/supabase/client"
 import { TaskCreationDialog } from "@/components/tasks/task-creation-dialog"
+import { useGoogleDrive } from "@/lib/contexts/google-drive-context"
 import dynamicImport from "next/dynamic"
-
-const loadDriveService = async () => {
-  const { driveService } = await import("@/lib/google-drive/drive-service")
-  return driveService
-}
 
 const KMZMapDisplay = dynamicImport(() => import("@/components/kmz/kmz-map-display").then((mod) => mod.KMZMapDisplay), {
   ssr: false,
@@ -72,17 +68,24 @@ export default function UnifiedSearchPage() {
   const [taskDialogOpen, setTaskDialogOpen] = useState(false)
   const [kmzFiles, setKmzFiles] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
-  const [driveLoading, setDriveLoading] = useState(false)
   const [camposData, setCamposData] = useState<Campo[]>([])
   const [currentUser, setCurrentUser] = useState<any>(null)
+
+  const { driveService, isConnected, isLoading: driveLoading, reconnect } = useGoogleDrive()
 
   const supabase = createBrowserClient()
 
   useEffect(() => {
     getCurrentUser()
     loadTasks()
-    loadDriveFolders()
   }, [])
+
+  useEffect(() => {
+    if (isConnected && driveService) {
+      console.log("[v0] Drive connected, loading folders automatically...")
+      loadDriveFolders()
+    }
+  }, [isConnected, driveService])
 
   const getCurrentUser = async () => {
     try {
@@ -112,11 +115,19 @@ export default function UnifiedSearchPage() {
   }
 
   const loadDriveFolders = async () => {
-    setDriveLoading(true)
+    if (!driveService) {
+      console.warn("[v0] Drive service not available")
+      setCamposData([
+        { id: "1", name: "Valdivia 142 has", location: "Valdivia", files: 8 },
+        { id: "2", name: "Pucon Lote 45", location: "Pucón", files: 12 },
+        { id: "3", name: "Castro Parcela 23", location: "Castro", files: 15 },
+      ])
+      return
+    }
+
     try {
       console.log("[v0] Loading folders from Google Drive...")
 
-      const driveService = await loadDriveService()
       const kmzFiles = await driveService.searchKMZFiles()
       console.log("[v0] Found KMZ files:", kmzFiles.length)
 
@@ -180,8 +191,6 @@ export default function UnifiedSearchPage() {
         { id: "2", name: "Pucon Lote 45", location: "Pucón", files: 12 },
         { id: "3", name: "Castro Parcela 23", location: "Castro", files: 15 },
       ])
-    } finally {
-      setDriveLoading(false)
     }
   }
 
@@ -284,14 +293,19 @@ export default function UnifiedSearchPage() {
           <p className="text-gray-600">Sistema integrado de búsqueda para CAMPOS, Clientes, Comunicaciones y Tareas</p>
           <div className="flex items-center gap-2 mt-2">
             <Badge variant="outline" className="flex items-center gap-1">
-              <div className="h-2 w-2 rounded-full bg-green-500" />
-              Google Drive Conectado
+              <div className={`h-2 w-2 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"}`} />
+              {isConnected ? "Google Drive Conectado" : "Google Drive Desconectado"}
             </Badge>
             {driveLoading && (
               <Badge variant="outline" className="flex items-center gap-1">
                 <Loader2 className="h-3 w-3 animate-spin" />
-                Cargando carpetas...
+                Conectando...
               </Badge>
+            )}
+            {!isConnected && !driveLoading && (
+              <Button variant="outline" size="sm" onClick={reconnect}>
+                Reconectar
+              </Button>
             )}
           </div>
         </div>
@@ -355,7 +369,7 @@ export default function UnifiedSearchPage() {
                         variant="ghost"
                         size="sm"
                         onClick={loadDriveFolders}
-                        disabled={driveLoading}
+                        disabled={driveLoading || !isConnected}
                         className="ml-auto"
                       >
                         {driveLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Actualizar"}
@@ -363,6 +377,11 @@ export default function UnifiedSearchPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
+                    {!isConnected && !driveLoading && (
+                      <div className="text-sm text-amber-600 bg-amber-50 p-3 rounded-lg mb-2">
+                        Google Drive no está conectado. Mostrando datos de ejemplo.
+                      </div>
+                    )}
                     {camposData.length === 0 && !driveLoading && (
                       <p className="text-sm text-gray-500 text-center py-4">No se encontraron carpetas</p>
                     )}

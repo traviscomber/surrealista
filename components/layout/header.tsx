@@ -42,6 +42,7 @@ import {
   Map,
   Search,
 } from "lucide-react"
+import { DriveStatusIndicator } from "@/components/google-drive/drive-status-indicator"
 
 const toolsItems = [
   {
@@ -324,6 +325,9 @@ export function Header() {
 
         {/* Admin Access */}
         <div className="flex items-center space-x-4">
+          {/* Drive status indicator */}
+          <DriveStatusIndicator />
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="hidden md:flex bg-transparent">

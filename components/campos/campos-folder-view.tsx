@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useGoogleDrive } from "@/lib/contexts/google-drive-context"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,7 +9,17 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { KMZMapDisplay } from "@/components/kmz/kmz-map-display"
 import { createBrowserClient } from "@/lib/supabase/client"
-import { Folder, FolderOpen, File, Search, ChevronRight, ChevronDown, MapPin } from "lucide-react"
+import {
+  Folder,
+  FolderOpen,
+  File,
+  Search,
+  ChevronRight,
+  ChevronDown,
+  MapPin,
+  Loader2,
+  CheckCircle2,
+} from "lucide-react"
 
 interface FolderItem {
   id: string
@@ -159,6 +170,7 @@ const MASTER_FOLDERS: FolderItem[] = [
 ]
 
 export function CAMPOSFolderView() {
+  const { driveService, isConnected, isLoading: driveLoading } = useGoogleDrive()
   const [folders, setFolders] = useState<FolderItem[]>(MASTER_FOLDERS)
   const [selectedItem, setSelectedItem] = useState<FolderItem | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
@@ -212,12 +224,33 @@ export function CAMPOSFolderView() {
   // Filter folders based on search
   const filteredFolders = folders.filter((folder) => folder.name.toLowerCase().includes(searchQuery.toLowerCase()))
 
+  useEffect(() => {
+    if (isConnected && driveService) {
+      console.log("[v0] Google Drive connected in CAMPOS view")
+      // Optionally load KMZ files from Drive here
+    }
+  }, [isConnected, driveService])
+
   return (
     <div className="flex h-screen bg-background">
       {/* Left Sidebar - Folders */}
       <Card className="w-80 m-4 flex flex-col">
         <div className="p-4 border-b">
-          <h2 className="text-lg font-semibold mb-3">Carpetas CAMPOS</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold">Carpetas CAMPOS</h2>
+            {driveLoading && (
+              <Badge variant="outline" className="text-xs">
+                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                Conectando...
+              </Badge>
+            )}
+            {isConnected && (
+              <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
+                <CheckCircle2 className="h-3 w-3 mr-1" />
+                Drive OK
+              </Badge>
+            )}
+          </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
