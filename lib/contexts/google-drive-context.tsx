@@ -1,10 +1,10 @@
 "use client"
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
-import { GoogleDriveService, type DriveFile, type DriveFolder } from "@/lib/google-drive/drive-service"
+import { driveService, type DriveFile, type DriveFolder } from "@/lib/google-drive/drive-service"
 
 interface GoogleDriveContextType {
-  driveService: GoogleDriveService | null
+  driveService: typeof driveService | null
   isConnected: boolean
   isLoading: boolean
   error: string | null
@@ -15,7 +15,6 @@ interface GoogleDriveContextType {
 const GoogleDriveContext = createContext<GoogleDriveContextType | undefined>(undefined)
 
 export function GoogleDriveProvider({ children }: { children: ReactNode }) {
-  const [driveService, setDriveService] = useState<GoogleDriveService | null>(null)
   const [isConnected, setIsConnected] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -28,15 +27,8 @@ export function GoogleDriveProvider({ children }: { children: ReactNode }) {
         setIsLoading(true)
         setError(null)
 
-        // Get API key from environment or use default
-        const apiKey = process.env.NEXT_PUBLIC_GOOGLE_DRIVE_API_KEY || "AIzaSyB6AVo8HT0RyEmiu8YRKj3skR3ujXyjHTU"
-
-        // Create service instance
-        const service = new GoogleDriveService(apiKey)
-        setDriveService(service)
-
-        // Test connection
-        const connected = await service.testConnection()
+        // Test connection using the singleton driveService
+        const connected = await driveService.testConnection()
         setIsConnected(connected)
 
         if (connected) {
@@ -63,8 +55,6 @@ export function GoogleDriveProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const testConnection = async (): Promise<boolean> => {
-    if (!driveService) return false
-
     try {
       setIsLoading(true)
       setError(null)
