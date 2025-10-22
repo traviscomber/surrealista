@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useGoogleDrive } from "@/lib/contexts/google-drive-context"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,17 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { KMZMapDisplay } from "@/components/kmz/kmz-map-display"
 import { createBrowserClient } from "@/lib/supabase/client"
-import {
-  Folder,
-  FolderOpen,
-  File,
-  Search,
-  ChevronRight,
-  ChevronDown,
-  MapPin,
-  Loader2,
-  CheckCircle2,
-} from "lucide-react"
+import { Folder, FolderOpen, File, Search, ChevronRight, ChevronDown, MapPin, RefreshCw } from "lucide-react"
 
 interface FolderItem {
   id: string
@@ -30,231 +19,264 @@ interface FolderItem {
   kmzFiles?: any[]
   children?: FolderItem[]
   isOpen?: boolean
+  category?: string
+  fileCount?: number
+  dbId?: number
 }
 
-// Mock folder structure with 7 divisions
-const MASTER_FOLDERS: FolderItem[] = [
-  {
-    id: "region-14",
-    name: "Región de Los Ríos",
-    type: "folder",
-    location: { lat: -39.8196, lng: -73.2452 },
-    area: "Valdivia",
-    children: [
-      {
-        id: "valdivia-1",
-        name: "Valdivia 142 has",
-        type: "file",
-        location: { lat: -39.8196, lng: -73.2452 },
-        area: "142 hectáreas",
-      },
-      {
-        id: "valdivia-2",
-        name: "Corral 85 has",
-        type: "file",
-        location: { lat: -39.8833, lng: -73.4333 },
-        area: "85 hectáreas",
-      },
-    ],
-  },
-  {
-    id: "region-9",
-    name: "Región de La Araucanía",
-    type: "folder",
-    location: { lat: -39.2819, lng: -71.9489 },
-    area: "Pucón",
-    children: [
-      {
-        id: "pucon-1",
-        name: "Pucón Lote 45",
-        type: "file",
-        location: { lat: -39.2819, lng: -71.9489 },
-        area: "45 hectáreas",
-      },
-      {
-        id: "pucon-2",
-        name: "Villarrica 67 has",
-        type: "file",
-        location: { lat: -39.2833, lng: -72.2333 },
-        area: "67 hectáreas",
-      },
-    ],
-  },
-  {
-    id: "region-10",
-    name: "Región de Los Lagos",
-    type: "folder",
-    location: { lat: -42.4827, lng: -73.7615 },
-    area: "Castro",
-    children: [
-      {
-        id: "castro-1",
-        name: "Castro Parcela 23",
-        type: "file",
-        location: { lat: -42.4827, lng: -73.7615 },
-        area: "23 hectáreas",
-      },
-      {
-        id: "castro-2",
-        name: "Ancud 156 has",
-        type: "file",
-        location: { lat: -41.8697, lng: -73.8203 },
-        area: "156 hectáreas",
-      },
-    ],
-  },
-  {
-    id: "region-8",
-    name: "Región del Biobío",
-    type: "folder",
-    location: { lat: -36.8201, lng: -73.0444 },
-    area: "Concepción",
-    children: [
-      {
-        id: "concepcion-1",
-        name: "Concepción 98 has",
-        type: "file",
-        location: { lat: -36.8201, lng: -73.0444 },
-        area: "98 hectáreas",
-      },
-    ],
-  },
-  {
-    id: "region-7",
-    name: "Región del Maule",
-    type: "folder",
-    location: { lat: -35.4264, lng: -71.6554 },
-    area: "Talca",
-    children: [
-      {
-        id: "talca-1",
-        name: "Talca 234 has",
-        type: "file",
-        location: { lat: -35.4264, lng: -71.6554 },
-        area: "234 hectáreas",
-      },
-    ],
-  },
-  {
-    id: "region-6",
-    name: "Región de O'Higgins",
-    type: "folder",
-    location: { lat: -34.1701, lng: -70.7403 },
-    area: "Rancagua",
-    children: [
-      {
-        id: "rancagua-1",
-        name: "Rancagua 178 has",
-        type: "file",
-        location: { lat: -34.1701, lng: -70.7403 },
-        area: "178 hectáreas",
-      },
-    ],
-  },
-  {
-    id: "region-5",
-    name: "Región de Valparaíso",
-    type: "folder",
-    location: { lat: -33.0472, lng: -71.6127 },
-    area: "Valparaíso",
-    children: [
-      {
-        id: "valparaiso-1",
-        name: "Valparaíso 89 has",
-        type: "file",
-        location: { lat: -33.0472, lng: -71.6127 },
-        area: "89 hectáreas",
-      },
-    ],
-  },
-]
-
 export function CAMPOSFolderView() {
-  const { driveService, isConnected, isLoading: driveLoading } = useGoogleDrive()
-  const [folders, setFolders] = useState<FolderItem[]>(MASTER_FOLDERS)
+  const [folders, setFolders] = useState<FolderItem[]>([])
   const [selectedItem, setSelectedItem] = useState<FolderItem | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [kmzFiles, setKmzFiles] = useState<any[]>([])
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null)
+  const [isLoadingMetadata, setIsLoadingMetadata] = useState(false)
+  const [isLoadingKMZ, setIsLoadingKMZ] = useState(false)
+  const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
 
   const supabase = createBrowserClient()
 
-  // Toggle folder open/close
+  useEffect(() => {
+    loadRegionMetadata()
+  }, [])
+
+  const loadRegionMetadata = async () => {
+    console.log("[v0] Loading region metadata from database...")
+    setIsLoadingMetadata(true)
+
+    try {
+      const { data, error } = await supabase
+        .from("kmz_collection")
+        .select("id, file_name, region, placemarks_count, bounds, tags, file_path")
+        .eq("is_active", true)
+        .order("region", { ascending: true })
+
+      if (error) {
+        console.error("[v0] Error loading metadata:", error)
+        setFolders([])
+      } else {
+        console.log("[v0] Loaded metadata for", data?.length || 0, "KMZ files")
+        buildRegionFolders(data || [])
+      }
+    } catch (err) {
+      console.error("[v0] Error fetching metadata:", err)
+      setFolders([])
+    } finally {
+      setIsLoadingMetadata(false)
+    }
+  }
+
+  const calculateCenterFromBounds = (bounds: any): { lat: number; lng: number } => {
+    if (!bounds || !bounds.south || !bounds.north || !bounds.west || !bounds.east) {
+      return { lat: -39.8196, lng: -73.2452 } // Default Chile center
+    }
+
+    return {
+      lat: (bounds.south + bounds.north) / 2,
+      lng: (bounds.west + bounds.east) / 2,
+    }
+  }
+
+  const buildRegionFolders = (metadata: any[]) => {
+    const regionMap = new Map<string, any[]>()
+
+    metadata.forEach((record) => {
+      const region = record.region || "Sin Región"
+      if (!regionMap.has(region)) {
+        regionMap.set(region, [])
+      }
+      regionMap.get(region)?.push(record)
+    })
+
+    console.log("[v0] Grouped files into", regionMap.size, "regions")
+
+    const folderItems: FolderItem[] = []
+    let folderId = 1
+
+    for (const [region, files] of regionMap.entries()) {
+      let regionLat = 0
+      let regionLng = 0
+      let validFiles = 0
+
+      files.forEach((file) => {
+        const center = calculateCenterFromBounds(file.bounds)
+        regionLat += center.lat
+        regionLng += center.lng
+        validFiles++
+      })
+
+      const regionCenter =
+        validFiles > 0 ? { lat: regionLat / validFiles, lng: regionLng / validFiles } : { lat: -39.8196, lng: -73.2452 }
+
+      const totalPlacemarks = files.reduce((sum, f) => sum + (f.placemarks_count || 0), 0)
+
+      folderItems.push({
+        id: `region-${folderId}`,
+        name: region,
+        type: "folder",
+        location: regionCenter,
+        category: region,
+        fileCount: files.length,
+        children: files.map((file, idx) => {
+          const fileCenter = calculateCenterFromBounds(file.bounds)
+          return {
+            id: `file-${folderId}-${idx}`,
+            name: file.file_name,
+            type: "file" as const,
+            area: `${file.placemarks_count || 0} puntos`,
+            location: fileCenter,
+            dbId: file.id,
+          }
+        }),
+        isOpen: false,
+      })
+      folderId++
+    }
+
+    console.log("[v0] Built", folderItems.length, "region folders with", metadata.length, "total files")
+    setFolders(folderItems)
+  }
+
+  const loadRegionKMZFiles = async (region: string) => {
+    console.log("[v0] Loading full KMZ data for region:", region)
+    setIsLoadingKMZ(true)
+    setSelectedRegion(region)
+
+    try {
+      const { data, error } = await supabase
+        .from("kmz_collection")
+        .select("*")
+        .eq("is_active", true)
+        .eq("region", region)
+        .order("file_name", { ascending: true })
+        .order("created_at", { ascending: false })
+
+      if (error) {
+        console.error("[v0] Error loading KMZ files:", error)
+        setKmzFiles([])
+      } else {
+        console.log("[v0] Loaded", data?.length || 0, "KMZ files with full coordinates for region:", region)
+
+        const uniqueData = data?.filter(
+          (record, index, self) => index === self.findIndex((r) => r.file_name === record.file_name),
+        )
+
+        console.log("[v0] After deduplication:", uniqueData?.length || 0, "unique KMZ files")
+
+        const transformedKMZ = (uniqueData || []).map((record: any) => {
+          const placemarks = (record.coordinates || []).map((coordArray: any, index: number) => {
+            // Determine geometry type based on coordinate structure
+            let geometryType = "Point"
+            let coordinates = coordArray
+
+            // If coordArray is an array of coordinate pairs (more than 3 points), it's likely a polygon
+            if (Array.isArray(coordArray) && coordArray.length > 3) {
+              // Check if first element is a coordinate pair [lng, lat]
+              if (Array.isArray(coordArray[0]) && coordArray[0].length >= 2 && typeof coordArray[0][0] === "number") {
+                geometryType = "Polygon"
+                // Polygons need coordinates wrapped in an extra array for Leaflet
+                coordinates = coordArray
+              }
+            } else if (Array.isArray(coordArray) && coordArray.length <= 3) {
+              // Single point or very small line
+              geometryType = "Point"
+              coordinates = coordArray
+            }
+
+            console.log(
+              `[v0] Placemark ${index + 1}: ${record.file_name} - Type: ${geometryType}, Coords: ${coordArray.length}`,
+            )
+
+            return {
+              name: `${record.file_name} - ${geometryType === "Polygon" ? "Polígono" : "Punto"} ${index + 1}`,
+              type: geometryType,
+              coordinates: coordinates,
+              description: record.description || "",
+              properties: {
+                rol: record.rol_numbers?.[index] || "",
+                category: record.category || "general",
+              },
+            }
+          })
+
+          return {
+            fileName: record.file_name,
+            placemarks: placemarks,
+            bounds: record.bounds,
+            metadata: {
+              id: record.id,
+              category: record.category,
+              rolNumbers: record.rol_numbers || [],
+              placemarks_count: record.placemarks_count,
+            },
+          }
+        })
+
+        console.log("[v0] Transformed", transformedKMZ.length, "KMZ files for display")
+        setKmzFiles(transformedKMZ)
+      }
+    } catch (err) {
+      console.error("[v0] Error fetching KMZ files:", err)
+      setKmzFiles([])
+    } finally {
+      setIsLoadingKMZ(false)
+    }
+  }
+
   const toggleFolder = (folderId: string) => {
     setFolders((prev) =>
       prev.map((folder) => (folder.id === folderId ? { ...folder, isOpen: !folder.isOpen } : folder)),
     )
   }
 
-  // Handle folder/file click
   const handleItemClick = async (item: FolderItem) => {
-    console.log("[v0] Item clicked:", item.name)
+    console.log("[v0] Item clicked:", item.name, "type:", item.type)
     setSelectedItem(item)
 
     if (item.location) {
+      console.log("[v0] Centering map on coordinates:", item.location)
       setMapCenter(item.location)
     }
 
-    // If it's a folder, toggle it open
     if (item.type === "folder") {
       toggleFolder(item.id)
-    }
 
-    // Load KMZ files for this location
-    if (item.location) {
-      try {
-        const { data, error } = await supabase
-          .from("kmz_collection")
-          .select("*")
-          .or(`location.cs.{lat:${item.location.lat},lng:${item.location.lng}},name.ilike.%${item.name}%`)
-          .limit(10)
-
-        if (error) {
-          console.error("[v0] Error loading KMZ files:", error)
-        } else {
-          console.log("[v0] Loaded KMZ files for item:", data?.length || 0)
-          setKmzFiles(data || [])
-        }
-      } catch (err) {
-        console.error("[v0] Error fetching KMZ:", err)
+      if (item.category && item.category !== selectedRegion) {
+        await loadRegionKMZFiles(item.category)
       }
     }
   }
 
-  // Filter folders based on search
   const filteredFolders = folders.filter((folder) => folder.name.toLowerCase().includes(searchQuery.toLowerCase()))
-
-  useEffect(() => {
-    if (isConnected && driveService) {
-      console.log("[v0] Google Drive connected in CAMPOS view")
-      // Optionally load KMZ files from Drive here
-    }
-  }, [isConnected, driveService])
 
   return (
     <div className="flex h-screen bg-background">
-      {/* Left Sidebar - Folders */}
       <Card className="w-80 m-4 flex flex-col">
         <div className="p-4 border-b">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold">Carpetas CAMPOS</h2>
-            {driveLoading && (
-              <Badge variant="outline" className="text-xs">
-                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                Conectando...
-              </Badge>
-            )}
-            {isConnected && (
-              <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-200">
-                <CheckCircle2 className="h-3 w-3 mr-1" />
-                Drive OK
-              </Badge>
-            )}
-          </div>
+          <h2 className="text-lg font-semibold mb-3">Carpetas CAMPOS</h2>
+          <Button
+            onClick={loadRegionMetadata}
+            disabled={isLoadingMetadata}
+            className="w-full mb-3 bg-transparent"
+            variant="outline"
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoadingMetadata ? "animate-spin" : ""}`} />
+            {isLoadingMetadata ? "Cargando..." : "Actualizar Regiones"}
+          </Button>
+          {folders.length > 0 && (
+            <Badge variant="secondary" className="mb-3">
+              {folders.length} regiones disponibles
+            </Badge>
+          )}
+          {selectedRegion && kmzFiles.length > 0 && (
+            <Badge variant="default" className="mb-3 ml-2">
+              {kmzFiles.length} archivos cargados
+            </Badge>
+          )}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Buscar carpetas..."
+              placeholder="Buscar regiones..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9"
@@ -264,39 +286,54 @@ export function CAMPOSFolderView() {
 
         <ScrollArea className="flex-1">
           <div className="p-4 space-y-2">
+            {filteredFolders.length === 0 && !isLoadingMetadata && (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No hay regiones disponibles. Haz clic en "Actualizar Regiones" para cargar.
+              </p>
+            )}
             {filteredFolders.map((folder) => (
               <div key={folder.id}>
                 <Button
                   variant={selectedItem?.id === folder.id ? "secondary" : "ghost"}
                   className="w-full justify-start"
                   onClick={() => handleItemClick(folder)}
+                  disabled={isLoadingKMZ && folder.category === selectedRegion}
                 >
                   {folder.isOpen ? <ChevronDown className="h-4 w-4 mr-2" /> : <ChevronRight className="h-4 w-4 mr-2" />}
                   {folder.isOpen ? <FolderOpen className="h-4 w-4 mr-2" /> : <Folder className="h-4 w-4 mr-2" />}
                   <span className="flex-1 text-left truncate">{folder.name}</span>
+                  <Badge variant="outline" className="text-xs ml-2">
+                    {folder.fileCount || 0}
+                  </Badge>
                   {folder.location && <MapPin className="h-3 w-3 ml-2 text-muted-foreground" />}
                 </Button>
 
-                {/* Children files */}
                 {folder.isOpen && folder.children && (
                   <div className="ml-6 mt-1 space-y-1">
-                    {folder.children.map((child) => (
-                      <Button
-                        key={child.id}
-                        variant={selectedItem?.id === child.id ? "secondary" : "ghost"}
-                        size="sm"
-                        className="w-full justify-start"
-                        onClick={() => handleItemClick(child)}
-                      >
-                        <File className="h-3 w-3 mr-2" />
-                        <span className="flex-1 text-left text-sm truncate">{child.name}</span>
-                        {child.area && (
-                          <Badge variant="outline" className="text-xs">
-                            {child.area}
-                          </Badge>
-                        )}
-                      </Button>
-                    ))}
+                    {isLoadingKMZ && folder.category === selectedRegion ? (
+                      <div className="text-sm text-muted-foreground p-2 text-center">
+                        <RefreshCw className="h-4 w-4 animate-spin inline mr-2" />
+                        Cargando archivos...
+                      </div>
+                    ) : (
+                      folder.children.map((child) => (
+                        <Button
+                          key={child.id}
+                          variant={selectedItem?.id === child.id ? "secondary" : "ghost"}
+                          size="sm"
+                          className="w-full justify-start"
+                          onClick={() => handleItemClick(child)}
+                        >
+                          <File className="h-3 w-3 mr-2" />
+                          <span className="flex-1 text-left text-sm truncate">{child.name}</span>
+                          {child.area && (
+                            <Badge variant="outline" className="text-xs">
+                              {child.area}
+                            </Badge>
+                          )}
+                        </Button>
+                      ))
+                    )}
                   </div>
                 )}
               </div>
@@ -305,23 +342,18 @@ export function CAMPOSFolderView() {
         </ScrollArea>
       </Card>
 
-      {/* Center - Map */}
       <div className="flex-1 m-4 relative">
-        <KMZMapDisplay
-          kmzFiles={kmzFiles}
-          center={mapCenter || undefined}
-          selectedMarker={
-            selectedItem?.location
-              ? {
-                  position: selectedItem.location,
-                  label: selectedItem.name,
-                }
-              : undefined
-          }
-        />
+        {isLoadingKMZ && (
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-background/95 backdrop-blur-sm px-4 py-2 rounded-lg shadow-lg border">
+            <div className="flex items-center gap-2">
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              <span className="text-sm font-medium">Cargando archivos KMZ...</span>
+            </div>
+          </div>
+        )}
+        <KMZMapDisplay kmzFiles={kmzFiles} centerCoordinates={mapCenter || undefined} />
       </div>
 
-      {/* Right Sidebar - Details */}
       <Card className="w-80 m-4 flex flex-col">
         <div className="p-4 border-b">
           <h2 className="text-lg font-semibold">Detalles</h2>
@@ -340,49 +372,61 @@ export function CAMPOSFolderView() {
                   <h3 className="font-semibold">{selectedItem.name}</h3>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  {selectedItem.type === "folder" ? "Carpeta" : "Archivo"}
+                  {selectedItem.type === "folder" ? "Región" : "Archivo KMZ"}
                 </p>
               </div>
 
               {selectedItem.area && (
                 <div>
-                  <p className="text-sm font-medium mb-1">Área</p>
+                  <p className="text-sm font-medium mb-1">Información</p>
                   <Badge variant="secondary">{selectedItem.area}</Badge>
                 </div>
               )}
 
               {selectedItem.location && (
                 <div>
-                  <p className="text-sm font-medium mb-1">Ubicación</p>
+                  <p className="text-sm font-medium mb-1">
+                    {selectedItem.type === "folder" ? "Centro de Región" : "Ubicación del Archivo"}
+                  </p>
                   <div className="text-sm text-muted-foreground space-y-1">
-                    <p>Lat: {selectedItem.location.lat.toFixed(4)}</p>
-                    <p>Lng: {selectedItem.location.lng.toFixed(4)}</p>
+                    <p>Lat: {selectedItem.location.lat.toFixed(6)}</p>
+                    <p>Lng: {selectedItem.location.lng.toFixed(6)}</p>
                   </div>
                 </div>
               )}
 
-              {selectedItem.children && (
+              {selectedItem.type === "folder" && selectedItem.fileCount && (
                 <div>
-                  <p className="text-sm font-medium mb-2">Archivos ({selectedItem.children.length})</p>
-                  <div className="space-y-1">
-                    {selectedItem.children.map((child) => (
-                      <div key={child.id} className="text-sm p-2 rounded bg-muted/50 flex items-center gap-2">
-                        <File className="h-3 w-3" />
-                        <span className="flex-1 truncate">{child.name}</span>
-                      </div>
-                    ))}
-                  </div>
+                  <p className="text-sm font-medium mb-2">Archivos en esta región ({selectedItem.fileCount})</p>
+                  {selectedItem.children && (
+                    <div className="space-y-1 max-h-60 overflow-y-auto">
+                      {selectedItem.children.map((child) => (
+                        <div key={child.id} className="text-sm p-2 rounded bg-muted/50 flex items-center gap-2">
+                          <File className="h-3 w-3" />
+                          <span className="flex-1 truncate">{child.name}</span>
+                          {child.area && (
+                            <Badge variant="outline" className="text-xs">
+                              {child.area}
+                            </Badge>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
-              {kmzFiles.length > 0 && (
+              {selectedRegion && kmzFiles.length > 0 && (
                 <div>
-                  <p className="text-sm font-medium mb-2">Archivos KMZ ({kmzFiles.length})</p>
-                  <div className="space-y-1">
+                  <p className="text-sm font-medium mb-2">Archivos cargados en mapa ({kmzFiles.length})</p>
+                  <div className="space-y-1 max-h-40 overflow-y-auto">
                     {kmzFiles.map((file) => (
-                      <div key={file.id} className="text-sm p-2 rounded bg-muted/50 flex items-center gap-2">
-                        <MapPin className="h-3 w-3" />
-                        <span className="flex-1 truncate">{file.name}</span>
+                      <div key={file.metadata.id} className="text-sm p-2 rounded bg-muted/50 flex items-center gap-2">
+                        <MapPin className="h-3 w-3 text-primary" />
+                        <span className="flex-1 truncate">{file.fileName}</span>
+                        <Badge variant="outline" className="text-xs">
+                          {file.placemarks.length}
+                        </Badge>
                       </div>
                     ))}
                   </div>
@@ -392,7 +436,7 @@ export function CAMPOSFolderView() {
           ) : (
             <div className="p-4 text-center text-muted-foreground">
               <Folder className="h-12 w-12 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">Selecciona una carpeta o archivo para ver detalles</p>
+              <p className="text-sm">Selecciona una región para ver detalles y cargar archivos KMZ</p>
             </div>
           )}
         </ScrollArea>

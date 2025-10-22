@@ -1,10 +1,11 @@
 "use client"
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
-import { driveService, type DriveFile, type DriveFolder } from "@/lib/google-drive/drive-service"
+import { driveService } from "@/lib/google-drive/drive-service"
+import type { DriveFile, DriveFolder } from "@/lib/google-drive/drive-service"
 
 interface GoogleDriveContextType {
-  driveService: typeof driveService | null
+  driveService: typeof driveService
   isConnected: boolean
   isLoading: boolean
   error: string | null
@@ -19,7 +20,12 @@ export function GoogleDriveProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Initialize Drive service
+  const isProduction =
+    process.env.NODE_ENV === "production" &&
+    typeof window !== "undefined" &&
+    !window.location.hostname.includes("localhost") &&
+    !window.location.hostname.includes("preview")
+
   useEffect(() => {
     const initializeDrive = async () => {
       try {
@@ -27,23 +33,25 @@ export function GoogleDriveProvider({ children }: { children: ReactNode }) {
         setIsLoading(true)
         setError(null)
 
-        // Test connection using the singleton driveService
         const connected = await driveService.testConnection()
         setIsConnected(connected)
 
         if (connected) {
           console.log("[v0] Google Drive connected successfully")
-          // Store connection state in localStorage
           localStorage.setItem("gdrive_connected", "true")
           localStorage.setItem("gdrive_connected_at", new Date().toISOString())
         } else {
-          console.warn("[v0] Google Drive connection test failed")
-          setError("Failed to connect to Google Drive")
+          console.error("[v0] Google Drive connection failed")
+          if (isProduction) {
+            setError("Google Drive no está disponible. Verifique la configuración de OAuth 2.0.")
+          }
           localStorage.removeItem("gdrive_connected")
         }
       } catch (err) {
         console.error("[v0] Error initializing Google Drive:", err)
-        setError(err instanceof Error ? err.message : "Unknown error")
+        if (isProduction) {
+          setError("Error al conectar con Google Drive. Contacte al administrador.")
+        }
         setIsConnected(false)
         localStorage.removeItem("gdrive_connected")
       } finally {
@@ -52,7 +60,7 @@ export function GoogleDriveProvider({ children }: { children: ReactNode }) {
     }
 
     initializeDrive()
-  }, [])
+  }, [isProduction])
 
   const testConnection = async (): Promise<boolean> => {
     try {
@@ -65,13 +73,18 @@ export function GoogleDriveProvider({ children }: { children: ReactNode }) {
         localStorage.setItem("gdrive_connected", "true")
         localStorage.setItem("gdrive_connected_at", new Date().toISOString())
       } else {
+        if (isProduction) {
+          setError("No se pudo conectar con Google Drive")
+        }
         localStorage.removeItem("gdrive_connected")
       }
 
       return connected
     } catch (err) {
       console.error("[v0] Connection test failed:", err)
-      setError(err instanceof Error ? err.message : "Connection test failed")
+      if (isProduction) {
+        setError(err instanceof Error ? err.message : "Error de conexión")
+      }
       setIsConnected(false)
       localStorage.removeItem("gdrive_connected")
       return false
@@ -109,5 +122,4 @@ export function useGoogleDrive() {
   return context
 }
 
-// Export types for convenience
 export type { DriveFile, DriveFolder }

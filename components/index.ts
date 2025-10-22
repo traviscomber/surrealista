@@ -35,7 +35,5 @@ export { AdminHeader } from "./admin/admin-header"
 export { PropertyManagement } from "./admin/property-management"
 
 // Integration Components
-export { CIRENIntegration } from "./integrations/ciren"
-export { SIIIntegration } from "./integrations/sii"
-export { SIRENEIntegration } from "./integrations/sirene"
 export { GoogleDriveIntegration } from "./integrations/google-drive"
+export { PropertyAnalysisIntegration } from "./integrations/property-analysis"

@@ -25,7 +25,6 @@ import {
   Plus,
   Upload,
   Eye,
-  MapPin,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -72,12 +71,6 @@ const menuItems: MenuItem[] = [
         title: "Importar Propiedades",
         href: "/admin/importar-propiedades",
         icon: Upload,
-      },
-      {
-        title: "Sincronizar iChiloe",
-        href: "/admin/ichiloe-sync",
-        icon: MapPin,
-        badge: "Live",
       },
       {
         title: "Verificar Destacadas",
@@ -153,12 +146,6 @@ const menuItems: MenuItem[] = [
     title: "Integraciones",
     icon: Globe,
     children: [
-      {
-        title: "Sincronización iChiloe",
-        href: "/admin/ichiloe-sync",
-        icon: MapPin,
-        badge: "LIVE",
-      },
       {
         title: "Dashboard CIREN",
         href: "/admin/ciren-dashboard",
@@ -288,12 +275,6 @@ export function AdminMenu() {
             <Link href="/admin/propiedades/nueva">
               <Plus className="h-4 w-4" />
               Nueva Propiedad
-            </Link>
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start gap-2 bg-transparent" asChild>
-            <Link href="/admin/ichiloe-sync">
-              <MapPin className="h-4 w-4" />
-              Sincronizar iChiloe
             </Link>
           </Button>
           <Button variant="outline" size="sm" className="w-full justify-start gap-2 bg-transparent" asChild>

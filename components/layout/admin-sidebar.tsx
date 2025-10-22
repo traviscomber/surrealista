@@ -82,13 +82,6 @@ const menuItems: MenuItem[] = [
     badgeColor: "bg-orange-500",
   },
   {
-    title: "Sincronización iChiloe",
-    href: "/admin/ichiloe-sync",
-    icon: MapPin,
-    badge: "Live",
-    badgeColor: "bg-green-500",
-  },
-  {
     title: "Explorador de Archivos",
     href: "/admin/file-explorer",
     icon: FolderOpen,
@@ -198,7 +191,6 @@ const getPageTitle = (pathname: string): string => {
     "/busqueda": "Búsqueda Unificada",
     "/campos": "Vista CAMPOS",
     "/admin/sii-extractor": "Extractor de Coordenadas SII",
-    "/admin/ichiloe-sync": "Sincronización iChiloe.cl",
     "/admin/file-explorer": "Explorador de Archivos",
     "/admin/kmz-vecindario": "Análisis de Vecindario KMZ",
     "/mvp/seguimiento": "Seguimiento MVP",
@@ -333,13 +325,6 @@ export function AdminSidebar() {
       <div className="p-4 space-y-3">
         <h3 className="text-sm font-semibold text-gray-700 px-3">Acciones Rápidas</h3>
         <div className="space-y-2">
-          <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
-            <Link href="/admin/ichiloe-sync">
-              <MapPin className="h-4 w-4" />
-              Sincronizar iChiloe
-              <Badge className="ml-auto bg-green-500 text-white text-xs">Live</Badge>
-            </Link>
-          </Button>
           <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
             <Link href="/admin/google-drive-integration">
               <Database className="h-4 w-4" />

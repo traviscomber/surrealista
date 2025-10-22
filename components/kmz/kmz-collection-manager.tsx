@@ -1,13 +1,26 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useGoogleDrive } from "@/lib/contexts/google-drive-context"
+import type React from "react"
+
+import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Database, MapPin, Search, RefreshCw, Trash2, Tag, Layers, CheckCircle, AlertCircle } from "lucide-react"
+import {
+  Database,
+  MapPin,
+  Search,
+  RefreshCw,
+  Trash2,
+  Tag,
+  Layers,
+  CheckCircle,
+  AlertCircle,
+  Upload,
+} from "lucide-react"
 import { createBrowserClient } from "@supabase/ssr"
+import { driveService } from "@/lib/google-drive/drive-service"
 import { kmzReader } from "@/lib/kmz/kmz-reader"
 
 interface KMZRecord {
@@ -29,8 +42,6 @@ interface KMZRecord {
 }
 
 export function KMZCollectionManager() {
-  const { driveService, isConnected, isLoading: driveLoading, reconnect } = useGoogleDrive()
-
   const [kmzFiles, setKmzFiles] = useState<KMZRecord[]>([])
   const [loading, setLoading] = useState(false)
   const [scanning, setScanning] = useState(false)
@@ -44,6 +55,8 @@ export function KMZCollectionManager() {
     totalPlacemarks: 0,
     totalRoles: 0,
   })
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
 
   useEffect(() => {
     loadKMZCollection()
@@ -126,12 +139,6 @@ export function KMZCollectionManager() {
   }
 
   const scanGoogleDrive = async () => {
-    if (!isConnected || !driveService) {
-      alert("Google Drive no está conectado. Intentando reconectar...")
-      await reconnect()
-      return
-    }
-
     setScanning(true)
     try {
       const supabase = createBrowserClient(
@@ -139,7 +146,7 @@ export function KMZCollectionManager() {
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       )
 
-      const rootFolderId = "1wJRhFJNpIqoJ_O9FPIhpglmypnwgt5F"
+      const rootFolderId = "1wJRhFJNpIqoJ_O9FPIhpPglmypnwgt5F"
       const allFiles: any[] = []
 
       const scanFolder = async (folderId: string, path = "") => {
@@ -250,6 +257,79 @@ export function KMZCollectionManager() {
     window.location.href = "/mapas"
   }
 
+  const handleOfflineKMZUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files
+    if (!files || files.length === 0) return
+
+    setUploading(true)
+    try {
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      )
+
+      let successCount = 0
+      let errorCount = 0
+
+      for (const file of Array.from(files)) {
+        try {
+          console.log(`[v0] Processing offline KMZ file: ${file.name}`)
+
+          // Parse KMZ file
+          const kmzData = await kmzReader.readKMZFile(file)
+          const rolNumbers = kmzReader.extractPropertyRoles(kmzData)
+
+          // Save to database
+          const { error } = await supabase.from("kmz_collection").insert({
+            file_name: file.name,
+            file_path: `offline/${file.name}`,
+            drive_file_id: null,
+            description: kmzData.metadata?.description || null,
+            metadata: kmzData.metadata,
+            placemarks_count: kmzData.placemarks.length,
+            rol_numbers: rolNumbers,
+            bounds: kmzData.bounds,
+            coordinates: kmzData.placemarks.map((p) => p.coordinates),
+            tags: ["offline"],
+            category: "offline",
+            is_active: true,
+          })
+
+          if (error) {
+            console.error(`[v0] Error saving ${file.name}:`, error)
+            errorCount++
+          } else {
+            console.log(`[v0] Successfully saved ${file.name} to database`)
+            successCount++
+          }
+        } catch (error) {
+          console.error(`[v0] Error processing ${file.name}:`, error)
+          errorCount++
+        }
+      }
+
+      // Reload collection
+      await loadKMZCollection()
+
+      // Show result
+      if (successCount > 0) {
+        alert(
+          `✅ ${successCount} archivo(s) KMZ cargado(s) exitosamente!${errorCount > 0 ? `\n⚠️ ${errorCount} archivo(s) fallaron.` : ""}`,
+        )
+      } else {
+        alert(`❌ Error al cargar archivos KMZ. Por favor, verifica los archivos e intenta nuevamente.`)
+      }
+    } catch (error) {
+      console.error("[v0] Error uploading KMZ files:", error)
+      alert("Error al cargar archivos KMZ")
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
+      }
+    }
+  }
+
   const filteredKMZ = kmzFiles.filter((kmz) => {
     const matchesSearch =
       kmz.file_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -276,24 +356,6 @@ export function KMZCollectionManager() {
                   <Database className="h-6 w-6" />
                 </div>
                 <h1 className="text-4xl font-bold tracking-tight">Colección de Archivos KMZ</h1>
-                {driveLoading && (
-                  <Badge variant="secondary" className="bg-yellow-500/20 text-white border-white/30">
-                    <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-                    Conectando...
-                  </Badge>
-                )}
-                {isConnected && (
-                  <Badge variant="secondary" className="bg-green-500/20 text-white border-white/30">
-                    <CheckCircle className="h-3 w-3 mr-1" />
-                    Drive Conectado
-                  </Badge>
-                )}
-                {!isConnected && !driveLoading && (
-                  <Badge variant="secondary" className="bg-red-500/20 text-white border-white/30">
-                    <AlertCircle className="h-3 w-3 mr-1" />
-                    Desconectado
-                  </Badge>
-                )}
               </div>
               <p className="text-purple-100 text-lg font-medium">
                 Gestiona y visualiza todos los archivos KMZ de Google Drive
@@ -319,9 +381,34 @@ export function KMZCollectionManager() {
                   )}
                 </Button>
               )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".kmz"
+                multiple
+                onChange={handleOfflineKMZUpload}
+                className="hidden"
+              />
+              <Button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploading || tableExists === false}
+                className="bg-green-500 hover:bg-green-600 text-white"
+              >
+                {uploading ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Subiendo...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Cargar KMZ Offline
+                  </>
+                )}
+              </Button>
               <Button
                 onClick={scanGoogleDrive}
-                disabled={scanning || tableExists === false || !isConnected}
+                disabled={scanning || tableExists === false}
                 className="bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm"
               >
                 {scanning ? (

@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   Dialog,
   DialogContent,
@@ -17,7 +17,31 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { createBrowserClient } from "@/lib/supabase/client"
-import { MapPin } from "lucide-react"
+import { MapPin, UserPlus } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
+
+interface Task {
+  id: string
+  title: string
+  description: string
+  location: string
+  priority: string
+  status: string
+  due_date: string
+  created_at: string
+  created_by?: string
+  assigned_to?: string
+  notes?: string
+}
+
+interface User {
+  id: string
+  name: string
+  email: string
+  whatsapp?: string
+  phone?: string
+  notification_preferences?: any
+}
 
 interface TaskCreationDialogProps {
   open: boolean
@@ -26,7 +50,8 @@ interface TaskCreationDialogProps {
   prefilledLocation?: { lat: number; lng: number; name?: string }
   relatedTo?: string
   relatedId?: string
-  currentUser?: any // Added currentUser prop to pass authenticated user
+  currentUser?: any
+  task?: Task
 }
 
 export function TaskCreationDialog({
@@ -36,8 +61,11 @@ export function TaskCreationDialog({
   prefilledLocation,
   relatedTo,
   relatedId,
-  currentUser, // Destructure currentUser prop
+  currentUser,
+  task,
 }: TaskCreationDialogProps) {
+  const isEditMode = !!task
+
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [priority, setPriority] = useState("medium")
@@ -46,13 +74,74 @@ export function TaskCreationDialog({
   const [locationName, setLocationName] = useState(prefilledLocation?.name || "")
   const [loading, setLoading] = useState(false)
 
+  const [users, setUsers] = useState<User[]>([])
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([])
+  const [loadingUsers, setLoadingUsers] = useState(false)
+
+  const supabase = createBrowserClient()
+
+  useEffect(() => {
+    if (open) {
+      loadUsers()
+    }
+  }, [open])
+
+  const loadUsers = async () => {
+    setLoadingUsers(true)
+    try {
+      const { data, error } = await supabase.from("users").select("id, name, email").order("name")
+
+      if (error) throw error
+      setUsers(data || [])
+    } catch (error) {
+      console.error("[v0] Error loading users:", error)
+    } finally {
+      setLoadingUsers(false)
+    }
+  }
+
+  useEffect(() => {
+    if (task && open) {
+      setTitle(task.title || "")
+      setDescription(task.description || "")
+      setPriority(task.priority || "medium")
+      setDueDate(task.due_date ? new Date(task.due_date).toISOString().split("T")[0] : "")
+      setLocation(task.location || "")
+      const notesMatch = task.notes?.match(/Ubicación: (.+)/)
+      setLocationName(notesMatch ? notesMatch[1] : "")
+
+      loadTaskAssignments(task.id)
+    } else if (!open) {
+      setTitle("")
+      setDescription("")
+      setPriority("medium")
+      setDueDate("")
+      setLocation("")
+      setLocationName("")
+      setSelectedUsers([])
+    }
+  }, [task, open])
+
+  const loadTaskAssignments = async (taskId: string) => {
+    try {
+      const { data, error } = await supabase.from("task_assignments").select("user_id").eq("task_id", taskId)
+
+      if (error) throw error
+      setSelectedUsers(data?.map((a) => a.user_id) || [])
+    } catch (error) {
+      console.error("[v0] Error loading task assignments:", error)
+    }
+  }
+
+  const toggleUserSelection = (userId: string) => {
+    setSelectedUsers((prev) => (prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]))
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
 
     try {
-      const supabase = createBrowserClient()
-
       if (!title.trim()) {
         alert("El título es requerido")
         setLoading(false)
@@ -66,53 +155,233 @@ export function TaskCreationDialog({
         description: description.trim() || null,
         priority: priority || "medium",
         due_date: dueDate ? new Date(dueDate).toISOString() : null,
-        location: location.trim().substring(0, 255) || null, // Limit location to 255 chars
-        status: "pending",
-        related_to: relatedTo?.substring(0, 255) || null, // Limit to 255 chars
+        location: location.trim().substring(0, 255) || null,
+        status: task?.status || "pending",
+        related_to: relatedTo?.substring(0, 255) || null,
         related_id: relatedId || null,
         notes: locationName ? `Ubicación: ${locationName}`.substring(0, 1000) : null,
-        created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        created_by: createdBy, // Use actual user email/id instead of null
-        assigned_to: null,
+        ...(isEditMode ? {} : { created_at: new Date().toISOString(), created_by: createdBy }),
+        assigned_to: task?.assigned_to || null,
         tags: [],
       }
 
-      console.log("[v0] Creating task with data:", taskData)
+      let taskId: string
 
-      const { data, error } = await supabase.from("tasks").insert([taskData]).select()
-
-      if (error) {
-        console.error("[v0] Error creating task:", error.message)
-        throw error
+      if (isEditMode) {
+        console.log("[v0] Updating task:", task.id, taskData)
+        const { error } = await supabase.from("tasks").update(taskData).eq("id", task.id)
+        if (error) throw error
+        taskId = task.id
+        console.log("[v0] Task updated successfully")
+      } else {
+        console.log("[v0] Creating task with data:", taskData)
+        const { data, error } = await supabase.from("tasks").insert([taskData]).select()
+        if (error) throw error
+        taskId = data[0].id
+        console.log("[v0] Task created successfully:", data)
       }
 
-      console.log("[v0] Task created successfully:", data)
+      if (selectedUsers.length > 0) {
+        // Delete existing assignments if editing
+        if (isEditMode) {
+          await supabase.from("task_assignments").delete().eq("task_id", taskId)
+        }
 
-      // Reset form
+        // Create new assignments
+        const assignments = selectedUsers.map((userId) => ({
+          task_id: taskId,
+          user_id: userId,
+          assigned_by: createdBy,
+          assigned_at: new Date().toISOString(),
+        }))
+
+        const { error: assignError } = await supabase.from("task_assignments").insert(assignments)
+        if (assignError) {
+          console.error("[v0] Error creating task assignments:", assignError)
+        } else {
+          console.log("[v0] Task assignments created successfully")
+
+          // Send WhatsApp notifications automatically
+          await sendWhatsAppNotifications(taskId, selectedUsers, taskData)
+        }
+      }
+
       setTitle("")
       setDescription("")
       setPriority("medium")
       setDueDate("")
       setLocation("")
       setLocationName("")
+      setSelectedUsers([])
 
       onOpenChange(false)
       onTaskCreated?.()
     } catch (error: any) {
-      console.error("[v0] Exception creating task:", error.message)
-      alert(`Error al crear la tarea: ${error.message || "Error desconocido"}`)
+      console.error(`[v0] Exception ${isEditMode ? "updating" : "creating"} task:`, error.message)
+      alert(`Error al ${isEditMode ? "actualizar" : "crear"} la tarea: ${error.message || "Error desconocido"}`)
     } finally {
       setLoading(false)
     }
   }
 
+  const sendWhatsAppNotifications = async (taskId: string, userIds: string[], taskData: any) => {
+    try {
+      const { data: usersData, error: usersError } = await supabase
+        .from("users")
+        .select("id, name, email, whatsapp, phone, notification_preferences")
+        .in("id", userIds)
+
+      if (usersError) {
+        console.error("[v0] Error fetching users:", usersError)
+        throw usersError
+      }
+
+      console.log("[v0] Fetched users for notifications:", usersData)
+
+      const usersWithWhatsApp = usersData?.filter((user) => {
+        const hasWhatsApp = user.whatsapp || user.phone
+        const notifyEnabled = !user.notification_preferences || user.notification_preferences?.whatsapp !== false
+        console.log(`[v0] User ${user.name}: hasWhatsApp=${!!hasWhatsApp}, notifyEnabled=${notifyEnabled}`)
+        return hasWhatsApp && notifyEnabled
+      })
+
+      if (!usersWithWhatsApp || usersWithWhatsApp.length === 0) {
+        console.log("[v0] No users with WhatsApp enabled for notifications")
+        alert("⚠️ Tarea creada, pero ningún usuario tiene WhatsApp configurado para recibir notificaciones.")
+        return
+      }
+
+      console.log(`[v0] Sending WhatsApp notifications to ${usersWithWhatsApp.length} users`)
+
+      const priorityText =
+        {
+          urgent: "URGENTE",
+          high: "ALTA",
+          medium: "MEDIA",
+          low: "BAJA",
+        }[taskData.priority] || "MEDIA"
+
+      const dueText = taskData.due_date
+        ? new Date(taskData.due_date).toLocaleDateString("es-CL", {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+          })
+        : "Sin fecha límite"
+
+      const locationText = taskData.notes || "Sin ubicación especificada"
+
+      const message =
+        `NUEVA TAREA ASIGNADA\n\n` +
+        `Titulo: ${taskData.title}\n\n` +
+        `Descripcion:\n${taskData.description || "Sin descripción"}\n\n` +
+        `Prioridad: ${priorityText}\n` +
+        `Fecha limite: ${dueText}\n` +
+        `Ubicacion: ${locationText}\n\n` +
+        `Enviado desde Sur-Realista`
+
+      console.log("[v0] WhatsApp message:", message)
+
+      // Open WhatsApp Web for each user with a delay
+      for (let i = 0; i < usersWithWhatsApp.length; i++) {
+        const user = usersWithWhatsApp[i]
+        const rawPhone = user.whatsapp || user.phone
+
+        // Clean phone number: remove spaces, dashes, parentheses, plus sign
+        let phoneNumber = rawPhone.replace(/[\s\-()]/g, "").replace(/^\+/, "")
+
+        console.log(`[v0] User ${user.name}: raw="${rawPhone}", cleaned="${phoneNumber}"`)
+
+        // Validate Chilean phone format
+        // Chilean mobile: 56 9 XXXXXXXX (11 digits total)
+        // Format: country code (56) + mobile prefix (9) + 8 digits
+
+        if (phoneNumber.startsWith("56")) {
+          // Already has country code
+          const afterCountryCode = phoneNumber.substring(2)
+          console.log(`[v0] After country code (56): "${afterCountryCode}"`)
+
+          // Check if it has double 9 (569940946660 should be 56940946660)
+          if (afterCountryCode.startsWith("99")) {
+            phoneNumber = "56" + afterCountryCode.substring(1)
+            console.log(`[v0] Removed duplicate 9: "${phoneNumber}"`)
+          }
+
+          // Validate length: should be 11 digits (56 + 9 + 8 digits)
+          if (phoneNumber.length !== 11) {
+            console.error(
+              `[v0] Invalid Chilean phone length for ${user.name}: ${phoneNumber.length} digits (expected 11)`,
+            )
+            alert(`⚠️ Número inválido para ${user.name}: ${rawPhone}\nFormato esperado: +56 9 XXXX XXXX`)
+            continue
+          }
+
+          // Validate mobile prefix (should be 9 after country code)
+          if (!phoneNumber.startsWith("569")) {
+            console.error(`[v0] Invalid Chilean mobile prefix for ${user.name}: ${phoneNumber}`)
+            alert(`⚠️ Número inválido para ${user.name}: ${rawPhone}\nLos móviles chilenos deben empezar con +56 9`)
+            continue
+          }
+        } else if (phoneNumber.startsWith("9")) {
+          // Missing country code, add it
+          phoneNumber = "56" + phoneNumber
+          console.log(`[v0] Added country code: "${phoneNumber}"`)
+
+          if (phoneNumber.length !== 11) {
+            console.error(`[v0] Invalid phone length after adding country code: ${phoneNumber.length}`)
+            alert(`⚠️ Número inválido para ${user.name}: ${rawPhone}`)
+            continue
+          }
+        } else {
+          console.error(`[v0] Invalid phone format for ${user.name}: ${phoneNumber}`)
+          alert(`⚠️ Número inválido para ${user.name}: ${rawPhone}\nFormato esperado: +56 9 XXXX XXXX`)
+          continue
+        }
+
+        // Final validation
+        console.log(`[v0] Final phone number for ${user.name}: "${phoneNumber}" (${phoneNumber.length} digits)`)
+        console.log(
+          `[v0] Breakdown: Country=${phoneNumber.substring(0, 2)}, Mobile=${phoneNumber.substring(2, 3)}, Number=${phoneNumber.substring(3)}`,
+        )
+
+        const encodedMessage = encodeURIComponent(message)
+        const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodedMessage}`
+
+        console.log(`[v0] WhatsApp URL for ${user.name}: ${whatsappUrl}`)
+
+        // Open in new tab with delay
+        setTimeout(() => {
+          window.open(whatsappUrl, "_blank")
+          console.log(`[v0] Opened WhatsApp for ${user.name}`)
+        }, i * 1500)
+
+        // Update notification status in database
+        await supabase.from("task_notifications").insert({
+          task_id: taskId,
+          user_id: user.id,
+          notification_type: "whatsapp",
+          status: "sent",
+          sent_at: new Date().toISOString(),
+          message: message,
+        })
+      }
+
+      alert(`✅ Tarea creada! Se abrirán ${usersWithWhatsApp.length} ventanas de WhatsApp para enviar notificaciones.`)
+    } catch (error) {
+      console.error("[v0] Error sending WhatsApp notifications:", error)
+      alert("⚠️ Tarea creada, pero hubo un error al enviar las notificaciones de WhatsApp.")
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] z-[9999] bg-background">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto z-[9999] bg-background">
         <DialogHeader>
-          <DialogTitle>Crear Nueva Tarea</DialogTitle>
-          <DialogDescription>Crea una tarea y vincúlala a una ubicación en el mapa</DialogDescription>
+          <DialogTitle>{isEditMode ? "Editar Tarea" : "Crear Nueva Tarea"}</DialogTitle>
+          <DialogDescription>
+            {isEditMode ? "Modifica los detalles de la tarea" : "Crea una tarea y vincúlala a una ubicación en el mapa"}
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
@@ -183,6 +452,43 @@ export function TaskCreationDialog({
               />
               {prefilledLocation && <p className="text-xs text-muted-foreground">Ubicación prellenada desde el mapa</p>}
             </div>
+
+            <div className="grid gap-2 border-t pt-4">
+              <Label className="flex items-center gap-2">
+                <UserPlus className="w-4 h-4" />
+                Asignar a Usuarios
+              </Label>
+              {loadingUsers ? (
+                <p className="text-sm text-muted-foreground">Cargando usuarios...</p>
+              ) : users.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No hay usuarios disponibles. Agrega usuarios en la sección de gestión de contactos.
+                </p>
+              ) : (
+                <div className="space-y-2 max-h-[200px] overflow-y-auto border rounded-md p-3">
+                  {users.map((user) => (
+                    <div key={user.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`user-${user.id}`}
+                        checked={selectedUsers.includes(user.id)}
+                        onCheckedChange={() => toggleUserSelection(user.id)}
+                      />
+                      <label
+                        htmlFor={`user-${user.id}`}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                      >
+                        {user.name} ({user.email})
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {selectedUsers.length > 0 && (
+                <p className="text-xs text-muted-foreground">
+                  {selectedUsers.length} usuario(s) seleccionado(s) - Recibirán notificaciones según sus preferencias
+                </p>
+              )}
+            </div>
           </div>
 
           <DialogFooter>
@@ -190,7 +496,13 @@ export function TaskCreationDialog({
               Cancelar
             </Button>
             <Button type="submit" disabled={loading || !title}>
-              {loading ? "Creando..." : "Crear Tarea"}
+              {loading
+                ? isEditMode
+                  ? "Actualizando..."
+                  : "Creando..."
+                : isEditMode
+                  ? "Actualizar Tarea"
+                  : "Crear Tarea"}
             </Button>
           </DialogFooter>
         </form>

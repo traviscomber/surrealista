@@ -3,6 +3,7 @@ import type { Metadata } from "next"
 import { Inter } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
+import { GoogleDriveProvider } from "@/lib/contexts/google-drive-context"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
   description:
     "Descubre propiedades exclusivas en el sur de Chile con tecnología IA avanzada. Puerto Varas, Pucón, Valdivia y más.",
   keywords: "inmobiliaria, sur chile, puerto varas, pucon, valdivia, propiedades, casas, terrenos, IA",
-    generator: 'v0.dev'
+  generator: "v0.dev",
 }
 
 export default function RootLayout({
@@ -23,7 +24,7 @@ export default function RootLayout({
     <html lang="es" suppressHydrationWarning>
       <body className={inter.className}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-          {children}
+          <GoogleDriveProvider>{children}</GoogleDriveProvider>
         </ThemeProvider>
       </body>
     </html>

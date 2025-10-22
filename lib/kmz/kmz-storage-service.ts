@@ -1,4 +1,5 @@
-import { createBrowserClient } from "@supabase/ssr"
+import { createBrowserClient } from "@/lib/supabase/client"
+import { detectRegionFromBounds } from "@/lib/utils/region-detector"
 
 export interface StoredKMZ {
   id: string
@@ -13,6 +14,7 @@ export interface StoredKMZ {
   coordinates: any
   tags: string[]
   category: string | null
+  region: string | null // Added region field
   is_active: boolean
   created_at: string
   updated_at: string
@@ -29,10 +31,7 @@ export interface KMZForMap {
 }
 
 class KMZStorageService {
-  private supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  )
+  private supabase = createBrowserClient()
 
   /**
    * Load all active KMZ files from database
@@ -144,6 +143,35 @@ class KMZStorageService {
   }
 
   /**
+   * Load KMZ files by region
+   */
+  async loadKMZByRegion(region: string): Promise<KMZForMap[]> {
+    try {
+      const { data, error } = await this.supabase
+        .from("kmz_collection")
+        .select("*")
+        .eq("is_active", true)
+        .eq("region", region)
+        .order("created_at", { ascending: false })
+
+      if (error) throw error
+
+      return (data as StoredKMZ[]).map((kmz) => ({
+        id: kmz.id,
+        fileName: kmz.file_name,
+        coordinates: kmz.coordinates || [],
+        bounds: kmz.bounds,
+        placemarks: kmz.placemarks_count,
+        rolNumbers: kmz.rol_numbers || [],
+        category: kmz.category,
+      }))
+    } catch (error) {
+      console.error("[v0] Error loading KMZ by region:", error)
+      return []
+    }
+  }
+
+  /**
    * Get statistics about stored KMZ files
    */
   async getStats() {
@@ -173,6 +201,70 @@ class KMZStorageService {
         totalPlacemarks: 0,
         totalRoles: 0,
       }
+    }
+  }
+
+  /**
+   * Save a new KMZ file to the database
+   */
+  async saveKMZ(kmzData: {
+    file_name: string
+    file_path: string
+    drive_file_id?: string
+    description?: string
+    metadata?: any
+    placemarks_count: number
+    rol_numbers?: string[]
+    bounds?: any
+    coordinates: any
+    tags?: string[]
+    category?: string
+    created_by?: string
+  }): Promise<{ success: boolean; id?: string; error?: any }> {
+    try {
+      if (kmzData.drive_file_id) {
+        const { data: existing } = await this.supabase
+          .from("kmz_collection")
+          .select("id")
+          .eq("drive_file_id", kmzData.drive_file_id)
+          .single()
+
+        if (existing) {
+          console.log("[v0] KMZ already exists in database:", kmzData.file_name)
+          return { success: true, id: existing.id }
+        }
+      }
+
+      const region = kmzData.bounds ? detectRegionFromBounds(kmzData.bounds) : "Sin Región"
+
+      const { data, error } = await this.supabase
+        .from("kmz_collection")
+        .insert({
+          file_name: kmzData.file_name,
+          file_path: kmzData.file_path,
+          drive_file_id: kmzData.drive_file_id || null,
+          description: kmzData.description || null,
+          metadata: kmzData.metadata || {},
+          placemarks_count: kmzData.placemarks_count,
+          rol_numbers: kmzData.rol_numbers || [],
+          bounds: kmzData.bounds || null,
+          coordinates: kmzData.coordinates,
+          tags: kmzData.tags || [],
+          category: kmzData.category || "general",
+          region: region, // Save detected region
+          is_active: true,
+          created_by: kmzData.created_by || null,
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      console.log("[v0] KMZ saved to database:", kmzData.file_name, "Region:", region)
+      return { success: true, id: data.id }
+    } catch (error) {
+      console.error("[v0] Error saving KMZ to database:", error)
+      return { success: false, error }
     }
   }
 }

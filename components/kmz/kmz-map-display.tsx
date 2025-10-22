@@ -9,7 +9,7 @@ import { Card } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
 interface KMZMapDisplayProps {
-  kmzFiles: KMZData[]
+  kmzFiles?: KMZData[] // Made optional to handle undefined
   height?: string
   centerCoordinates?: { lat: number; lng: number }
 }
@@ -25,7 +25,7 @@ interface LayerInfo {
   isLoadingLocation?: boolean
 }
 
-export function KMZMapDisplay({ kmzFiles, height = "600px", centerCoordinates }: KMZMapDisplayProps) {
+export function KMZMapDisplay({ kmzFiles = [], height = "600px", centerCoordinates }: KMZMapDisplayProps) {
   const [mapInstance, setMapInstance] = useState<any>(null)
   const [leafletLoaded, setLeafletLoaded] = useState(false)
   const [mapError, setMapError] = useState<string | null>(null)
@@ -34,8 +34,12 @@ export function KMZMapDisplay({ kmzFiles, height = "600px", centerCoordinates }:
   const mapRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const clientMarkerRef = useRef<any>(null)
+  const currentKmzDataRef = useRef<string>("")
+  const isProcessingRef = useRef<boolean>(false)
 
-  console.log("[v0] KMZMapDisplay received", kmzFiles.length, "KMZ files")
+  const safeKmzFiles = Array.isArray(kmzFiles) ? kmzFiles : []
+
+  console.log("[v0] KMZMapDisplay received", safeKmzFiles.length, "KMZ files")
 
   useEffect(() => {
     const loadLeaflet = async () => {
@@ -164,20 +168,38 @@ export function KMZMapDisplay({ kmzFiles, height = "600px", centerCoordinates }:
   }, [leafletLoaded, mapInstance])
 
   useEffect(() => {
-    if (!mapInstance || !kmzFiles.length) {
-      console.log("[v0] Map not ready or no KMZ files:", { mapInstance: !!mapInstance, kmzFiles: kmzFiles.length })
+    if (!mapInstance || !safeKmzFiles || safeKmzFiles.length === 0) {
+      console.log("[v0] Map not ready or no KMZ files:", {
+        mapInstance: !!mapInstance,
+        kmzFiles: safeKmzFiles.length,
+      })
       return
     }
+
+    const kmzDataHash = JSON.stringify(
+      safeKmzFiles.map((f) => ({
+        fileName: f.fileName,
+        placemarkCount: f.placemarks?.length || 0,
+      })),
+    )
+
+    if (isProcessingRef.current || currentKmzDataRef.current === kmzDataHash) {
+      console.log("[v0] Skipping duplicate render - data unchanged or already processing")
+      return
+    }
+
+    isProcessingRef.current = true
+    currentKmzDataRef.current = kmzDataHash
 
     const L = (window as any).L
     if (!L) {
       console.error("[v0] Leaflet not available for adding KMZ data")
+      isProcessingRef.current = false
       return
     }
 
     console.log("[v0] Adding KMZ data to map...")
 
-    // Clear existing KMZ layers
     mapInstance.eachLayer((layer: any) => {
       if (layer.options && layer.options.isKMZ) {
         mapInstance.removeLayer(layer)
@@ -186,29 +208,17 @@ export function KMZMapDisplay({ kmzFiles, height = "600px", centerCoordinates }:
 
     const allBounds: any[] = []
     const newLayers: LayerInfo[] = []
-    const colors = [
-      "#e74c3c", // red
-      "#3498db", // blue
-      "#2ecc71", // green
-      "#f39c12", // orange
-      "#9b59b6", // purple
-      "#1abc9c", // turquoise
-      "#e67e22", // carrot
-      "#16a085", // green sea
-      "#c0392b", // dark red
-      "#2980b9", // belize blue
-      "#27ae60", // nephritis
-      "#f1c40f", // sunflower
-    ]
 
-    let placemarkIndex = 0
+    safeKmzFiles.forEach((kmzData, kmzIndex) => {
+      console.log("[v0] Processing KMZ file:", kmzData.fileName, "with", kmzData.placemarks?.length || 0, "placemarks")
 
-    kmzFiles.forEach((kmzData, kmzIndex) => {
-      console.log("[v0] Processing KMZ file:", kmzData.fileName, "with", kmzData.placemarks.length, "placemarks")
+      if (!kmzData.placemarks || !Array.isArray(kmzData.placemarks)) {
+        console.warn("[v0] KMZ file has no placemarks array:", kmzData.fileName)
+        return
+      }
 
       kmzData.placemarks.forEach((placemark) => {
-        const color = colors[placemarkIndex % colors.length]
-        placemarkIndex++
+        const color = getColorForPlacemark(kmzData.fileName, placemark.name)
 
         console.log(
           "[v0] Processing placemark:",
@@ -217,9 +227,10 @@ export function KMZMapDisplay({ kmzFiles, height = "600px", centerCoordinates }:
           placemark.type,
           "coords:",
           placemark.coordinates.length,
+          "color:",
+          color,
         )
 
-        // Handle different geometry types properly
         if (placemark.type === "Point" && placemark.coordinates.length > 0) {
           const [lng, lat] = placemark.coordinates[0]
 
@@ -239,7 +250,7 @@ export function KMZMapDisplay({ kmzFiles, height = "600px", centerCoordinates }:
               <h4 style="margin: 0 0 8px 0; color: ${color}; font-weight: bold;">${placemark.name}</h4>
               <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Archivo:</strong> ${kmzData.fileName}</p>
               <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Coordenadas:</strong> ${lat.toFixed(6)}, ${lng.toFixed(6)}</p>
-              <div id="location-details-${placemarkIndex}" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
+              <div id="location-details-${placemark.name}" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
                 <p style="margin: 0; font-size: 11px; color: #666;">Cargando información de ubicación...</p>
               </div>
               ${placemark.description ? `<p style="margin: 8px 0 0 0; font-size: 11px; color: #666;">${placemark.description.substring(0, 100)}...</p>` : ""}
@@ -267,7 +278,6 @@ export function KMZMapDisplay({ kmzFiles, height = "600px", centerCoordinates }:
               layerInfo.locationDetails = details
               layerInfo.isLoadingLocation = false
 
-              // Update popup with location details
               const locationHtml = `
               <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
                 ${details.region ? `<p style="margin: 0 0 3px 0; font-size: 12px;"><strong>Región:</strong> ${details.region}</p>` : ""}
@@ -288,7 +298,6 @@ export function KMZMapDisplay({ kmzFiles, height = "600px", centerCoordinates }:
               </div>
             `)
 
-              // Trigger re-render
               setLayers([...newLayers])
             })
             .catch((error) => {
@@ -308,29 +317,26 @@ export function KMZMapDisplay({ kmzFiles, height = "600px", centerCoordinates }:
             return
           }
 
-          console.log("[v0] Adding", placemark.type, "with", leafletCoords.length, "points")
+          console.log("[v0] Adding", placemark.type, "with", leafletCoords.length, "points", "color:", color)
 
           let shape: any
           if (placemark.type === "Polygon") {
             shape = L.polygon(leafletCoords, {
               color: color,
-              weight: 3,
-              opacity: 1,
+              weight: 2,
+              opacity: 0.8,
               fillColor: color,
-              fillOpacity: 0.4,
+              fillOpacity: 0.3,
               isKMZ: true,
             }).addTo(mapInstance)
           } else {
             shape = L.polyline(leafletCoords, {
               color: color,
-              weight: 4,
-              opacity: 1,
+              weight: 3,
+              opacity: 0.8,
               isKMZ: true,
             }).addTo(mapInstance)
           }
-
-          const centerLat = leafletCoords.reduce((sum, coord) => sum + coord[0], 0) / leafletCoords.length
-          const centerLng = leafletCoords.reduce((sum, coord) => sum + coord[1], 0) / leafletCoords.length
 
           shape.bindPopup(`
             <div style="min-width: 250px;">
@@ -338,7 +344,7 @@ export function KMZMapDisplay({ kmzFiles, height = "600px", centerCoordinates }:
               <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Archivo:</strong> ${kmzData.fileName}</p>
               <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Tipo:</strong> ${placemark.type}</p>
               <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Puntos:</strong> ${leafletCoords.length}</p>
-              <div id="location-details-${placemarkIndex}" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
+              <div id="location-details-${placemark.name}" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
                 <p style="margin: 0; font-size: 11px; color: #666;">Cargando información de ubicación...</p>
               </div>
               ${placemark.description ? `<p style="margin: 8px 0 0 0; font-size: 11px; color: #666;">${placemark.description.substring(0, 100)}...</p>` : ""}
@@ -360,7 +366,10 @@ export function KMZMapDisplay({ kmzFiles, height = "600px", centerCoordinates }:
           newLayers.push(layerInfo)
 
           reverseGeocoder
-            .getLocationDetails(centerLat, centerLng)
+            .getLocationDetails(
+              (leafletCoords[0][0] + leafletCoords[leafletCoords.length - 1][0]) / 2,
+              (leafletCoords[0][1] + leafletCoords[leafletCoords.length - 1][1]) / 2,
+            )
             .then((details) => {
               layerInfo.locationDetails = details
               layerInfo.isLoadingLocation = false
@@ -398,7 +407,8 @@ export function KMZMapDisplay({ kmzFiles, height = "600px", centerCoordinates }:
     console.log("[v0] Added", newLayers.length, "placemarks to map")
     setLayers(newLayers)
 
-    // Fit map to show all KMZ data
+    isProcessingRef.current = false
+
     if (allBounds.length > 0) {
       try {
         const bounds = L.latLngBounds(allBounds)
@@ -408,7 +418,7 @@ export function KMZMapDisplay({ kmzFiles, height = "600px", centerCoordinates }:
         console.warn("[v0] Error fitting bounds:", error)
       }
     }
-  }, [mapInstance, kmzFiles])
+  }, [mapInstance, safeKmzFiles])
 
   useEffect(() => {
     if (!mapInstance || !centerCoordinates) return
@@ -418,12 +428,10 @@ export function KMZMapDisplay({ kmzFiles, height = "600px", centerCoordinates }:
 
     console.log("[v0] Centering map on coordinates:", centerCoordinates)
 
-    // Remove previous client marker if exists
     if (clientMarkerRef.current) {
       mapInstance.removeLayer(clientMarkerRef.current)
     }
 
-    // Create custom icon for client marker
     const clientIcon = L.divIcon({
       className: "custom-client-marker",
       html: `
@@ -448,10 +456,9 @@ export function KMZMapDisplay({ kmzFiles, height = "600px", centerCoordinates }:
       iconAnchor: [16, 16],
     })
 
-    // Add new client marker
     const marker = L.marker([centerCoordinates.lat, centerCoordinates.lng], {
       icon: clientIcon,
-      zIndexOffset: 1000, // Ensure it appears above other markers
+      zIndexOffset: 1000,
     }).addTo(mapInstance)
 
     marker
@@ -465,13 +472,11 @@ export function KMZMapDisplay({ kmzFiles, height = "600px", centerCoordinates }:
 
     clientMarkerRef.current = marker
 
-    // Fly to the location with animation
     mapInstance.flyTo([centerCoordinates.lat, centerCoordinates.lng], 13, {
       duration: 1.5,
       easeLinearity: 0.25,
     })
 
-    // Add CSS animation for pulse effect
     if (!document.getElementById("client-marker-styles")) {
       const style = document.createElement("style")
       style.id = "client-marker-styles"
@@ -517,7 +522,6 @@ export function KMZMapDisplay({ kmzFiles, height = "600px", centerCoordinates }:
       const bounds = L.latLngBounds(layer.bounds)
       mapInstance.fitBounds(bounds, { padding: [50, 50] })
 
-      // Open popup if available
       if (layer.layer.openPopup) {
         layer.layer.openPopup()
       }
@@ -541,7 +545,6 @@ export function KMZMapDisplay({ kmzFiles, height = "600px", centerCoordinates }:
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement)
-      // Invalidate map size when entering/exiting fullscreen
       if (mapInstance) {
         setTimeout(() => {
           mapInstance.invalidateSize()
@@ -554,6 +557,40 @@ export function KMZMapDisplay({ kmzFiles, height = "600px", centerCoordinates }:
       document.removeEventListener("fullscreenchange", handleFullscreenChange)
     }
   }, [mapInstance])
+
+  const getColorForPlacemark = (fileName: string, placemarkName: string): string => {
+    const colors = [
+      "#e74c3c", // red
+      "#3498db", // blue
+      "#2ecc71", // green
+      "#f39c12", // orange
+      "#9b59b6", // purple
+      "#1abc9c", // turquoise
+      "#e67e22", // carrot
+      "#16a085", // green sea
+      "#c0392b", // dark red
+      "#2980b9", // belize blue
+      "#27ae60", // nephritis
+      "#f1c40f", // sunflower
+      "#8e44ad", // wisteria
+      "#d35400", // pumpkin
+      "#c0392b", // pomegranate
+      "#bdc3c7", // silver
+      "#7f8c8d", // asbestos
+      "#34495e", // wet asphalt
+    ]
+
+    const str = `${fileName}-${placemarkName}`
+    let hash = 0
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i)
+      hash = (hash << 5) - hash + char
+      hash = hash & hash
+    }
+
+    const colorIndex = Math.abs(hash) % colors.length
+    return colors[colorIndex]
+  }
 
   if (mapError) {
     return (
@@ -592,7 +629,7 @@ export function KMZMapDisplay({ kmzFiles, height = "600px", centerCoordinates }:
       <div ref={mapRef} className="flex-1 h-full rounded-lg overflow-hidden border" />
 
       {layers.length > 0 && (
-        <Card className="w-96 p-4">
+        <Card className="w-[480px] p-4">
           <h3 className="font-semibold mb-3 flex items-center gap-2">
             <MapPin className="h-4 w-4" />
             Capas del Mapa ({layers.length})
@@ -604,7 +641,11 @@ export function KMZMapDisplay({ kmzFiles, height = "600px", centerCoordinates }:
                   key={index}
                   className="flex items-start gap-2 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
                 >
-                  <div className="w-4 h-4 rounded flex-shrink-0 mt-0.5" style={{ backgroundColor: layer.color }} />
+                  <div
+                    className="w-4 h-4 rounded flex-shrink-0 mt-0.5 border border-gray-300"
+                    style={{ backgroundColor: layer.color }}
+                    title={`Color: ${layer.color}`}
+                  />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{layer.name}</p>
                     <p className="text-xs text-muted-foreground truncate">{layer.fileName}</p>

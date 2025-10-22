@@ -18,7 +18,7 @@ export interface DriveFolder {
 }
 
 export class GoogleDriveService {
-  private apiKey: string
+  private _apiKey: string
   private baseUrl = "https://www.googleapis.com/drive/v3"
   private maxRetries = 3
   private retryDelay = 1000
@@ -26,7 +26,7 @@ export class GoogleDriveService {
   private cacheTimeout = 5 * 60 * 1000 // 5 minutes
 
   constructor(apiKey: string) {
-    this.apiKey = apiKey
+    this._apiKey = apiKey
   }
 
   private async fetchWithRetry(url: string, options: RequestInit = {}, retries = this.maxRetries): Promise<Response> {
@@ -85,7 +85,7 @@ export class GoogleDriveService {
   }
 
   get apiKey() {
-    return this.apiKey
+    return this._apiKey
   }
 
   async listFiles(
@@ -101,7 +101,7 @@ export class GoogleDriveService {
 
     try {
       const params = new URLSearchParams({
-        key: this.apiKey,
+        key: this._apiKey,
         fields: "nextPageToken,files(id,name,mimeType,size,modifiedTime,webViewLink,parents,thumbnailLink)",
         pageSize: "100",
       })
@@ -142,12 +142,19 @@ export class GoogleDriveService {
 
       // Get folder info
       const folderResponse = await this.fetchWithRetry(
-        `${this.baseUrl}/files/${folderId}?key=${this.apiKey}&fields=id,name`,
+        `${this.baseUrl}/files/${folderId}?key=${this._apiKey}&fields=id,name`,
       )
       const folderInfo = await folderResponse.json()
 
+      console.log("[v0] Folder name from Drive:", folderInfo.name)
+
       // Get folder contents
       const { files } = await this.listFiles(folderId)
+
+      console.log(
+        "[v0] Files in folder:",
+        files.map((f) => f.name),
+      )
 
       // Separate files and folders
       const regularFiles = files.filter((file) => file.mimeType !== "application/vnd.google-apps.folder")
@@ -167,7 +174,7 @@ export class GoogleDriveService {
 
       const result = {
         id: folderInfo.id,
-        name: folderInfo.name,
+        name: folderInfo.name, // Using exact name from Drive, no modifications
         files: regularFiles,
         subfolders,
         totalFiles: regularFiles.length + subfolders.reduce((sum, sf) => sum + sf.totalFiles, 0),
@@ -184,7 +191,7 @@ export class GoogleDriveService {
   async searchFiles(query: string): Promise<DriveFile[]> {
     try {
       const params = new URLSearchParams({
-        key: this.apiKey,
+        key: this._apiKey,
         q: `name contains '${query}' and trashed=false`,
         fields: "files(id,name,mimeType,size,modifiedTime,webViewLink,parents,thumbnailLink)",
         pageSize: "50",
@@ -206,7 +213,7 @@ export class GoogleDriveService {
 
   async getFileContent(fileId: string): Promise<string> {
     try {
-      const response = await this.fetchWithRetry(`${this.baseUrl}/files/${fileId}?alt=media&key=${this.apiKey}`)
+      const response = await this.fetchWithRetry(`${this.baseUrl}/files/${fileId}?alt=media&key=${this._apiKey}`)
 
       if (!response.ok) {
         throw new Error(`Error getting file content: ${response.status}`)
@@ -295,11 +302,20 @@ export class GoogleDriveService {
   async testConnection(): Promise<boolean> {
     try {
       console.log("[v0] Testing Google Drive connection...")
-      const response = await this.fetchWithRetry(`${this.baseUrl}/about?key=${this.apiKey}&fields=user`)
+      const response = await this.fetchWithRetry(`${this.baseUrl}/about?key=${this._apiKey}&fields=user`)
       console.log("[v0] Connection test successful")
       return response.ok
     } catch (error) {
-      console.error("[v0] Connection test failed:", error)
+      const isProduction =
+        typeof window !== "undefined" &&
+        !window.location.hostname.includes("localhost") &&
+        !window.location.hostname.includes("preview")
+
+      if (isProduction) {
+        console.error("[v0] Connection test failed:", error)
+      } else {
+        console.log("[v0] Connection test failed (expected in preview):", error)
+      }
       return false
     }
   }
@@ -318,7 +334,7 @@ export class GoogleDriveService {
       }
 
       const params = new URLSearchParams({
-        key: this.apiKey,
+        key: this._apiKey,
         q: searchQuery,
         fields: "files(id,name,mimeType,size,modifiedTime,webViewLink,parents,thumbnailLink)",
         pageSize: "100",
@@ -331,6 +347,12 @@ export class GoogleDriveService {
       }
 
       const data = await response.json()
+
+      console.log(
+        "[v0] KMZ files found:",
+        (data.files || []).map((f: DriveFile) => f.name),
+      )
+
       return data.files || []
     } catch (error) {
       console.error("Error searching KMZ files:", error)
@@ -379,7 +401,7 @@ export class GoogleDriveService {
       // Get root folder name
       try {
         const folderResponse = await this.fetchWithRetry(
-          `${this.baseUrl}/files/${rootFolderId}?key=${this.apiKey}&fields=name`,
+          `${this.baseUrl}/files/${rootFolderId}?key=${this._apiKey}&fields=name`,
         )
         const folderInfo = await folderResponse.json()
         await searchInFolder(rootFolderId, [folderInfo.name], 0)

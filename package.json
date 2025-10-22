@@ -60,7 +60,7 @@
     "next": "15.2.4",
     "next-themes": "latest",
     "path": "0.12.7",
-    "playwright": "latest",
+    "playwright": "1.55.0",
     "react": "^19",
     "react-day-picker": "9.8.0",
     "react-dom": "^19",

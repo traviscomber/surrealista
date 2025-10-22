@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { MessageCircle, X, Send, Bot, User } from "lucide-react"
+import { useGoogleDrive } from "@/lib/contexts/google-drive-context"
 
 interface Message {
   id: string
@@ -22,12 +23,13 @@ export function FloatingChatWidget() {
   const [inputValue, setInputValue] = useState("")
   const [isTyping, setIsTyping] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const { isConnected, folders } = useGoogleDrive()
 
   const quickReplies = [
-    "¿Qué propiedades tienen disponibles?",
-    "¿Cómo funciona el asistente IA?",
-    "Quiero agendar una visita",
-    "¿Cuáles son los precios promedio?",
+    "¿Qué carpetas tengo en Drive?",
+    "Buscar archivos KMZ",
+    "¿Cuántos documentos hay?",
+    "Mostrar archivos por región",
   ]
 
   const scrollToBottom = () => {
@@ -41,23 +43,32 @@ export function FloatingChatWidget() {
   const getBotResponse = (userMessage: string): string => {
     const message = userMessage.toLowerCase()
 
-    if (message.includes("propiedad") || message.includes("casa") || message.includes("terreno")) {
-      return "Tenemos una amplia selección de propiedades en Puerto Varas, Pucón, Valdivia y otras ciudades del sur. ¿Te interesa alguna zona en particular? Puedes ver todas nuestras propiedades en la sección 'Propiedades' o usar nuestro cotizador IA."
+    if (!isConnected) {
+      return "Google Drive no está conectado. Por favor, conecta tu cuenta de Google Drive desde la configuración para poder consultar tus datos."
     }
 
-    if (message.includes("ia") || message.includes("inteligencia") || message.includes("asistente")) {
-      return "Nuestro asistente IA utiliza tecnología avanzada para analizar el mercado inmobiliario, valorar propiedades y hacer recomendaciones personalizadas. Tiene una precisión del 94.2% y puede ayudarte con cotizaciones, análisis de mercado y más."
+    if (message.includes("carpeta") || message.includes("folder")) {
+      const folderCount = folders?.length || 0
+      return `Tienes ${folderCount} carpetas en Google Drive. Puedo ayudarte a explorar su contenido, buscar archivos específicos o ver estadísticas. ¿Qué te gustaría hacer?`
     }
 
-    if (message.includes("visita") || message.includes("agendar") || message.includes("ver")) {
-      return "¡Perfecto! Para agendar una visita, puedes contactarnos al +56 9 1234 5678 o completar el formulario de contacto. También puedes usar nuestros tours virtuales 360° disponibles en cada propiedad."
+    if (message.includes("kmz") || message.includes("mapa") || message.includes("polígono")) {
+      return "Puedo ayudarte a buscar archivos KMZ almacenados en la base de datos. Estos archivos contienen información geográfica de propiedades. ¿Quieres ver archivos KMZ por región o buscar uno específico?"
     }
 
-    if (message.includes("precio") || message.includes("costo") || message.includes("valor")) {
-      return "Los precios varían según la ubicación y características. En Puerto Varas: $200M-$500M, en Pucón: $180M-$450M, en Valdivia: $150M-$350M. Usa nuestro cotizador IA para obtener una valoración precisa de cualquier propiedad."
+    if (message.includes("documento") || message.includes("archivo") || message.includes("buscar")) {
+      return "Puedo buscar documentos en tu Google Drive. ¿Qué tipo de archivo estás buscando? Puedo filtrar por nombre, tipo de archivo o carpeta."
     }
 
-    return "Gracias por tu consulta. Soy el asistente de Sur-Realista y estoy aquí para ayudarte con propiedades en el sur de Chile. ¿En qué puedo asistirte específicamente? También puedes llamarnos al +56 9 1234 5678."
+    if (message.includes("región") || message.includes("zona") || message.includes("ubicación")) {
+      return "Los archivos KMZ están organizados por regiones chilenas: Los Lagos, Los Ríos, La Araucanía, etc. ¿Qué región te interesa consultar?"
+    }
+
+    if (message.includes("estadística") || message.includes("cuántos") || message.includes("total")) {
+      return "Puedo mostrarte estadísticas sobre tus datos: cantidad de archivos por tipo, distribución por carpetas, archivos KMZ por región, etc. ¿Qué estadística te interesa?"
+    }
+
+    return "Soy el asistente de datos de Sur-Realista. Puedo ayudarte a consultar información de Google Drive, buscar archivos KMZ, explorar carpetas y ver estadísticas. ¿En qué puedo ayudarte?"
   }
 
   const handleSendMessage = async (text: string) => {
@@ -113,9 +124,6 @@ export function FloatingChatWidget() {
           ) : (
             <div className="relative">
               <MessageCircle className="h-6 w-6" />
-              <Badge className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center bg-red-500 text-white text-xs">
-                3
-              </Badge>
             </div>
           )}
         </Button>
@@ -128,9 +136,9 @@ export function FloatingChatWidget() {
             <CardHeader className="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-t-lg py-3">
               <CardTitle className="text-sm flex items-center gap-2">
                 <Bot className="h-4 w-4" />
-                Asistente Sur-Realista
+                Asistente de Datos
                 <Badge variant="secondary" className="ml-auto bg-white/20 text-white text-xs">
-                  En línea
+                  {isConnected ? "En línea" : "Desconectado"}
                 </Badge>
               </CardTitle>
             </CardHeader>
@@ -145,12 +153,13 @@ export function FloatingChatWidget() {
                         <Bot className="h-3 w-3 text-white" />
                       </div>
                       <div className="bg-gray-100 rounded-lg p-2 text-sm">
-                        ¡Hola! Soy tu asistente inmobiliario. ¿En qué puedo ayudarte hoy?
+                        ¡Hola! Soy tu asistente para consultar datos de Google Drive y archivos KMZ. ¿En qué puedo
+                        ayudarte?
                       </div>
                     </div>
 
                     <div className="space-y-2">
-                      <div className="text-xs text-gray-500 px-2">Respuestas rápidas:</div>
+                      <div className="text-xs text-gray-500 px-2">Consultas rápidas:</div>
                       {quickReplies.map((reply, index) => (
                         <button
                           key={index}
@@ -221,7 +230,7 @@ export function FloatingChatWidget() {
                     value={inputValue}
                     onChange={(e) => setInputValue(e.target.value)}
                     onKeyPress={handleKeyPress}
-                    placeholder="Escribe tu mensaje..."
+                    placeholder="Escribe tu consulta..."
                     className="flex-1 text-sm"
                     disabled={isTyping}
                   />
