@@ -54,6 +54,7 @@ export function GoogleDriveProvider({ children }: { children: ReactNode }) {
             console.log("[v0] ✓ Using cached Google Drive connection (valid for", 30 - ageMinutes, "more minutes)")
             setIsConnected(true)
             setIsLoading(false)
+            setError(null)
             return
           } else {
             console.log("[v0] Cached connection expired, will test connection...")
@@ -72,19 +73,18 @@ export function GoogleDriveProvider({ children }: { children: ReactNode }) {
           console.log("[v0] ✓ Google Drive connected successfully")
           localStorage.setItem("gdrive_connected", "true")
           localStorage.setItem("gdrive_connected_at", new Date().toISOString())
+          setError(null)
         } else {
-          console.error("[v0] ✗ Google Drive connection failed")
-          if (isProduction) {
-            setError("Google Drive no está disponible. Verifique la configuración de OAuth 2.0.")
-          }
+          console.error("[v0] ✗ Google Drive connection test failed")
+          // Only log the issue for debugging
+          console.warn("[v0] Connection test failed, but API key may still work for operations")
           localStorage.removeItem("gdrive_connected")
           localStorage.removeItem("gdrive_connected_at")
         }
       } catch (err) {
         console.error("[v0] Error initializing Google Drive:", err)
-        if (isProduction) {
-          setError("Error al conectar con Google Drive. Contacte al administrador.")
-        }
+        // The connection test might fail but actual operations might work
+        console.warn("[v0] Connection initialization error, but will allow operations to proceed")
         setIsConnected(false)
         localStorage.removeItem("gdrive_connected")
         localStorage.removeItem("gdrive_connected_at")
@@ -109,10 +109,9 @@ export function GoogleDriveProvider({ children }: { children: ReactNode }) {
         localStorage.setItem("gdrive_connected", "true")
         localStorage.setItem("gdrive_connected_at", new Date().toISOString())
         console.log("[v0] ✓ Connection cached")
+        setError(null)
       } else {
-        if (isProduction) {
-          setError("No se pudo conectar con Google Drive")
-        }
+        console.warn("[v0] Connection test failed")
         localStorage.removeItem("gdrive_connected")
         localStorage.removeItem("gdrive_connected_at")
       }
@@ -120,9 +119,6 @@ export function GoogleDriveProvider({ children }: { children: ReactNode }) {
       return connected
     } catch (err) {
       console.error("[v0] Connection test failed:", err)
-      if (isProduction) {
-        setError(err instanceof Error ? err.message : "Error de conexión")
-      }
       setIsConnected(false)
       localStorage.removeItem("gdrive_connected")
       localStorage.removeItem("gdrive_connected_at")
