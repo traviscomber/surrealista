@@ -1,57 +1,51 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { CheckCircle, XCircle, Loader2, RefreshCw, FolderOpen, FileText, AlertTriangle } from "lucide-react"
-import { driveService } from "@/lib/google-drive/drive-service"
+import { CheckCircle, XCircle, Loader2, RefreshCw, FolderOpen, FileText } from "lucide-react"
+import { useGoogleDrive } from "@/lib/contexts/google-drive-context"
+import { useState } from "react"
 
 export default function DriveConnectionStatus() {
-  const [isConnected, setIsConnected] = useState<boolean | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [connectionProgress, setConnectionProgress] = useState(0)
-  const [lastTest, setLastTest] = useState<Date | null>(null)
+  const { isConnected, isLoading, error, testConnection } = useGoogleDrive()
+  const [testProgress, setTestProgress] = useState(0)
+  const [isTesting, setIsTesting] = useState(false)
 
-  const testConnection = async () => {
-    setIsLoading(true)
-    setConnectionProgress(0)
+  const handleTestConnection = async () => {
+    setIsTesting(true)
+    setTestProgress(0)
 
-    try {
-      // Simular progreso de conexión
-      const progressInterval = setInterval(() => {
-        setConnectionProgress((prev) => {
-          if (prev >= 90) {
-            clearInterval(progressInterval)
-            return 90
-          }
-          return prev + 10
-        })
-      }, 200)
+    // Simulate progress
+    const progressInterval = setInterval(() => {
+      setTestProgress((prev) => {
+        if (prev >= 90) {
+          clearInterval(progressInterval)
+          return 90
+        }
+        return prev + 10
+      })
+    }, 200)
 
-      const connected = await driveService.testConnection()
+    await testConnection()
 
-      clearInterval(progressInterval)
-      setConnectionProgress(100)
+    clearInterval(progressInterval)
+    setTestProgress(100)
 
-      setTimeout(() => {
-        setIsConnected(connected)
-        setLastTest(new Date())
-        setIsLoading(false)
-        setConnectionProgress(0)
-      }, 500)
-    } catch (error) {
-      setIsConnected(false)
-      setLastTest(new Date())
-      setIsLoading(false)
-      setConnectionProgress(0)
-    }
+    setTimeout(() => {
+      setIsTesting(false)
+      setTestProgress(0)
+    }, 500)
   }
 
-  useEffect(() => {
-    testConnection()
-  }, [])
+  const getLastConnectionTime = () => {
+    const timestamp = localStorage.getItem("gdrive_connected_at")
+    if (timestamp) {
+      return new Date(timestamp).toLocaleString("es-CL")
+    }
+    return null
+  }
 
   return (
     <Card>
@@ -65,40 +59,39 @@ export default function DriveConnectionStatus() {
         {/* Estado de Conexión */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            {isLoading ? (
+            {isLoading || isTesting ? (
               <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
-            ) : isConnected === true ? (
+            ) : isConnected ? (
               <CheckCircle className="h-5 w-5 text-green-500" />
-            ) : isConnected === false ? (
-              <XCircle className="h-5 w-5 text-red-500" />
             ) : (
-              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+              <XCircle className="h-5 w-5 text-red-500" />
             )}
 
             <span className="font-medium">
-              {isLoading
-                ? "Probando conexión..."
-                : isConnected === true
-                  ? "Conectado"
-                  : isConnected === false
-                    ? "Error de conexión"
-                    : "Sin probar"}
+              {isLoading || isTesting ? "Probando conexión..." : isConnected ? "Conectado" : "Desconectado"}
             </span>
           </div>
 
-          <Badge variant={isConnected === true ? "default" : isConnected === false ? "destructive" : "secondary"}>
-            {isConnected === true ? "Activo" : isConnected === false ? "Error" : "Pendiente"}
+          <Badge variant={isConnected ? "default" : "destructive"}>
+            {isConnected ? "Activo" : error ? "Error" : "Inactivo"}
           </Badge>
         </div>
 
         {/* Progreso de Conexión */}
-        {isLoading && (
+        {isTesting && (
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span>Probando API...</span>
-              <span>{connectionProgress}%</span>
+              <span>{testProgress}%</span>
             </div>
-            <Progress value={connectionProgress} className="h-2" />
+            <Progress value={testProgress} className="h-2" />
+          </div>
+        )}
+
+        {/* Error Message */}
+        {error && (
+          <div className="bg-red-50 p-3 rounded-lg">
+            <p className="text-sm text-red-700">{error}</p>
           </div>
         )}
 
@@ -110,13 +103,15 @@ export default function DriveConnectionStatus() {
             <code className="bg-white px-2 py-1 rounded text-xs">AIzaSyB6...XyjHTU</code>
           </div>
 
-          {lastTest && <div className="text-xs text-gray-600">Última prueba: {lastTest.toLocaleString("es-CL")}</div>}
+          {getLastConnectionTime() && (
+            <div className="text-xs text-gray-600">Última conexión: {getLastConnectionTime()}</div>
+          )}
         </div>
 
         {/* Acciones */}
         <div className="flex gap-2">
-          <Button onClick={testConnection} disabled={isLoading} size="sm" variant="outline">
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+          <Button onClick={handleTestConnection} disabled={isLoading || isTesting} size="sm" variant="outline">
+            <RefreshCw className={`h-4 w-4 mr-2 ${isTesting ? "animate-spin" : ""}`} />
             Probar Conexión
           </Button>
 

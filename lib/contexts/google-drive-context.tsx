@@ -15,6 +15,8 @@ interface GoogleDriveContextType {
 
 const GoogleDriveContext = createContext<GoogleDriveContextType | undefined>(undefined)
 
+const CONNECTION_PERSISTENCE_MS = 30 * 60 * 1000 // 30 minutes
+
 export function GoogleDriveProvider({ children }: { children: ReactNode }) {
   const [isConnected, setIsConnected] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -30,22 +32,53 @@ export function GoogleDriveProvider({ children }: { children: ReactNode }) {
     const initializeDrive = async () => {
       try {
         console.log("[v0] Initializing Google Drive connection...")
+        console.log("[v0] Environment:", {
+          isProduction,
+          hostname: typeof window !== "undefined" ? window.location.hostname : "server",
+        })
         setIsLoading(true)
         setError(null)
 
+        const storedConnection = localStorage.getItem("gdrive_connected")
+        const storedTimestamp = localStorage.getItem("gdrive_connected_at")
+
+        console.log("[v0] Cached connection status:", { storedConnection, storedTimestamp })
+
+        if (storedConnection === "true" && storedTimestamp) {
+          const connectionAge = Date.now() - new Date(storedTimestamp).getTime()
+          const ageMinutes = Math.round(connectionAge / 1000 / 60)
+
+          console.log("[v0] Connection age:", ageMinutes, "minutes")
+
+          if (connectionAge < CONNECTION_PERSISTENCE_MS) {
+            console.log("[v0] ✓ Using cached Google Drive connection (valid for", 30 - ageMinutes, "more minutes)")
+            setIsConnected(true)
+            setIsLoading(false)
+            return
+          } else {
+            console.log("[v0] Cached connection expired, will test connection...")
+          }
+        } else {
+          console.log("[v0] No cached connection found, will test connection...")
+        }
+
+        console.log("[v0] Testing Google Drive connection...")
         const connected = await driveService.testConnection()
+        console.log("[v0] Connection test result:", connected)
+
         setIsConnected(connected)
 
         if (connected) {
-          console.log("[v0] Google Drive connected successfully")
+          console.log("[v0] ✓ Google Drive connected successfully")
           localStorage.setItem("gdrive_connected", "true")
           localStorage.setItem("gdrive_connected_at", new Date().toISOString())
         } else {
-          console.error("[v0] Google Drive connection failed")
+          console.error("[v0] ✗ Google Drive connection failed")
           if (isProduction) {
             setError("Google Drive no está disponible. Verifique la configuración de OAuth 2.0.")
           }
           localStorage.removeItem("gdrive_connected")
+          localStorage.removeItem("gdrive_connected_at")
         }
       } catch (err) {
         console.error("[v0] Error initializing Google Drive:", err)
@@ -54,6 +87,7 @@ export function GoogleDriveProvider({ children }: { children: ReactNode }) {
         }
         setIsConnected(false)
         localStorage.removeItem("gdrive_connected")
+        localStorage.removeItem("gdrive_connected_at")
       } finally {
         setIsLoading(false)
       }
@@ -64,19 +98,23 @@ export function GoogleDriveProvider({ children }: { children: ReactNode }) {
 
   const testConnection = async (): Promise<boolean> => {
     try {
+      console.log("[v0] Manual connection test initiated...")
       setIsLoading(true)
       setError(null)
       const connected = await driveService.testConnection()
+      console.log("[v0] Manual test result:", connected)
       setIsConnected(connected)
 
       if (connected) {
         localStorage.setItem("gdrive_connected", "true")
         localStorage.setItem("gdrive_connected_at", new Date().toISOString())
+        console.log("[v0] ✓ Connection cached")
       } else {
         if (isProduction) {
           setError("No se pudo conectar con Google Drive")
         }
         localStorage.removeItem("gdrive_connected")
+        localStorage.removeItem("gdrive_connected_at")
       }
 
       return connected
@@ -87,6 +125,7 @@ export function GoogleDriveProvider({ children }: { children: ReactNode }) {
       }
       setIsConnected(false)
       localStorage.removeItem("gdrive_connected")
+      localStorage.removeItem("gdrive_connected_at")
       return false
     } finally {
       setIsLoading(false)
@@ -95,6 +134,8 @@ export function GoogleDriveProvider({ children }: { children: ReactNode }) {
 
   const reconnect = async (): Promise<void> => {
     console.log("[v0] Reconnecting to Google Drive...")
+    localStorage.removeItem("gdrive_connected")
+    localStorage.removeItem("gdrive_connected_at")
     await testConnection()
   }
 
