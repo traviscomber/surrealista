@@ -32,6 +32,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { PARAOrganizer, type PARAClassification } from "@/lib/para-method/para-organizer"
 import dynamic from "next/dynamic"
+import { AppHeader } from "@/components/layout/app-header"
 
 const EnhancedFolderView = dynamic(
   () => import("@/components/google-drive/enhanced-folder-view").then((mod) => ({ default: mod.EnhancedFolderView })),
@@ -743,327 +744,342 @@ export default function HomePage() {
 
   if (error && !isAuthenticated && loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
-        <div className="text-center max-w-md">
-          <AlertCircle className="h-12 w-12 text-orange-600 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Autenticación Requerida</h2>
-          <p className="text-gray-600 mb-6">Para acceder a los datos reales de Google Drive, necesita autenticarse.</p>
-          <Button onClick={loadRealData} className="bg-blue-600 hover:bg-blue-700">
-            Conectar con Google Drive
-          </Button>
+      <>
+        <AppHeader />
+        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
+          <div className="text-center max-w-md">
+            <AlertCircle className="h-12 w-12 text-orange-600 mx-auto mb-4" />
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Autenticación Requerida</h2>
+            <p className="text-gray-600 mb-6">
+              Para acceder a los datos reales de Google Drive, necesita autenticarse.
+            </p>
+            <Button onClick={loadRealData} className="bg-blue-600 hover:bg-blue-700">
+              Conectar con Google Drive
+            </Button>
+          </div>
         </div>
-      </div>
+      </>
     )
   }
 
   if (selectedFolder) {
-    return <FolderDetailView folder={selectedFolder} onBack={handleBackToList} />
+    return (
+      <>
+        <AppHeader />
+        <FolderDetailView folder={selectedFolder} onBack={handleBackToList} />
+      </>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
-      <div className="bg-white border-b border-gray-200 shadow-sm">
-        <div className="container mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                <TrendingUp className="h-8 w-8 text-blue-600" />
-                Gestión de Carpetas - Sur-Realista
-                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                  {folders.length} Carpetas {isAuthenticated ? "Reales" : "Demo"}
-                </Badge>
-                <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                  Método PARA Activo
-                </Badge>
-                {searchIndex.length > 0 && (
-                  <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                    <Database className="h-3 w-3 mr-1" />
-                    {searchIndex.length} items indexados
+    <>
+      <AppHeader />
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
+        <div className="bg-white border-b border-gray-200 shadow-sm">
+          <div className="container mx-auto px-4 py-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+                  <TrendingUp className="h-8 w-8 text-blue-600" />
+                  Gestión de Carpetas - Sur-Realista
+                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                    {folders.length} Carpetas {isAuthenticated ? "Reales" : "Demo"}
                   </Badge>
+                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                    Método PARA Activo
+                  </Badge>
+                  {searchIndex.length > 0 && (
+                    <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
+                      <Database className="h-3 w-3 mr-1" />
+                      {searchIndex.length} items indexados
+                    </Badge>
+                  )}
+                </h1>
+                <p className="text-gray-600 mt-1">
+                  {isAuthenticated ? "Datos reales desde Google Drive" : "Datos de demostración"} - Casos de éxito
+                  procesados con metodología PARA
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => window.open("/admin/file-explorer", "_blank")}
+                  variant="outline"
+                  size="sm"
+                  className="bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
+                >
+                  <Settings className="h-4 w-4 mr-2" />
+                  Explorador de Archivos
+                </Button>
+                {!isAuthenticated && (
+                  <Button onClick={loadRealData} variant="outline" size="sm">
+                    Conectar Google Drive
+                  </Button>
                 )}
-              </h1>
-              <p className="text-gray-600 mt-1">
-                {isAuthenticated ? "Datos reales desde Google Drive" : "Datos de demostración"} - Casos de éxito
-                procesados con metodología PARA
-              </p>
+                <Button onClick={loadRealData} variant="outline" size="sm" disabled={loading}>
+                  <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
+                  {loading ? "Cargando..." : "Actualizar"}
+                </Button>
+              </div>
             </div>
-            <div className="flex gap-2">
+          </div>
+        </div>
+
+        {indexingProgress.isIndexing && (
+          <div className="bg-blue-50 border-b border-blue-200">
+            <div className="container mx-auto px-4 py-4">
+              <div className="flex items-center gap-4">
+                <RefreshCw className="h-5 w-5 animate-spin text-blue-600" />
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-sm font-medium text-blue-900">
+                      Indexando carpetas y archivos: {indexingProgress.currentFolder}
+                    </p>
+                    <p className="text-sm text-blue-700">
+                      {indexingProgress.foldersProcessed} carpetas • {indexingProgress.filesProcessed} archivos
+                    </p>
+                  </div>
+                  <Progress value={indexingProgress.totalProgress} className="h-2" />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="container mx-auto px-4 py-4">
+          <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200 p-4 mb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-1">Organización de Archivos</h3>
+                <p className="text-sm text-gray-600">
+                  Accede al explorador completo para ver todos los archivos y carpetas del proyecto
+                </p>
+              </div>
               <Button
-                onClick={() => window.open("/admin/file-explorer", "_blank")}
-                variant="outline"
-                size="sm"
-                className="bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
+                onClick={() => (window.location.href = "/admin/file-explorer")}
+                className="bg-purple-600 hover:bg-purple-700"
               >
                 <Settings className="h-4 w-4 mr-2" />
-                Explorador de Archivos
+                Ver Explorador
               </Button>
-              {!isAuthenticated && (
-                <Button onClick={loadRealData} variant="outline" size="sm">
-                  Conectar Google Drive
+            </div>
+          </div>
+        </div>
+
+        <div className="container mx-auto px-4 py-8">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Proyectos Activos</p>
+                  <p className="text-3xl font-bold text-red-600">{paraStats.projects}</p>
+                  <p className="text-xs text-gray-500 mt-1">Con fechas límite</p>
+                </div>
+                <TrendingUp className="h-8 w-8 text-red-500" />
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Áreas Responsabilidad</p>
+                  <p className="text-3xl font-bold text-blue-600">{paraStats.areas}</p>
+                  <p className="text-xs text-gray-500 mt-1">Actividades continuas</p>
+                </div>
+                <Building className="h-8 w-8 text-blue-500" />
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Recursos Referencia</p>
+                  <p className="text-3xl font-bold text-green-600">{paraStats.resources}</p>
+                  <p className="text-xs text-gray-500 mt-1">Para consulta futura</p>
+                </div>
+                <BookOpen className="h-8 w-8 text-green-500" />
+              </div>
+            </div>
+
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-600">Archivo</p>
+                  <p className="text-3xl font-bold text-gray-600">{paraStats.archive}</p>
+                  <p className="text-xs text-gray-500 mt-1">Casos completados</p>
+                </div>
+                <Archive className="h-8 w-8 text-gray-500" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+            <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
+              <div className="flex flex-col sm:flex-row gap-4 flex-1">
+                <div className="relative flex-1 max-w-md">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input
+                    placeholder="Buscar en todas las carpetas y archivos..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Estado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos los estados</SelectItem>
+                    <SelectItem value="complete">Completo</SelectItem>
+                    <SelectItem value="processing">Procesando</SelectItem>
+                    <SelectItem value="pending">Pendiente</SelectItem>
+                    <SelectItem value="incomplete">Incompleto</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={locationFilter} onValueChange={setLocationFilter}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Ubicación" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas las ubicaciones</SelectItem>
+                    {uniqueLocations.map((location) => (
+                      <SelectItem key={location} value={location}>
+                        {location}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Ordenar por" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="name">Nombre</SelectItem>
+                    <SelectItem value="files">Archivos</SelectItem>
+                    <SelectItem value="completion">Completitud</SelectItem>
+                    <SelectItem value="date">Fecha</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant={viewMode === "grid" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setViewMode("grid")}
+                >
+                  <Grid className="h-4 w-4" />
                 </Button>
-              )}
-              <Button onClick={loadRealData} variant="outline" size="sm" disabled={loading}>
-                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-                {loading ? "Cargando..." : "Actualizar"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {indexingProgress.isIndexing && (
-        <div className="bg-blue-50 border-b border-blue-200">
-          <div className="container mx-auto px-4 py-4">
-            <div className="flex items-center gap-4">
-              <RefreshCw className="h-5 w-5 animate-spin text-blue-600" />
-              <div className="flex-1">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-medium text-blue-900">
-                    Indexando carpetas y archivos: {indexingProgress.currentFolder}
-                  </p>
-                  <p className="text-sm text-blue-700">
-                    {indexingProgress.foldersProcessed} carpetas • {indexingProgress.filesProcessed} archivos
-                  </p>
-                </div>
-                <Progress value={indexingProgress.totalProgress} className="h-2" />
+                <Button
+                  variant={viewMode === "list" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setViewMode("list")}
+                >
+                  <List className="h-4 w-4" />
+                </Button>
               </div>
             </div>
           </div>
-        </div>
-      )}
 
-      <div className="container mx-auto px-4 py-4">
-        <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200 p-4 mb-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-semibold text-gray-900 mb-1">Organización de Archivos</h3>
-              <p className="text-sm text-gray-600">
-                Accede al explorador completo para ver todos los archivos y carpetas del proyecto
-              </p>
-            </div>
-            <Button
-              onClick={() => (window.location.href = "/admin/file-explorer")}
-              className="bg-purple-600 hover:bg-purple-700"
-            >
-              <Settings className="h-4 w-4 mr-2" />
-              Ver Explorador
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Proyectos Activos</p>
-                <p className="text-3xl font-bold text-red-600">{paraStats.projects}</p>
-                <p className="text-xs text-gray-500 mt-1">Con fechas límite</p>
-              </div>
-              <TrendingUp className="h-8 w-8 text-red-500" />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Áreas Responsabilidad</p>
-                <p className="text-3xl font-bold text-blue-600">{paraStats.areas}</p>
-                <p className="text-xs text-gray-500 mt-1">Actividades continuas</p>
-              </div>
-              <Building className="h-8 w-8 text-blue-500" />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Recursos Referencia</p>
-                <p className="text-3xl font-bold text-green-600">{paraStats.resources}</p>
-                <p className="text-xs text-gray-500 mt-1">Para consulta futura</p>
-              </div>
-              <BookOpen className="h-8 w-8 text-green-500" />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Archivo</p>
-                <p className="text-3xl font-bold text-gray-600">{paraStats.archive}</p>
-                <p className="text-xs text-gray-500 mt-1">Casos completados</p>
-              </div>
-              <Archive className="h-8 w-8 text-gray-500" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-          <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
-            <div className="flex flex-col sm:flex-row gap-4 flex-1">
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                <Input
-                  placeholder="Buscar en todas las carpetas y archivos..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Estado" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todos los estados</SelectItem>
-                  <SelectItem value="complete">Completo</SelectItem>
-                  <SelectItem value="processing">Procesando</SelectItem>
-                  <SelectItem value="pending">Pendiente</SelectItem>
-                  <SelectItem value="incomplete">Incompleto</SelectItem>
-                </SelectContent>
-              </Select>
-
-              <Select value={locationFilter} onValueChange={setLocationFilter}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Ubicación" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas las ubicaciones</SelectItem>
-                  {uniqueLocations.map((location) => (
-                    <SelectItem key={location} value={location}>
-                      {location}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={sortBy} onValueChange={setSortBy}>
-                <SelectTrigger className="w-40">
-                  <SelectValue placeholder="Ordenar por" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="name">Nombre</SelectItem>
-                  <SelectItem value="files">Archivos</SelectItem>
-                  <SelectItem value="completion">Completitud</SelectItem>
-                  <SelectItem value="date">Fecha</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button
-                variant={viewMode === "grid" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setViewMode("grid")}
-              >
-                <Grid className="h-4 w-4" />
-              </Button>
-              <Button
-                variant={viewMode === "list" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setViewMode("list")}
-              >
-                <List className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {searchResults && searchResults.total > 0 && (
-          <div className="bg-blue-50 rounded-lg border border-blue-200 p-4 mb-6">
-            <h3 className="font-semibold text-blue-900 mb-3">
-              Resultados de búsqueda: {searchResults.total} items encontrados
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {searchResults.folders.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-medium text-blue-800 mb-2 flex items-center gap-2">
-                    <Folder className="h-4 w-4" />
-                    Carpetas ({searchResults.folders.length})
-                  </h4>
-                  <div className="space-y-1 max-h-48 overflow-y-auto">
-                    {searchResults.folders.slice(0, 10).map((item) => (
-                      <div key={item.id} className="text-sm text-blue-700 bg-white rounded px-2 py-1">
-                        {item.path}
-                      </div>
-                    ))}
-                    {searchResults.folders.length > 10 && (
-                      <p className="text-xs text-blue-600 italic">
-                        +{searchResults.folders.length - 10} carpetas más...
-                      </p>
-                    )}
+          {searchResults && searchResults.total > 0 && (
+            <div className="bg-blue-50 rounded-lg border border-blue-200 p-4 mb-6">
+              <h3 className="font-semibold text-blue-900 mb-3">
+                Resultados de búsqueda: {searchResults.total} items encontrados
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {searchResults.folders.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium text-blue-800 mb-2 flex items-center gap-2">
+                      <Folder className="h-4 w-4" />
+                      Carpetas ({searchResults.folders.length})
+                    </h4>
+                    <div className="space-y-1 max-h-48 overflow-y-auto">
+                      {searchResults.folders.slice(0, 10).map((item) => (
+                        <div key={item.id} className="text-sm text-blue-700 bg-white rounded px-2 py-1">
+                          {item.path}
+                        </div>
+                      ))}
+                      {searchResults.folders.length > 10 && (
+                        <p className="text-xs text-blue-600 italic">
+                          +{searchResults.folders.length - 10} carpetas más...
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
-              {searchResults.files.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-medium text-blue-800 mb-2 flex items-center gap-2">
-                    <FileText className="h-4 w-4" />
-                    Archivos ({searchResults.files.length})
-                  </h4>
-                  <div className="space-y-1 max-h-48 overflow-y-auto">
-                    {searchResults.files.slice(0, 10).map((item) => (
-                      <div key={item.id} className="text-sm text-blue-700 bg-white rounded px-2 py-1">
-                        {item.path}
-                      </div>
-                    ))}
-                    {searchResults.files.length > 10 && (
-                      <p className="text-xs text-blue-600 italic">+{searchResults.files.length - 10} archivos más...</p>
-                    )}
+                )}
+                {searchResults.files.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium text-blue-800 mb-2 flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Archivos ({searchResults.files.length})
+                    </h4>
+                    <div className="space-y-1 max-h-48 overflow-y-auto">
+                      {searchResults.files.slice(0, 10).map((item) => (
+                        <div key={item.id} className="text-sm text-blue-700 bg-white rounded px-2 py-1">
+                          {item.path}
+                        </div>
+                      ))}
+                      {searchResults.files.length > 10 && (
+                        <p className="text-xs text-blue-600 italic">
+                          +{searchResults.files.length - 10} archivos más...
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        <div
-          className={
-            viewMode === "grid"
-              ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8"
-              : "space-y-4 mb-8"
-          }
-        >
-          {paginatedFolders.map((folder) => (
-            <FolderCard key={folder.id} folder={folder} viewMode={viewMode} onViewDetails={handleViewDetails} />
-          ))}
+          <div
+            className={
+              viewMode === "grid"
+                ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8"
+                : "space-y-4 mb-8"
+            }
+          >
+            {paginatedFolders.map((folder) => (
+              <FolderCard key={folder.id} folder={folder} viewMode={viewMode} onViewDetails={handleViewDetails} />
+            ))}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+              <div className="text-sm text-gray-600">
+                Mostrando {(currentPage - 1) * itemsPerPage + 1} a{" "}
+                {Math.min(currentPage * itemsPerPage, filteredAndSortedFolders.length)} de{" "}
+                {filteredAndSortedFolders.length} carpetas
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  Anterior
+                </Button>
+                <span className="text-sm text-gray-600">
+                  Página {currentPage} de {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Siguiente
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
-
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-            <div className="text-sm text-gray-600">
-              Mostrando {(currentPage - 1) * itemsPerPage + 1} a{" "}
-              {Math.min(currentPage * itemsPerPage, filteredAndSortedFolders.length)} de{" "}
-              {filteredAndSortedFolders.length} carpetas
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                disabled={currentPage === 1}
-              >
-                <ChevronLeft className="h-4 w-4" />
-                Anterior
-              </Button>
-              <span className="text-sm text-gray-600">
-                Página {currentPage} de {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                disabled={currentPage === totalPages}
-              >
-                Siguiente
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        )}
       </div>
-    </div>
+    </>
   )
 }

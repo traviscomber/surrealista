@@ -55,6 +55,8 @@
     "geist": "^1.3.1",
     "input-otp": "1.4.1",
     "isomorphic-dompurify": "latest",
+    "jspdf": "latest",
+    "jspdf-autotable": "latest",
     "jszip": "latest",
     "lucide-react": "^0.454.0",
     "next": "15.2.4",
