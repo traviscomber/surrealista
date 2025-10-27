@@ -848,15 +848,33 @@ export default function HomePage() {
         <div className="container mx-auto px-4 py-4">
           <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200 p-4 mb-4">
             <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-semibold text-gray-900 mb-1">Organización de Archivos</h3>
-                <p className="text-sm text-gray-600">
-                  Accede al explorador completo para ver todos los archivos y carpetas del proyecto
+              <div className="flex-1">
+                <h3 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                  <Database className="h-5 w-5 text-purple-600" />
+                  Archivos Indexados de Google Drive
+                </h3>
+                <p className="text-sm text-gray-600 mb-2">
+                  {searchIndex.length > 0
+                    ? `${searchIndex.length} archivos y carpetas indexados desde Google Drive`
+                    : "Indexando archivos de Google Drive..."}
                 </p>
+                {searchIndex.length > 0 && (
+                  <div className="flex items-center gap-4 text-xs text-gray-500">
+                    <span className="flex items-center gap-1">
+                      <Folder className="h-3 w-3" />
+                      {searchIndex.filter((item) => item.type === "folder").length} carpetas
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <FileText className="h-3 w-3" />
+                      {searchIndex.filter((item) => item.type === "file").length} archivos
+                    </span>
+                  </div>
+                )}
               </div>
               <Button
                 onClick={() => (window.location.href = "/admin/file-explorer")}
                 className="bg-purple-600 hover:bg-purple-700"
+                disabled={searchIndex.length === 0}
               >
                 <Settings className="h-4 w-4 mr-2" />
                 Ver Explorador
