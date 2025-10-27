@@ -1,86 +1,21 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ChevronRight, ChevronDown, File, Folder, Search } from "lucide-react"
+import { ChevronRight, ChevronDown, File, Folder, Search, Loader2 } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import { driveService } from "@/lib/google-drive/drive-service"
 
 interface FileNode {
   name: string
   type: "file" | "folder"
   path: string
+  id?: string
   children?: FileNode[]
   size?: number
   modified?: string
 }
-
-// Mock data structure - in real implementation, this would come from your file system
-const mockFileStructure: FileNode[] = [
-  {
-    name: "app",
-    type: "folder",
-    path: "/app",
-    children: [
-      {
-        name: "(dashboard)",
-        type: "folder",
-        path: "/app/(dashboard)",
-        children: [{ name: "admin", type: "folder", path: "/app/(dashboard)/admin" }],
-      },
-      {
-        name: "(features)",
-        type: "folder",
-        path: "/app/(features)",
-        children: [
-          { name: "ai", type: "folder", path: "/app/(features)/ai" },
-          { name: "properties", type: "folder", path: "/app/(features)/properties" },
-        ],
-      },
-      {
-        name: "api",
-        type: "folder",
-        path: "/app/api",
-        children: [{ name: "v1", type: "folder", path: "/app/api/v1" }],
-      },
-      { name: "layout.tsx", type: "file", path: "/app/layout.tsx", size: 1024 },
-      { name: "globals.css", type: "file", path: "/app/globals.css", size: 2048 },
-    ],
-  },
-  {
-    name: "components",
-    type: "folder",
-    path: "/components",
-    children: [
-      { name: "admin", type: "folder", path: "/components/admin" },
-      { name: "ai-features", type: "folder", path: "/components/ai-features" },
-      { name: "auth", type: "folder", path: "/components/auth" },
-      { name: "properties", type: "folder", path: "/components/properties" },
-      { name: "ui", type: "folder", path: "/components/ui" },
-    ],
-  },
-  {
-    name: "lib",
-    type: "folder",
-    path: "/lib",
-    children: [
-      { name: "agents", type: "folder", path: "/lib/agents" },
-      { name: "ai", type: "folder", path: "/lib/ai" },
-      { name: "services", type: "folder", path: "/lib/services" },
-      { name: "supabase", type: "folder", path: "/lib/supabase" },
-      { name: "utils", type: "folder", path: "/lib/utils" },
-    ],
-  },
-  {
-    name: "scripts",
-    type: "folder",
-    path: "/scripts",
-    children: [
-      { name: "migrations", type: "folder", path: "/scripts/migrations" },
-      { name: "imports", type: "folder", path: "/scripts/imports" },
-    ],
-  },
-]
 
 interface FileTreeProps {
   nodes: FileNode[]
@@ -149,6 +84,8 @@ function FileTree({ nodes, level = 0, searchTerm = "" }: FileTreeProps) {
 
 export default function FileExplorer() {
   const [searchTerm, setSearchTerm] = useState("")
+  const [fileStructure, setFileStructure] = useState<FileNode[]>([])
+  const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({
     totalFiles: 0,
     totalFolders: 0,
@@ -179,14 +116,83 @@ export default function FileExplorer() {
   }
 
   useEffect(() => {
-    const { files, folders, size } = countNodes(mockFileStructure)
-    setStats({ totalFiles: files, totalFolders: folders, totalSize: size })
+    const loadGoogleDriveFiles = async () => {
+      try {
+        setLoading(true)
+
+        // Obtener carpetas raíz de Google Drive
+        const folders = await driveService.listFolders()
+
+        // Convertir estructura de Google Drive a FileNode
+        const convertToFileNode = async (folder: any): Promise<FileNode> => {
+          const node: FileNode = {
+            name: folder.name,
+            type: "folder",
+            path: `/${folder.name}`,
+            id: folder.id,
+            children: [],
+          }
+
+          // Obtener archivos y subcarpetas
+          try {
+            const [files, subfolders] = await Promise.all([
+              driveService.listFiles(folder.id),
+              driveService.listFolders(folder.id),
+            ])
+
+            // Agregar archivos
+            if (files && files.length > 0) {
+              node.children = files.map((file: any) => ({
+                name: file.name,
+                type: "file" as const,
+                path: `${node.path}/${file.name}`,
+                id: file.id,
+                size: file.size ? Number.parseInt(file.size) : 0,
+                modified: file.modifiedTime,
+              }))
+            }
+
+            // Agregar subcarpetas (solo primer nivel para evitar carga excesiva)
+            if (subfolders && subfolders.length > 0) {
+              const subfolderNodes = subfolders.map((subfolder: any) => ({
+                name: subfolder.name,
+                type: "folder" as const,
+                path: `${node.path}/${subfolder.name}`,
+                id: subfolder.id,
+                children: [], // No cargar recursivamente para mejor rendimiento
+              }))
+              node.children = [...(node.children || []), ...subfolderNodes]
+            }
+          } catch (error) {
+            console.error(`Error loading contents for folder ${folder.name}:`, error)
+          }
+
+          return node
+        }
+
+        // Convertir todas las carpetas raíz
+        const rootNodes = await Promise.all(folders.map(convertToFileNode))
+        setFileStructure(rootNodes)
+
+        // Calcular estadísticas
+        const { files, folders: folderCount, size } = countNodes(rootNodes)
+        setStats({ totalFiles: files, totalFolders: folderCount, totalSize: size })
+      } catch (error) {
+        console.error("Error loading Google Drive files:", error)
+        // En caso de error, mostrar mensaje
+        setFileStructure([])
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadGoogleDriveFiles()
   }, [])
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-2xl font-bold">Explorador de Archivos</h2>
+        <h2 className="text-2xl font-bold">Explorador de Archivos - Google Drive</h2>
         <div className="flex gap-4 text-sm text-muted-foreground">
           <span>{stats.totalFiles} archivos</span>
           <span>{stats.totalFolders} carpetas</span>
@@ -209,41 +215,55 @@ export default function FileExplorer() {
 
       <Card className="p-4">
         <div className="max-h-[600px] overflow-y-auto">
-          <FileTree nodes={mockFileStructure} searchTerm={searchTerm} />
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-muted-foreground">Cargando archivos de Google Drive...</span>
+            </div>
+          ) : fileStructure.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <p>No se encontraron archivos en Google Drive</p>
+              <p className="text-sm mt-2">Verifica la conexión con Google Drive</p>
+            </div>
+          ) : (
+            <FileTree nodes={fileStructure} searchTerm={searchTerm} />
+          )}
         </div>
       </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="p-4">
-          <h3 className="font-semibold mb-2">Sugerencias de Organización</h3>
+          <h3 className="font-semibold mb-2">Archivos Indexados</h3>
           <ul className="text-sm space-y-1 text-muted-foreground">
-            <li>• Agrupar componentes por funcionalidad</li>
-            <li>• Separar lógica de negocio de UI</li>
-            <li>• Usar nombres consistentes (ES/EN)</li>
-            <li>• Limitar profundidad a 3 niveles</li>
+            <li>• Carpetas raíz de Google Drive</li>
+            <li>• Archivos y subcarpetas</li>
+            <li>• Sincronizado con Drive</li>
+            <li>• Búsqueda en tiempo real</li>
           </ul>
         </Card>
 
         <Card className="p-4">
-          <h3 className="font-semibold mb-2">Archivos Más Grandes</h3>
+          <h3 className="font-semibold mb-2">Estadísticas</h3>
           <ul className="text-sm space-y-1 text-muted-foreground">
-            <li>• globals.css (2.0KB)</li>
-            <li>• layout.tsx (1.0KB)</li>
-            <li>• Revisar archivos grandes</li>
+            <li>• {stats.totalFiles} archivos totales</li>
+            <li>• {stats.totalFolders} carpetas totales</li>
+            <li>• {(stats.totalSize / 1024 / 1024).toFixed(2)} MB en total</li>
           </ul>
         </Card>
 
         <Card className="p-4">
           <h3 className="font-semibold mb-2">Acciones Rápidas</h3>
           <div className="space-y-2">
-            <Button variant="outline" size="sm" className="w-full bg-transparent">
-              Reorganizar Carpetas
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full bg-transparent"
+              onClick={() => window.location.reload()}
+            >
+              Recargar Archivos
             </Button>
             <Button variant="outline" size="sm" className="w-full bg-transparent">
-              Limpiar Archivos
-            </Button>
-            <Button variant="outline" size="sm" className="w-full bg-transparent">
-              Generar Índice
+              Ir a Google Drive
             </Button>
           </div>
         </Card>
