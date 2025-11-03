@@ -4,7 +4,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { NotificationBell } from "@/components/notifications/notification-bell"
 import { useAuth } from "@/lib/hooks/use-auth"
-import { Building2, Menu, Plus } from "lucide-react"
+import { Building2, Menu, Plus, ListTodo } from "lucide-react"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 
 export function AppHeader() {
@@ -22,6 +22,13 @@ export function AppHeader() {
           <nav className="hidden md:flex items-center gap-6">
             <Link href="/" className="text-sm font-medium transition-colors hover:text-primary">
               Inicio
+            </Link>
+            <Link
+              href="/busqueda"
+              className="text-sm font-medium transition-colors hover:text-primary flex items-center gap-1"
+            >
+              <ListTodo className="h-4 w-4" />
+              Tareas
             </Link>
             <Link
               href="/nueva-tarea"
@@ -55,6 +62,13 @@ export function AppHeader() {
               <nav className="flex flex-col gap-4 mt-8">
                 <Link href="/" className="text-sm font-medium transition-colors hover:text-primary">
                   Inicio
+                </Link>
+                <Link
+                  href="/busqueda"
+                  className="text-sm font-medium transition-colors hover:text-primary flex items-center gap-1"
+                >
+                  <ListTodo className="h-4 w-4" />
+                  Tareas
                 </Link>
                 <Link
                   href="/nueva-tarea"

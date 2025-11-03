@@ -77,7 +77,7 @@ interface Task {
 
 export default function UnifiedSearchPage() {
   const [searchTerm, setSearchTerm] = useState("")
-  const [activeTab, setActiveTab] = useState("campos")
+  const [activeTab, setActiveTab] = useState("tareas") // Changed default active tab from "campos" to "tareas"
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [selectedCampo, setSelectedCampo] = useState<Campo | null>(null)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
@@ -761,9 +761,9 @@ export default function UnifiedSearchPage() {
 
           {/* Tareas Tab */}
           <TabsContent value="tareas">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Tasks List */}
-              <div className="lg:col-span-1 space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Tasks List - Now takes more space */}
+              <div className="space-y-4">
                 <Card>
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
@@ -776,77 +776,85 @@ export default function UnifiedSearchPage() {
                       <Plus className="h-4 w-4 mr-2" />
                       Nueva Tarea
                     </Button>
-                    {tasks.map((task) => (
-                      <div
-                        key={task.id}
-                        onClick={() => handleTaskClick(task)}
-                        className={`p-3 border rounded-lg hover:bg-blue-50 cursor-pointer transition-colors ${
-                          selectedTask?.id === task.id ? "bg-blue-100 border-blue-500" : ""
-                        }`}
-                      >
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex-1">
-                            <p className="font-medium text-sm">{task.title}</p>
-                            {task.description && <p className="text-xs text-gray-600 mt-1">{task.description}</p>}
-                            {task.location && (
-                              <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-                                <MapPin className="h-3 w-3" />
-                                {task.location}
-                              </p>
+                    <div className="max-h-[700px] overflow-y-auto space-y-2 pr-2">
+                      {tasks.map((task) => (
+                        <div
+                          key={task.id}
+                          onClick={() => handleTaskClick(task)}
+                          className={`p-4 border rounded-lg hover:bg-blue-50 cursor-pointer transition-colors ${
+                            selectedTask?.id === task.id ? "bg-blue-100 border-blue-500" : ""
+                          }`}
+                        >
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex-1">
+                              <p className="font-medium">{task.title}</p>
+                              {task.description && (
+                                <p className="text-sm text-gray-600 mt-1 line-clamp-2">{task.description}</p>
+                              )}
+                              {task.location && (
+                                <p className="text-sm text-gray-500 flex items-center gap-1 mt-2">
+                                  <MapPin className="h-4 w-4" />
+                                  {task.location}
+                                </p>
+                              )}
+                            </div>
+                            <Badge
+                              className={
+                                task.priority === "urgent" || task.priority === "high"
+                                  ? "bg-red-100 text-red-700"
+                                  : task.priority === "medium"
+                                    ? "bg-yellow-100 text-yellow-700"
+                                    : "bg-green-100 text-green-700"
+                              }
+                            >
+                              {task.priority === "urgent" || task.priority === "high"
+                                ? "Urgente"
+                                : task.priority === "medium"
+                                  ? "Media"
+                                  : "Baja"}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge
+                              variant="outline"
+                              className={
+                                task.status === "completed"
+                                  ? "bg-green-50 text-green-700"
+                                  : task.status === "in_progress"
+                                    ? "bg-blue-50 text-blue-700"
+                                    : "bg-gray-50 text-gray-700"
+                              }
+                            >
+                              {task.status === "completed"
+                                ? "Completada"
+                                : task.status === "in_progress"
+                                  ? "En progreso"
+                                  : "Pendiente"}
+                            </Badge>
+                            {task.due_date && (
+                              <span className="text-sm text-gray-500 flex items-center gap-1">
+                                <Calendar className="h-4 w-4" />
+                                {new Date(task.due_date).toLocaleDateString()}
+                              </span>
                             )}
                           </div>
-                          <Badge
-                            className={
-                              task.priority === "urgent" || task.priority === "high"
-                                ? "bg-red-100 text-red-700"
-                                : task.priority === "medium"
-                                  ? "bg-yellow-100 text-yellow-700"
-                                  : "bg-green-100 text-green-700"
-                            }
-                          >
-                            {task.priority === "urgent" || task.priority === "high"
-                              ? "Urgente"
-                              : task.priority === "medium"
-                                ? "Media"
-                                : "Baja"}
-                          </Badge>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Badge
-                            variant="outline"
-                            className={
-                              task.status === "completed"
-                                ? "bg-green-50 text-green-700"
-                                : task.status === "in_progress"
-                                  ? "bg-blue-50 text-blue-700"
-                                  : "bg-gray-50 text-gray-700"
-                            }
-                          >
-                            {task.status === "completed"
-                              ? "Completada"
-                              : task.status === "in_progress"
-                                ? "En progreso"
-                                : "Pendiente"}
-                          </Badge>
-                          {task.due_date && (
-                            <span className="text-xs text-gray-500 flex items-center gap-1">
-                              <Calendar className="h-3 w-3" />
-                              {new Date(task.due_date).toLocaleDateString()}
-                            </span>
-                          )}
+                      ))}
+                      {tasks.length === 0 && (
+                        <div className="text-center py-12">
+                          <CheckSquare className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                          <p className="text-gray-500 font-medium">No hay tareas creadas</p>
+                          <p className="text-sm text-gray-400 mt-1">Crea tu primera tarea usando el botón de arriba</p>
                         </div>
-                      </div>
-                    ))}
-                    {tasks.length === 0 && (
-                      <p className="text-sm text-gray-500 text-center py-4">No hay tareas creadas</p>
-                    )}
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               </div>
 
-              {/* Task Details and Map */}
-              <div className="lg:col-span-2 space-y-4">
-                {selectedTask && (
+              {/* Task Details Panel - Now takes equal space */}
+              <div className="space-y-4">
+                {selectedTask ? (
                   <TaskActionsPanel
                     task={selectedTask}
                     onTaskUpdated={loadTasks}
@@ -855,30 +863,17 @@ export default function UnifiedSearchPage() {
                       loadTasks()
                     }}
                   />
+                ) : (
+                  <Card className="h-full min-h-[400px]">
+                    <CardContent className="flex flex-col items-center justify-center h-full py-12">
+                      <CheckSquare className="h-16 w-16 text-gray-300 mb-4" />
+                      <p className="text-gray-500 font-medium text-lg">Selecciona una tarea</p>
+                      <p className="text-sm text-gray-400 mt-2 text-center max-w-sm">
+                        Haz clic en una tarea de la lista para ver sus detalles y opciones de gestión
+                      </p>
+                    </CardContent>
+                  </Card>
                 )}
-
-                <Card className="h-[600px]">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Map className="h-5 w-5" />
-                      Ubicaciones de Tareas
-                      {selectedTask && (
-                        <Badge variant="outline" className="ml-auto">
-                          {selectedTask.title}
-                        </Badge>
-                      )}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="h-full">
-                    <div className="h-[500px] w-full rounded-xl overflow-hidden relative z-0">
-                      <KMZMapDisplay
-                        kmzFiles={[]}
-                        height="500px"
-                        centerCoordinates={getTaskCoordinates(selectedTask) || undefined}
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
               </div>
             </div>
           </TabsContent>

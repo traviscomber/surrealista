@@ -100,17 +100,22 @@ export default function NuevaTareaPage() {
     try {
       const supabase = createClient()
 
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser()
+      let createdBy = "system"
+      try {
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser()
 
-      if (userError || !user) {
-        console.error("[v0] User not authenticated:", userError)
-        throw new Error("Debes iniciar sesión para crear tareas")
+        if (user) {
+          createdBy = user.email || user.id || "system"
+          console.log("[v0] Creating task as user:", createdBy)
+        } else {
+          console.log("[v0] No user logged in, creating task as system")
+        }
+      } catch (authError) {
+        console.log("[v0] Auth check failed, using system as creator:", authError)
       }
-
-      console.log("[v0] Current user:", user.email)
 
       const { data, error } = await supabase
         .from("tasks")
@@ -118,7 +123,7 @@ export default function NuevaTareaPage() {
           title: title.trim(),
           description: description.trim(),
           status: "pending",
-          created_by: user.email || user.id, // Add created_by field with user email or ID
+          created_by: createdBy,
         })
         .select()
 
