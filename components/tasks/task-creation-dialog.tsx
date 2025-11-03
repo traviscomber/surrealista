@@ -17,8 +17,10 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { createBrowserClient } from "@/lib/supabase/client"
-import { MapPin, UserPlus } from "lucide-react"
+import { MapPin, UserPlus, Mic, MicOff } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
+import { useSpeechToText } from "@/lib/hooks/use-speech-to-text"
+import { Badge } from "@/components/ui/badge"
 
 interface Task {
   id: string
@@ -78,6 +80,32 @@ export function TaskCreationDialog({
   const [selectedUsers, setSelectedUsers] = useState<string[]>([])
   const [loadingUsers, setLoadingUsers] = useState(false)
 
+  const [activeSTTField, setActiveSTTField] = useState<"title" | "description" | null>(null)
+
+  const titleSTT = useSpeechToText({
+    continuous: false,
+    lang: "es-CL",
+    onResult: (text) => {
+      setTitle((prev) => prev + " " + text)
+    },
+    onError: (error) => {
+      console.error("[v0] Title STT error:", error)
+      alert(error)
+    },
+  })
+
+  const descriptionSTT = useSpeechToText({
+    continuous: true,
+    lang: "es-CL",
+    onResult: (text) => {
+      setDescription((prev) => prev + " " + text)
+    },
+    onError: (error) => {
+      console.error("[v0] Description STT error:", error)
+      alert(error)
+    },
+  })
+
   const supabase = createBrowserClient()
 
   useEffect(() => {
@@ -135,6 +163,28 @@ export function TaskCreationDialog({
 
   const toggleUserSelection = (userId: string) => {
     setSelectedUsers((prev) => (prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]))
+  }
+
+  const toggleTitleSTT = () => {
+    if (titleSTT.isListening) {
+      titleSTT.stopListening()
+      setActiveSTTField(null)
+    } else {
+      descriptionSTT.stopListening()
+      titleSTT.startListening()
+      setActiveSTTField("title")
+    }
+  }
+
+  const toggleDescriptionSTT = () => {
+    if (descriptionSTT.isListening) {
+      descriptionSTT.stopListening()
+      setActiveSTTField(null)
+    } else {
+      titleSTT.stopListening()
+      descriptionSTT.startListening()
+      setActiveSTTField("description")
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -386,25 +436,83 @@ export function TaskCreationDialog({
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="title">Título *</Label>
-              <Input
-                id="title"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="ej: Llamar para cotizar campo Cholchol"
-                required
-              />
+              <Label htmlFor="title" className="flex items-center justify-between">
+                <span>Título *</span>
+                {!titleSTT.isSupported && (
+                  <Badge variant="outline" className="text-xs">
+                    STT no disponible en este navegador
+                  </Badge>
+                )}
+              </Label>
+              <div className="relative">
+                <Input
+                  id="title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="ej: Llamar para cotizar campo Cholchol"
+                  required
+                  className="pr-12"
+                />
+                {titleSTT.isSupported && (
+                  <Button
+                    type="button"
+                    variant={titleSTT.isListening ? "default" : "ghost"}
+                    size="sm"
+                    onClick={toggleTitleSTT}
+                    className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0"
+                    title={titleSTT.isListening ? "Detener grabación" : "Grabar con voz"}
+                  >
+                    {titleSTT.isListening ? (
+                      <MicOff className="h-4 w-4 text-red-500 animate-pulse" />
+                    ) : (
+                      <Mic className="h-4 w-4" />
+                    )}
+                  </Button>
+                )}
+              </div>
+              {titleSTT.isListening && titleSTT.interimTranscript && (
+                <p className="text-xs text-blue-600 italic">Escuchando: {titleSTT.interimTranscript}</p>
+              )}
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="description">Descripción</Label>
-              <Textarea
-                id="description"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Detalles de la tarea..."
-                rows={3}
-              />
+              <Label htmlFor="description" className="flex items-center justify-between">
+                <span>Descripción</span>
+                {descriptionSTT.isListening && (
+                  <Badge variant="default" className="text-xs animate-pulse">
+                    Grabando...
+                  </Badge>
+                )}
+              </Label>
+              <div className="relative">
+                <Textarea
+                  id="description"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Detalles de la tarea..."
+                  rows={3}
+                  className="pr-12"
+                />
+                {descriptionSTT.isSupported && (
+                  <Button
+                    type="button"
+                    variant={descriptionSTT.isListening ? "default" : "ghost"}
+                    size="sm"
+                    onClick={toggleDescriptionSTT}
+                    className="absolute right-2 top-2 h-8 w-8 p-0"
+                    title={descriptionSTT.isListening ? "Detener grabación" : "Grabar con voz"}
+                  >
+                    {descriptionSTT.isListening ? (
+                      <MicOff className="h-4 w-4 text-red-500 animate-pulse" />
+                    ) : (
+                      <Mic className="h-4 w-4" />
+                    )}
+                  </Button>
+                )}
+              </div>
+              {descriptionSTT.isListening && descriptionSTT.interimTranscript && (
+                <p className="text-xs text-blue-600 italic">Escuchando: {descriptionSTT.interimTranscript}</p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
