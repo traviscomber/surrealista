@@ -94,20 +94,48 @@ export default function NuevaTareaPage() {
     setIsSubmitting(true)
     setSubmitStatus(null)
 
+    console.log("[v0] Creating task with title:", title.trim())
+    console.log("[v0] Creating task with description:", description.trim())
+
     try {
       const supabase = createClient()
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
+
+      if (userError || !user) {
+        console.error("[v0] User not authenticated:", userError)
+        throw new Error("Debes iniciar sesión para crear tareas")
+      }
+
+      console.log("[v0] Current user:", user.email)
+
       const { data, error } = await supabase
         .from("tasks")
         .insert({
           title: title.trim(),
           description: description.trim(),
           status: "pending",
-          created_at: new Date().toISOString(),
+          created_by: user.email || user.id, // Add created_by field with user email or ID
         })
         .select()
 
-      if (error) throw error
+      console.log("[v0] Supabase response - data:", data)
+      console.log("[v0] Supabase response - error:", error)
 
+      if (error) {
+        console.error("[v0] Supabase error details:", {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        })
+        throw error
+      }
+
+      console.log("[v0] Task created successfully:", data)
       setSubmitStatus("success")
       if (data && data[0]) {
         setCreatedTaskId(data[0].id)
@@ -116,8 +144,10 @@ export default function NuevaTareaPage() {
       setDescription("")
 
       setTimeout(() => setSubmitStatus(null), 5000)
-    } catch (error) {
+    } catch (error: any) {
       console.error("[v0] Error creating task:", error)
+      console.error("[v0] Error message:", error?.message)
+      console.error("[v0] Error details:", error?.details)
       setSubmitStatus("error")
     } finally {
       setIsSubmitting(false)
