@@ -1,0 +1,374 @@
+"use client"
+
+import type React from "react"
+
+import { useState } from "react"
+import { Card } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
+import { Mic, MicOff, CheckCircle2, AlertCircle } from "lucide-react"
+import { useSpeechToText } from "@/lib/hooks/use-speech-to-text"
+import { createClient } from "@/lib/supabase/client"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+
+export default function NuevaTareaPage() {
+  const [title, setTitle] = useState("")
+  const [description, setDescription] = useState("")
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitStatus, setSubmitStatus] = useState<"success" | "error" | null>(null)
+  const [micPermission, setMicPermission] = useState<"granted" | "denied" | "prompt">("prompt")
+  const [createdTaskId, setCreatedTaskId] = useState<string | null>(null)
+  const [showAssignUsers, setShowAssignUsers] = useState(false)
+  const [users, setUsers] = useState<any[]>([])
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([])
+  const [loadingUsers, setLoadingUsers] = useState(false)
+
+  const titleSTT = useSpeechToText({
+    onResult: (text) => setTitle((prev) => prev + " " + text),
+    onError: (error) => console.error("[v0] Title STT error:", error),
+    continuous: false,
+  })
+
+  const descriptionSTT = useSpeechToText({
+    onResult: (text) => setDescription((prev) => prev + " " + text),
+    onError: (error) => console.error("[v0] Description STT error:", error),
+    continuous: true,
+  })
+
+  const checkMicrophonePermission = async () => {
+    try {
+      const result = await navigator.permissions.query({ name: "microphone" as PermissionName })
+      setMicPermission(result.state)
+
+      result.addEventListener("change", () => {
+        setMicPermission(result.state)
+      })
+    } catch (error) {
+      console.error("[v0] Error checking microphone permission:", error)
+    }
+  }
+
+  const requestMicrophoneAccess = async () => {
+    try {
+      await navigator.mediaDevices.getUserMedia({ audio: true })
+      setMicPermission("granted")
+      return true
+    } catch (error) {
+      console.error("[v0] Microphone access denied:", error)
+      setMicPermission("denied")
+      return false
+    }
+  }
+
+  const handleStartRecording = async (type: "title" | "description") => {
+    // Check if HTTPS
+    if (window.location.protocol !== "https:" && window.location.hostname !== "localhost") {
+      alert("La grabación de voz requiere una conexión HTTPS segura. Por favor, accede desde un dominio con HTTPS.")
+      return
+    }
+
+    // Request microphone permission first
+    if (micPermission !== "granted") {
+      const granted = await requestMicrophoneAccess()
+      if (!granted) {
+        alert(
+          "Se necesita permiso de micrófono para usar la grabación de voz. Por favor, permite el acceso al micrófono en la configuración de tu navegador.",
+        )
+        return
+      }
+    }
+
+    if (type === "title") {
+      titleSTT.startListening()
+    } else {
+      descriptionSTT.startListening()
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsSubmitting(true)
+    setSubmitStatus(null)
+
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from("tasks")
+        .insert({
+          title: title.trim(),
+          description: description.trim(),
+          status: "pending",
+          created_at: new Date().toISOString(),
+        })
+        .select()
+
+      if (error) throw error
+
+      setSubmitStatus("success")
+      if (data && data[0]) {
+        setCreatedTaskId(data[0].id)
+      }
+      setTitle("")
+      setDescription("")
+
+      setTimeout(() => setSubmitStatus(null), 5000)
+    } catch (error) {
+      console.error("[v0] Error creating task:", error)
+      setSubmitStatus("error")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const loadUsers = async () => {
+    setLoadingUsers(true)
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase.from("users").select("id, name, email").order("name")
+
+      if (error) throw error
+      setUsers(data || [])
+    } catch (error) {
+      console.error("[v0] Error loading users:", error)
+    } finally {
+      setLoadingUsers(false)
+    }
+  }
+
+  const handleAssignUsers = async () => {
+    if (!createdTaskId || selectedUsers.length === 0) return
+
+    try {
+      const supabase = createClient()
+      const assignments = selectedUsers.map((userId) => ({
+        task_id: createdTaskId,
+        user_id: userId,
+        assigned_at: new Date().toISOString(),
+      }))
+
+      const { error } = await supabase.from("task_assignments").insert(assignments)
+
+      if (error) throw error
+
+      alert(`Tarea asignada exitosamente a ${selectedUsers.length} usuario(s)`)
+      setShowAssignUsers(false)
+      setSelectedUsers([])
+      setCreatedTaskId(null)
+    } catch (error) {
+      console.error("[v0] Error assigning users:", error)
+      alert("Error al asignar usuarios a la tarea")
+    }
+  }
+
+  return (
+    <div className="container mx-auto p-6 max-w-2xl">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold mb-2">Nueva Tarea</h1>
+        <p className="text-muted-foreground">Crea una nueva tarea usando texto o voz</p>
+      </div>
+
+      {/* HTTPS Warning for Desktop */}
+      {window.location.protocol !== "https:" && window.location.hostname !== "localhost" && (
+        <Alert className="mb-4">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            La grabación de voz requiere HTTPS. Si tienes problemas, intenta escribir manualmente o accede desde un
+            dispositivo móvil.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Microphone Permission Status */}
+      {micPermission === "denied" && (
+        <Alert className="mb-4" variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Permiso de micrófono denegado. Por favor, habilita el micrófono en la configuración de tu navegador para
+            usar la grabación de voz.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <Card className="p-6">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Title Field */}
+          <div className="space-y-2">
+            <Label htmlFor="title">Título de la Tarea</Label>
+            <div className="flex gap-2">
+              <Input
+                id="title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Ej: Llamar al cliente sobre propiedad..."
+                required
+                className="flex-1"
+              />
+              <Button
+                type="button"
+                variant={titleSTT.isListening ? "destructive" : "outline"}
+                size="icon"
+                onClick={() => (titleSTT.isListening ? titleSTT.stopListening() : handleStartRecording("title"))}
+                title={titleSTT.isListening ? "Detener grabación" : "Grabar con voz"}
+              >
+                {titleSTT.isListening ? <MicOff className="h-4 w-4 animate-pulse" /> : <Mic className="h-4 w-4" />}
+              </Button>
+            </div>
+            {titleSTT.isListening && (
+              <p className="text-xs text-blue-600 animate-pulse">🎤 Escuchando... Habla ahora</p>
+            )}
+            {titleSTT.error && <p className="text-xs text-red-600">{titleSTT.error}</p>}
+          </div>
+
+          {/* Description Field */}
+          <div className="space-y-2">
+            <Label htmlFor="description">Descripción (Opcional)</Label>
+            <div className="space-y-2">
+              <Textarea
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Describe los detalles de la tarea..."
+                rows={4}
+                className="resize-none"
+              />
+              <Button
+                type="button"
+                variant={descriptionSTT.isListening ? "destructive" : "outline"}
+                size="sm"
+                onClick={() =>
+                  descriptionSTT.isListening ? descriptionSTT.stopListening() : handleStartRecording("description")
+                }
+                className="w-full"
+              >
+                {descriptionSTT.isListening ? (
+                  <>
+                    <MicOff className="h-4 w-4 mr-2 animate-pulse" />
+                    Detener Grabación
+                  </>
+                ) : (
+                  <>
+                    <Mic className="h-4 w-4 mr-2" />
+                    Grabar Descripción con Voz
+                  </>
+                )}
+              </Button>
+            </div>
+            {descriptionSTT.isListening && (
+              <p className="text-xs text-blue-600 animate-pulse">🎤 Escuchando... Habla ahora (modo continuo)</p>
+            )}
+            {descriptionSTT.error && <p className="text-xs text-red-600">{descriptionSTT.error}</p>}
+          </div>
+
+          {/* Submit Status */}
+          {submitStatus === "success" && (
+            <Alert>
+              <CheckCircle2 className="h-4 w-4" />
+              <AlertDescription className="flex items-center justify-between">
+                <span>Tarea creada exitosamente</span>
+                {createdTaskId && !showAssignUsers && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setShowAssignUsers(true)
+                      loadUsers()
+                    }}
+                  >
+                    Asignar Usuarios
+                  </Button>
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {submitStatus === "error" && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>Error al crear la tarea. Por favor, intenta nuevamente.</AlertDescription>
+            </Alert>
+          )}
+
+          {/* Submit Button */}
+          <Button type="submit" className="w-full" disabled={isSubmitting || !title.trim()}>
+            {isSubmitting ? "Creando..." : "Crear Tarea"}
+          </Button>
+        </form>
+      </Card>
+
+      {/* User Assignment Section */}
+      {showAssignUsers && createdTaskId && (
+        <Card className="p-4 border-blue-200 bg-blue-50 mt-6">
+          <h3 className="font-semibold mb-3">Asignar Usuarios a la Tarea</h3>
+          {loadingUsers ? (
+            <p className="text-sm text-muted-foreground">Cargando usuarios...</p>
+          ) : users.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No hay usuarios disponibles</p>
+          ) : (
+            <div className="space-y-2 max-h-[200px] overflow-y-auto mb-3">
+              {users.map((user) => (
+                <div key={user.id} className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id={`user-${user.id}`}
+                    checked={selectedUsers.includes(user.id)}
+                    onChange={() => {
+                      setSelectedUsers((prev) =>
+                        prev.includes(user.id) ? prev.filter((id) => id !== user.id) : [...prev, user.id],
+                      )
+                    }}
+                    className="rounded"
+                  />
+                  <label htmlFor={`user-${user.id}`} className="text-sm cursor-pointer">
+                    {user.name} ({user.email})
+                  </label>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleAssignUsers}
+              disabled={selectedUsers.length === 0}
+              className="flex-1"
+            >
+              Asignar ({selectedUsers.length})
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setShowAssignUsers(false)
+                setSelectedUsers([])
+                setCreatedTaskId(null)
+              }}
+            >
+              Omitir
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* Help Section */}
+      <Card className="mt-6 p-4 bg-blue-50 border-blue-200">
+        <h3 className="font-semibold mb-2 text-blue-900">Cómo usar la grabación de voz:</h3>
+        <ul className="text-sm text-blue-800 space-y-1">
+          <li>1. Haz clic en el ícono del micrófono</li>
+          <li>2. Permite el acceso al micrófono si se solicita</li>
+          <li>3. Habla claramente cerca del micrófono</li>
+          <li>4. El texto aparecerá automáticamente</li>
+          <li>5. Haz clic nuevamente para detener</li>
+        </ul>
+        <p className="text-xs text-blue-700 mt-3">
+          <strong>Nota:</strong> La grabación de voz funciona mejor en dispositivos móviles y en conexiones HTTPS
+          seguras.
+        </p>
+      </Card>
+    </div>
+  )
+}

@@ -17,6 +17,7 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
   const [transcript, setTranscript] = useState("")
   const [interimTranscript, setInterimTranscript] = useState("")
   const [isSupported, setIsSupported] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const recognitionRef = useRef<any>(null)
   const retryCountRef = useRef(0)
   const maxRetries = 2
@@ -30,7 +31,6 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
       setIsSupported(true)
       recognitionRef.current = new SpeechRecognition()
 
-      // Configure recognition
       recognitionRef.current.continuous = continuous
       recognitionRef.current.interimResults = interimResults
       recognitionRef.current.lang = lang
@@ -45,6 +45,7 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
       recognitionRef.current.onstart = () => {
         console.log("[v0] Speech recognition STARTED successfully")
         setIsListening(true)
+        setError(null)
         retryCountRef.current = 0
         isManualStopRef.current = false
       }
@@ -90,7 +91,9 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
             retryCountRef.current++
             console.log(`[v0] No speech detected, auto-retrying... (${retryCountRef.current}/${maxRetries})`)
 
-            onError?.(`Esperando que hables... (intento ${retryCountRef.current + 1}/${maxRetries + 1})`)
+            const retryMessage = `Esperando que hables... (intento ${retryCountRef.current + 1}/${maxRetries + 1})`
+            setError(retryMessage)
+            onError?.(retryMessage)
 
             setTimeout(() => {
               if (recognitionRef.current && !isManualStopRef.current) {
@@ -106,6 +109,7 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
             return
           } else {
             const errorMessage = "No se detectó voz después de varios intentos. Intenta hablar más cerca del micrófono."
+            setError(errorMessage)
             onError?.(errorMessage)
             setIsListening(false)
             return
@@ -121,6 +125,7 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
                 ? "Reconocimiento de voz cancelado."
                 : `Error de reconocimiento de voz: ${event.error}`
 
+        setError(errorMessage)
         onError?.(errorMessage)
         setIsListening(false)
       }
@@ -174,11 +179,26 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
   }, [continuous, interimResults, lang, onResult, onError])
 
   const startListening = useCallback(() => {
+    if (typeof window !== "undefined") {
+      const isSecureContext =
+        window.isSecureContext || window.location.protocol === "https:" || window.location.hostname === "localhost"
+
+      if (!isSecureContext) {
+        const httpsError =
+          "La grabación de voz requiere una conexión HTTPS segura. Por favor, accede desde un dominio con HTTPS o usa un dispositivo móvil."
+        console.error("[v0] HTTPS required for speech recognition")
+        setError(httpsError)
+        onError?.(httpsError)
+        return
+      }
+    }
+
     if (recognitionRef.current && !isListening) {
       try {
         console.log("[v0] Attempting to start speech recognition...")
         retryCountRef.current = 0
         isManualStopRef.current = false
+        setError(null)
         recognitionRef.current.start()
         console.log("[v0] Speech recognition start() called successfully")
       } catch (error: any) {
@@ -198,7 +218,7 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
     } else {
       console.log("[v0] Cannot start - recognition not ready or already listening")
     }
-  }, [isListening])
+  }, [isListening, onError])
 
   const stopListening = useCallback(() => {
     if (recognitionRef.current && isListening) {
@@ -206,6 +226,7 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
         console.log("[v0] Stopping speech recognition...")
         isManualStopRef.current = true
         recognitionRef.current.stop()
+        setError(null)
       } catch (error) {
         console.error("[v0] Error stopping speech recognition:", error)
       }
@@ -215,6 +236,7 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
   const resetTranscript = useCallback(() => {
     setTranscript("")
     setInterimTranscript("")
+    setError(null)
   }, [])
 
   return {
@@ -222,6 +244,7 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
     transcript,
     interimTranscript,
     isSupported,
+    error,
     startListening,
     stopListening,
     resetTranscript,
