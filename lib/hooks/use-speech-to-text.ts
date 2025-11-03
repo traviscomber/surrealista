@@ -22,6 +22,7 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
   const retryCountRef = useRef(0)
   const maxRetries = 2
   const isManualStopRef = useRef(false)
+  const micStreamRef = useRef<MediaStream | null>(null)
 
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
@@ -168,6 +169,10 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
     }
 
     return () => {
+      if (micStreamRef.current) {
+        micStreamRef.current.getTracks().forEach((track) => track.stop())
+        micStreamRef.current = null
+      }
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop()
@@ -178,7 +183,60 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
     }
   }, [continuous, interimResults, lang, onResult, onError])
 
-  const startListening = useCallback(() => {
+  const checkMicrophonePermission = useCallback(async (): Promise<boolean> => {
+    try {
+      console.log("[v0] Checking microphone permission...")
+
+      // Check if getUserMedia is supported
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        const error = "Tu navegador no soporta acceso al micrófono. Intenta usar Chrome, Firefox o Safari actualizado."
+        console.error("[v0]", error)
+        setError(error)
+        onError?.(error)
+        return false
+      }
+
+      // Request microphone access
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      console.log("[v0] Microphone permission granted, stream active:", stream.active)
+
+      // Store the stream reference
+      micStreamRef.current = stream
+
+      // Check if we're actually getting audio
+      const audioTracks = stream.getAudioTracks()
+      if (audioTracks.length === 0) {
+        const error = "No se detectó ningún micrófono. Verifica que tu micrófono esté conectado."
+        console.error("[v0]", error)
+        setError(error)
+        onError?.(error)
+        stream.getTracks().forEach((track) => track.stop())
+        return false
+      }
+
+      console.log("[v0] Microphone ready:", audioTracks[0].label)
+      return true
+    } catch (error: any) {
+      console.error("[v0] Microphone permission error:", error)
+
+      let errorMessage = "Error al acceder al micrófono. "
+      if (error.name === "NotAllowedError" || error.name === "PermissionDeniedError") {
+        errorMessage += "Por favor, permite el acceso al micrófono en la configuración del navegador."
+      } else if (error.name === "NotFoundError") {
+        errorMessage += "No se encontró ningún micrófono conectado."
+      } else if (error.name === "NotReadableError") {
+        errorMessage += "El micrófono está siendo usado por otra aplicación."
+      } else {
+        errorMessage += error.message || "Error desconocido."
+      }
+
+      setError(errorMessage)
+      onError?.(errorMessage)
+      return false
+    }
+  }, [onError])
+
+  const startListening = useCallback(async () => {
     if (typeof window !== "undefined") {
       const isSecureContext =
         window.isSecureContext || window.location.protocol === "https:" || window.location.hostname === "localhost"
@@ -191,6 +249,12 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
         onError?.(httpsError)
         return
       }
+    }
+
+    const hasMicPermission = await checkMicrophonePermission()
+    if (!hasMicPermission) {
+      console.error("[v0] Cannot start recognition without microphone permission")
+      return
     }
 
     if (recognitionRef.current && !isListening) {
@@ -218,7 +282,7 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
     } else {
       console.log("[v0] Cannot start - recognition not ready or already listening")
     }
-  }, [isListening, onError])
+  }, [isListening, onError, checkMicrophonePermission])
 
   const stopListening = useCallback(() => {
     if (recognitionRef.current && isListening) {
@@ -227,6 +291,12 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
         isManualStopRef.current = true
         recognitionRef.current.stop()
         setError(null)
+
+        if (micStreamRef.current) {
+          micStreamRef.current.getTracks().forEach((track) => track.stop())
+          micStreamRef.current = null
+          console.log("[v0] Microphone stream stopped")
+        }
       } catch (error) {
         console.error("[v0] Error stopping speech recognition:", error)
       }
