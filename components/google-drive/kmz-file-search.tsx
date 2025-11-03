@@ -319,6 +319,11 @@ export default function KMZFileSearch() {
                       {/* File Details */}
                       <div className="flex items-center gap-4 text-xs text-gray-500">
                         <span>Tamaño: {formatFileSize(result.file.size)}</span>
+                        {result.file.size && Number.parseInt(result.file.size) > 10 * 1024 * 1024 && (
+                          <Badge variant="destructive" className="text-xs">
+                            Archivo muy grande - puede causar problemas de rendimiento
+                          </Badge>
+                        )}
                         <span>Modificado: {new Date(result.file.modifiedTime).toLocaleDateString("es-CL")}</span>
                         <span>Profundidad: {result.depth} niveles</span>
                       </div>

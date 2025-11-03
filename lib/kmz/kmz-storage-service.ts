@@ -220,8 +220,20 @@ class KMZStorageService {
     tags?: string[]
     category?: string
     created_by?: string
+    file_size?: number // Added file_size parameter
   }): Promise<{ success: boolean; id?: string; error?: any }> {
     try {
+      const MAX_SIZE = 10 * 1024 * 1024 // 10MB
+      if (kmzData.file_size && kmzData.file_size > MAX_SIZE) {
+        console.warn(
+          `[v0] Skipping save for large file: ${kmzData.file_name} (${(kmzData.file_size / (1024 * 1024)).toFixed(2)}MB exceeds 10MB limit)`,
+        )
+        return {
+          success: false,
+          error: `File too large: ${(kmzData.file_size / (1024 * 1024)).toFixed(2)}MB. Maximum size is 10MB.`,
+        }
+      }
+
       if (kmzData.drive_file_id) {
         const { data: existing } = await this.supabase
           .from("kmz_collection")

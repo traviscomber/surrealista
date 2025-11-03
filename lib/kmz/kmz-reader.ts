@@ -24,10 +24,26 @@ export interface KMZData {
     description?: string
     author?: string
   }
+  fileSize?: number
+  skipped?: boolean
+  skipReason?: string
 }
 
 export class KMZReader {
+  private readonly MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+
   async readKMZFile(file: File): Promise<KMZData> {
+    if (file.size > this.MAX_FILE_SIZE) {
+      console.warn(`[v0] Skipping large KMZ file: ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)}MB)`)
+      return {
+        fileName: file.name,
+        placemarks: [],
+        fileSize: file.size,
+        skipped: true,
+        skipReason: `File too large (${(file.size / (1024 * 1024)).toFixed(2)}MB). Maximum size is ${this.MAX_FILE_SIZE / (1024 * 1024)}MB`,
+      }
+    }
+
     try {
       const zip = new JSZip()
       const zipContent = await zip.loadAsync(file)
@@ -47,7 +63,13 @@ export class KMZReader {
       }
 
       const kmlContent = await kmlFile.async("string")
-      return this.parseKML(kmlContent, file.name)
+      const kmzData = this.parseKML(kmlContent, file.name)
+
+      return {
+        ...kmzData,
+        fileSize: file.size,
+        skipped: false,
+      }
     } catch (error) {
       console.error("Error reading KMZ file:", error)
       throw new Error(`Error al leer archivo KMZ: ${error.message}`)
@@ -55,7 +77,21 @@ export class KMZReader {
   }
 
   async readMultipleKMZ(files: File[]): Promise<KMZData[]> {
-    const results = await Promise.allSettled(files.map((file) => this.readKMZFile(file)))
+    const validFiles = files.filter((file) => {
+      if (file.size > this.MAX_FILE_SIZE) {
+        console.warn(
+          `[v0] Skipping large file: ${file.name} (${(file.size / (1024 * 1024)).toFixed(2)}MB exceeds ${this.MAX_FILE_SIZE / (1024 * 1024)}MB limit)`,
+        )
+        return false
+      }
+      return true
+    })
+
+    console.log(
+      `[v0] Processing ${validFiles.length} of ${files.length} KMZ files (${files.length - validFiles.length} skipped due to size)`,
+    )
+
+    const results = await Promise.allSettled(validFiles.map((file) => this.readKMZFile(file)))
 
     return results
       .filter((result): result is PromiseFulfilledResult<KMZData> => result.status === "fulfilled")

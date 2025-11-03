@@ -249,8 +249,16 @@ export function InteractiveMap() {
 
     const kmzReader = new KMZReader()
     const newKmzData: KMZData[] = []
+    let skippedCount = 0
 
     for (const file of Array.from(files)) {
+      const fileSizeMB = file.size / (1024 * 1024)
+      if (fileSizeMB > 10) {
+        console.warn(`[v0] Skipping large file: ${file.name} (${fileSizeMB.toFixed(2)}MB)`)
+        skippedCount++
+        continue
+      }
+
       try {
         const result = await kmzReader.readKMZ(file)
         newKmzData.push({
@@ -262,6 +270,10 @@ export function InteractiveMap() {
       } catch (error) {
         console.error(`Error reading KMZ file ${file.name}:`, error)
       }
+    }
+
+    if (skippedCount > 0) {
+      console.warn(`[v0] ${skippedCount} file(s) skipped due to size (>10MB). Please use smaller KMZ files.`)
     }
 
     setKmzData([...kmzData, ...newKmzData])
