@@ -21,10 +21,19 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
 
   const recognitionRef = useRef<any>(null)
   const retryCountRef = useRef(0)
-  const maxRetries = 3 // Increased retries for better reliability
+  const maxRetries = 3
   const isManualStopRef = useRef(false)
-  const hasReceivedSpeechRef = useRef(false) // Track if we've received any speech
+  const hasReceivedSpeechRef = useRef(false)
   const restartTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  const onResultRef = useRef(onResult)
+  const onErrorRef = useRef(onError)
+
+  // Update refs when callbacks change
+  useEffect(() => {
+    onResultRef.current = onResult
+    onErrorRef.current = onError
+  }, [onResult, onError])
 
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
@@ -35,7 +44,7 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
       recognitionRef.current = new SpeechRecognition()
 
       recognitionRef.current.continuous = continuous
-      recognitionRef.current.interimResults = true // Always true for better feedback
+      recognitionRef.current.interimResults = true
       recognitionRef.current.lang = lang
       recognitionRef.current.maxAlternatives = 1
 
@@ -54,8 +63,8 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
 
       recognitionRef.current.onresult = (event: any) => {
         console.log("[v0] ✓ Speech result received:", event.results.length, "results")
-        hasReceivedSpeechRef.current = true // Mark that we received speech
-        retryCountRef.current = 0 // Reset retries on successful speech
+        hasReceivedSpeechRef.current = true
+        retryCountRef.current = 0
 
         let interimText = ""
         let finalText = ""
@@ -75,7 +84,7 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
         if (finalText) {
           setTranscript((prev) => {
             const newTranscript = prev + finalText
-            onResult?.(newTranscript.trim())
+            onResultRef.current?.(newTranscript.trim())
             return newTranscript
           })
         }
@@ -109,7 +118,7 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
           } else {
             const errorMessage = "No se detectó voz. Asegúrate de que el micrófono esté funcionando y habla más cerca."
             setError(errorMessage)
-            onError?.(errorMessage)
+            onErrorRef.current?.(errorMessage)
             setIsListening(false)
             return
           }
@@ -126,7 +135,7 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
 
         const errorMessage = errorMessages[event.error] || `Error: ${event.error}`
         setError(errorMessage)
-        onError?.(errorMessage)
+        onErrorRef.current?.(errorMessage)
         setIsListening(false)
       }
 
@@ -196,7 +205,7 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
         }
       }
     }
-  }, [continuous, interimResults, lang, onResult, onError])
+  }, [continuous, interimResults, lang]) // Removed onResult and onError from dependencies
 
   const startListening = useCallback(() => {
     console.log("[v0] 🎤 startListening called")
@@ -210,7 +219,7 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
           "Se requiere HTTPS para usar el micrófono. Accede desde un dominio seguro o usa un dispositivo móvil."
         console.error("[v0] ✗ HTTPS required")
         setError(httpsError)
-        onError?.(httpsError)
+        onErrorRef.current?.(httpsError)
         return
       }
     }
@@ -242,12 +251,13 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
             }
           }, 100)
         } else {
-          setError(`Error: ${error.message || "Error desconocido"}`)
-          onError?.(`Error: ${error.message || "Error desconocido"}`)
+          const errorMsg = `Error: ${error.message || "Error desconocido"}`
+          setError(errorMsg)
+          onErrorRef.current?.(errorMsg)
         }
       }
     }
-  }, [isListening, onError])
+  }, [isListening])
 
   const stopListening = useCallback(() => {
     console.log("[v0] 🛑 stopListening called")
