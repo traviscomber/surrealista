@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -24,6 +24,16 @@ export default function NuevaTareaPage() {
   const [users, setUsers] = useState<any[]>([])
   const [selectedUsers, setSelectedUsers] = useState<string[]>([])
   const [loadingUsers, setLoadingUsers] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
+  const [isHttps, setIsHttps] = useState(true)
+
+  useEffect(() => {
+    setIsMounted(true)
+    if (typeof window !== "undefined") {
+      setIsHttps(window.location.protocol === "https:" || window.location.hostname === "localhost")
+    }
+    checkMicrophonePermission()
+  }, [])
 
   const titleSTT = useSpeechToText({
     onResult: (text) => setTitle((prev) => prev + " " + text),
@@ -63,21 +73,13 @@ export default function NuevaTareaPage() {
   }
 
   const handleStartRecording = async (type: "title" | "description") => {
-    // Check if HTTPS
-    if (window.location.protocol !== "https:" && window.location.hostname !== "localhost") {
+    if (
+      typeof window !== "undefined" &&
+      window.location.protocol !== "https:" &&
+      window.location.hostname !== "localhost"
+    ) {
       alert("La grabación de voz requiere una conexión HTTPS segura. Por favor, accede desde un dominio con HTTPS.")
       return
-    }
-
-    // Request microphone permission first
-    if (micPermission !== "granted") {
-      const granted = await requestMicrophoneAccess()
-      if (!granted) {
-        alert(
-          "Se necesita permiso de micrófono para usar la grabación de voz. Por favor, permite el acceso al micrófono en la configuración de tu navegador.",
-        )
-        return
-      }
     }
 
     if (type === "title") {
@@ -162,6 +164,17 @@ export default function NuevaTareaPage() {
     }
   }
 
+  if (!isMounted) {
+    return (
+      <div className="container mx-auto p-6 max-w-2xl">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold mb-2">Nueva Tarea</h1>
+          <p className="text-muted-foreground">Cargando...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="container mx-auto p-6 max-w-2xl">
       <div className="mb-6">
@@ -169,8 +182,7 @@ export default function NuevaTareaPage() {
         <p className="text-muted-foreground">Crea una nueva tarea usando texto o voz</p>
       </div>
 
-      {/* HTTPS Warning for Desktop */}
-      {window.location.protocol !== "https:" && window.location.hostname !== "localhost" && (
+      {!isHttps && (
         <Alert className="mb-4">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
@@ -180,7 +192,6 @@ export default function NuevaTareaPage() {
         </Alert>
       )}
 
-      {/* Microphone Permission Status */}
       {micPermission === "denied" && (
         <Alert className="mb-4" variant="destructive">
           <AlertCircle className="h-4 w-4" />
@@ -193,7 +204,6 @@ export default function NuevaTareaPage() {
 
       <Card className="p-6">
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Title Field */}
           <div className="space-y-2">
             <Label htmlFor="title">Título de la Tarea</Label>
             <div className="flex gap-2">
@@ -221,7 +231,6 @@ export default function NuevaTareaPage() {
             {titleSTT.error && <p className="text-xs text-red-600">{titleSTT.error}</p>}
           </div>
 
-          {/* Description Field */}
           <div className="space-y-2">
             <Label htmlFor="description">Descripción (Opcional)</Label>
             <div className="space-y-2">
@@ -261,7 +270,6 @@ export default function NuevaTareaPage() {
             {descriptionSTT.error && <p className="text-xs text-red-600">{descriptionSTT.error}</p>}
           </div>
 
-          {/* Submit Status */}
           {submitStatus === "success" && (
             <Alert>
               <CheckCircle2 className="h-4 w-4" />
@@ -291,14 +299,12 @@ export default function NuevaTareaPage() {
             </Alert>
           )}
 
-          {/* Submit Button */}
           <Button type="submit" className="w-full" disabled={isSubmitting || !title.trim()}>
             {isSubmitting ? "Creando..." : "Crear Tarea"}
           </Button>
         </form>
       </Card>
 
-      {/* User Assignment Section */}
       {showAssignUsers && createdTaskId && (
         <Card className="p-4 border-blue-200 bg-blue-50 mt-6">
           <h3 className="font-semibold mb-3">Asignar Usuarios a la Tarea</h3>
@@ -354,7 +360,6 @@ export default function NuevaTareaPage() {
         </Card>
       )}
 
-      {/* Help Section */}
       <Card className="mt-6 p-4 bg-blue-50 border-blue-200">
         <h3 className="font-semibold mb-2 text-blue-900">Cómo usar la grabación de voz:</h3>
         <ul className="text-sm text-blue-800 space-y-1">
