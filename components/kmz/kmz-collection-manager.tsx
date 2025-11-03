@@ -39,6 +39,7 @@ interface KMZRecord {
   is_active: boolean
   created_at: string
   updated_at: string
+  file_size?: number
 }
 
 export function KMZCollectionManager() {
@@ -203,6 +204,7 @@ export function KMZCollectionManager() {
             tags: [],
             category: detectCategory(file.path),
             is_active: true,
+            file_size: fileBlob.size,
           })
 
           if (error) throw error
@@ -293,6 +295,7 @@ export function KMZCollectionManager() {
             tags: ["offline"],
             category: "offline",
             is_active: true,
+            file_size: file.size,
           })
 
           if (error) {
@@ -341,6 +344,12 @@ export function KMZCollectionManager() {
     return matchesSearch && matchesCategory
   })
 
+  const formatFileSize = (bytes?: number) => {
+    if (!bytes) return "N/A"
+    const mb = bytes / (1024 * 1024)
+    return `${mb.toFixed(2)} MB`
+  }
+
   const categories = ["all", ...new Set(kmzFiles.map((kmz) => kmz.category).filter(Boolean))]
 
   return (
@@ -359,6 +368,9 @@ export function KMZCollectionManager() {
               </div>
               <p className="text-purple-100 text-lg font-medium">
                 Gestiona y visualiza todos los archivos KMZ de Google Drive
+              </p>
+              <p className="text-purple-200 text-sm">
+                💡 Busca "Superposicion" o "Contao" para encontrar archivos específicos
               </p>
             </div>
             <div className="flex gap-3">
@@ -597,6 +609,17 @@ export function KMZCollectionManager() {
                       <div className="text-xl font-bold text-orange-700">{kmz.rol_numbers.length}</div>
                     </div>
                   </div>
+
+                  {kmz.file_size && kmz.file_size > 10 * 1024 * 1024 && (
+                    <div className="bg-red-50 p-2 rounded-lg border border-red-200">
+                      <div className="flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 text-red-600" />
+                        <span className="text-xs font-semibold text-red-700">
+                          Archivo grande: {formatFileSize(kmz.file_size)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
 
                   {kmz.rol_numbers.length > 0 && (
                     <div className="flex flex-wrap gap-1">
