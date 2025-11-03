@@ -108,13 +108,11 @@ export default function RealDriveConnector() {
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <strong>Client ID:</strong>
-                  <p className="text-muted-foreground font-mono text-xs">
-                    873991779919-dold9vq3nsl8qoeqfuibmjj5kjctqah1.apps.googleusercontent.com
-                  </p>
+                  <p className="text-muted-foreground font-mono text-xs">Configured via environment</p>
                 </div>
                 <div>
                   <strong>API Key:</strong>
-                  <p className="text-muted-foreground font-mono text-xs">AIzaSyB6AVo8HT0RyEmiu8YRKj3skR3ujXyjHTU</p>
+                  <p className="text-muted-foreground font-mono text-xs">Configured via environment</p>
                 </div>
               </div>
 

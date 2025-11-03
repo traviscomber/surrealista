@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,9 +18,7 @@ import {
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import {
   Search,
-  Download,
   Upload,
-  FileText,
   Users,
   TrendingUp,
   MoreHorizontal,
@@ -36,7 +34,6 @@ import {
   AlertCircle,
   Clock,
   Star,
-  MessageSquare,
   Activity,
   Filter,
   RefreshCw,
@@ -46,150 +43,33 @@ import {
   DollarSign,
   Target,
   Zap,
+  Loader2,
 } from "lucide-react"
+import { getClients, deleteClient } from "@/app/actions/clients"
+import { useRouter } from "next/navigation"
 
 interface Client {
   id: string
-  name: string
-  company: string
-  email: string
-  phone: string
-  status: "hot" | "warm" | "cold" | "inactive"
-  industry: string
-  location: string
-  lastContact: string
-  nextFollowUp: string
-  projectValue: number
-  probability: number
-  documents: number
-  driveFolder: string
-  notes: string
-  score: number
-  interactions: number
-  source: string
-  assignedTo: string
-  tags: string[]
-  createdAt: string
+  first_name?: string
+  last_name?: string
+  second_last_name?: string
+  email?: string
+  phone?: string
+  mobile?: string
+  company_name?: string
+  industry?: string
+  city?: string
+  region?: string
+  status?: string
+  budget_min?: number
+  budget_max?: number
+  last_contact_date?: string
+  notes?: string
+  created_at?: string
+  properties_bought?: number
+  properties_sold?: number
+  properties_quoted?: number
 }
-
-const mockClients: Client[] = [
-  {
-    id: "1",
-    name: "Carlos Mendoza",
-    company: "Inversiones del Sur",
-    email: "carlos@inversionesdelsur.cl",
-    phone: "+56 9 8765 4321",
-    status: "hot",
-    industry: "Inmobiliaria",
-    location: "Puerto Varas, Los Lagos",
-    lastContact: "2024-01-15",
-    nextFollowUp: "2024-01-20",
-    projectValue: 850000000,
-    probability: 85,
-    documents: 12,
-    driveFolder: "https://drive.google.com/drive/folders/1wJRhFJNpIqoJ_O9FPIhpPglmypnwgt5F",
-    notes:
-      "Cliente VIP interesado en propiedades de lujo con vista al lago. Ha mostrado gran interés en el proyecto de Puerto Varas.",
-    score: 92,
-    interactions: 24,
-    source: "Referido",
-    assignedTo: "María González",
-    tags: ["VIP", "Lujo", "Vista Lago"],
-    createdAt: "2023-11-15",
-  },
-  {
-    id: "2",
-    name: "Ana Silva",
-    company: "Turismo Patagonia",
-    email: "ana@turismopatagonia.cl",
-    phone: "+56 9 7654 3210",
-    status: "warm",
-    industry: "Turismo",
-    location: "Pucón, La Araucanía",
-    lastContact: "2024-01-10",
-    nextFollowUp: "2024-01-25",
-    projectValue: 450000000,
-    probability: 65,
-    documents: 8,
-    driveFolder: "https://drive.google.com/drive/folders/1wJRhFJNpIqoJ_O9FPIhpPglmypnwgt5F",
-    notes: "Busca cabañas para proyecto turístico. Necesita financiamiento adicional.",
-    score: 78,
-    interactions: 15,
-    source: "Web",
-    assignedTo: "Roberto Silva",
-    tags: ["Turismo", "Cabañas", "Financiamiento"],
-    createdAt: "2023-12-01",
-  },
-  {
-    id: "3",
-    name: "Roberto Fernández",
-    company: "Forestal Los Andes",
-    email: "roberto@forestallosandes.cl",
-    phone: "+56 9 6543 2109",
-    status: "cold",
-    industry: "Forestal",
-    location: "Valdivia, Los Ríos",
-    lastContact: "2023-12-20",
-    nextFollowUp: "2024-02-01",
-    projectValue: 1200000000,
-    probability: 35,
-    documents: 15,
-    driveFolder: "https://drive.google.com/drive/folders/1wJRhFJNpIqoJ_O9FPIhpPglmypnwgt5F",
-    notes: "Proyecto de conservación forestal en evaluación. Esperando aprobación de directorio.",
-    score: 45,
-    interactions: 8,
-    source: "LinkedIn",
-    assignedTo: "Carlos Mendoza",
-    tags: ["Forestal", "Conservación", "Directorio"],
-    createdAt: "2023-10-10",
-  },
-  {
-    id: "4",
-    name: "Valentina Torres",
-    company: "Constructora Austral",
-    email: "valentina@constructoraaustral.cl",
-    phone: "+56 9 5432 1098",
-    status: "hot",
-    industry: "Construcción",
-    location: "Osorno, Los Lagos",
-    lastContact: "2024-01-18",
-    nextFollowUp: "2024-01-22",
-    projectValue: 680000000,
-    probability: 90,
-    documents: 18,
-    driveFolder: "https://drive.google.com/drive/folders/1wJRhFJNpIqoJ_O9FPIhpPglmypnwgt5F",
-    notes: "Lista para firmar contrato. Solo esperando últimos detalles legales.",
-    score: 95,
-    interactions: 32,
-    source: "Referido",
-    assignedTo: "María González",
-    tags: ["Construcción", "Contrato", "Legal"],
-    createdAt: "2023-09-20",
-  },
-  {
-    id: "5",
-    name: "Diego Morales",
-    company: "Agrícola Chiloe",
-    email: "diego@agricolachiloe.cl",
-    phone: "+56 9 4321 0987",
-    status: "inactive",
-    industry: "Agricultura",
-    location: "Castro, Los Lagos",
-    lastContact: "2023-11-30",
-    nextFollowUp: "2024-03-01",
-    projectValue: 320000000,
-    probability: 15,
-    documents: 5,
-    driveFolder: "https://drive.google.com/drive/folders/1wJRhFJNpIqoJ_O9FPIhpPglmypnwgt5F",
-    notes: "Proyecto pausado por temporada. Retomar en marzo 2024.",
-    score: 25,
-    interactions: 4,
-    source: "Feria",
-    assignedTo: "Roberto Silva",
-    tags: ["Agricultura", "Pausado", "Temporada"],
-    createdAt: "2023-08-15",
-  },
-]
 
 const statusConfig = {
   hot: {
@@ -227,18 +107,33 @@ const statusConfig = {
 }
 
 export function ClientRepositoryDashboard() {
-  const [clients, setClients] = useState<Client[]>(mockClients)
+  const [clients, setClients] = useState<Client[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [industryFilter, setIndustryFilter] = useState("all")
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const router = useRouter()
+
+  useEffect(() => {
+    loadClients()
+  }, [])
+
+  const loadClients = async () => {
+    setIsLoading(true)
+    const result = await getClients()
+    if (result.success) {
+      setClients(result.data)
+    }
+    setIsLoading(false)
+  }
 
   const filteredClients = clients.filter((client) => {
+    const fullName = `${client.first_name || ""} ${client.last_name || ""}`.toLowerCase()
     const matchesSearch =
-      client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.email.toLowerCase().includes(searchTerm.toLowerCase())
+      fullName.includes(searchTerm.toLowerCase()) ||
+      (client.company_name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+      (client.email?.toLowerCase() || "").includes(searchTerm.toLowerCase())
     const matchesStatus = statusFilter === "all" || client.status === statusFilter
     const matchesIndustry = industryFilter === "all" || client.industry === industryFilter
 
@@ -251,17 +146,26 @@ export function ClientRepositoryDashboard() {
     warm: clients.filter((c) => c.status === "warm").length,
     cold: clients.filter((c) => c.status === "cold").length,
     inactive: clients.filter((c) => c.status === "inactive").length,
-    totalValue: clients.reduce((sum, c) => sum + c.projectValue, 0),
-    totalDocuments: clients.reduce((sum, c) => sum + c.documents, 0),
-    avgProbability: Math.round(clients.reduce((sum, c) => sum + c.probability, 0) / clients.length),
-    totalInteractions: clients.reduce((sum, c) => sum + c.interactions, 0),
+    totalValue: clients.reduce((sum, c) => sum + (c.budget_max || 0), 0),
+    totalDocuments: clients.reduce(
+      (sum, c) => sum + ((c.properties_bought || 0) + (c.properties_sold || 0) + (c.properties_quoted || 0)),
+      0,
+    ),
+    avgBudget:
+      clients.length > 0 ? Math.round(clients.reduce((sum, c) => sum + (c.budget_max || 0), 0) / clients.length) : 0,
   }
 
   const handleRefresh = async () => {
-    setIsLoading(true)
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500))
-    setIsLoading(false)
+    await loadClients()
+  }
+
+  const handleDelete = async (id: string) => {
+    if (confirm("¿Estás seguro de que deseas eliminar este cliente?")) {
+      const result = await deleteClient(id)
+      if (result.success) {
+        await loadClients()
+      }
+    }
   }
 
   const formatCurrency = (value: number) => {
@@ -279,13 +183,24 @@ export function ClientRepositoryDashboard() {
     return "text-red-600"
   }
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Cargando clientes...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Repositorio de Clientes</h1>
-          <p className="text-gray-600">Sistema Neuralia - Gestión Inteligente con Google Drive</p>
+          <p className="text-gray-600">Gestión Inteligente de Clientes</p>
         </div>
         <div className="flex gap-2">
           <Button
@@ -297,13 +212,17 @@ export function ClientRepositoryDashboard() {
             <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
             Actualizar
           </Button>
-          <Button variant="outline" className="flex items-center gap-2 bg-transparent">
+          <Button
+            variant="outline"
+            className="flex items-center gap-2 bg-transparent"
+            onClick={() => router.push("/admin/clientes")}
+          >
             <Upload className="w-4 h-4" />
             Importar
           </Button>
-          <Button className="flex items-center gap-2">
-            <Download className="w-4 h-4" />
-            Exportar
+          <Button className="flex items-center gap-2" onClick={() => router.push("/admin/clientes/nuevo")}>
+            <Plus className="w-4 h-4" />
+            Nuevo Cliente
           </Button>
         </div>
       </div>
@@ -317,7 +236,7 @@ export function ClientRepositoryDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.total}</div>
-            <p className="text-xs text-muted-foreground">{stats.totalInteractions} interacciones totales</p>
+            <p className="text-xs text-muted-foreground">{stats.totalDocuments} propiedades gestionadas</p>
           </CardContent>
         </Card>
 
@@ -356,12 +275,12 @@ export function ClientRepositoryDashboard() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Valor Total</CardTitle>
+            <CardTitle className="text-sm font-medium">Presupuesto Promedio</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">${(stats.totalValue / 1000000000).toFixed(1)}B</div>
-            <p className="text-xs text-muted-foreground">Prob. promedio: {stats.avgProbability}%</p>
+            <div className="text-2xl font-bold">{formatCurrency(stats.avgBudget)}</div>
+            <p className="text-xs text-muted-foreground">Valor total: {formatCurrency(stats.totalValue)}</p>
           </CardContent>
         </Card>
       </div>
@@ -421,12 +340,8 @@ export function ClientRepositoryDashboard() {
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span>Lista de Clientes ({filteredClients.length})</span>
-            <Button size="sm" className="flex items-center gap-2">
-              <Plus className="w-4 h-4" />
-              Nuevo Cliente
-            </Button>
           </CardTitle>
-          <CardDescription>Sistema de semáforo: 🔥 Caliente | 🎯 Tibio | ❄️ Frío | ⚫ Inactivo</CardDescription>
+          <CardDescription>Sistema de gestión de clientes con importación desde Excel</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -436,141 +351,123 @@ export function ClientRepositoryDashboard() {
                   <TableHead>Cliente</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead>Contacto</TableHead>
-                  <TableHead>Proyecto</TableHead>
-                  <TableHead>Probabilidad</TableHead>
-                  <TableHead>Score</TableHead>
-                  <TableHead>Documentos</TableHead>
-                  <TableHead>Próximo Seguimiento</TableHead>
+                  <TableHead>Presupuesto</TableHead>
+                  <TableHead>Propiedades</TableHead>
+                  <TableHead>Último Contacto</TableHead>
                   <TableHead>Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredClients.map((client) => (
-                  <TableRow key={client.id} className="hover:bg-gray-50">
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                          <Building className="w-5 h-5 text-white" />
-                        </div>
-                        <div>
-                          <div className="font-medium">{client.name}</div>
-                          <div className="text-sm text-gray-500">{client.company}</div>
-                          <div className="text-xs text-gray-400 flex items-center gap-1">
-                            <MapPin className="w-3 h-3" />
-                            {client.location}
-                          </div>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div
-                        className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${statusConfig[client.status].bgColor} ${statusConfig[client.status].textColor}`}
-                      >
-                        {statusConfig[client.status].icon}
-                        {statusConfig[client.status].label}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <div className="text-sm flex items-center gap-1">
-                          <Mail className="w-3 h-3 text-gray-400" />
-                          {client.email}
-                        </div>
-                        <div className="text-sm flex items-center gap-1">
-                          <Phone className="w-3 h-3 text-gray-400" />
-                          {client.phone}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium flex items-center gap-1">
-                          <DollarSign className="w-4 h-4 text-green-600" />
-                          {formatCurrency(client.projectValue)}
-                        </div>
-                        <div className="text-xs text-gray-500">{client.industry}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <div className="w-16 bg-gray-200 rounded-full h-2">
-                          <div
-                            className={`h-2 rounded-full ${
-                              client.probability >= 80
-                                ? "bg-green-500"
-                                : client.probability >= 60
-                                  ? "bg-yellow-500"
-                                  : client.probability >= 40
-                                    ? "bg-orange-500"
-                                    : "bg-red-500"
-                            }`}
-                            style={{ width: `${client.probability}%` }}
-                          />
-                        </div>
-                        <span className="text-sm font-medium">{client.probability}%</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Star className={`w-4 h-4 ${getScoreColor(client.score)}`} />
-                        <span className={`font-medium ${getScoreColor(client.score)}`}>{client.score}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-gray-400" />
-                        <span>{client.documents}</span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => window.open(client.driveFolder, "_blank")}
-                          className="text-blue-600 hover:text-blue-800 p-1"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm">{client.nextFollowUp}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => setSelectedClient(client)}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            Ver detalles
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => window.open(client.driveFolder, "_blank")}>
-                            <FolderOpen className="mr-2 h-4 w-4" />
-                            Abrir Drive
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <MessageSquare className="mr-2 h-4 w-4" />
-                            Enviar mensaje
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-red-600">
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Eliminar
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                {filteredClients.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8 text-gray-500">
+                      No se encontraron clientes. Importa datos desde Excel para comenzar.
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  filteredClients.map((client) => (
+                    <TableRow key={client.id} className="hover:bg-gray-50">
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                            <Building className="w-5 h-5 text-white" />
+                          </div>
+                          <div>
+                            <div className="font-medium">{`${client.first_name || ""} ${client.last_name || ""}`}</div>
+                            <div className="text-sm text-gray-500">{client.company_name || "-"}</div>
+                            <div className="text-xs text-gray-400 flex items-center gap-1">
+                              <MapPin className="w-3 h-3" />
+                              {client.city || client.region || "-"}
+                            </div>
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {client.status && statusConfig[client.status as keyof typeof statusConfig] ? (
+                          <div
+                            className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${statusConfig[client.status as keyof typeof statusConfig].bgColor} ${statusConfig[client.status as keyof typeof statusConfig].textColor}`}
+                          >
+                            {statusConfig[client.status as keyof typeof statusConfig].icon}
+                            {statusConfig[client.status as keyof typeof statusConfig].label}
+                          </div>
+                        ) : (
+                          <Badge variant="outline">Sin estado</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          <div className="text-sm flex items-center gap-1">
+                            <Mail className="w-3 h-3 text-gray-400" />
+                            {client.email || "-"}
+                          </div>
+                          <div className="text-sm flex items-center gap-1">
+                            <Phone className="w-3 h-3 text-gray-400" />
+                            {client.phone || client.mobile || "-"}
+                          </div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          {client.budget_max ? (
+                            <>
+                              <div className="font-medium flex items-center gap-1">
+                                <DollarSign className="w-4 h-4 text-green-600" />
+                                {formatCurrency(client.budget_max)}
+                              </div>
+                              {client.budget_min && (
+                                <div className="text-xs text-gray-500">Min: {formatCurrency(client.budget_min)}</div>
+                              )}
+                            </>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="text-sm">
+                          <div>Compradas: {client.properties_bought || 0}</div>
+                          <div>Vendidas: {client.properties_sold || 0}</div>
+                          <div>Cotizadas: {client.properties_quoted || 0}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Calendar className="w-4 h-4 text-gray-400" />
+                          <span className="text-sm">
+                            {client.last_contact_date
+                              ? new Date(client.last_contact_date).toLocaleDateString("es-CL")
+                              : "-"}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-8 w-8 p-0">
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => setSelectedClient(client)}>
+                              <Eye className="mr-2 h-4 w-4" />
+                              Ver detalles
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => router.push(`/admin/clientes/${client.id}`)}>
+                              <Edit className="mr-2 h-4 w-4" />
+                              Editar
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-red-600" onClick={() => handleDelete(client.id)}>
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              Eliminar
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>
@@ -689,17 +586,23 @@ export function ClientRepositoryDashboard() {
                     <Building className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <div className="text-xl">{selectedClient.name}</div>
-                    <div className="text-sm text-gray-500 font-normal">{selectedClient.company}</div>
+                    <div className="text-xl">{`${selectedClient.first_name || ""} ${selectedClient.last_name || ""}`}</div>
+                    <div className="text-sm text-gray-500 font-normal">{selectedClient.company_name || "-"}</div>
                   </div>
-                  <div
-                    className={`ml-auto inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${statusConfig[selectedClient.status].bgColor} ${statusConfig[selectedClient.status].textColor}`}
-                  >
-                    {statusConfig[selectedClient.status].icon}
-                    {statusConfig[selectedClient.status].label}
-                  </div>
+                  {selectedClient.status && statusConfig[selectedClient.status as keyof typeof statusConfig] && (
+                    <div
+                      className={`ml-auto inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${statusConfig[selectedClient.status as keyof typeof statusConfig].bgColor} ${statusConfig[selectedClient.status as keyof typeof statusConfig].textColor}`}
+                    >
+                      {statusConfig[selectedClient.status as keyof typeof statusConfig].icon}
+                      {statusConfig[selectedClient.status as keyof typeof statusConfig].label}
+                    </div>
+                  )}
                 </DialogTitle>
-                <DialogDescription>{statusConfig[selectedClient.status].description}</DialogDescription>
+                <DialogDescription>
+                  {selectedClient.status && statusConfig[selectedClient.status as keyof typeof statusConfig]
+                    ? statusConfig[selectedClient.status as keyof typeof statusConfig].description
+                    : "Información no disponible"}
+                </DialogDescription>
               </DialogHeader>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -711,19 +614,19 @@ export function ClientRepositoryDashboard() {
                     <CardContent className="space-y-3">
                       <div className="flex items-center gap-2">
                         <Mail className="w-4 h-4 text-gray-400" />
-                        <span>{selectedClient.email}</span>
+                        <span>{selectedClient.email || "-"}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Phone className="w-4 h-4 text-gray-400" />
-                        <span>{selectedClient.phone}</span>
+                        <span>{selectedClient.phone || selectedClient.mobile || "-"}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <MapPin className="w-4 h-4 text-gray-400" />
-                        <span>{selectedClient.location}</span>
+                        <span>{selectedClient.city || selectedClient.region || "-"}</span>
                       </div>
                       <div className="flex items-center gap-2">
                         <Building className="w-4 h-4 text-gray-400" />
-                        <span>{selectedClient.industry}</span>
+                        <span>{selectedClient.industry || "-"}</span>
                       </div>
                     </CardContent>
                   </Card>
@@ -736,9 +639,10 @@ export function ClientRepositoryDashboard() {
                       <div className="flex justify-between items-center">
                         <span>Score del Cliente</span>
                         <div className="flex items-center gap-2">
-                          <Star className={`w-4 h-4 ${getScoreColor(selectedClient.score)}`} />
-                          <span className={`font-bold ${getScoreColor(selectedClient.score)}`}>
-                            {selectedClient.score}/100
+                          {/* Assuming a score field exists or using a placeholder */}
+                          <Star className={`w-4 h-4 ${getScoreColor(selectedClient.score || 0)}`} />
+                          <span className={`font-bold ${getScoreColor(selectedClient.score || 0)}`}>
+                            {selectedClient.score || 0}/100
                           </span>
                         </div>
                       </div>
@@ -748,27 +652,30 @@ export function ClientRepositoryDashboard() {
                           <div className="w-20 bg-gray-200 rounded-full h-2">
                             <div
                               className={`h-2 rounded-full ${
-                                selectedClient.probability >= 80
+                                (selectedClient.properties_quoted || 0) >= 80 // Placeholder for probability logic
                                   ? "bg-green-500"
-                                  : selectedClient.probability >= 60
+                                  : (selectedClient.properties_quoted || 0) >= 60
                                     ? "bg-yellow-500"
-                                    : selectedClient.probability >= 40
+                                    : (selectedClient.properties_quoted || 0) >= 40
                                       ? "bg-orange-500"
                                       : "bg-red-500"
                               }`}
-                              style={{ width: `${selectedClient.probability}%` }}
+                              style={{ width: `${selectedClient.properties_quoted || 0}%` }} // Placeholder for probability logic
                             />
                           </div>
-                          <span className="font-bold">{selectedClient.probability}%</span>
+                          <span className="font-bold">{selectedClient.properties_quoted || 0}%</span>{" "}
+                          {/* Placeholder for probability logic */}
                         </div>
                       </div>
                       <div className="flex justify-between items-center">
                         <span>Interacciones</span>
-                        <span className="font-bold">{selectedClient.interactions}</span>
+                        <span className="font-bold">{selectedClient.properties_bought || 0}</span>{" "}
+                        {/* Placeholder for interactions */}
                       </div>
                       <div className="flex justify-between items-center">
                         <span>Fuente</span>
-                        <Badge variant="outline">{selectedClient.source}</Badge>
+                        <Badge variant="outline">{selectedClient.created_at ? "Sistema" : "-"}</Badge>{" "}
+                        {/* Placeholder for source */}
                       </div>
                     </CardContent>
                   </Card>
@@ -782,19 +689,30 @@ export function ClientRepositoryDashboard() {
                     <CardContent className="space-y-3">
                       <div className="flex justify-between items-center">
                         <span>Valor del Proyecto</span>
-                        <span className="font-bold text-green-600">{formatCurrency(selectedClient.projectValue)}</span>
+                        <span className="font-bold text-green-600">
+                          {selectedClient.budget_max ? formatCurrency(selectedClient.budget_max) : "-"}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span>Asignado a</span>
-                        <Badge>{selectedClient.assignedTo}</Badge>
+                        <Badge>{selectedClient.industry || "-"}</Badge> {/* Placeholder for assignedTo */}
                       </div>
                       <div className="flex justify-between items-center">
                         <span>Último Contacto</span>
-                        <span>{selectedClient.lastContact}</span>
+                        <span>
+                          {selectedClient.last_contact_date
+                            ? new Date(selectedClient.last_contact_date).toLocaleDateString("es-CL")
+                            : "-"}
+                        </span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span>Próximo Seguimiento</span>
-                        <span className="font-medium text-blue-600">{selectedClient.nextFollowUp}</span>
+                        <span className="font-medium text-blue-600">
+                          {selectedClient.created_at
+                            ? new Date(selectedClient.created_at).toLocaleDateString("es-CL")
+                            : "-"}
+                        </span>{" "}
+                        {/* Placeholder for nextFollowUp */}
                       </div>
                     </CardContent>
                   </Card>
@@ -809,9 +727,14 @@ export function ClientRepositoryDashboard() {
                     <CardContent className="space-y-3">
                       <div className="flex justify-between items-center">
                         <span>Total de Documentos</span>
-                        <span className="font-bold">{selectedClient.documents}</span>
+                        <span className="font-bold">
+                          {selectedClient.properties_bought ||
+                            0 + (selectedClient.properties_sold || 0) + (selectedClient.properties_quoted || 0)}
+                        </span>
                       </div>
-                      <Button className="w-full" onClick={() => window.open(selectedClient.driveFolder, "_blank")}>
+                      <Button className="w-full" onClick={() => window.open(selectedClient.notes || "#", "_blank")}>
+                        {" "}
+                        {/* Placeholder for driveFolder */}
                         <ExternalLink className="w-4 h-4 mr-2" />
                         Abrir Carpeta en Google Drive
                       </Button>
@@ -824,11 +747,8 @@ export function ClientRepositoryDashboard() {
                     </CardHeader>
                     <CardContent>
                       <div className="flex flex-wrap gap-2">
-                        {selectedClient.tags.map((tag, index) => (
-                          <Badge key={index} variant="secondary">
-                            {tag}
-                          </Badge>
-                        ))}
+                        {/* Placeholder for tags, assuming industry can be used as a tag */}
+                        <Badge variant="secondary">{selectedClient.industry || "Sin categoría"}</Badge>
                       </div>
                     </CardContent>
                   </Card>
@@ -840,7 +760,7 @@ export function ClientRepositoryDashboard() {
                   <CardTitle className="text-lg">Notas del Cliente</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-700">{selectedClient.notes}</p>
+                  <p className="text-gray-700">{selectedClient.notes || "No hay notas adicionales."}</p>
                 </CardContent>
               </Card>
             </>

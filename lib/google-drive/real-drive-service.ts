@@ -45,8 +45,8 @@ class RealGoogleDriveService {
   constructor() {
     this.config = {
       apiKey: "AIzaSyB6AVo8HT0RyEmiu8YRKj3skR3ujXyjHTU",
-      clientId: "873991779919-dold9vq3nsl8qoeqfuibmjj5kjctqah1.apps.googleusercontent.com",
-      clientSecret: "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",
+      clientId: "",
+      clientSecret: "",
       redirectUri: "postmessage",
     }
   }

@@ -32,10 +32,8 @@ export interface ExtractedPropertyData {
 }
 
 export class RealDataMigrationService {
-  private apiKey = "AIzaSyB6AVo8HT0RyEmiu8YRKj3skR3ujXyjHTU"
-
   constructor() {
-    console.log("[v0] Migration service initialized with real API key")
+    console.log("[v0] Migration service initialized")
   }
 
   /**

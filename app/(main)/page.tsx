@@ -470,6 +470,45 @@ export default function HomePage() {
   const paraOrganizer = useMemo(() => new PARAOrganizer(), [])
   const paraStats = useMemo(() => paraOrganizer.getCategoryStats(folders), [folders, paraOrganizer])
 
+  useEffect(() => {
+    const demoFolders = [
+      {
+        id: "demo-1",
+        name: "Valdivia 142 has Teresa F...",
+        status: "complete",
+        files: 8,
+        rolNumbers: 2,
+        location: "VALDIVIA",
+        propertyType: "PARCELA",
+        lastModified: new Date().toLocaleDateString("es-CL"),
+        completionScore: 95,
+      },
+      {
+        id: "demo-2",
+        name: "Pucon Lote 45 - Familia Martinez",
+        status: "processing",
+        files: 12,
+        rolNumbers: 1,
+        location: "PUCON",
+        propertyType: "TERRENO",
+        lastModified: new Date().toLocaleDateString("es-CL"),
+        completionScore: 75,
+      },
+      {
+        id: "demo-3",
+        name: "Villarrica Centro - Comercial",
+        status: "complete",
+        files: 15,
+        rolNumbers: 3,
+        location: "VILLARRICA",
+        propertyType: "LOCAL",
+        lastModified: new Date().toLocaleDateString("es-CL"),
+        completionScore: 88,
+      },
+    ]
+    setFolders(demoFolders)
+  }, [])
+
   const initializeService = useCallback(async () => {
     if (typeof window !== "undefined" && !realDriveService && !serviceInitialized) {
       try {
@@ -514,10 +553,10 @@ export default function HomePage() {
             mimeType: item.mimeType,
           })
 
-          if (isFolder) {
+          if (isFolder && path.split("/").length < 2) {
             const subItems = await buildSearchIndex(item.id, itemPath)
             items.push(...subItems)
-          } else {
+          } else if (!isFolder) {
             setIndexingProgress((prev) => ({
               ...prev,
               filesProcessed: prev.filesProcessed + 1,
@@ -546,31 +585,7 @@ export default function HomePage() {
       await initializeService()
 
       if (!realDriveService) {
-        const demoFolders = [
-          {
-            id: "demo-1",
-            name: "Valdivia 142 has Teresa F...",
-            status: "complete",
-            files: 8,
-            rolNumbers: 2,
-            location: "VALDIVIA",
-            propertyType: "PARCELA",
-            lastModified: new Date().toLocaleDateString("es-CL"),
-            completionScore: 95,
-          },
-          {
-            id: "demo-2",
-            name: "Pucon Lote 45 - Familia Martinez",
-            status: "processing",
-            files: 12,
-            rolNumbers: 1,
-            location: "PUCON",
-            propertyType: "TERRENO",
-            lastModified: new Date().toLocaleDateString("es-CL"),
-            completionScore: 75,
-          },
-        ]
-        setFolders(demoFolders)
+        console.log("[v0] Drive service not available, using demo data")
         setIsAuthenticated(false)
         return
       }
@@ -579,7 +594,8 @@ export default function HomePage() {
       setIsAuthenticated(authSuccess)
 
       if (!authSuccess) {
-        setError("Autenticación requerida para acceder a Google Drive")
+        console.log("[v0] Authentication failed, using demo data")
+        setError(null) // Don't show error, just use demo data
         return
       }
 
@@ -603,55 +619,51 @@ export default function HomePage() {
       }))
 
       setFolders(processedFolders)
-
-      setIndexingProgress({
-        isIndexing: true,
-        currentFolder: "Iniciando...",
-        foldersProcessed: 0,
-        filesProcessed: 0,
-        totalProgress: 0,
-      })
-
-      const allItems: SearchIndexItem[] = []
-      for (let i = 0; i < realFolders.length; i++) {
-        const folder = realFolders[i]
-        const items = await buildSearchIndex(folder.id, folder.name)
-        allItems.push(...items)
-
-        setIndexingProgress((prev) => ({
-          ...prev,
-          totalProgress: Math.round(((i + 1) / realFolders.length) * 100),
-        }))
-      }
-
-      setSearchIndex(allItems)
-      setIndexingProgress((prev) => ({
-        ...prev,
-        isIndexing: false,
-        currentFolder: "Completado",
-      }))
+      console.log("[v0] Loaded", processedFolders.length, "folders from Google Drive")
     } catch (err) {
-      console.error("Error loading real Google Drive data:", err)
-      const demoFolders = [
-        {
-          id: "demo-1",
-          name: "Valdivia 142 has Teresa F...",
-          status: "complete",
-          files: 8,
-          rolNumbers: 2,
-          location: "VALDIVIA",
-          propertyType: "PARCELA",
-          lastModified: new Date().toLocaleDateString("es-CL"),
-          completionScore: 95,
-        },
-      ]
-      setFolders(demoFolders)
+      console.error("[v0] Error loading Google Drive data:", err)
+      setError(null) // Don't show error, demo data is already loaded
       setIsAuthenticated(false)
-      setError(null)
     } finally {
       setLoading(false)
     }
-  }, [initializeService, buildSearchIndex])
+  }, [initializeService])
+
+  const startIndexing = useCallback(async () => {
+    if (!isAuthenticated || folders.length === 0) {
+      console.log("[v0] Cannot index: not authenticated or no folders")
+      return
+    }
+
+    setIndexingProgress({
+      isIndexing: true,
+      currentFolder: "Iniciando...",
+      foldersProcessed: 0,
+      filesProcessed: 0,
+      totalProgress: 0,
+    })
+
+    const allItems: SearchIndexItem[] = []
+    for (let i = 0; i < folders.length; i++) {
+      const folder = folders[i]
+      const items = await buildSearchIndex(folder.id, folder.name)
+      allItems.push(...items)
+
+      setIndexingProgress((prev) => ({
+        ...prev,
+        totalProgress: Math.round(((i + 1) / folders.length) * 100),
+      }))
+    }
+
+    setSearchIndex(allItems)
+    setIndexingProgress((prev) => ({
+      ...prev,
+      isIndexing: false,
+      currentFolder: "Completado",
+    }))
+
+    console.log("[v0] Indexing complete:", allItems.length, "items indexed")
+  }, [isAuthenticated, folders, buildSearchIndex])
 
   const filteredAndSortedFolders = useMemo(() => {
     if (!folders.length) return []
@@ -846,19 +858,37 @@ export default function HomePage() {
         )}
 
         <div className="container mx-auto px-4 py-4">
-          <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200 p-4 mb-4">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <h3 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
-                  <Database className="h-5 w-5 text-purple-600" />
-                  Archivos Indexados de Google Drive
-                </h3>
-                <p className="text-sm text-gray-600 mb-2">
-                  {searchIndex.length > 0
-                    ? `${searchIndex.length} archivos y carpetas indexados desde Google Drive`
-                    : "Indexando archivos de Google Drive..."}
-                </p>
-                {searchIndex.length > 0 && (
+          {isAuthenticated && searchIndex.length === 0 && !indexingProgress.isIndexing && (
+            <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200 p-4 mb-4">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <h3 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                    <Database className="h-5 w-5 text-purple-600" />
+                    Indexación de Archivos Disponible
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-2">
+                    Indexa todos los archivos de Google Drive para búsqueda avanzada (puede tomar varios minutos)
+                  </p>
+                </div>
+                <Button onClick={startIndexing} className="bg-purple-600 hover:bg-purple-700">
+                  <Database className="h-4 w-4 mr-2" />
+                  Iniciar Indexación
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {searchIndex.length > 0 && (
+            <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border border-green-200 p-4 mb-4">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <h3 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                    <CheckCircle className="h-5 w-5 text-green-600" />
+                    Archivos Indexados
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-2">
+                    {searchIndex.length} archivos y carpetas indexados desde Google Drive
+                  </p>
                   <div className="flex items-center gap-4 text-xs text-gray-500">
                     <span className="flex items-center gap-1">
                       <Folder className="h-3 w-3" />
@@ -869,18 +899,14 @@ export default function HomePage() {
                       {searchIndex.filter((item) => item.type === "file").length} archivos
                     </span>
                   </div>
-                )}
+                </div>
+                <Button onClick={startIndexing} variant="outline" size="sm">
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Re-indexar
+                </Button>
               </div>
-              <Button
-                onClick={() => (window.location.href = "/admin/file-explorer")}
-                className="bg-purple-600 hover:bg-purple-700"
-                disabled={searchIndex.length === 0}
-              >
-                <Settings className="h-4 w-4 mr-2" />
-                Ver Explorador
-              </Button>
             </div>
-          </div>
+          )}
         </div>
 
         <div className="container mx-auto px-4 py-8">

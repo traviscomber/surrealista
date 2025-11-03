@@ -18,15 +18,19 @@ export interface DriveFolder {
 }
 
 export class GoogleDriveService {
-  private _apiKey: string
+  private _apiKey: string | null
   private baseUrl = "https://www.googleapis.com/drive/v3"
   private maxRetries = 3
   private retryDelay = 1000
   private cache: Map<string, { data: any; timestamp: number }> = new Map()
   private cacheTimeout = 5 * 60 * 1000 // 5 minutes
 
-  constructor(apiKey: string) {
-    this._apiKey = apiKey
+  constructor(apiKey?: string) {
+    this._apiKey = apiKey || null
+    console.log(
+      "[v0] GoogleDriveService initialized",
+      apiKey ? "with API key" : "without API key (will use server actions)",
+    )
   }
 
   private async fetchWithRetry(url: string, options: RequestInit = {}, retries = this.maxRetries): Promise<Response> {
@@ -100,21 +104,18 @@ export class GoogleDriveService {
     if (cached) return cached
 
     try {
+      if (!this._apiKey) {
+        throw new Error("API key is required")
+      }
+
+      const query = folderId ? `'${folderId}' in parents` : undefined
       const params = new URLSearchParams({
         key: this._apiKey,
-        fields: "nextPageToken,files(id,name,mimeType,size,modifiedTime,webViewLink,parents,thumbnailLink)",
+        fields: "nextPageToken, files(id, name, mimeType, size, modifiedTime, webViewLink, parents, thumbnailLink)",
         pageSize: "100",
+        ...(query && { q: query }),
+        ...(pageToken && { pageToken }),
       })
-
-      if (folderId) {
-        params.append("q", `'${folderId}' in parents and trashed=false`)
-      } else {
-        params.append("q", "trashed=false")
-      }
-
-      if (pageToken) {
-        params.append("pageToken", pageToken)
-      }
 
       const response = await this.fetchWithRetry(`${this.baseUrl}/files?${params}`)
       const data = await response.json()
@@ -140,7 +141,10 @@ export class GoogleDriveService {
     try {
       console.log("[v0] Getting folder structure for:", folderId)
 
-      // Get folder info
+      if (!this._apiKey) {
+        throw new Error("API key is required")
+      }
+
       const folderResponse = await this.fetchWithRetry(
         `${this.baseUrl}/files/${folderId}?key=${this._apiKey}&fields=id,name`,
       )
@@ -174,7 +178,7 @@ export class GoogleDriveService {
 
       const result = {
         id: folderInfo.id,
-        name: folderInfo.name, // Using exact name from Drive, no modifications
+        name: folderInfo.name,
         files: regularFiles,
         subfolders,
         totalFiles: regularFiles.length + subfolders.reduce((sum, sf) => sum + sf.totalFiles, 0),
@@ -190,20 +194,20 @@ export class GoogleDriveService {
 
   async searchFiles(query: string): Promise<DriveFile[]> {
     try {
+      if (!this._apiKey) {
+        throw new Error("API key is required")
+      }
+
       const params = new URLSearchParams({
         key: this._apiKey,
-        q: `name contains '${query}' and trashed=false`,
-        fields: "files(id,name,mimeType,size,modifiedTime,webViewLink,parents,thumbnailLink)",
-        pageSize: "50",
+        q: `name contains '${query}'`,
+        fields: "files(id, name, mimeType, size, modifiedTime, webViewLink, parents, thumbnailLink)",
+        pageSize: "100",
       })
 
       const response = await this.fetchWithRetry(`${this.baseUrl}/files?${params}`)
-
-      if (!response.ok) {
-        throw new Error(`Google Drive API error: ${response.status}`)
-      }
-
       const data = await response.json()
+
       return data.files || []
     } catch (error) {
       console.error("Error searching files:", error)
@@ -213,6 +217,11 @@ export class GoogleDriveService {
 
   async getFileContent(fileId: string): Promise<string> {
     try {
+      // This still needs API key for media download
+      if (!this._apiKey) {
+        throw new Error("API key required for file content download")
+      }
+
       const response = await this.fetchWithRetry(`${this.baseUrl}/files/${fileId}?alt=media&key=${this._apiKey}`)
 
       if (!response.ok) {
@@ -302,50 +311,51 @@ export class GoogleDriveService {
   async testConnection(): Promise<boolean> {
     try {
       console.log("[v0] Testing Google Drive connection...")
-      const response = await this.fetchWithRetry(`${this.baseUrl}/about?key=${this._apiKey}&fields=user`)
-      console.log("[v0] Connection test successful")
-      return response.ok
-    } catch (error) {
-      const isProduction =
-        typeof window !== "undefined" &&
-        !window.location.hostname.includes("localhost") &&
-        !window.location.hostname.includes("preview")
-
-      if (isProduction) {
-        console.error("[v0] Connection test failed:", error)
-      } else {
-        console.log("[v0] Connection test failed (expected in preview):", error)
+      if (!this._apiKey) {
+        console.error("[v0] No API key available")
+        return false
       }
+
+      const response = await fetch(`https://www.googleapis.com/drive/v3/about?key=${this._apiKey}&fields=user`)
+
+      console.log("[v0] Connection test result:", response.ok)
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error("[v0] Connection test failed (expected in proxy): API error:", response.status)
+        console.log("[v0] Connection test failed, but API key may still work for operations")
+        return false
+      }
+
+      return true
+    } catch (error) {
+      console.error("[v0] Connection test failed:", error)
       return false
     }
   }
 
   async searchKMZFiles(query?: string, folderId?: string): Promise<DriveFile[]> {
     try {
-      let searchQuery =
-        "(name contains '.kmz' or mimeType contains 'kmz' or mimeType contains 'google-earth') and trashed=false"
-
-      if (query && query.trim()) {
-        searchQuery = `name contains '${query}' and ${searchQuery}`
+      if (!this._apiKey) {
+        throw new Error("API key is required")
       }
 
+      let q = "mimeType='application/vnd.google-earth.kmz'"
+      if (query) {
+        q += ` and name contains '${query}'`
+      }
       if (folderId) {
-        searchQuery = `'${folderId}' in parents and ${searchQuery}`
+        q += ` and '${folderId}' in parents`
       }
 
       const params = new URLSearchParams({
         key: this._apiKey,
-        q: searchQuery,
-        fields: "files(id,name,mimeType,size,modifiedTime,webViewLink,parents,thumbnailLink)",
+        q,
+        fields: "files(id, name, mimeType, size, modifiedTime, webViewLink, parents, thumbnailLink)",
         pageSize: "100",
       })
 
       const response = await this.fetchWithRetry(`${this.baseUrl}/files?${params}`)
-
-      if (!response.ok) {
-        throw new Error(`Google Drive API error: ${response.status}`)
-      }
-
       const data = await response.json()
 
       console.log(
@@ -398,12 +408,16 @@ export class GoogleDriveService {
     }
 
     if (rootFolderId) {
-      // Get root folder name
       try {
+        if (!this._apiKey) {
+          throw new Error("API key is required")
+        }
+
         const folderResponse = await this.fetchWithRetry(
-          `${this.baseUrl}/files/${rootFolderId}?key=${this._apiKey}&fields=name`,
+          `${this.baseUrl}/files/${rootFolderId}?key=${this._apiKey}&fields=id,name`,
         )
         const folderInfo = await folderResponse.json()
+
         await searchInFolder(rootFolderId, [folderInfo.name], 0)
       } catch (error) {
         console.error("Error getting root folder info:", error)
@@ -425,5 +439,4 @@ export class GoogleDriveService {
   }
 }
 
-// Instancia singleton del servicio
 export const driveService = new GoogleDriveService("AIzaSyB6AVo8HT0RyEmiu8YRKj3skR3ujXyjHTU")

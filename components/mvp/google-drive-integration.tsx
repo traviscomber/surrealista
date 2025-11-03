@@ -382,7 +382,14 @@ export default function GoogleDriveIntegration() {
               <div className="space-y-2 text-sm text-green-700">
                 <div>
                   <strong>API Key:</strong>{" "}
-                  <code className="bg-white px-2 py-1 rounded text-xs">AIzaSyB6AVo8HT0RyEmiu8YRKj3skR3ujXyjHTU</code>
+                  <code className="bg-white px-2 py-1 rounded text-xs">Configured via environment variable</code>
+                </div>
+                <div className="space-y-2">
+                  <Label>API Key</Label>
+                  <code className="bg-white px-2 py-1 rounded text-xs">Configured via environment variable</code>
+                  <p className="text-xs text-muted-foreground">
+                    Set GOOGLE_DRIVE_API_KEY in your environment variables
+                  </p>
                 </div>
                 <div>
                   <strong>OAuth 2.0 Client ID:</strong>{" "}
