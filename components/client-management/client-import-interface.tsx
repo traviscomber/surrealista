@@ -16,11 +16,9 @@ import {
   Loader2,
   ArrowLeft,
   Users,
-  Camera,
   Eye,
 } from "lucide-react"
 import { parseExcelFile, generateExcelTemplate, type ParseResult } from "@/lib/excel/excel-parser"
-import { parseExcelWithVision } from "@/lib/excel/vision-parser"
 import { bulkImportClients } from "@/app/actions/clients"
 import { useRouter } from "next/navigation"
 
@@ -29,7 +27,6 @@ export function ClientImportInterface() {
   const [parseResult, setParseResult] = useState<ParseResult | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
   const [importResult, setImportResult] = useState<{ imported: number; failed: number } | null>(null)
-  const [useVision, setUseVision] = useState(false)
   const router = useRouter()
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -53,54 +50,6 @@ export function ClientImportInterface() {
     } catch (error) {
       console.error("[v0] Error parsing file:", error)
     } finally {
-      setIsProcessing(false)
-    }
-  }
-
-  const handleParseWithVision = async () => {
-    if (!file) return
-
-    setIsProcessing(true)
-    try {
-      console.log("[v0] Converting file to image for vision parsing...")
-
-      // Convert file to base64
-      const reader = new FileReader()
-      reader.onload = async (e) => {
-        const base64 = e.target?.result as string
-
-        console.log("[v0] Calling vision parser...")
-        const visionResult = await parseExcelWithVision(base64)
-
-        if (visionResult.success && visionResult.data) {
-          // Convert vision result to ParseResult format
-          const parseResult: ParseResult = {
-            success: true,
-            data: visionResult.data,
-            errors: [],
-            warnings: [],
-            totalRows: visionResult.data.length,
-            validRows: visionResult.data.length,
-          }
-          console.log("[v0] Vision parse successful:", parseResult)
-          setParseResult(parseResult)
-        } else {
-          console.error("[v0] Vision parse failed:", visionResult.error)
-          setParseResult({
-            success: false,
-            data: [],
-            errors: [visionResult.error || "Error al procesar con Vision"],
-            warnings: [],
-            totalRows: 0,
-            validRows: 0,
-          })
-        }
-        setIsProcessing(false)
-      }
-
-      reader.readAsDataURL(file)
-    } catch (error) {
-      console.error("[v0] Error in vision parsing:", error)
       setIsProcessing(false)
     }
   }
@@ -170,13 +119,7 @@ export function ClientImportInterface() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-            <input
-              type="file"
-              accept=".xlsx,.xls,.png,.jpg,.jpeg"
-              onChange={handleFileSelect}
-              className="hidden"
-              id="file-upload"
-            />
+            <input type="file" accept=".xlsx,.xls" onChange={handleFileSelect} className="hidden" id="file-upload" />
             <label htmlFor="file-upload" className="cursor-pointer">
               <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400" />
               <p className="text-lg font-medium mb-2">{file ? file.name : "Haz clic para seleccionar un archivo"}</p>
@@ -185,39 +128,19 @@ export function ClientImportInterface() {
           </div>
 
           {file && !parseResult && (
-            <div className="flex gap-2">
-              <Button onClick={handleParseFile} disabled={isProcessing} className="flex-1 gap-2">
-                {isProcessing ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Procesando...
-                  </>
-                ) : (
-                  <>
-                    <FileSpreadsheet className="w-4 h-4" />
-                    Analizar con Parser
-                  </>
-                )}
-              </Button>
-              <Button
-                onClick={handleParseWithVision}
-                disabled={isProcessing}
-                variant="outline"
-                className="flex-1 gap-2 bg-transparent"
-              >
-                {isProcessing ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Procesando...
-                  </>
-                ) : (
-                  <>
-                    <Camera className="w-4 h-4" />
-                    Analizar con IA Vision
-                  </>
-                )}
-              </Button>
-            </div>
+            <Button onClick={handleParseFile} disabled={isProcessing} className="w-full gap-2">
+              {isProcessing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Procesando...
+                </>
+              ) : (
+                <>
+                  <FileSpreadsheet className="w-4 h-4" />
+                  Analizar Archivo
+                </>
+              )}
+            </Button>
           )}
         </CardContent>
       </Card>
