@@ -81,16 +81,19 @@ export function TaskCreationDialog({
   const [loadingUsers, setLoadingUsers] = useState(false)
 
   const [activeSTTField, setActiveSTTField] = useState<"title" | "description" | null>(null)
+  const [titleSTTError, setTitleSTTError] = useState<string | null>(null)
+  const [descriptionSTTError, setDescriptionSTTError] = useState<string | null>(null)
 
   const titleSTT = useSpeechToText({
     continuous: false,
     lang: "es-CL",
     onResult: (text) => {
       setTitle((prev) => prev + " " + text)
+      setTitleSTTError(null)
     },
     onError: (error) => {
       console.error("[v0] Title STT error:", error)
-      alert(error)
+      setTitleSTTError(error)
     },
   })
 
@@ -99,10 +102,11 @@ export function TaskCreationDialog({
     lang: "es-CL",
     onResult: (text) => {
       setDescription((prev) => prev + " " + text)
+      setDescriptionSTTError(null)
     },
     onError: (error) => {
       console.error("[v0] Description STT error:", error)
-      alert(error)
+      setDescriptionSTTError(error)
     },
   })
 
@@ -169,10 +173,12 @@ export function TaskCreationDialog({
     if (titleSTT.isListening) {
       titleSTT.stopListening()
       setActiveSTTField(null)
+      setTitleSTTError(null)
     } else {
       descriptionSTT.stopListening()
       titleSTT.startListening()
       setActiveSTTField("title")
+      setTitleSTTError(null)
     }
   }
 
@@ -180,10 +186,12 @@ export function TaskCreationDialog({
     if (descriptionSTT.isListening) {
       descriptionSTT.stopListening()
       setActiveSTTField(null)
+      setDescriptionSTTError(null)
     } else {
       titleSTT.stopListening()
       descriptionSTT.startListening()
       setActiveSTTField("description")
+      setDescriptionSTTError(null)
     }
   }
 
@@ -470,9 +478,13 @@ export function TaskCreationDialog({
                   </Button>
                 )}
               </div>
-              {titleSTT.isListening && titleSTT.interimTranscript && (
-                <p className="text-xs text-blue-600 italic">Escuchando: {titleSTT.interimTranscript}</p>
+              {titleSTT.isListening && !titleSTTError && (
+                <p className="text-xs text-blue-600 font-medium animate-pulse">🎤 Escuchando... Habla ahora</p>
               )}
+              {titleSTT.isListening && titleSTT.interimTranscript && (
+                <p className="text-xs text-green-600 italic">Capturando: "{titleSTT.interimTranscript}"</p>
+              )}
+              {titleSTTError && <p className="text-xs text-orange-600">{titleSTTError}</p>}
             </div>
 
             <div className="grid gap-2">
@@ -480,7 +492,7 @@ export function TaskCreationDialog({
                 <span>Descripción</span>
                 {descriptionSTT.isListening && (
                   <Badge variant="default" className="text-xs animate-pulse">
-                    Grabando...
+                    🎤 Grabando...
                   </Badge>
                 )}
               </Label>
@@ -510,9 +522,15 @@ export function TaskCreationDialog({
                   </Button>
                 )}
               </div>
-              {descriptionSTT.isListening && descriptionSTT.interimTranscript && (
-                <p className="text-xs text-blue-600 italic">Escuchando: {descriptionSTT.interimTranscript}</p>
+              {descriptionSTT.isListening && !descriptionSTTError && (
+                <p className="text-xs text-blue-600 font-medium animate-pulse">
+                  🎤 Escuchando... Habla ahora (modo continuo)
+                </p>
               )}
+              {descriptionSTT.isListening && descriptionSTT.interimTranscript && (
+                <p className="text-xs text-green-600 italic">Capturando: "{descriptionSTT.interimTranscript}"</p>
+              )}
+              {descriptionSTTError && <p className="text-xs text-orange-600">{descriptionSTTError}</p>}
             </div>
 
             <div className="grid grid-cols-2 gap-4">
