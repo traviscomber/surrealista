@@ -81,15 +81,19 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
           }
         }
 
+        // Only update transcript with final results to prevent repetition
         if (finalText) {
           setTranscript((prev) => {
             const newTranscript = prev + finalText
             onResultRef.current?.(newTranscript.trim())
             return newTranscript
           })
+          // Clear interim text after final result
+          setInterimTranscript("")
+        } else if (interimText) {
+          // Only show interim text for preview, don't append to transcript
+          setInterimTranscript(interimText)
         }
-
-        setInterimTranscript(interimText)
       }
 
       recognitionRef.current.onerror = (event: any) => {

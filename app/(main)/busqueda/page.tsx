@@ -22,6 +22,7 @@ import {
   Loader2,
   Plus,
   Upload,
+  BarChart3,
 } from "lucide-react"
 import { createBrowserClient } from "@/lib/supabase/client"
 import { TaskCreationDialog } from "@/components/tasks/task-creation-dialog"
@@ -30,6 +31,7 @@ import { useGoogleDrive } from "@/lib/contexts/google-drive-context"
 import dynamicImport from "next/dynamic"
 import { kmzStorageService } from "@/lib/kmz/kmz-storage-service"
 import { kmzReader } from "@/lib/kmz/kmz-reader"
+import { WeeklyTaskSummary } from "@/components/tasks/weekly-task-summary"
 
 const KMZMapDisplay = dynamicImport(() => import("@/components/kmz/kmz-map-display").then((mod) => mod.KMZMapDisplay), {
   ssr: false,
@@ -494,7 +496,7 @@ export default function UnifiedSearchPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-6 h-auto">
+          <TabsList className="grid w-full grid-cols-5 mb-6 h-auto">
             <TabsTrigger
               value="campos"
               className="flex items-center gap-2 cursor-pointer data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
@@ -522,6 +524,13 @@ export default function UnifiedSearchPage() {
             >
               <CheckSquare className="h-4 w-4" />
               Nuevas Tareas
+            </TabsTrigger>
+            <TabsTrigger
+              value="resumen"
+              className="flex items-center gap-2 cursor-pointer data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            >
+              <BarChart3 className="h-4 w-4" />
+              Resumen Semanal
             </TabsTrigger>
           </TabsList>
 
@@ -842,9 +851,11 @@ export default function UnifiedSearchPage() {
                       ))}
                       {tasks.length === 0 && (
                         <div className="text-center py-12">
-                          <CheckSquare className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                          <CheckSquare className="h-12 w-12 text-gray-300 mx-auto mb-4" />
                           <p className="text-gray-500 font-medium">No hay tareas creadas</p>
-                          <p className="text-sm text-gray-400 mt-1">Crea tu primera tarea usando el botón de arriba</p>
+                          <p className="text-sm text-gray-400 mt-2 text-center max-w-sm">
+                            Crea tu primera tarea usando el botón de arriba
+                          </p>
                         </div>
                       )}
                     </div>
@@ -876,6 +887,10 @@ export default function UnifiedSearchPage() {
                 )}
               </div>
             </div>
+          </TabsContent>
+
+          <TabsContent value="resumen">
+            <WeeklyTaskSummary />
           </TabsContent>
         </Tabs>
 
