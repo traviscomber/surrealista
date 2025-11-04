@@ -268,34 +268,29 @@ export default function NuevaTareaPage() {
 
           <div className="space-y-2">
             <Label htmlFor="description">Descripción (Opcional)</Label>
-            <div className="space-y-2">
+            <div className="relative">
               <Textarea
                 id="description"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="Describe los detalles de la tarea..."
                 rows={4}
-                className="resize-none"
+                className="resize-none pr-12"
               />
               <Button
                 type="button"
                 variant={descriptionSTT.isListening ? "destructive" : "outline"}
-                size="sm"
+                size="icon"
                 onClick={() =>
                   descriptionSTT.isListening ? descriptionSTT.stopListening() : handleStartRecording("description")
                 }
-                className="w-full"
+                className="absolute top-2 right-2"
+                title={descriptionSTT.isListening ? "Detener grabación" : "Grabar con voz"}
               >
                 {descriptionSTT.isListening ? (
-                  <>
-                    <MicOff className="h-4 w-4 mr-2 animate-pulse" />
-                    Detener Grabación
-                  </>
+                  <MicOff className="h-4 w-4 animate-pulse" />
                 ) : (
-                  <>
-                    <Mic className="h-4 w-4 mr-2" />
-                    Grabar Descripción con Voz
-                  </>
+                  <Mic className="h-4 w-4" />
                 )}
               </Button>
             </div>
