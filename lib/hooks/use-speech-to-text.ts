@@ -8,10 +8,18 @@ interface UseSpeechToTextOptions {
   lang?: string
   onResult?: (transcript: string) => void
   onError?: (error: string) => void
+  silenceTimeout?: number // Added silence timeout option (in milliseconds)
 }
 
 export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
-  const { continuous = false, interimResults = true, lang = "es-CL", onResult, onError } = options
+  const {
+    continuous = false,
+    interimResults = true,
+    lang = "es-CL",
+    onResult,
+    onError,
+    silenceTimeout = 3000, // Default 3 seconds of silence before auto-stop
+  } = options
 
   const [isListening, setIsListening] = useState(false)
   const [transcript, setTranscript] = useState("")
@@ -25,15 +33,38 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
   const isManualStopRef = useRef(false)
   const hasReceivedSpeechRef = useRef(false)
   const restartTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const lastFinalResultRef = useRef<string>("")
 
   const onResultRef = useRef(onResult)
   const onErrorRef = useRef(onError)
 
-  // Update refs when callbacks change
   useEffect(() => {
     onResultRef.current = onResult
     onErrorRef.current = onError
   }, [onResult, onError])
+
+  const clearSilenceTimer = useCallback(() => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current)
+      silenceTimerRef.current = null
+    }
+  }, [])
+
+  const startSilenceTimer = useCallback(() => {
+    clearSilenceTimer()
+
+    if (continuous && silenceTimeout > 0) {
+      console.log(`[v0] ⏱️ Starting ${silenceTimeout}ms silence timer...`)
+      silenceTimerRef.current = setTimeout(() => {
+        console.log("[v0] ⏱️ Silence timeout reached - auto-stopping")
+        if (recognitionRef.current && isListening) {
+          isManualStopRef.current = true
+          recognitionRef.current.stop()
+        }
+      }, silenceTimeout)
+    }
+  }, [continuous, silenceTimeout, isListening, clearSilenceTimer])
 
   useEffect(() => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
@@ -52,6 +83,7 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
         continuous,
         interimResults: true,
         lang,
+        silenceTimeout, // Log silence timeout
       })
 
       recognitionRef.current.onstart = () => {
@@ -59,12 +91,15 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
         setIsListening(true)
         setError(null)
         hasReceivedSpeechRef.current = false
+        lastFinalResultRef.current = ""
+        clearSilenceTimer() // Clear any existing silence timer
       }
 
       recognitionRef.current.onresult = (event: any) => {
         console.log("[v0] ✓ Speech result received:", event.results.length, "results")
         hasReceivedSpeechRef.current = true
         retryCountRef.current = 0
+        clearSilenceTimer() // Clear silence timer when receiving results
 
         let interimText = ""
         let finalText = ""
@@ -81,23 +116,24 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
           }
         }
 
-        // Only update transcript with final results to prevent repetition
-        if (finalText) {
+        if (finalText && finalText.trim() !== lastFinalResultRef.current.trim()) {
+          lastFinalResultRef.current = finalText
           setTranscript((prev) => {
             const newTranscript = prev + finalText
             onResultRef.current?.(newTranscript.trim())
             return newTranscript
           })
-          // Clear interim text after final result
           setInterimTranscript("")
+
+          startSilenceTimer()
         } else if (interimText) {
-          // Only show interim text for preview, don't append to transcript
           setInterimTranscript(interimText)
         }
       }
 
       recognitionRef.current.onerror = (event: any) => {
         console.error("[v0] ✗ Speech recognition ERROR:", event.error)
+        clearSilenceTimer() // Clear silence timer on error
 
         if (event.error === "no-speech") {
           if (retryCountRef.current < maxRetries && !isManualStopRef.current) {
@@ -145,6 +181,7 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
 
       recognitionRef.current.onend = () => {
         console.log("[v0] Speech recognition ENDED")
+        clearSilenceTimer() // Clear silence timer when recognition ends
 
         if (!isManualStopRef.current && !hasReceivedSpeechRef.current && retryCountRef.current < maxRetries) {
           retryCountRef.current++
@@ -179,10 +216,12 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
         hasReceivedSpeechRef.current = true
         retryCountRef.current = 0
         setError(null)
+        clearSilenceTimer() // Clear silence timer when user starts speaking
       }
 
       recognitionRef.current.onspeechend = () => {
         console.log("[v0] Speech ended - user stopped speaking")
+        startSilenceTimer()
       }
 
       recognitionRef.current.onaudiostart = () => {
@@ -201,6 +240,9 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
       if (restartTimeoutRef.current) {
         clearTimeout(restartTimeoutRef.current)
       }
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current)
+      }
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop()
@@ -209,7 +251,7 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
         }
       }
     }
-  }, [continuous, interimResults, lang]) // Removed onResult and onError from dependencies
+  }, [continuous, interimResults, lang, silenceTimeout, clearSilenceTimer, startSilenceTimer])
 
   const startListening = useCallback(() => {
     console.log("[v0] 🎤 startListening called")
@@ -234,9 +276,11 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
         retryCountRef.current = 0
         isManualStopRef.current = false
         hasReceivedSpeechRef.current = false
+        lastFinalResultRef.current = "" // Reset last final result
         setError(null)
         setTranscript("")
         setInterimTranscript("")
+        clearSilenceTimer() // Clear any existing silence timer
 
         recognitionRef.current.start()
         console.log("[v0] ✓ Speech recognition started successfully")
@@ -261,10 +305,11 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
         }
       }
     }
-  }, [isListening])
+  }, [isListening, clearSilenceTimer])
 
   const stopListening = useCallback(() => {
     console.log("[v0] 🛑 stopListening called")
+    clearSilenceTimer() // Clear silence timer when manually stopping
     if (restartTimeoutRef.current) {
       clearTimeout(restartTimeoutRef.current)
     }
@@ -278,14 +323,16 @@ export function useSpeechToText(options: UseSpeechToTextOptions = {}) {
         console.error("[v0] ✗ Error stopping:", error)
       }
     }
-  }, [isListening])
+  }, [isListening, clearSilenceTimer])
 
   const resetTranscript = useCallback(() => {
     setTranscript("")
     setInterimTranscript("")
     setError(null)
     hasReceivedSpeechRef.current = false
-  }, [])
+    lastFinalResultRef.current = "" // Reset last final result
+    clearSilenceTimer() // Clear silence timer
+  }, [clearSilenceTimer])
 
   return {
     isListening,
