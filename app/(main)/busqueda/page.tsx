@@ -99,7 +99,7 @@ export default function UnifiedSearchPage() {
   useEffect(() => {
     getCurrentUser()
     loadTasks()
-    // KMZ files will now only load when a campo is selected (region-based loading)
+    loadCamposMetadata()
   }, [])
 
   useEffect(() => {
@@ -213,10 +213,59 @@ export default function UnifiedSearchPage() {
         "[v0] Created campos from Drive with exact names:",
         camposFromDrive.map((c) => c.name),
       )
-      setCamposData(camposFromDrive)
+      setCamposData(camposData.concat(camposFromDrive))
     } catch (error: any) {
       console.error("[v0] Error loading Drive folders:", error)
       setCamposData([])
+    }
+  }
+
+  const loadCamposMetadata = async () => {
+    console.log("[v0] Loading campos metadata (lightweight)...")
+
+    try {
+      const { data, error } = await supabase
+        .from("kmz_collection")
+        .select("id, file_name, region, placemarks_count, file_path")
+        .eq("is_active", true)
+        .order("region", { ascending: true })
+
+      if (error) {
+        console.error("[v0] Error loading metadata:", error)
+        return
+      }
+
+      console.log("[v0] Loaded metadata for", data?.length || 0, "KMZ files")
+
+      // Group by region to build campos structure
+      const regionMap = new Map<string, any[]>()
+
+      data?.forEach((record) => {
+        const region = record.region || "Sin Región"
+        if (!regionMap.has(region)) {
+          regionMap.set(region, [])
+        }
+        regionMap.get(region)?.push(record)
+      })
+
+      // Build campos from regions
+      const camposFromMetadata: Campo[] = []
+      let index = 1
+
+      for (const [region, files] of regionMap.entries()) {
+        camposFromMetadata.push({
+          id: `region-${index}`,
+          name: region,
+          location: region,
+          files: files.length,
+        })
+        index++
+      }
+
+      console.log("[v0] Built", camposFromMetadata.length, "campos from metadata")
+      setCamposData(camposFromMetadata)
+    } catch (err) {
+      console.error("[v0] Error loading campos metadata:", err)
     }
   }
 
@@ -234,87 +283,60 @@ export default function UnifiedSearchPage() {
     setSelectedTask(null)
     setLoading(true)
 
-    console.log("[v0] Campo clicked:", campo.name, "Loading KMZ for region:", campo.location)
+    console.log("[v0] Loading KMZ files for region:", campo.location)
 
     try {
-      if (campo.driveFiles && campo.driveFiles.length > 0) {
-        console.log("[v0] Processing Drive files for campo:", campo.driveFiles.length)
+      const { data, error } = await supabase
+        .from("kmz_collection")
+        .select("*")
+        .eq("is_active", true)
+        .eq("region", campo.location)
+        .order("file_name", { ascending: true })
 
-        const processedKMZ = []
+      if (error) {
+        console.error("[v0] Error loading KMZ files for region:", error)
+        setKmzFiles([])
+      } else {
+        console.log("[v0] Loaded", data?.length || 0, "KMZ files for region:", campo.location)
 
-        for (const file of campo.driveFiles) {
-          try {
-            const fileBlob = await driveService.downloadFile(file.id)
-            const fileObj = new File([fileBlob], file.name, { type: "application/vnd.google-earth.kmz" })
-            const kmzData = await kmzReader.readKMZFile(fileObj)
+        const transformedKMZ = (data || []).map((record: any) => {
+          const placemarks = (record.coordinates || []).map((coordArray: any, index: number) => {
+            let geometryType = "Point"
+            let coordinates = coordArray
 
-            const saveResult = await kmzStorageService.saveKMZ({
-              file_name: file.name,
-              file_path: campo.name,
-              drive_file_id: file.id,
-              description: kmzData.metadata?.description,
-              metadata: kmzData.metadata,
-              placemarks_count: kmzData.placemarks.length,
-              rol_numbers: kmzReader.extractPropertyRoles(kmzData),
-              bounds: kmzData.bounds,
-              coordinates: kmzData.placemarks.map((p) => p.coordinates),
-              category: detectCategory(campo.name),
-              region: campo.location,
-              created_by: currentUser?.id,
-            })
-
-            if (saveResult.success) {
-              console.log("[v0] KMZ saved with region:", campo.location)
+            if (Array.isArray(coordArray) && coordArray.length > 3) {
+              if (Array.isArray(coordArray[0]) && coordArray[0].length >= 2 && typeof coordArray[0][0] === "number") {
+                geometryType = "Polygon"
+                coordinates = coordArray
+              }
             }
 
-            processedKMZ.push({
-              id: saveResult.id || file.id,
-              name: file.name,
-              placemarks: kmzData.placemarks,
-            })
-          } catch (error) {
-            console.error("[v0] Error processing KMZ file:", file.name, error)
+            return {
+              name: `${record.file_name} - ${geometryType === "Polygon" ? "Polígono" : "Punto"} ${index + 1}`,
+              type: geometryType,
+              coordinates: coordinates,
+              description: record.description || "",
+              properties: {
+                rol: record.rol_numbers?.[index] || "",
+                category: record.category || "general",
+              },
+            }
+          })
+
+          return {
+            fileName: record.file_name,
+            placemarks: placemarks,
+            bounds: record.bounds,
+            metadata: {
+              id: record.id,
+              category: record.category,
+              rolNumbers: record.rol_numbers || [],
+              placemarks_count: record.placemarks_count,
+            },
           }
-        }
+        })
 
-        setKmzFiles(processedKMZ)
-      } else {
-        console.log("[v0] Loading KMZ files for region:", campo.location)
-
-        const { data, error } = await supabase
-          .from("kmz_collection")
-          .select("*")
-          .or(
-            `region.ilike.%${campo.location}%,file_path.ilike.%${campo.location}%,file_name.ilike.%${campo.location}%`,
-          )
-          .eq("is_active", true)
-          .limit(10)
-
-        if (error) {
-          console.error("[v0] Error loading KMZ files for region:", error)
-          setKmzFiles([])
-        } else {
-          console.log("[v0] Loaded", data?.length || 0, "KMZ files for region:", campo.location)
-
-          const transformedData = (data || []).map((kmz: any) => ({
-            id: kmz.id,
-            name: kmz.file_name,
-            placemarks:
-              kmz.coordinates?.features?.map((feature: any) => ({
-                name: feature.properties?.name || kmz.file_name,
-                description: feature.properties?.description || "",
-                coordinates:
-                  feature.geometry?.type === "Polygon"
-                    ? feature.geometry.coordinates[0].map((coord: number[]) => [coord[1], coord[0]])
-                    : feature.geometry?.type === "Point"
-                      ? [[feature.geometry.coordinates[1], feature.geometry.coordinates[0]]]
-                      : [],
-                type: feature.geometry?.type || "Point",
-              })) || [],
-          }))
-
-          setKmzFiles(transformedData)
-        }
+        setKmzFiles(transformedKMZ)
       }
     } catch (err) {
       console.error("[v0] Exception loading KMZ:", err)
@@ -643,7 +665,7 @@ export default function UnifiedSearchPage() {
                             <p className="font-medium">{client.name}</p>
                             <p className="text-sm text-gray-500">{client.company}</p>
                             <p className="text-xs text-gray-400 flex items-center gap-1 mt-1">
-                              <MapPin className="h-3 w-3" />
+                              <MapPin className="h-4 w-4" />
                               {client.lat.toFixed(4)}, {client.lng.toFixed(4)}
                             </p>
                           </div>
