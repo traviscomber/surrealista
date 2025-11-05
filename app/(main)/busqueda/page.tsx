@@ -99,7 +99,7 @@ export default function UnifiedSearchPage() {
   useEffect(() => {
     getCurrentUser()
     loadTasks()
-    loadAllSavedKMZ()
+    // KMZ files will now only load when a campo is selected (region-based loading)
   }, [])
 
   useEffect(() => {
@@ -234,7 +234,7 @@ export default function UnifiedSearchPage() {
     setSelectedTask(null)
     setLoading(true)
 
-    console.log("[v0] Campo clicked:", campo.name)
+    console.log("[v0] Campo clicked:", campo.name, "Loading KMZ for region:", campo.location)
 
     try {
       if (campo.driveFiles && campo.driveFiles.length > 0) {
@@ -259,11 +259,12 @@ export default function UnifiedSearchPage() {
               bounds: kmzData.bounds,
               coordinates: kmzData.placemarks.map((p) => p.coordinates),
               category: detectCategory(campo.name),
+              region: campo.location,
               created_by: currentUser?.id,
             })
 
             if (saveResult.success) {
-              console.log("[v0] KMZ saved:", file.name)
+              console.log("[v0] KMZ saved with region:", campo.location)
             }
 
             processedKMZ.push({
@@ -278,18 +279,22 @@ export default function UnifiedSearchPage() {
 
         setKmzFiles(processedKMZ)
       } else {
+        console.log("[v0] Loading KMZ files for region:", campo.location)
+
         const { data, error } = await supabase
           .from("kmz_collection")
           .select("*")
-          .ilike("file_name", `%${campo.location}%`)
+          .or(
+            `region.ilike.%${campo.location}%,file_path.ilike.%${campo.location}%,file_name.ilike.%${campo.location}%`,
+          )
           .eq("is_active", true)
-          .limit(5)
+          .limit(10)
 
         if (error) {
-          console.error("[v0] Error loading KMZ files:", error)
+          console.error("[v0] Error loading KMZ files for region:", error)
           setKmzFiles([])
         } else {
-          console.log("[v0] Loaded KMZ files from DB:", data?.length || 0)
+          console.log("[v0] Loaded", data?.length || 0, "KMZ files for region:", campo.location)
 
           const transformedData = (data || []).map((kmz: any) => ({
             id: kmz.id,
@@ -347,33 +352,7 @@ export default function UnifiedSearchPage() {
     setActiveTab(value)
   }
 
-  const loadAllSavedKMZ = async () => {
-    try {
-      console.log("[v0] Loading all saved KMZ files from database...")
-      const savedKMZ = await kmzStorageService.loadAllKMZ()
-      console.log("[v0] Loaded saved KMZ files:", savedKMZ.length)
-
-      if (savedKMZ.length > 0) {
-        const transformedKMZ = savedKMZ.map((kmz) => ({
-          id: kmz.id,
-          name: kmz.fileName,
-          placemarks: Array.isArray(kmz.coordinates)
-            ? kmz.coordinates.map((coord: any) => ({
-                name: kmz.fileName,
-                description: kmz.description || "",
-                coordinates: Array.isArray(coord) ? coord : [],
-                type: "Polygon",
-              }))
-            : [],
-        }))
-
-        setKmzFiles(transformedKMZ)
-        console.log("[v0] Displaying", transformedKMZ.length, "saved KMZ files on map")
-      }
-    } catch (error) {
-      console.error("[v0] Error loading saved KMZ files:", error)
-    }
-  }
+  // KMZ files are now loaded on-demand by region when a campo is selected
 
   const detectCategory = (path: string): string => {
     const lowerPath = path.toLowerCase()
@@ -756,7 +735,7 @@ export default function UnifiedSearchPage() {
                           </div>
                           <p className="text-sm text-gray-700">{comm.subject}</p>
                           <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                            <Calendar className="h-3 w-3" />
+                            <Calendar className="h-4 w-4" />
                             {comm.date}
                           </p>
                         </div>
@@ -851,7 +830,7 @@ export default function UnifiedSearchPage() {
                       ))}
                       {tasks.length === 0 && (
                         <div className="text-center py-12">
-                          <CheckSquare className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                          <CheckSquare className="h-16 w-16 text-gray-300 mx-auto mb-4" />
                           <p className="text-gray-500 font-medium">No hay tareas creadas</p>
                           <p className="text-sm text-gray-400 mt-2 text-center max-w-sm">
                             Crea tu primera tarea usando el botón de arriba
