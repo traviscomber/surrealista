@@ -32,7 +32,7 @@ import dynamicImport from "next/dynamic"
 import { kmzStorageService } from "@/lib/kmz/kmz-storage-service"
 import { kmzReader } from "@/lib/kmz/kmz-reader"
 import { WeeklyTaskSummary } from "@/components/tasks/weekly-task-summary"
-import { RawDriveFolderView } from "@/components/campos/raw-drive-folder-view"
+import { EnhancedFolderView } from "@/components/google-drive/enhanced-folder-view"
 
 const KMZMapDisplay = dynamicImport(() => import("@/components/kmz/kmz-map-display").then((mod) => mod.KMZMapDisplay), {
   ssr: false,
@@ -516,16 +516,7 @@ export default function UnifiedSearchPage() {
           {/* CAMPOS Tab */}
           <TabsContent value="campos" className="h-[calc(100vh-16rem)] min-h-[600px]">
             <div className="relative h-full w-full">
-              <RawDriveFolderView
-                onFolderSelect={(folder) => {
-                  console.log("[v0] Folder selected:", folder)
-                  // TODO: Load KMZ files for this folder
-                }}
-                onFileSelect={(file) => {
-                  console.log("[v0] File selected:", file)
-                  // TODO: Handle file selection
-                }}
-              />
+              <EnhancedFolderView folderId="root" folderName="Google Drive" />
 
               {/* Offline KMZ Upload Button - positioned absolutely */}
               <div className="absolute top-4 right-4 z-[1000]">
