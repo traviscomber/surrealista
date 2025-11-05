@@ -32,7 +32,7 @@ import dynamicImport from "next/dynamic"
 import { kmzStorageService } from "@/lib/kmz/kmz-storage-service"
 import { kmzReader } from "@/lib/kmz/kmz-reader"
 import { WeeklyTaskSummary } from "@/components/tasks/weekly-task-summary"
-import { EnhancedFolderView } from "@/components/google-drive/enhanced-folder-view"
+import { SimpleDriveFolderView } from "@/components/google-drive/simple-drive-folder-view"
 
 const KMZMapDisplay = dynamicImport(() => import("@/components/kmz/kmz-map-display").then((mod) => mod.KMZMapDisplay), {
   ssr: false,
@@ -264,7 +264,7 @@ export default function UnifiedSearchPage() {
       }
 
       console.log("[v0] Built", camposFromMetadata.length, "campos from metadata")
-      setCamposData(camposFromMetadata)
+      setCamposData(camposData.concat(camposFromMetadata))
     } catch (err) {
       console.error("[v0] Error loading campos metadata:", err)
     }
@@ -516,7 +516,8 @@ export default function UnifiedSearchPage() {
           {/* CAMPOS Tab */}
           <TabsContent value="campos" className="h-[calc(100vh-16rem)] min-h-[600px]">
             <div className="relative h-full w-full">
-              <EnhancedFolderView folderId="root" folderName="Google Drive" />
+              {/* Replace EnhancedFolderView with SimpleDriveFolderView */}
+              <SimpleDriveFolderView apiKey="AIzaSyB6AVo8HT0RyEmiu8YRKj3skR3ujXyjHTU" />
 
               {/* Offline KMZ Upload Button - positioned absolutely */}
               <div className="absolute top-4 right-4 z-[1000]">
