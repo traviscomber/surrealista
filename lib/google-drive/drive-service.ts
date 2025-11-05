@@ -437,6 +437,38 @@ export class GoogleDriveService {
 
     return results
   }
+
+  async searchFolders(): Promise<DriveFile[]> {
+    try {
+      console.log("[v0] Searching for all accessible folders...")
+
+      if (!this._apiKey) {
+        throw new Error("API key is required")
+      }
+
+      const query = "mimeType='application/vnd.google-apps.folder' and trashed=false"
+      const params = new URLSearchParams({
+        key: this._apiKey,
+        q: query,
+        fields: "files(id, name, mimeType, modifiedTime, webViewLink, parents)",
+        pageSize: "1000",
+      })
+
+      const response = await this.fetchWithRetry(`${this.baseUrl}/files?${params}`)
+      const data = await response.json()
+
+      console.log("[v0] Found", data.files?.length || 0, "folders")
+      console.log(
+        "[v0] Folder names from Drive:",
+        data.files?.map((f: any) => f.name),
+      )
+
+      return data.files || []
+    } catch (error) {
+      console.error("[v0] Error searching folders:", error)
+      return []
+    }
+  }
 }
 
 export const driveService = new GoogleDriveService("AIzaSyB6AVo8HT0RyEmiu8YRKj3skR3ujXyjHTU")

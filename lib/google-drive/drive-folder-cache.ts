@@ -22,7 +22,7 @@ export interface DriveIndexCache {
 class DriveFolderCacheService {
   private cacheKey = "drive_folder_index"
   private cacheTimeout = 30 * 60 * 1000 // 30 minutes
-  private rootFolderId = "1234567890" // TODO: Configure this with your actual root folder ID
+  private rootFolderId: string | null = null
 
   setRootFolder(folderId: string) {
     this.rootFolderId = folderId
@@ -30,7 +30,7 @@ class DriveFolderCacheService {
   }
 
   async getOrFetchFolders(forceRefresh = false): Promise<CachedFolder[]> {
-    console.log("[v0] Getting or fetching Drive folders from root:", this.rootFolderId)
+    console.log("[v0] Getting or fetching Drive folders...")
 
     if (!forceRefresh) {
       const cached = this.getCachedFolders()
@@ -41,7 +41,7 @@ class DriveFolderCacheService {
     }
 
     console.log("[v0] Fetching fresh folder structure from Drive...")
-    const folders = await this.fetchFolderStructure(this.rootFolderId)
+    const folders = await this.fetchFolderStructure()
 
     this.cacheFolders(folders)
 
@@ -55,7 +55,7 @@ class DriveFolderCacheService {
 
       const children: CachedFolder[] = files.map((file) => ({
         id: file.id,
-        name: file.name,
+        name: file.name, // Using exact name from Drive API
         mimeType: file.mimeType,
         modifiedTime: file.modifiedTime,
         webViewLink: file.webViewLink,
@@ -65,7 +65,12 @@ class DriveFolderCacheService {
         isExpanded: false,
       }))
 
-      console.log("[v0] Loaded", children.length, "children")
+      console.log(
+        "[v0] Loaded",
+        children.length,
+        "children with names:",
+        children.map((c) => c.name),
+      )
       return children
     } catch (error) {
       console.error("[v0] Error fetching folder children:", error)
@@ -73,34 +78,64 @@ class DriveFolderCacheService {
     }
   }
 
-  private async fetchFolderStructure(folderId: string): Promise<CachedFolder[]> {
+  private async fetchFolderStructure(): Promise<CachedFolder[]> {
     try {
-      console.log("[v0] Fetching folder structure for:", folderId)
+      console.log("[v0] Fetching folder structure from Google Drive root...")
 
-      const { files } = await driveService.listFiles(folderId)
+      // If root folder ID is set, use it; otherwise fetch all accessible folders
+      if (this.rootFolderId) {
+        const { files } = await driveService.listFiles(this.rootFolderId)
 
-      const rootFolder: CachedFolder = {
-        id: folderId,
-        name: "Root",
-        mimeType: "application/vnd.google-apps.folder",
-        modifiedTime: new Date().toISOString(),
-        children: files.map((file) => ({
-          id: file.id,
-          name: file.name,
-          mimeType: file.mimeType,
-          modifiedTime: file.modifiedTime,
-          webViewLink: file.webViewLink,
-          parents: file.parents,
+        const rootFolder: CachedFolder = {
+          id: this.rootFolderId,
+          name: "Root",
+          mimeType: "application/vnd.google-apps.folder",
+          modifiedTime: new Date().toISOString(),
+          children: files.map((file) => ({
+            id: file.id,
+            name: file.name, // Exact name from Drive
+            mimeType: file.mimeType,
+            modifiedTime: file.modifiedTime,
+            webViewLink: file.webViewLink,
+            parents: file.parents,
+            children: [],
+            childrenLoaded: false,
+            isExpanded: false,
+          })),
+          childrenLoaded: true,
+          isExpanded: true,
+        }
+
+        console.log("[v0] Loaded root folder with", rootFolder.children?.length, "items")
+        console.log(
+          "[v0] Folder names:",
+          rootFolder.children?.map((c) => c.name),
+        )
+        return [rootFolder]
+      } else {
+        // Fetch all folders from Drive (no specific root)
+        console.log("[v0] No root folder set, fetching all accessible folders...")
+        const allFolders = await driveService.searchFolders()
+
+        const folders: CachedFolder[] = allFolders.map((folder) => ({
+          id: folder.id,
+          name: folder.name, // Exact name from Drive
+          mimeType: folder.mimeType,
+          modifiedTime: folder.modifiedTime,
+          webViewLink: folder.webViewLink,
+          parents: folder.parents,
           children: [],
           childrenLoaded: false,
           isExpanded: false,
-        })),
-        childrenLoaded: true,
-        isExpanded: true,
-      }
+        }))
 
-      console.log("[v0] Loaded root folder with", rootFolder.children?.length, "items")
-      return [rootFolder]
+        console.log("[v0] Loaded", folders.length, "folders from Drive")
+        console.log(
+          "[v0] Folder names:",
+          folders.map((f) => f.name),
+        )
+        return folders
+      }
     } catch (error) {
       console.error("[v0] Error fetching folder structure:", error)
       return []
@@ -119,11 +154,6 @@ class DriveFolderCacheService {
         return null
       }
 
-      if (data.rootFolderId !== this.rootFolderId) {
-        console.log("[v0] Root folder changed, cache invalid")
-        return null
-      }
-
       return data.folders
     } catch (error) {
       console.error("[v0] Error reading cache:", error)
@@ -137,7 +167,7 @@ class DriveFolderCacheService {
         folders,
         lastUpdated: Date.now(),
         userId: "current_user",
-        rootFolderId: this.rootFolderId,
+        rootFolderId: this.rootFolderId || undefined,
       }
 
       localStorage.setItem(this.cacheKey, JSON.stringify(cache))
