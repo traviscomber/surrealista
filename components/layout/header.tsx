@@ -42,7 +42,7 @@ import {
   Map,
   Search,
 } from "lucide-react"
-import { DriveStatusIndicator } from "@/components/google-drive/drive-status-indicator"
+// import { DriveStatusIndicator } from "@/components/google-drive/drive-status-indicator"
 
 const toolsItems = [
   {
@@ -326,7 +326,7 @@ export function Header() {
         {/* Admin Access */}
         <div className="flex items-center space-x-4">
           {/* Drive status indicator */}
-          <DriveStatusIndicator />
+          {/* <DriveStatusIndicator /> */}
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -523,7 +523,7 @@ export function Header() {
                     className="flex items-center space-x-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
                     onClick={() => setIsOpen(false)}
                   >
-                    <Brain className="h-4 w-4" />
+                    <Brain className="mr-2 h-4 w-4" />
                     <span>Agentes Documentales</span>
                     <Badge className="ml-auto bg-purple-500 text-white text-xs">Nuevo</Badge>
                   </Link>

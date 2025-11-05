@@ -6,9 +6,22 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { KMZMapDisplay } from "@/components/kmz/kmz-map-display"
 import { createBrowserClient } from "@/lib/supabase/client"
-import { Folder, FolderOpen, File, Search, ChevronRight, ChevronDown, MapPin, RefreshCw } from "lucide-react"
+import {
+  Folder,
+  FolderOpen,
+  File,
+  Search,
+  ChevronRight,
+  ChevronDown,
+  ChevronLeft,
+  MapPin,
+  RefreshCw,
+  Menu,
+  Info,
+} from "lucide-react"
 
 interface FolderItem {
   id: string
@@ -33,6 +46,10 @@ export function CAMPOSFolderView() {
   const [isLoadingMetadata, setIsLoadingMetadata] = useState(false)
   const [isLoadingKMZ, setIsLoadingKMZ] = useState(false)
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
+  const [isFolderSheetOpen, setIsFolderSheetOpen] = useState(false)
+  const [isDetailsSheetOpen, setIsDetailsSheetOpen] = useState(false)
+  const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true)
+  const [isRightPanelOpen, setIsRightPanelOpen] = useState(true)
 
   const supabase = createBrowserClient()
 
@@ -232,6 +249,7 @@ export function CAMPOSFolderView() {
   const handleItemClick = async (item: FolderItem) => {
     console.log("[v0] Item clicked:", item.name, "type:", item.type)
     setSelectedItem(item)
+    setIsDetailsSheetOpen(true) // Auto-open details on mobile
 
     if (item.location) {
       console.log("[v0] Centering map on coordinates:", item.location)
@@ -249,198 +267,278 @@ export function CAMPOSFolderView() {
 
   const filteredFolders = folders.filter((folder) => folder.name.toLowerCase().includes(searchQuery.toLowerCase()))
 
-  return (
-    <div className="flex h-screen bg-background">
-      <Card className="w-80 m-4 flex flex-col">
-        <div className="p-4 border-b">
-          <h2 className="text-lg font-semibold mb-3">Carpetas CAMPOS</h2>
-          <Button
-            onClick={loadRegionMetadata}
-            disabled={isLoadingMetadata}
-            className="w-full mb-3 bg-transparent"
-            variant="outline"
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isLoadingMetadata ? "animate-spin" : ""}`} />
-            {isLoadingMetadata ? "Cargando..." : "Actualizar Regiones"}
+  const FolderList = () => (
+    <>
+      <div className="p-4 border-b space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Carpetas CAMPOS</h2>
+          <Button onClick={loadRegionMetadata} disabled={isLoadingMetadata} size="sm" variant="outline">
+            <RefreshCw className={`h-4 w-4 ${isLoadingMetadata ? "animate-spin" : ""}`} />
           </Button>
-          {folders.length > 0 && (
-            <Badge variant="secondary" className="mb-3">
-              {folders.length} regiones disponibles
-            </Badge>
-          )}
-          {selectedRegion && kmzFiles.length > 0 && (
-            <Badge variant="default" className="mb-3 ml-2">
-              {kmzFiles.length} archivos cargados
-            </Badge>
-          )}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Buscar regiones..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
         </div>
 
-        <ScrollArea className="flex-1">
-          <div className="p-4 space-y-2">
-            {filteredFolders.length === 0 && !isLoadingMetadata && (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                No hay regiones disponibles. Haz clic en "Actualizar Regiones" para cargar.
-              </p>
-            )}
-            {filteredFolders.map((folder) => (
-              <div key={folder.id}>
-                <Button
-                  variant={selectedItem?.id === folder.id ? "secondary" : "ghost"}
-                  className="w-full justify-start"
-                  onClick={() => handleItemClick(folder)}
-                  disabled={isLoadingKMZ && folder.category === selectedRegion}
-                >
-                  {folder.isOpen ? <ChevronDown className="h-4 w-4 mr-2" /> : <ChevronRight className="h-4 w-4 mr-2" />}
-                  {folder.isOpen ? <FolderOpen className="h-4 w-4 mr-2" /> : <Folder className="h-4 w-4 mr-2" />}
-                  <span className="flex-1 text-left truncate">{folder.name}</span>
-                  <Badge variant="outline" className="text-xs ml-2">
-                    {folder.fileCount || 0}
-                  </Badge>
-                  {folder.location && <MapPin className="h-3 w-3 ml-2 text-muted-foreground" />}
-                </Button>
+        <div className="flex gap-2 flex-wrap">
+          {folders.length > 0 && <Badge variant="secondary">{folders.length} regiones</Badge>}
+          {selectedRegion && kmzFiles.length > 0 && <Badge variant="default">{kmzFiles.length} archivos</Badge>}
+        </div>
 
-                {folder.isOpen && folder.children && (
-                  <div className="ml-6 mt-1 space-y-1">
-                    {isLoadingKMZ && folder.category === selectedRegion ? (
-                      <div className="text-sm text-muted-foreground p-2 text-center">
-                        <RefreshCw className="h-4 w-4 animate-spin inline mr-2" />
-                        Cargando archivos...
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar regiones..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+      </div>
+
+      <ScrollArea className="flex-1">
+        <div className="p-4 space-y-2">
+          {filteredFolders.length === 0 && !isLoadingMetadata && (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              No hay regiones disponibles. Haz clic en actualizar para cargar.
+            </p>
+          )}
+          {filteredFolders.map((folder) => (
+            <div key={folder.id}>
+              <Button
+                variant={selectedItem?.id === folder.id ? "secondary" : "ghost"}
+                className="w-full justify-start"
+                onClick={() => handleItemClick(folder)}
+                disabled={isLoadingKMZ && folder.category === selectedRegion}
+              >
+                {folder.isOpen ? <ChevronDown className="h-4 w-4 mr-2" /> : <ChevronRight className="h-4 w-4 mr-2" />}
+                {folder.isOpen ? <FolderOpen className="h-4 w-4 mr-2" /> : <Folder className="h-4 w-4 mr-2" />}
+                <span className="flex-1 text-left truncate">{folder.name}</span>
+                <Badge variant="outline" className="text-xs ml-2">
+                  {folder.fileCount || 0}
+                </Badge>
+                {folder.location && <MapPin className="h-3 w-3 ml-2 text-muted-foreground" />}
+              </Button>
+
+              {folder.isOpen && folder.children && (
+                <div className="ml-6 mt-1 space-y-1">
+                  {isLoadingKMZ && folder.category === selectedRegion ? (
+                    <div className="text-sm text-muted-foreground p-2 text-center">
+                      <RefreshCw className="h-4 w-4 animate-spin inline mr-2" />
+                      Cargando archivos...
+                    </div>
+                  ) : (
+                    folder.children.map((child) => (
+                      <Button
+                        key={child.id}
+                        variant={selectedItem?.id === child.id ? "secondary" : "ghost"}
+                        size="sm"
+                        className="w-full justify-start"
+                        onClick={() => handleItemClick(child)}
+                      >
+                        <File className="h-3 w-3 mr-2" />
+                        <span className="flex-1 text-left text-sm truncate">{child.name}</span>
+                        {child.area && (
+                          <Badge variant="outline" className="text-xs">
+                            {child.area}
+                          </Badge>
+                        )}
+                      </Button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </ScrollArea>
+    </>
+  )
+
+  const DetailsPanel = () => (
+    <>
+      <div className="p-4 border-b">
+        <h2 className="text-lg font-semibold">Detalles</h2>
+      </div>
+
+      <ScrollArea className="flex-1">
+        {selectedItem ? (
+          <div className="p-4 space-y-4">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                {selectedItem.type === "folder" ? (
+                  <Folder className="h-5 w-5 text-primary" />
+                ) : (
+                  <File className="h-5 w-5 text-primary" />
+                )}
+                <h3 className="font-semibold">{selectedItem.name}</h3>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {selectedItem.type === "folder" ? "Región" : "Archivo KMZ"}
+              </p>
+            </div>
+
+            {selectedItem.area && (
+              <div>
+                <p className="text-sm font-medium mb-1">Información</p>
+                <Badge variant="secondary">{selectedItem.area}</Badge>
+              </div>
+            )}
+
+            {selectedItem.location && (
+              <div>
+                <p className="text-sm font-medium mb-1">
+                  {selectedItem.type === "folder" ? "Centro de Región" : "Ubicación del Archivo"}
+                </p>
+                <div className="text-sm text-muted-foreground space-y-1">
+                  <p>Lat: {selectedItem.location.lat.toFixed(6)}</p>
+                  <p>Lng: {selectedItem.location.lng.toFixed(6)}</p>
+                </div>
+              </div>
+            )}
+
+            {selectedItem.type === "folder" && selectedItem.fileCount && (
+              <div>
+                <p className="text-sm font-medium mb-2">Archivos en esta región ({selectedItem.fileCount})</p>
+                {selectedItem.children && (
+                  <div className="space-y-1 max-h-60 overflow-y-auto">
+                    {selectedItem.children.map((child) => (
+                      <div key={child.id} className="text-sm p-2 rounded bg-muted/50 flex items-center gap-2">
+                        <File className="h-3 w-3" />
+                        <span className="flex-1 truncate">{child.name}</span>
+                        {child.area && (
+                          <Badge variant="outline" className="text-xs">
+                            {child.area}
+                          </Badge>
+                        )}
                       </div>
-                    ) : (
-                      folder.children.map((child) => (
-                        <Button
-                          key={child.id}
-                          variant={selectedItem?.id === child.id ? "secondary" : "ghost"}
-                          size="sm"
-                          className="w-full justify-start"
-                          onClick={() => handleItemClick(child)}
-                        >
-                          <File className="h-3 w-3 mr-2" />
-                          <span className="flex-1 text-left text-sm truncate">{child.name}</span>
-                          {child.area && (
-                            <Badge variant="outline" className="text-xs">
-                              {child.area}
-                            </Badge>
-                          )}
-                        </Button>
-                      ))
-                    )}
+                    ))}
                   </div>
                 )}
               </div>
-            ))}
-          </div>
-        </ScrollArea>
-      </Card>
+            )}
 
-      <div className="flex-1 m-4 relative">
+            {selectedRegion && kmzFiles.length > 0 && (
+              <div>
+                <p className="text-sm font-medium mb-2">Archivos cargados en mapa ({kmzFiles.length})</p>
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {kmzFiles.map((file) => (
+                    <div key={file.metadata.id} className="text-sm p-2 rounded bg-muted/50 flex items-center gap-2">
+                      <MapPin className="h-3 w-3 text-primary" />
+                      <span className="flex-1 truncate">{file.fileName}</span>
+                      <Badge variant="outline" className="text-xs">
+                        {file.placemarks.length}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="p-4 text-center text-muted-foreground">
+            <Folder className="h-12 w-12 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">Selecciona una región para ver detalles y cargar archivos KMZ</p>
+          </div>
+        )}
+      </ScrollArea>
+    </>
+  )
+
+  return (
+    <div className="relative h-full w-full min-h-[600px]">
+      <div className="absolute inset-0 z-0">
         {isLoadingKMZ && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 bg-background/95 backdrop-blur-sm px-4 py-2 rounded-lg shadow-lg border">
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-background/95 backdrop-blur-sm px-4 py-2 rounded-lg shadow-lg border">
             <div className="flex items-center gap-2">
               <RefreshCw className="h-4 w-4 animate-spin" />
               <span className="text-sm font-medium">Cargando archivos KMZ...</span>
             </div>
           </div>
         )}
-        <KMZMapDisplay kmzFiles={kmzFiles} centerCoordinates={mapCenter || undefined} />
+        <KMZMapDisplay kmzFiles={kmzFiles} centerCoordinates={mapCenter || undefined} height="100%" />
       </div>
 
-      <Card className="w-80 m-4 flex flex-col">
-        <div className="p-4 border-b">
-          <h2 className="text-lg font-semibold">Detalles</h2>
-        </div>
+      <div className="md:hidden absolute top-4 left-4 right-4 z-[999] flex gap-2">
+        <Sheet open={isFolderSheetOpen} onOpenChange={setIsFolderSheetOpen}>
+          <SheetTrigger asChild>
+            <Button size="icon" className="shadow-lg bg-white hover:bg-gray-50">
+              <Menu className="h-5 w-5" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-[85vw] sm:w-[400px] p-0 flex flex-col h-full">
+            <FolderList />
+          </SheetContent>
+        </Sheet>
 
-        <ScrollArea className="flex-1">
-          {selectedItem ? (
-            <div className="p-4 space-y-4">
-              <div>
-                <div className="flex items-center gap-2 mb-2">
-                  {selectedItem.type === "folder" ? (
-                    <Folder className="h-5 w-5 text-primary" />
-                  ) : (
-                    <File className="h-5 w-5 text-primary" />
-                  )}
-                  <h3 className="font-semibold">{selectedItem.name}</h3>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {selectedItem.type === "folder" ? "Región" : "Archivo KMZ"}
-                </p>
-              </div>
+        {selectedItem && (
+          <Sheet open={isDetailsSheetOpen} onOpenChange={setIsDetailsSheetOpen}>
+            <SheetTrigger asChild>
+              <Button size="icon" variant="secondary" className="shadow-lg bg-white hover:bg-gray-50">
+                <Info className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-[85vw] sm:w-[400px] p-0 flex flex-col h-full">
+              <DetailsPanel />
+            </SheetContent>
+          </Sheet>
+        )}
+      </div>
 
-              {selectedItem.area && (
-                <div>
-                  <p className="text-sm font-medium mb-1">Información</p>
-                  <Badge variant="secondary">{selectedItem.area}</Badge>
-                </div>
-              )}
-
-              {selectedItem.location && (
-                <div>
-                  <p className="text-sm font-medium mb-1">
-                    {selectedItem.type === "folder" ? "Centro de Región" : "Ubicación del Archivo"}
-                  </p>
-                  <div className="text-sm text-muted-foreground space-y-1">
-                    <p>Lat: {selectedItem.location.lat.toFixed(6)}</p>
-                    <p>Lng: {selectedItem.location.lng.toFixed(6)}</p>
-                  </div>
-                </div>
-              )}
-
-              {selectedItem.type === "folder" && selectedItem.fileCount && (
-                <div>
-                  <p className="text-sm font-medium mb-2">Archivos en esta región ({selectedItem.fileCount})</p>
-                  {selectedItem.children && (
-                    <div className="space-y-1 max-h-60 overflow-y-auto">
-                      {selectedItem.children.map((child) => (
-                        <div key={child.id} className="text-sm p-2 rounded bg-muted/50 flex items-center gap-2">
-                          <File className="h-3 w-3" />
-                          <span className="flex-1 truncate">{child.name}</span>
-                          {child.area && (
-                            <Badge variant="outline" className="text-xs">
-                              {child.area}
-                            </Badge>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {selectedRegion && kmzFiles.length > 0 && (
-                <div>
-                  <p className="text-sm font-medium mb-2">Archivos cargados en mapa ({kmzFiles.length})</p>
-                  <div className="space-y-1 max-h-40 overflow-y-auto">
-                    {kmzFiles.map((file) => (
-                      <div key={file.metadata.id} className="text-sm p-2 rounded bg-muted/50 flex items-center gap-2">
-                        <MapPin className="h-3 w-3 text-primary" />
-                        <span className="flex-1 truncate">{file.fileName}</span>
-                        <Badge variant="outline" className="text-xs">
-                          {file.placemarks.length}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+      <div className="hidden md:block absolute inset-y-0 left-0 z-[999] pointer-events-none">
+        {isLeftPanelOpen ? (
+          <Card className="m-4 w-80 h-[calc(100%-2rem)] flex flex-col pointer-events-auto shadow-2xl bg-white/95 backdrop-blur-sm">
+            <div className="absolute -right-3 top-1/2 -translate-y-1/2 z-10">
+              <Button
+                size="icon"
+                variant="secondary"
+                className="h-8 w-8 rounded-full shadow-lg"
+                onClick={() => setIsLeftPanelOpen(false)}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
             </div>
-          ) : (
-            <div className="p-4 text-center text-muted-foreground">
-              <Folder className="h-12 w-12 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">Selecciona una región para ver detalles y cargar archivos KMZ</p>
+            <FolderList />
+          </Card>
+        ) : (
+          <div className="m-4 pointer-events-auto">
+            <Button
+              size="icon"
+              variant="secondary"
+              className="shadow-lg bg-white hover:bg-gray-50"
+              onClick={() => setIsLeftPanelOpen(true)}
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
+          </div>
+        )}
+      </div>
+
+      <div className="hidden md:block absolute inset-y-0 right-0 z-[999] pointer-events-none">
+        {isRightPanelOpen ? (
+          <Card className="m-4 w-80 h-[calc(100%-2rem)] flex flex-col pointer-events-auto shadow-2xl bg-white/95 backdrop-blur-sm">
+            <div className="absolute -left-3 top-1/2 -translate-y-1/2 z-10">
+              <Button
+                size="icon"
+                variant="secondary"
+                className="h-8 w-8 rounded-full shadow-lg"
+                onClick={() => setIsRightPanelOpen(false)}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
-          )}
-        </ScrollArea>
-      </Card>
+            <DetailsPanel />
+          </Card>
+        ) : (
+          <div className="m-4 pointer-events-auto">
+            <Button
+              size="icon"
+              variant="secondary"
+              className="shadow-lg bg-white hover:bg-gray-50"
+              onClick={() => setIsRightPanelOpen(true)}
+            >
+              <Info className="h-5 w-5" />
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

@@ -18,7 +18,7 @@ import {
   CheckSquare,
   MapPin,
   Calendar,
-  Map,
+  MapIcon,
   Loader2,
   Plus,
   Upload,
@@ -32,6 +32,7 @@ import dynamicImport from "next/dynamic"
 import { kmzStorageService } from "@/lib/kmz/kmz-storage-service"
 import { kmzReader } from "@/lib/kmz/kmz-reader"
 import { WeeklyTaskSummary } from "@/components/tasks/weekly-task-summary"
+import { CAMPOSFolderView } from "@/components/campos/campos-folder-view"
 
 const KMZMapDisplay = dynamicImport(() => import("@/components/kmz/kmz-map-display").then((mod) => mod.KMZMapDisplay), {
   ssr: false,
@@ -458,29 +459,6 @@ export default function UnifiedSearchPage() {
         <div className="mb-6">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Búsqueda Unificada Sur-Realista</h1>
           <p className="text-gray-600">Sistema integrado de búsqueda para CAMPOS, Clientes, Comunicaciones y Tareas</p>
-          <div className="flex items-center gap-2 mt-2">
-            <Badge variant="outline" className="flex items-center gap-1">
-              <div className={`h-2 w-2 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"}`} />
-              {isConnected ? "Google Drive Conectado" : "Google Drive Desconectado"}
-            </Badge>
-            {driveLoading && (
-              <Badge variant="outline" className="flex items-center gap-1">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Conectando...
-              </Badge>
-            )}
-            {!isConnected && !driveLoading && (
-              <div className="text-sm text-red-600 bg-red-50 p-3 rounded-lg mb-2 border border-red-200">
-                <p className="font-medium mb-1">❌ Google Drive no conectado</p>
-                <p className="text-xs">
-                  No se pueden cargar carpetas sin conexión a Google Drive. Contacte al administrador.
-                </p>
-                <Button variant="outline" size="sm" onClick={reconnect} className="mt-2 bg-transparent">
-                  Intentar Reconectar
-                </Button>
-              </div>
-            )}
-          </div>
         </div>
 
         {/* Search Bar */}
@@ -536,106 +514,41 @@ export default function UnifiedSearchPage() {
           </TabsList>
 
           {/* CAMPOS Tab */}
-          <TabsContent value="campos">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Folders List */}
-              <div className="lg:col-span-1 space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Folder className="h-5 w-5" />
-                      Carpetas CAMPOS
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={loadDriveFolders}
-                        disabled={driveLoading}
-                        className="ml-auto"
-                      >
-                        {driveLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Actualizar"}
-                      </Button>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {camposData.length === 0 && !driveLoading && (
-                      <p className="text-sm text-gray-500 text-center py-4">No se encontraron carpetas</p>
-                    )}
-                    {camposData.map((campo) => (
-                      <div
-                        key={campo.id}
-                        onClick={() => handleCampoClick(campo)}
-                        className={`p-3 border rounded-lg hover:bg-blue-50 cursor-pointer transition-colors ${
-                          selectedCampo?.id === campo.id ? "bg-blue-100 border-blue-500" : ""
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium">{campo.name}</p>
-                            <p className="text-sm text-gray-500 flex items-center gap-1">
-                              <MapPin className="h-3 w-3" />
-                              {campo.location}
-                            </p>
-                          </div>
-                          <Badge>{campo.files} archivos</Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
+          <TabsContent value="campos" className="h-[calc(100vh-16rem)] min-h-[600px]">
+            <div className="relative h-full w-full">
+              {/* Offline KMZ Upload Button - positioned absolutely */}
+              <div className="absolute top-4 right-4 z-[1000]">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".kmz,.kml"
+                  multiple
+                  onChange={handleOfflineKMZUpload}
+                  className="hidden"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingKMZ}
+                  className="bg-white shadow-lg hover:bg-gray-50"
+                >
+                  {uploadingKMZ ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Subiendo...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4 mr-2" />
+                      Cargar KMZ Offline
+                    </>
+                  )}
+                </Button>
               </div>
 
-              {/* Map View */}
-              <div className="lg:col-span-2">
-                <Card className="h-[600px]">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Map className="h-5 w-5" />
-                      Vista de Mapa - Polígonos KMZ
-                      {selectedCampo && (
-                        <Badge variant="outline" className="ml-auto">
-                          {selectedCampo.name}
-                        </Badge>
-                      )}
-                      {loading && <Loader2 className="h-4 w-4 animate-spin ml-2" />}
-                      {/* Offline KMZ Upload Button */}
-                      <div className="ml-auto flex items-center gap-2">
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          accept=".kmz,.kml"
-                          multiple
-                          onChange={handleOfflineKMZUpload}
-                          className="hidden"
-                        />
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => fileInputRef.current?.click()}
-                          disabled={uploadingKMZ}
-                          className="bg-transparent"
-                        >
-                          {uploadingKMZ ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Subiendo...
-                            </>
-                          ) : (
-                            <>
-                              <Upload className="h-4 w-4 mr-2" />
-                              Cargar KMZ Offline
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="h-full">
-                    <div className="h-[500px] w-full rounded-xl overflow-hidden relative z-0">
-                      <KMZMapDisplay kmzFiles={kmzFiles} height="500px" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
+              {/* CAMPOSFolderView component - now takes full height */}
+              <CAMPOSFolderView />
             </div>
           </TabsContent>
 
@@ -692,7 +605,7 @@ export default function UnifiedSearchPage() {
                 <Card className="h-[600px]">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2">
-                      <Map className="h-5 w-5" />
+                      <MapIcon className="h-5 w-5" />
                       Ubicaciones de Clientes
                       {selectedClient && (
                         <Badge variant="outline" className="ml-auto">
