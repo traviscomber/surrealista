@@ -3,9 +3,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Progress } from "@/components/ui/progress"
 import {
   TrendingUp,
   Folder,
@@ -14,20 +11,15 @@ import {
   Calendar,
   CheckCircle,
   AlertCircle,
-  Search,
-  Grid,
-  List,
-  ChevronLeft,
-  ChevronRight,
   RefreshCw,
   ArrowLeft,
   FolderOpen,
-  Settings,
-  Database,
+  File,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import dynamic from "next/dynamic"
 import { AppHeader } from "@/components/layout/app-header"
+import { createBrowserClient } from "@supabase/ssr"
 
 const SimpleDriveFolderView = dynamic(
   () =>
@@ -64,6 +56,37 @@ interface IndexingProgress {
 }
 
 function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void }) {
+  const [folderContents, setFolderContents] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    loadFolderContents()
+  }, [folder.id])
+
+  const loadFolderContents = async () => {
+    try {
+      setLoading(true)
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      )
+
+      const { data, error } = await supabase
+        .from("kmz_collection")
+        .select("*")
+        .eq("region", folder.location)
+        .order("created_at", { ascending: false })
+
+      if (error) throw error
+
+      setFolderContents(data || [])
+    } catch (err) {
+      console.error("[v0] Error loading folder contents:", err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
       <div className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
@@ -109,9 +132,38 @@ function FolderDetailView({ folder, onBack }: { folder: any; onBack: () => void 
           </div>
         </div>
 
-        <div className="container mx-auto px-4 py-6">
-          <SimpleDriveFolderView apiKey="AIzaSyB6AVo8HT0RyEmiu8YRKj3skR3ujXyjHTU" />
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Archivos en esta carpeta</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <RefreshCw className="h-8 w-8 animate-spin text-blue-600" />
+              </div>
+            ) : folderContents.length === 0 ? (
+              <div className="text-center py-12">
+                <Folder className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500">No se encontraron archivos</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {folderContents.map((file) => (
+                  <div
+                    key={file.id}
+                    className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg border border-gray-200"
+                  >
+                    <File className="h-5 w-5 text-gray-500 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">{file.file_name || "Sin nombre"}</p>
+                      <p className="text-xs text-gray-500">{file.region}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   )
@@ -592,339 +644,15 @@ export default function HomePage() {
                 <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
                   <TrendingUp className="h-8 w-8 text-blue-600" />
                   Gestión de Carpetas - Sur-Realista
-                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                    {folders.length} Carpetas {isAuthenticated ? "Reales" : "Demo"}
-                  </Badge>
-                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                    {/* Removed PARA related badge */}
-                    {/* Método PARA Activo */}
-                  </Badge>
-                  {searchIndex.length > 0 && (
-                    <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                      <Database className="h-3 w-3 mr-1" />
-                      {searchIndex.length} items indexados
-                    </Badge>
-                  )}
                 </h1>
-                <p className="text-gray-600 mt-1">
-                  {isAuthenticated ? "Datos reales desde Google Drive" : "Datos de demostración"}
-                  {/* Removed PARA related text */}
-                  {/*  procesados con metodología PARA */}
-                </p>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  onClick={() => window.open("/admin/file-explorer", "_blank")}
-                  variant="outline"
-                  size="sm"
-                  className="bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
-                >
-                  <Settings className="h-4 w-4 mr-2" />
-                  Explorador de Archivos
-                </Button>
-                {!isAuthenticated && (
-                  <Button onClick={loadRealData} variant="outline" size="sm">
-                    Conectar Google Drive
-                  </Button>
-                )}
-                <Button onClick={loadRealData} variant="outline" size="sm" disabled={loading}>
-                  <RefreshCw className={`h-4 w-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-                  {loading ? "Cargando..." : "Actualizar"}
-                </Button>
+                <p className="text-gray-600 mt-1">Estructura de carpetas desde Google Drive</p>
               </div>
             </div>
           </div>
         </div>
-
-        {indexingProgress.isIndexing && (
-          <div className="bg-blue-50 border-b border-blue-200">
-            <div className="container mx-auto px-4 py-4">
-              <div className="flex items-center gap-4">
-                <RefreshCw className="h-5 w-5 animate-spin text-blue-600" />
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-sm font-medium text-blue-900">
-                      Indexando carpetas y archivos: {indexingProgress.currentFolder}
-                    </p>
-                    <p className="text-sm text-blue-700">
-                      {indexingProgress.foldersProcessed} carpetas • {indexingProgress.filesProcessed} archivos
-                    </p>
-                  </div>
-                  <Progress value={indexingProgress.totalProgress} className="h-2" />
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="container mx-auto px-4 py-4">
-          {isAuthenticated && searchIndex.length === 0 && !indexingProgress.isIndexing && (
-            <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200 p-4 mb-4">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
-                    <Database className="h-5 w-5 text-purple-600" />
-                    Indexación de Archivos Disponible
-                  </h3>
-                  <p className="text-sm text-gray-600 mb-2">
-                    Indexa todos los archivos de Google Drive para búsqueda avanzada (puede tomar varios minutos)
-                  </p>
-                </div>
-                <Button onClick={startIndexing} className="bg-purple-600 hover:bg-purple-700">
-                  <Database className="h-4 w-4 mr-2" />
-                  Iniciar Indexación
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {searchIndex.length > 0 && (
-            <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg border border-green-200 p-4 mb-4">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <h3 className="font-semibold text-gray-900 mb-1 flex items-center gap-2">
-                    <CheckCircle className="h-5 w-5 text-green-600" />
-                    Archivos Indexados
-                  </h3>
-                  <p className="text-sm text-gray-600 mb-2">
-                    {searchIndex.length} archivos y carpetas indexados desde Google Drive
-                  </p>
-                  <div className="flex items-center gap-4 text-xs text-gray-500">
-                    <span className="flex items-center gap-1">
-                      <Folder className="h-3 w-3" />
-                      {searchIndex.filter((item) => item.type === "folder").length} carpetas
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <FileText className="h-3 w-3" />
-                      {searchIndex.filter((item) => item.type === "file").length} archivos
-                    </span>
-                  </div>
-                </div>
-                <Button onClick={startIndexing} variant="outline" size="sm">
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Re-indexar
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Removed PARA stats section */}
-        {/* <div className="container mx-auto px-4 py-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Proyectos Activos</p>
-                  <p className="text-3xl font-bold text-red-600">{paraStats.projects}</p>
-                  <p className="text-xs text-gray-500 mt-1">Con fechas límite</p>
-                </div>
-                <TrendingUp className="h-8 w-8 text-red-500" />
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Áreas Responsabilidad</p>
-                  <p className="text-3xl font-bold text-blue-600">{paraStats.areas}</p>
-                  <p className="text-xs text-gray-500 mt-1">Actividades continuas</p>
-                </div>
-                <Building className="h-8 w-8 text-blue-500" />
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Recursos Referencia</p>
-                  <p className="text-3xl font-bold text-green-600">{paraStats.resources}</p>
-                  <p className="text-xs text-gray-500 mt-1">Para consulta futura</p>
-                </div>
-                <BookOpen className="h-8 w-8 text-green-500" />
-              </div>
-            </div>
-
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-gray-600">Archivo</p>
-                  <p className="text-3xl font-bold text-gray-600">{paraStats.archive}</p>
-                  <p className="text-xs text-gray-500 mt-1">Casos completados</p>
-                </div>
-                <Archive className="h-8 w-8 text-gray-500" />
-              </div>
-            </div>
-          </div>
-        </div> */}
 
         <div className="container mx-auto px-4 py-8">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-            <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
-              <div className="flex flex-col sm:flex-row gap-4 flex-1">
-                <div className="relative flex-1 max-w-md">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <Input
-                    placeholder="Buscar en todas las carpetas y archivos..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
-
-                <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue placeholder="Estado" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos los estados</SelectItem>
-                    <SelectItem value="complete">Completo</SelectItem>
-                    <SelectItem value="processing">Procesando</SelectItem>
-                    <SelectItem value="pending">Pendiente</SelectItem>
-                    <SelectItem value="incomplete">Incompleto</SelectItem>
-                  </SelectContent>
-                </Select>
-
-                <Select value={locationFilter} onValueChange={setLocationFilter}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue placeholder="Ubicación" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todas las ubicaciones</SelectItem>
-                    {uniqueLocations.map((location) => (
-                      <SelectItem key={location} value={location}>
-                        {location}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue placeholder="Ordenar por" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="name">Nombre</SelectItem>
-                    <SelectItem value="files">Archivos</SelectItem>
-                    <SelectItem value="completion">Completitud</SelectItem>
-                    <SelectItem value="date">Fecha</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant={viewMode === "grid" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setViewMode("grid")}
-                >
-                  <Grid className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={viewMode === "list" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setViewMode("list")}
-                >
-                  <List className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {searchResults && searchResults.total > 0 && (
-            <div className="bg-blue-50 rounded-lg border border-blue-200 p-4 mb-6">
-              <h3 className="font-semibold text-blue-900 mb-3">
-                Resultados de búsqueda: {searchResults.total} items encontrados
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {searchResults.folders.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-medium text-blue-800 mb-2 flex items-center gap-2">
-                      <Folder className="h-4 w-4" />
-                      Carpetas ({searchResults.folders.length})
-                    </h4>
-                    <div className="space-y-1 max-h-48 overflow-y-auto">
-                      {searchResults.folders.slice(0, 10).map((item) => (
-                        <div key={item.id} className="text-sm text-blue-700 bg-white rounded px-2 py-1">
-                          {item.path}
-                        </div>
-                      ))}
-                      {searchResults.folders.length > 10 && (
-                        <p className="text-xs text-blue-600 italic">
-                          +{searchResults.folders.length - 10} carpetas más...
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
-                {searchResults.files.length > 0 && (
-                  <div>
-                    <h4 className="text-sm font-medium text-blue-800 mb-2 flex items-center gap-2">
-                      <FileText className="h-4 w-4" />
-                      Archivos ({searchResults.files.length})
-                    </h4>
-                    <div className="space-y-1 max-h-48 overflow-y-auto">
-                      {searchResults.files.slice(0, 10).map((item) => (
-                        <div key={item.id} className="text-sm text-blue-700 bg-white rounded px-2 py-1">
-                          {item.path}
-                        </div>
-                      ))}
-                      {searchResults.files.length > 10 && (
-                        <p className="text-xs text-blue-600 italic">
-                          +{searchResults.files.length - 10} archivos más...
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          <div
-            className={
-              viewMode === "grid"
-                ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8"
-                : "space-y-4 mb-8"
-            }
-          >
-            {paginatedFolders.map((folder) => (
-              <FolderCard key={folder.id} folder={folder} viewMode={viewMode} onViewDetails={handleViewDetails} />
-            ))}
-          </div>
-
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-              <div className="text-sm text-gray-600">
-                Mostrando {(currentPage - 1) * itemsPerPage + 1} a{" "}
-                {Math.min(currentPage * itemsPerPage, filteredAndSortedFolders.length)} de{" "}
-                {filteredAndSortedFolders.length} carpetas
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Anterior
-                </Button>
-                <span className="text-sm text-gray-600">
-                  Página {currentPage} de {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  Siguiente
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
+          <SimpleDriveFolderView />
         </div>
       </div>
     </>
