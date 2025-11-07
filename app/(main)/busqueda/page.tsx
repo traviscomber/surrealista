@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import { kmzReader, kmzStorageService } from "@/lib/kmz/kmz-reader-storage" // Declare the variables here
 
 export const dynamic = "force-dynamic"
 
@@ -21,17 +22,16 @@ import {
   MapIcon,
   Loader2,
   Plus,
-  Upload,
   BarChart3,
+  HardDrive,
 } from "lucide-react"
 import { createBrowserClient } from "@/lib/supabase/client"
 import { TaskCreationDialog } from "@/components/tasks/task-creation-dialog"
 import { TaskActionsPanel } from "@/components/tasks/task-actions-panel"
 import { useGoogleDrive } from "@/lib/contexts/google-drive-context"
 import dynamicImport from "next/dynamic"
-import { kmzStorageService } from "@/lib/kmz/kmz-storage-service"
-import { kmzReader } from "@/lib/kmz/kmz-reader"
 import { WeeklyTaskSummary } from "@/components/tasks/weekly-task-summary"
+import { CAMPOSFolderView } from "@/components/campos/campos-folder-view"
 import { SimpleDriveFolderView } from "@/components/google-drive/simple-drive-folder-view"
 
 const KMZMapDisplay = dynamicImport(() => import("@/components/kmz/kmz-map-display").then((mod) => mod.KMZMapDisplay), {
@@ -475,13 +475,20 @@ export default function UnifiedSearchPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-6 h-auto">
+          <TabsList className="grid w-full grid-cols-6 mb-6 h-auto">
             <TabsTrigger
               value="campos"
               className="flex items-center gap-2 cursor-pointer data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             >
               <Folder className="h-4 w-4" />
               CAMPOS
+            </TabsTrigger>
+            <TabsTrigger
+              value="drive"
+              className="flex items-center gap-2 cursor-pointer data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            >
+              <HardDrive className="h-4 w-4" />
+              Google Drive
             </TabsTrigger>
             <TabsTrigger
               value="clientes"
@@ -513,43 +520,12 @@ export default function UnifiedSearchPage() {
             </TabsTrigger>
           </TabsList>
 
-          {/* CAMPOS Tab */}
           <TabsContent value="campos" className="h-[calc(100vh-16rem)] min-h-[600px]">
-            <div className="relative h-full w-full">
-              {/* Replace EnhancedFolderView with SimpleDriveFolderView */}
-              <SimpleDriveFolderView apiKey="AIzaSyB6AVo8HT0RyEmiu8YRKj3skR3ujXyjHTU" />
+            <CAMPOSFolderView />
+          </TabsContent>
 
-              {/* Offline KMZ Upload Button - positioned absolutely */}
-              <div className="absolute top-4 right-4 z-[1000]">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".kmz,.kml"
-                  multiple
-                  onChange={handleOfflineKMZUpload}
-                  className="hidden"
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploadingKMZ}
-                  className="bg-white shadow-lg hover:bg-gray-50"
-                >
-                  {uploadingKMZ ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Subiendo...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-4 w-4 mr-2" />
-                      Cargar KMZ Offline
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
+          <TabsContent value="drive" className="h-[calc(100vh-16rem)] min-h-[600px]">
+            <SimpleDriveFolderView />
           </TabsContent>
 
           {/* Clientes Tab */}
