@@ -1,8 +1,6 @@
 "use client"
 
 import type React from "react"
-import { kmzReader, kmzStorageService } from "@/lib/kmz/kmz-reader-storage" // Declare the variables here
-
 export const dynamic = "force-dynamic"
 
 import { useState, useEffect, useRef } from "react"
@@ -24,6 +22,12 @@ import {
   Plus,
   BarChart3,
   HardDrive,
+  Zap,
+  Clock,
+  AlertCircle,
+  CheckCircle2,
+  FileSpreadsheet,
+  Upload,
 } from "lucide-react"
 import { createBrowserClient } from "@/lib/supabase/client"
 import { TaskCreationDialog } from "@/components/tasks/task-creation-dialog"
@@ -33,6 +37,9 @@ import dynamicImport from "next/dynamic"
 import { WeeklyTaskSummary } from "@/components/tasks/weekly-task-summary"
 import { CAMPOSFolderView } from "@/components/campos/campos-folder-view"
 import { SimpleDriveFolderView } from "@/components/google-drive/simple-drive-folder-view"
+import { kmzReader } from "@/lib/kmz/kmz-reader"
+import { kmzStorageService } from "@/lib/kmz/kmz-storage-service"
+import { useRouter } from "next/navigation" // Added router for navigation
 
 const KMZMapDisplay = dynamicImport(() => import("@/components/kmz/kmz-map-display").then((mod) => mod.KMZMapDisplay), {
   ssr: false,
@@ -44,11 +51,23 @@ const KMZMapDisplay = dynamicImport(() => import("@/components/kmz/kmz-map-displ
 })
 
 interface Client {
-  name: string
-  company: string
+  id: string
+  first_name: string
+  last_name: string
+  company_name?: string
   status: "hot" | "warm" | "cold"
-  lat: number
-  lng: number
+  email?: string
+  phone?: string
+  address?: string
+  city?: string
+  region?: string
+  latitude?: number
+  longitude?: number
+  main_interest?: string
+  locations_of_interest?: string[]
+  budget_min?: number
+  budget_max?: number
+  last_contact_date?: string
 }
 
 interface Campo {
@@ -92,15 +111,22 @@ export default function UnifiedSearchPage() {
   const [currentUser, setCurrentUser] = useState<any>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploadingKMZ, setUploadingKMZ] = useState(false)
+  const [clients, setClients] = useState<Client[]>([])
+  const [loadingClients, setLoadingClients] = useState(false)
+  const [quickTaskTitle, setQuickTaskTitle] = useState("")
+  const [showQuickTask, setShowQuickTask] = useState(false)
 
   const { driveService, isConnected, isLoading: driveLoading, reconnect } = useGoogleDrive()
 
   const supabase = createBrowserClient()
 
+  const router = useRouter() // Added router instance
+
   useEffect(() => {
     getCurrentUser()
     loadTasks()
     loadCamposMetadata()
+    loadClients()
   }, [])
 
   useEffect(() => {
@@ -275,7 +301,7 @@ export default function UnifiedSearchPage() {
     setSelectedCampo(null)
     setSelectedTask(null)
     setKmzFiles([])
-    console.log("[v0] Client clicked:", client.name, "at", client.lat, client.lng)
+    console.log("[v0] Client clicked:", client.first_name, client.last_name, "at", client.latitude, client.longitude)
   }
 
   const handleCampoClick = async (campo: Campo) => {
@@ -364,11 +390,51 @@ export default function UnifiedSearchPage() {
     return null
   }
 
-  const clients: Client[] = [
-    { name: "Carlos Mendoza", company: "Inversiones del Sur", status: "hot", lat: -39.8196, lng: -73.2452 },
-    { name: "Ana Silva", company: "Turismo Patagonia", status: "warm", lat: -39.2819, lng: -71.9489 },
-    { name: "Roberto Fernández", company: "Forestal Los Andes", status: "cold", lat: -42.4827, lng: -73.7615 },
-  ]
+  const loadClients = async () => {
+    console.log("[v0] Loading clients from database...")
+    setLoadingClients(true)
+
+    try {
+      const { data, error } = await supabase
+        .from("clients")
+        .select("*")
+        .order("last_contact_date", { ascending: false })
+
+      if (error) {
+        console.error("[v0] Error loading clients:", error)
+        return
+      }
+
+      console.log("[v0] Loaded", data?.length || 0, "clients from database")
+
+      // Transform database clients to match interface
+      const transformedClients = (data || []).map((client: any) => ({
+        id: client.id,
+        first_name: client.first_name || "",
+        last_name: client.last_name || "",
+        company_name: client.company_name,
+        status: client.status || "cold",
+        email: client.email,
+        phone: client.phone || client.mobile,
+        address: client.address,
+        city: client.city,
+        region: client.region,
+        latitude: client.latitude,
+        longitude: client.longitude,
+        main_interest: client.main_interest,
+        locations_of_interest: client.locations_of_interest,
+        budget_min: client.budget_min,
+        budget_max: client.budget_max,
+        last_contact_date: client.last_contact_date,
+      }))
+
+      setClients(transformedClients)
+    } catch (err) {
+      console.error("[v0] Exception loading clients:", err)
+    } finally {
+      setLoadingClients(false)
+    }
+  }
 
   const handleTabChange = (value: string) => {
     console.log("[v0] Tab changed to:", value)
@@ -449,6 +515,31 @@ export default function UnifiedSearchPage() {
       if (fileInputRef.current) {
         fileInputRef.current.value = ""
       }
+    }
+  }
+
+  const handleQuickTaskCreate = async () => {
+    if (!quickTaskTitle.trim()) return
+
+    try {
+      const { error } = await supabase.from("tasks").insert([
+        {
+          title: quickTaskTitle,
+          status: "pending",
+          priority: "medium",
+          created_by: currentUser?.email || "system",
+          created_at: new Date().toISOString(),
+        },
+      ])
+
+      if (error) throw error
+
+      setQuickTaskTitle("")
+      setShowQuickTask(false)
+      loadTasks()
+      console.log("[v0] Quick task created:", quickTaskTitle)
+    } catch (error) {
+      console.error("[v0] Error creating quick task:", error)
     }
   }
 
@@ -538,40 +629,99 @@ export default function UnifiedSearchPage() {
                     <CardTitle className="flex items-center gap-2">
                       <Users className="h-5 w-5" />
                       Lista de Clientes
+                      <Badge variant="outline" className="ml-auto">
+                        {clients.length} clientes
+                      </Badge>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
-                    {clients.map((client, idx) => (
-                      <div
-                        key={idx}
-                        onClick={() => handleClientClick(client)}
-                        className={`p-3 border rounded-lg hover:bg-blue-50 cursor-pointer transition-colors ${
-                          selectedClient?.name === client.name ? "bg-blue-100 border-blue-500" : ""
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium">{client.name}</p>
-                            <p className="text-sm text-gray-500">{client.company}</p>
-                            <p className="text-xs text-gray-400 flex items-center gap-1 mt-1">
-                              <MapPin className="h-4 w-4" />
-                              {client.lat.toFixed(4)}, {client.lng.toFixed(4)}
-                            </p>
-                          </div>
-                          <Badge
-                            className={
-                              client.status === "hot"
-                                ? "bg-red-100 text-red-700"
-                                : client.status === "warm"
-                                  ? "bg-yellow-100 text-yellow-700"
-                                  : "bg-blue-100 text-blue-700"
-                            }
+                    {loadingClients && (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+                      </div>
+                    )}
+                    {!loadingClients && clients.length === 0 && (
+                      <div className="text-center py-8">
+                        <Users className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                        <p className="text-gray-500 font-medium">No hay clientes registrados</p>
+                        <p className="text-sm text-gray-400 mt-1 mb-4">
+                          Importa clientes desde Excel o agrégalos manualmente
+                        </p>
+                        <div className="flex flex-col gap-2">
+                          <Button onClick={() => router.push("/admin/clientes")} className="w-full gap-2" size="sm">
+                            <FileSpreadsheet className="h-4 w-4" />
+                            Importar desde Excel
+                          </Button>
+                          <Button
+                            onClick={() => {
+                              // TODO: Implement manual client creation
+                              alert("Función de agregar cliente manual en desarrollo")
+                            }}
+                            variant="outline"
+                            className="w-full gap-2"
+                            size="sm"
                           >
-                            {client.status}
-                          </Badge>
+                            <Plus className="h-4 w-4" />
+                            Agregar Manual
+                          </Button>
                         </div>
                       </div>
-                    ))}
+                    )}
+                    {!loadingClients && clients.length > 0 && (
+                      <>
+                        <div className="flex gap-2 mb-3">
+                          <Button
+                            onClick={() => router.push("/admin/clientes")}
+                            size="sm"
+                            variant="outline"
+                            className="w-full gap-2"
+                          >
+                            <Upload className="h-3 w-3" />
+                            Importar más clientes
+                          </Button>
+                        </div>
+                        {clients.map((client) => (
+                          <div
+                            key={client.id}
+                            onClick={() => handleClientClick(client)}
+                            className={`p-3 border rounded-lg hover:bg-blue-50 cursor-pointer transition-colors ${
+                              selectedClient?.id === client.id ? "bg-blue-100 border-blue-500" : ""
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <p className="font-medium">
+                                  {client.first_name} {client.last_name}
+                                </p>
+                                {client.company_name && <p className="text-sm text-gray-500">{client.company_name}</p>}
+                                {client.latitude && client.longitude && (
+                                  <p className="text-xs text-gray-400 flex items-center gap-1 mt-1">
+                                    <MapPin className="h-4 w-4" />
+                                    {client.latitude.toFixed(4)}, {client.longitude.toFixed(4)}
+                                  </p>
+                                )}
+                                {client.city && client.region && (
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    {client.city}, {client.region}
+                                  </p>
+                                )}
+                              </div>
+                              <Badge
+                                className={
+                                  client.status === "hot"
+                                    ? "bg-red-100 text-red-700"
+                                    : client.status === "warm"
+                                      ? "bg-yellow-100 text-yellow-700"
+                                      : "bg-blue-100 text-blue-700"
+                                }
+                              >
+                                {client.status}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))}
+                      </>
+                    )}
                   </CardContent>
                 </Card>
               </div>
@@ -585,7 +735,7 @@ export default function UnifiedSearchPage() {
                       Ubicaciones de Clientes
                       {selectedClient && (
                         <Badge variant="outline" className="ml-auto">
-                          {selectedClient.name}
+                          {selectedClient.first_name} {selectedClient.last_name}
                         </Badge>
                       )}
                     </CardTitle>
@@ -596,7 +746,9 @@ export default function UnifiedSearchPage() {
                         kmzFiles={[]}
                         height="500px"
                         centerCoordinates={
-                          selectedClient ? { lat: selectedClient.lat, lng: selectedClient.lng } : undefined
+                          selectedClient && selectedClient.latitude && selectedClient.longitude
+                            ? { lat: selectedClient.latitude, lng: selectedClient.longitude }
+                            : undefined
                         }
                       />
                     </div>
@@ -668,14 +820,89 @@ export default function UnifiedSearchPage() {
                     <CardTitle className="flex items-center gap-2">
                       <CheckSquare className="h-5 w-5" />
                       Nuevas Tareas
+                      <div className="ml-auto flex items-center gap-2">
+                        {/* Quick action icons */}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => setShowQuickTask(!showQuickTask)}
+                          className="text-xs"
+                        >
+                          <Zap className="h-4 w-4 mr-1" />
+                          Rápida
+                        </Button>
+                        <Button size="sm" onClick={() => setTaskDialogOpen(true)}>
+                          <Plus className="h-4 w-4 mr-1" />
+                          Nueva
+                        </Button>
+                      </div>
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="space-y-2">
-                    <Button className="w-full mb-4" onClick={() => setTaskDialogOpen(true)}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Nueva Tarea
-                    </Button>
-                    <div className="max-h-[700px] overflow-y-auto space-y-2 pr-2">
+                  <CardContent className="space-y-3">
+                    {showQuickTask && (
+                      <div className="p-3 border border-emerald-200 bg-emerald-50 rounded-lg space-y-2">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Zap className="h-4 w-4 text-emerald-600" />
+                          <span className="text-sm font-medium text-emerald-900">Crear Tarea Rápida</span>
+                        </div>
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="Título de la tarea..."
+                            value={quickTaskTitle}
+                            onChange={(e) => setQuickTaskTitle(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                handleQuickTaskCreate()
+                              }
+                            }}
+                            className="flex-1"
+                          />
+                          <Button size="sm" onClick={handleQuickTaskCreate} disabled={!quickTaskTitle.trim()}>
+                            <CheckCircle2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <p className="text-xs text-emerald-700">Presiona Enter o clic en ✓ para crear</p>
+                      </div>
+                    )}
+
+                    {/* Filter/sort quick actions */}
+                    <div className="flex items-center gap-2 pb-2 border-b">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          /* Filter urgent */
+                        }}
+                        className="text-xs"
+                      >
+                        <AlertCircle className="h-3 w-3 mr-1 text-red-500" />
+                        Urgente
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          /* Filter today */
+                        }}
+                        className="text-xs"
+                      >
+                        <Clock className="h-3 w-3 mr-1 text-blue-500" />
+                        Hoy
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          /* Filter location */
+                        }}
+                        className="text-xs"
+                      >
+                        <MapPin className="h-3 w-3 mr-1 text-purple-500" />
+                        Con ubicación
+                      </Button>
+                    </div>
+
+                    <div className="max-h-[600px] overflow-y-auto space-y-2 pr-2">
                       {tasks.map((task) => (
                         <div
                           key={task.id}
@@ -742,9 +969,9 @@ export default function UnifiedSearchPage() {
                       {tasks.length === 0 && (
                         <div className="text-center py-12">
                           <CheckSquare className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                          <p className="text-gray-500 font-medium">No hay tareas creadas</p>
+                          <p className="text-gray-500 font-medium text-lg">Selecciona una tarea</p>
                           <p className="text-sm text-gray-400 mt-2 text-center max-w-sm">
-                            Crea tu primera tarea usando el botón de arriba
+                            Haz clic en una tarea de la lista para ver sus detalles y opciones de gestión
                           </p>
                         </div>
                       )}
