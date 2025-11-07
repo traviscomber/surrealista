@@ -1,6 +1,7 @@
 "use client"
 
 import type React from "react"
+import { ClientRepositoryDashboard } from "@/components/client-management/client-repository-dashboard"
 
 export const dynamic = "force-dynamic"
 
@@ -365,12 +366,6 @@ export default function UnifiedSearchPage() {
     return null
   }
 
-  const clients: Client[] = [
-    { name: "Carlos Mendoza", company: "Inversiones del Sur", status: "hot", lat: -39.8196, lng: -73.2452 },
-    { name: "Ana Silva", company: "Turismo Patagonia", status: "warm", lat: -39.2819, lng: -71.9489 },
-    { name: "Roberto Fernández", company: "Forestal Los Andes", status: "cold", lat: -42.4827, lng: -73.7615 },
-  ]
-
   const handleTabChange = (value: string) => {
     console.log("[v0] Tab changed to:", value)
     setActiveTab(value)
@@ -667,80 +662,7 @@ export default function UnifiedSearchPage() {
 
           {/* Clientes Tab */}
           <TabsContent value="clientes">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Clients List */}
-              <div className="lg:col-span-1 space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Users className="h-5 w-5" />
-                      Lista de Clientes
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {clients.map((client, idx) => (
-                      <div
-                        key={idx}
-                        onClick={() => handleClientClick(client)}
-                        className={`p-3 border rounded-lg hover:bg-blue-50 cursor-pointer transition-colors ${
-                          selectedClient?.name === client.name ? "bg-blue-100 border-blue-500" : ""
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="font-medium">{client.name}</p>
-                            <p className="text-sm text-gray-500">{client.company}</p>
-                            <p className="text-xs text-gray-400 flex items-center gap-1 mt-1">
-                              <MapPin className="h-4 w-4" />
-                              {client.lat.toFixed(4)}, {client.lng.toFixed(4)}
-                            </p>
-                          </div>
-                          <Badge
-                            className={
-                              client.status === "hot"
-                                ? "bg-red-100 text-red-700"
-                                : client.status === "warm"
-                                  ? "bg-yellow-100 text-yellow-700"
-                                  : "bg-blue-100 text-blue-700"
-                            }
-                          >
-                            {client.status}
-                          </Badge>
-                        </div>
-                      </div>
-                    ))}
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Map with Client Locations */}
-              <div className="lg:col-span-2">
-                <Card className="h-[600px]">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <MapIcon className="h-5 w-5" />
-                      Ubicaciones de Clientes
-                      {selectedClient && (
-                        <Badge variant="outline" className="ml-auto">
-                          {selectedClient.name}
-                        </Badge>
-                      )}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="h-full">
-                    <div className="h-[500px] w-full rounded-xl overflow-hidden relative z-0">
-                      <KMZMapDisplay
-                        kmzFiles={[]}
-                        height="500px"
-                        centerCoordinates={
-                          selectedClient ? { lat: selectedClient.lat, lng: selectedClient.lng } : undefined
-                        }
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
+            <ClientRepositoryDashboard />
           </TabsContent>
 
           {/* Comunicaciones Tab */}
