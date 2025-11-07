@@ -168,6 +168,24 @@ function parseDate(value: any): string | undefined {
   return undefined
 }
 
+function splitFullName(fullName: string): { firstName: string; lastName: string } {
+  const parts = fullName.trim().split(/\s+/)
+
+  if (parts.length === 0) {
+    return { firstName: "", lastName: "Sin Apellido" }
+  }
+
+  if (parts.length === 1) {
+    return { firstName: parts[0], lastName: "Sin Apellido" }
+  }
+
+  // First part is first name, rest is last name
+  const firstName = parts[0]
+  const lastName = parts.slice(1).join(" ")
+
+  return { firstName, lastName }
+}
+
 export async function parseExcelFile(file: File): Promise<ParseResult> {
   const result: ParseResult = {
     success: false,
@@ -252,6 +270,22 @@ export async function parseExcelFile(file: File): Promise<ParseResult> {
         } else {
           clientData[fieldName as keyof ExcelClientData] = String(cellValue).trim() as any
         }
+      }
+
+      if (clientData.first_name && !clientData.last_name) {
+        const { firstName, lastName } = splitFullName(clientData.first_name)
+        clientData.first_name = firstName
+        clientData.last_name = lastName
+        console.log(`[v0] Row ${i + 1} - Split name: "${firstName}" "${lastName}"`)
+      }
+
+      if (clientData.first_name && !clientData.last_name) {
+        clientData.last_name = "Sin Apellido"
+      }
+
+      if (!clientData.first_name && clientData.last_name) {
+        clientData.first_name = clientData.last_name
+        clientData.last_name = "Sin Apellido"
       }
 
       const hasIdentifier = clientData.first_name || clientData.last_name || clientData.email || clientData.rut

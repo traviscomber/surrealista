@@ -25,9 +25,7 @@ import {
   Zap,
   Clock,
   AlertCircle,
-  CheckCircle2,
   FileSpreadsheet,
-  Upload,
 } from "lucide-react"
 import { createBrowserClient } from "@/lib/supabase/client"
 import { TaskCreationDialog } from "@/components/tasks/task-creation-dialog"
@@ -575,13 +573,6 @@ export default function UnifiedSearchPage() {
               CAMPOS
             </TabsTrigger>
             <TabsTrigger
-              value="drive"
-              className="flex items-center gap-2 cursor-pointer data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
-            >
-              <HardDrive className="h-4 w-4" />
-              Google Drive
-            </TabsTrigger>
-            <TabsTrigger
               value="clientes"
               className="flex items-center gap-2 cursor-pointer data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
             >
@@ -609,152 +600,319 @@ export default function UnifiedSearchPage() {
               <BarChart3 className="h-4 w-4" />
               Resumen Semanal
             </TabsTrigger>
+            <TabsTrigger
+              value="drive"
+              className="flex items-center gap-2 cursor-pointer data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            >
+              <HardDrive className="h-4 w-4" />
+              Google Drive
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="campos" className="h-[calc(100vh-20rem)] min-h-[600px]">
             <CAMPOSFolderView />
           </TabsContent>
 
-          <TabsContent value="drive" className="h-[calc(100vh-16rem)] min-h-[600px]">
-            <SimpleDriveFolderView />
-          </TabsContent>
-
-          {/* Clientes Tab */}
           <TabsContent value="clientes">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Clients List */}
-              <div className="lg:col-span-1 space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Users className="h-5 w-5" />
-                      Lista de Clientes
-                      <Badge variant="outline" className="ml-auto">
-                        {clients.length} clientes
-                      </Badge>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    {loadingClients && (
-                      <div className="flex items-center justify-center py-8">
-                        <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
-                      </div>
-                    )}
-                    {!loadingClients && clients.length === 0 && (
-                      <div className="text-center py-8">
-                        <Users className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                        <p className="text-gray-500 font-medium">No hay clientes registrados</p>
-                        <p className="text-sm text-gray-400 mt-1 mb-4">
-                          Importa clientes desde Excel o agrégalos manualmente
-                        </p>
-                        <div className="flex flex-col gap-2">
-                          <Button onClick={() => router.push("/admin/clientes")} className="w-full gap-2" size="sm">
-                            <FileSpreadsheet className="h-4 w-4" />
-                            Importar desde Excel
-                          </Button>
-                          <Button
-                            onClick={() => {
-                              // TODO: Implement manual client creation
-                              alert("Función de agregar cliente manual en desarrollo")
-                            }}
-                            variant="outline"
-                            className="w-full gap-2"
-                            size="sm"
-                          >
-                            <Plus className="h-4 w-4" />
-                            Agregar Manual
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                    {!loadingClients && clients.length > 0 && (
-                      <>
-                        <div className="flex gap-2 mb-3">
-                          <Button
-                            onClick={() => router.push("/admin/clientes")}
-                            size="sm"
-                            variant="outline"
-                            className="w-full gap-2"
-                          >
-                            <Upload className="h-3 w-3" />
-                            Importar más clientes
-                          </Button>
-                        </div>
-                        {clients.map((client) => (
-                          <div
-                            key={client.id}
-                            onClick={() => handleClientClick(client)}
-                            className={`p-3 border rounded-lg hover:bg-blue-50 cursor-pointer transition-colors ${
-                              selectedClient?.id === client.id ? "bg-blue-100 border-blue-500" : ""
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <p className="font-medium">
-                                  {client.first_name} {client.last_name}
-                                </p>
-                                {client.company_name && <p className="text-sm text-gray-500">{client.company_name}</p>}
-                                {client.latitude && client.longitude && (
-                                  <p className="text-xs text-gray-400 flex items-center gap-1 mt-1">
-                                    <MapPin className="h-4 w-4" />
-                                    {client.latitude.toFixed(4)}, {client.longitude.toFixed(4)}
-                                  </p>
-                                )}
-                                {client.city && client.region && (
-                                  <p className="text-xs text-gray-500 mt-1">
-                                    {client.city}, {client.region}
-                                  </p>
-                                )}
-                              </div>
-                              <Badge
-                                className={
-                                  client.status === "hot"
-                                    ? "bg-red-100 text-red-700"
-                                    : client.status === "warm"
-                                      ? "bg-yellow-100 text-yellow-700"
-                                      : "bg-blue-100 text-blue-700"
-                                }
-                              >
-                                {client.status}
-                              </Badge>
-                            </div>
-                          </div>
-                        ))}
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
+            <div className="space-y-4">
+              {/* Header with controls */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Users className="h-5 w-5 text-gray-700" />
+                  <h2 className="text-2xl font-bold text-gray-900">Gestión de Clientes</h2>
+                  <Badge variant="outline" className="ml-2">
+                    {clients.length} total
+                  </Badge>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button onClick={() => router.push("/admin/clientes")} size="sm" variant="outline" className="gap-2">
+                    <FileSpreadsheet className="h-4 w-4" />
+                    Importar Excel
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      // TODO: Implement manual client creation
+                      alert("Función de agregar cliente manual en desarrollo")
+                    }}
+                    size="sm"
+                    className="gap-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Nuevo Cliente
+                  </Button>
+                </div>
               </div>
 
-              {/* Map with Client Locations */}
-              <div className="lg:col-span-2">
-                <Card className="h-[600px]">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <MapIcon className="h-5 w-5" />
-                      Ubicaciones de Clientes
-                      {selectedClient && (
-                        <Badge variant="outline" className="ml-auto">
-                          {selectedClient.first_name} {selectedClient.last_name}
+              {/* Client Management Card */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4 flex-1">
+                      <div className="relative flex-1 max-w-md">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                        <Input placeholder="Buscar clientes por nombre, empresa, ciudad..." className="pl-10" />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="cursor-pointer hover:bg-gray-200">
+                          Todos ({clients.length})
                         </Badge>
-                      )}
+                        <Badge className="bg-red-100 text-red-700 cursor-pointer hover:bg-red-200">
+                          Hot ({clients.filter((c) => c.status === "hot").length})
+                        </Badge>
+                        <Badge className="bg-yellow-100 text-yellow-700 cursor-pointer hover:bg-yellow-200">
+                          Warm ({clients.filter((c) => c.status === "warm").length})
+                        </Badge>
+                        <Badge className="bg-blue-100 text-blue-700 cursor-pointer hover:bg-blue-200">
+                          Cold ({clients.filter((c) => c.status === "cold").length})
+                        </Badge>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => {
+                        /* Toggle map view */
+                      }}
+                      size="sm"
+                      variant="ghost"
+                      className="gap-2"
+                    >
+                      <MapIcon className="h-4 w-4" />
+                      Ver Mapa
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {loadingClients && (
+                    <div className="flex items-center justify-center py-12">
+                      <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+                    </div>
+                  )}
+
+                  {!loadingClients && clients.length === 0 && (
+                    <div className="text-center py-16">
+                      <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold text-gray-700 mb-2">No hay clientes registrados</h3>
+                      <p className="text-gray-500 mb-6 max-w-md mx-auto">
+                        Comienza importando clientes desde un archivo Excel o agregando clientes manualmente uno por uno
+                      </p>
+                      <div className="flex items-center justify-center gap-3">
+                        <Button onClick={() => router.push("/admin/clientes")} className="gap-2">
+                          <FileSpreadsheet className="h-4 w-4" />
+                          Importar desde Excel
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            alert("Función en desarrollo")
+                          }}
+                          variant="outline"
+                          className="gap-2"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Agregar Manual
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {!loadingClients && clients.length > 0 && (
+                    <div className="space-y-2">
+                      {/* Table Header */}
+                      <div className="grid grid-cols-12 gap-4 px-4 py-3 bg-gray-50 rounded-lg font-medium text-sm text-gray-700">
+                        <div className="col-span-3">Cliente</div>
+                        <div className="col-span-2">Contacto</div>
+                        <div className="col-span-2">Ubicación</div>
+                        <div className="col-span-2">Interés</div>
+                        <div className="col-span-1">Estado</div>
+                        <div className="col-span-2 text-right">Acciones</div>
+                      </div>
+
+                      {/* Table Rows */}
+                      {clients.map((client) => (
+                        <div
+                          key={client.id}
+                          className="grid grid-cols-12 gap-4 px-4 py-4 border rounded-lg hover:bg-gray-50 transition-colors items-center"
+                        >
+                          {/* Client Name & Company */}
+                          <div className="col-span-3">
+                            <p className="font-semibold text-gray-900">
+                              {client.first_name} {client.last_name}
+                            </p>
+                            {client.company_name && <p className="text-sm text-gray-600">{client.company_name}</p>}
+                          </div>
+
+                          {/* Contact Info */}
+                          <div className="col-span-2">
+                            {client.email && <p className="text-sm text-gray-700">{client.email}</p>}
+                            {client.phone && <p className="text-sm text-gray-600">{client.phone}</p>}
+                          </div>
+
+                          {/* Location */}
+                          <div className="col-span-2">
+                            {client.city && client.region ? (
+                              <>
+                                <p className="text-sm text-gray-700">{client.city}</p>
+                                <p className="text-xs text-gray-500">{client.region}</p>
+                              </>
+                            ) : client.latitude && client.longitude ? (
+                              <p className="text-xs text-gray-500 flex items-center gap-1">
+                                <MapPin className="h-3 w-3" />
+                                {client.latitude.toFixed(3)}, {client.longitude.toFixed(3)}
+                              </p>
+                            ) : (
+                              <p className="text-sm text-gray-400">Sin ubicación</p>
+                            )}
+                          </div>
+
+                          {/* Main Interest */}
+                          <div className="col-span-2">
+                            {client.main_interest ? (
+                              <p className="text-sm text-gray-700">{client.main_interest}</p>
+                            ) : (
+                              <p className="text-sm text-gray-400">No especificado</p>
+                            )}
+                            {client.budget_min && client.budget_max && (
+                              <p className="text-xs text-gray-500">
+                                ${(client.budget_min / 1000000).toFixed(1)}M - $
+                                {(client.budget_max / 1000000).toFixed(1)}M
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Status Badge */}
+                          <div className="col-span-1">
+                            <Badge
+                              className={
+                                client.status === "hot"
+                                  ? "bg-red-100 text-red-700"
+                                  : client.status === "warm"
+                                    ? "bg-yellow-100 text-yellow-700"
+                                    : "bg-blue-100 text-blue-700"
+                              }
+                            >
+                              {client.status === "hot" ? "🔥 Hot" : client.status === "warm" ? "⚡ Warm" : "❄️ Cold"}
+                            </Badge>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="col-span-2 flex items-center justify-end gap-2">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleClientClick(client)}
+                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            >
+                              Ver
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                alert("Función de editar en desarrollo")
+                              }}
+                              className="text-gray-600 hover:text-gray-700 hover:bg-gray-100"
+                            >
+                              Editar
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                if (confirm(`¿Eliminar cliente ${client.first_name} ${client.last_name}?`)) {
+                                  alert("Función de eliminar en desarrollo")
+                                }
+                              }}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            >
+                              Eliminar
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Optional: Client details/edit panel when one is selected */}
+              {selectedClient && (
+                <Card className="border-blue-200 bg-blue-50">
+                  <CardHeader>
+                    <CardTitle className="flex items-center justify-between">
+                      <span>
+                        Detalles: {selectedClient.first_name} {selectedClient.last_name}
+                      </span>
+                      <Button size="sm" variant="ghost" onClick={() => setSelectedClient(null)}>
+                        ✕
+                      </Button>
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="h-full">
-                    <div className="h-[500px] w-full rounded-xl overflow-hidden relative z-0">
-                      <KMZMapDisplay
-                        kmzFiles={[]}
-                        height="500px"
-                        centerCoordinates={
-                          selectedClient && selectedClient.latitude && selectedClient.longitude
-                            ? { lat: selectedClient.latitude, lng: selectedClient.longitude }
-                            : undefined
-                        }
-                      />
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium text-gray-700">Empresa</label>
+                        <p className="text-gray-900">{selectedClient.company_name || "N/A"}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-700">Email</label>
+                        <p className="text-gray-900">{selectedClient.email || "N/A"}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-700">Teléfono</label>
+                        <p className="text-gray-900">{selectedClient.phone || "N/A"}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-700">Último Contacto</label>
+                        <p className="text-gray-900">
+                          {selectedClient.last_contact_date
+                            ? new Date(selectedClient.last_contact_date).toLocaleDateString()
+                            : "N/A"}
+                        </p>
+                      </div>
+                      <div className="col-span-2">
+                        <label className="text-sm font-medium text-gray-700">Dirección</label>
+                        <p className="text-gray-900">{selectedClient.address || "N/A"}</p>
+                      </div>
+                      <div className="col-span-2">
+                        <label className="text-sm font-medium text-gray-700">Lugares de Interés</label>
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          {selectedClient.locations_of_interest && selectedClient.locations_of_interest.length > 0 ? (
+                            selectedClient.locations_of_interest.map((loc, idx) => (
+                              <Badge key={idx} variant="secondary">
+                                {loc}
+                              </Badge>
+                            ))
+                          ) : (
+                            <p className="text-gray-500">No especificado</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 pt-4 border-t">
+                      <Button className="flex-1" onClick={() => alert("Función de editar en desarrollo")}>
+                        Editar Cliente
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="flex-1 bg-transparent"
+                        onClick={() => alert("Crear tarea relacionada")}
+                      >
+                        Crear Tarea
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          if (selectedClient.latitude && selectedClient.longitude) {
+                            alert("Mostrar en mapa (función en desarrollo)")
+                          } else {
+                            alert("Este cliente no tiene coordenadas GPS")
+                          }
+                        }}
+                      >
+                        <MapPin className="h-4 w-4" />
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
-              </div>
+              )}
             </div>
           </TabsContent>
 
@@ -821,11 +979,10 @@ export default function UnifiedSearchPage() {
                       <CheckSquare className="h-5 w-5" />
                       Nuevas Tareas
                       <div className="ml-auto flex items-center gap-2">
-                        {/* Quick action icons */}
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => setShowQuickTask(!showQuickTask)}
+                          onClick={() => router.push("/nueva-tarea")}
                           className="text-xs"
                         >
                           <Zap className="h-4 w-4 mr-1" />
@@ -839,32 +996,6 @@ export default function UnifiedSearchPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    {showQuickTask && (
-                      <div className="p-3 border border-emerald-200 bg-emerald-50 rounded-lg space-y-2">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Zap className="h-4 w-4 text-emerald-600" />
-                          <span className="text-sm font-medium text-emerald-900">Crear Tarea Rápida</span>
-                        </div>
-                        <div className="flex gap-2">
-                          <Input
-                            placeholder="Título de la tarea..."
-                            value={quickTaskTitle}
-                            onChange={(e) => setQuickTaskTitle(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                handleQuickTaskCreate()
-                              }
-                            }}
-                            className="flex-1"
-                          />
-                          <Button size="sm" onClick={handleQuickTaskCreate} disabled={!quickTaskTitle.trim()}>
-                            <CheckCircle2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <p className="text-xs text-emerald-700">Presiona Enter o clic en ✓ para crear</p>
-                      </div>
-                    )}
-
                     {/* Filter/sort quick actions */}
                     <div className="flex items-center gap-2 pb-2 border-b">
                       <Button
@@ -1008,6 +1139,10 @@ export default function UnifiedSearchPage() {
 
           <TabsContent value="resumen">
             <WeeklyTaskSummary />
+          </TabsContent>
+
+          <TabsContent value="drive" className="h-[calc(100vh-16rem)] min-h-[600px]">
+            <SimpleDriveFolderView />
           </TabsContent>
         </Tabs>
 

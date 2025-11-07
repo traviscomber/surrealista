@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo, useCallback } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
-  TrendingUp,
   Folder,
   FileText,
   MapPin,
@@ -18,8 +17,8 @@ import {
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import dynamic from "next/dynamic"
-import { AppHeader } from "@/components/layout/app-header"
 import { createBrowserClient } from "@supabase/ssr"
+import { useRouter } from "next/navigation"
 
 const SimpleDriveFolderView = dynamic(
   () =>
@@ -36,7 +35,7 @@ const SimpleDriveFolderView = dynamic(
   },
 )
 
-let realDriveService: any = null
+const realDriveService: any = null
 
 interface SearchIndexItem {
   id: string
@@ -291,370 +290,18 @@ const FolderCard = ({
 }
 
 export default function HomePage() {
-  const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
-  const [locationFilter, setLocationFilter] = useState("all")
-  const [sortBy, setSortBy] = useState("name")
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
-  const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 20
-
-  const [folders, setFolders] = useState<any[]>([])
-  const [loading, setLoading] = useState(false)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [selectedFolder, setSelectedFolder] = useState<any | null>(null)
-  const [serviceInitialized, setServiceInitialized] = useState(false)
-
-  const [searchIndex, setSearchIndex] = useState<SearchIndexItem[]>([])
-  const [indexingProgress, setIndexingProgress] = useState<IndexingProgress>({
-    isIndexing: false,
-    currentFolder: "",
-    foldersProcessed: 0,
-    filesProcessed: 0,
-    totalProgress: 0,
-  })
-
-  // Removed PARAOrganizer related hooks and calculations
-  // const paraOrganizer = useMemo(() => new PARAOrganizer(), [])
-  // const paraStats = useMemo(() => paraOrganizer.getCategoryStats(folders), [folders, paraOrganizer])
+  const router = useRouter()
 
   useEffect(() => {
-    const demoFolders = [
-      {
-        id: "demo-1",
-        name: "Valdivia 142 has Teresa F...",
-        status: "complete",
-        files: 8,
-        rolNumbers: 2,
-        location: "VALDIVIA",
-        propertyType: "PARCELA",
-        lastModified: new Date().toLocaleDateString("es-CL"),
-        completionScore: 95,
-      },
-      {
-        id: "demo-2",
-        name: "Pucon Lote 45 - Familia Martinez",
-        status: "processing",
-        files: 12,
-        rolNumbers: 1,
-        location: "PUCON",
-        propertyType: "TERRENO",
-        lastModified: new Date().toLocaleDateString("es-CL"),
-        completionScore: 75,
-      },
-      {
-        id: "demo-3",
-        name: "Villarrica Centro - Comercial",
-        status: "complete",
-        files: 15,
-        rolNumbers: 3,
-        location: "VILLARRICA",
-        propertyType: "LOCAL",
-        lastModified: new Date().toLocaleDateString("es-CL"),
-        completionScore: 88,
-      },
-    ]
-    setFolders(demoFolders)
-  }, [])
-
-  const initializeService = useCallback(async () => {
-    if (typeof window !== "undefined" && !realDriveService && !serviceInitialized) {
-      try {
-        setServiceInitialized(true)
-        const { RealDriveService } = await import("@/lib/google-drive/real-drive-service")
-        realDriveService = new RealDriveService()
-      } catch (err) {
-        console.error("Error loading drive service:", err)
-        setError(null)
-        realDriveService = null
-      }
-    }
-  }, [serviceInitialized])
-
-  const buildSearchIndex = useCallback(async (folderId: string, path = ""): Promise<SearchIndexItem[]> => {
-    if (!realDriveService) return []
-
-    try {
-      const response = await fetch(`/api/drive/folders/${folderId}`)
-      if (!response.ok) return []
-
-      const contents = await response.json()
-      const items: SearchIndexItem[] = []
-
-      setIndexingProgress((prev) => ({
-        ...prev,
-        currentFolder: path || "Root",
-        foldersProcessed: prev.foldersProcessed + 1,
-      }))
-
-      if (contents.files && Array.isArray(contents.files)) {
-        for (const item of contents.files) {
-          const itemPath = path ? `${path}/${item.name}` : item.name
-          const isFolder = item.mimeType === "application/vnd.google-apps.folder"
-
-          items.push({
-            id: item.id,
-            name: item.name,
-            type: isFolder ? "folder" : "file",
-            path: itemPath,
-            parentId: folderId,
-            mimeType: item.mimeType,
-          })
-
-          if (isFolder && path.split("/").length < 2) {
-            const subItems = await buildSearchIndex(item.id, itemPath)
-            items.push(...subItems)
-          } else if (!isFolder) {
-            setIndexingProgress((prev) => ({
-              ...prev,
-              filesProcessed: prev.filesProcessed + 1,
-            }))
-          }
-        }
-      }
-
-      return items
-    } catch (error) {
-      console.error(`Error indexing folder ${folderId}:`, error)
-      return []
-    }
-  }, [])
-
-  const loadRealData = useCallback(async () => {
-    if (typeof window === "undefined") {
-      setError("Servicio no disponible en el servidor")
-      return
-    }
-
-    try {
-      setLoading(true)
-      setError(null)
-
-      await initializeService()
-
-      if (!realDriveService) {
-        console.log("[v0] Drive service not available, using demo data")
-        setIsAuthenticated(false)
-        return
-      }
-
-      const authSuccess = await realDriveService.authenticate()
-      setIsAuthenticated(authSuccess)
-
-      if (!authSuccess) {
-        console.log("[v0] Authentication failed, using demo data")
-        setError(null) // Don't show error, just use demo data
-        return
-      }
-
-      const realFolders = await realDriveService.listSuccessCases()
-
-      const processedFolders = realFolders.map((folder: any, index: number) => ({
-        id: folder.id || index.toString(),
-        name: folder.name,
-        status:
-          folder.completionStatus === "complete"
-            ? "complete"
-            : folder.completionStatus === "incomplete"
-              ? "processing"
-              : "pending",
-        files: folder.totalFiles || 0,
-        rolNumbers: folder.rolNumbers || 0,
-        location: folder.location || "DESCONOCIDA",
-        propertyType: folder.propertyType || "PROPIEDAD",
-        lastModified: new Date(folder.files?.[0]?.modifiedTime || Date.now()).toLocaleDateString("es-CL"),
-        completionScore: folder.completenessScore || 0,
-      }))
-
-      setFolders(processedFolders)
-      console.log("[v0] Loaded", processedFolders.length, "folders from Google Drive")
-    } catch (err) {
-      console.error("[v0] Error loading Google Drive data:", err)
-      setError(null) // Don't show error, demo data is already loaded
-      setIsAuthenticated(false)
-    } finally {
-      setLoading(false)
-    }
-  }, [initializeService])
-
-  const startIndexing = useCallback(async () => {
-    if (!isAuthenticated || folders.length === 0) {
-      console.log("[v0] Cannot index: not authenticated or no folders")
-      return
-    }
-
-    setIndexingProgress({
-      isIndexing: true,
-      currentFolder: "Iniciando...",
-      foldersProcessed: 0,
-      filesProcessed: 0,
-      totalProgress: 0,
-    })
-
-    const allItems: SearchIndexItem[] = []
-    for (let i = 0; i < folders.length; i++) {
-      const folder = folders[i]
-      const items = await buildSearchIndex(folder.id, folder.name)
-      allItems.push(...items)
-
-      setIndexingProgress((prev) => ({
-        ...prev,
-        totalProgress: Math.round(((i + 1) / folders.length) * 100),
-      }))
-    }
-
-    setSearchIndex(allItems)
-    setIndexingProgress((prev) => ({
-      ...prev,
-      isIndexing: false,
-      currentFolder: "Completado",
-    }))
-
-    console.log("[v0] Indexing complete:", allItems.length, "items indexed")
-  }, [isAuthenticated, folders, buildSearchIndex])
-
-  const filteredAndSortedFolders = useMemo(() => {
-    if (!folders.length) return []
-
-    let filtered = folders.filter((folder) => {
-      const matchesStatus = statusFilter === "all" || folder.status === statusFilter
-      const matchesLocation = locationFilter === "all" || folder.location === locationFilter
-      return matchesStatus && matchesLocation
-    })
-
-    // Enhanced search using the full index
-    if (searchTerm.trim() && searchIndex.length > 0) {
-      const searchLower = searchTerm.toLowerCase()
-      const matchingItems = searchIndex.filter(
-        (item) => item.name.toLowerCase().includes(searchLower) || item.path.toLowerCase().includes(searchLower),
-      )
-
-      // Get unique folder IDs from matching items
-      const matchingFolderIds = new Set(matchingItems.map((item) => item.parentId))
-
-      filtered = filtered.filter(
-        (folder) =>
-          folder.name.toLowerCase().includes(searchLower) ||
-          folder.location.toLowerCase().includes(searchLower) ||
-          folder.propertyType.toLowerCase().includes(searchLower) ||
-          matchingFolderIds.has(folder.id),
-      )
-    } else if (searchTerm.trim()) {
-      // Fallback to basic search if index not ready
-      const searchLower = searchTerm.toLowerCase()
-      filtered = filtered.filter(
-        (folder) =>
-          folder.name.toLowerCase().includes(searchLower) ||
-          folder.location.toLowerCase().includes(searchLower) ||
-          folder.propertyType.toLowerCase().includes(searchLower),
-      )
-    }
-
-    return filtered.sort((a, b) => {
-      switch (sortBy) {
-        case "name":
-          return a.name.localeCompare(b.name)
-        case "files":
-          return b.files - a.files
-        case "completion":
-          return b.completionScore - a.completionScore
-        case "date":
-          return new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime()
-        default:
-          return 0
-      }
-    })
-  }, [folders, searchTerm, statusFilter, locationFilter, sortBy, searchIndex])
-
-  const searchResults = useMemo(() => {
-    if (!searchTerm.trim() || searchIndex.length === 0) return null
-
-    const searchLower = searchTerm.toLowerCase()
-    const matching = searchIndex.filter(
-      (item) => item.name.toLowerCase().includes(searchLower) || item.path.toLowerCase().includes(searchLower),
-    )
-
-    const folders = matching.filter((item) => item.type === "folder")
-    const files = matching.filter((item) => item.type === "file")
-
-    return { folders, files, total: matching.length }
-  }, [searchTerm, searchIndex])
-
-  const totalPages = Math.ceil(filteredAndSortedFolders.length / itemsPerPage)
-  const paginatedFolders = filteredAndSortedFolders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-
-  const stats = useMemo(() => {
-    const total = filteredAndSortedFolders.length
-    const complete = filteredAndSortedFolders.filter((f) => f.status === "complete").length
-    const totalFiles = filteredAndSortedFolders.reduce((sum, f) => sum + f.files, 0)
-    const totalRol = filteredAndSortedFolders.reduce((sum, f) => sum + f.rolNumbers, 0)
-
-    // Removed PARA stats calculation
-    return { total, complete, totalFiles, totalRol }
-  }, [filteredAndSortedFolders])
-
-  const uniqueLocations = useMemo(() => [...new Set(folders.map((f) => f.location))].sort(), [folders])
-
-  const handleViewDetails = useCallback((folder: any) => {
-    setSelectedFolder(folder)
-  }, [])
-
-  const handleBackToList = useCallback(() => {
-    setSelectedFolder(null)
-  }, [])
-
-  if (error && !isAuthenticated && loading) {
-    return (
-      <>
-        <AppHeader />
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
-          <div className="text-center max-w-md">
-            <AlertCircle className="h-12 w-12 text-orange-600 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">Autenticación Requerida</h2>
-            <p className="text-gray-600 mb-6">
-              Para acceder a los datos reales de Google Drive, necesita autenticarse.
-            </p>
-            <Button onClick={loadRealData} className="bg-blue-600 hover:bg-blue-700">
-              Conectar con Google Drive
-            </Button>
-          </div>
-        </div>
-      </>
-    )
-  }
-
-  if (selectedFolder) {
-    return (
-      <>
-        <AppHeader />
-        <FolderDetailView folder={selectedFolder} onBack={handleBackToList} />
-      </>
-    )
-  }
+    router.push("/busqueda")
+  }, [router])
 
   return (
-    <>
-      <AppHeader />
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
-        <div className="bg-white border-b border-gray-200 shadow-sm">
-          <div className="container mx-auto px-4 py-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                  <TrendingUp className="h-8 w-8 text-blue-600" />
-                  Gestión de Carpetas - Sur-Realista
-                </h1>
-                <p className="text-gray-600 mt-1">Estructura de carpetas desde Google Drive</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="container mx-auto px-4 py-8">
-          <SimpleDriveFolderView />
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 flex items-center justify-center">
+      <div className="text-center">
+        <RefreshCw className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
+        <p className="text-gray-600">Redirigiendo a búsqueda...</p>
       </div>
-    </>
+    </div>
   )
 }

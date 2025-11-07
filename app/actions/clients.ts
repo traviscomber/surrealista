@@ -1,6 +1,6 @@
 "use server"
 
-import { createServerClient } from "@/lib/supabase/server"
+import { createClient as createSupabaseClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
 export interface ClientData {
@@ -36,7 +36,7 @@ export interface ClientData {
 
 export async function getClients() {
   try {
-    const supabase = await createServerClient()
+    const supabase = await createSupabaseClient()
 
     const { data, error } = await supabase.from("clients").select("*").order("created_at", { ascending: false })
 
@@ -54,7 +54,7 @@ export async function getClients() {
 
 export async function getClientById(id: string) {
   try {
-    const supabase = await createServerClient()
+    const supabase = await createSupabaseClient()
 
     const { data, error } = await supabase.from("clients").select("*").eq("id", id).single()
 
@@ -72,7 +72,7 @@ export async function getClientById(id: string) {
 
 export async function createClient(clientData: ClientData) {
   try {
-    const supabase = await createServerClient()
+    const supabase = await createSupabaseClient()
 
     const { data, error } = await supabase.from("clients").insert([clientData]).select().single()
 
@@ -93,7 +93,7 @@ export async function createClient(clientData: ClientData) {
 
 export async function updateClient(id: string, clientData: Partial<ClientData>) {
   try {
-    const supabase = await createServerClient()
+    const supabase = await createSupabaseClient()
 
     const { data, error } = await supabase.from("clients").update(clientData).eq("id", id).select().single()
 
@@ -114,7 +114,7 @@ export async function updateClient(id: string, clientData: Partial<ClientData>) 
 
 export async function deleteClient(id: string) {
   try {
-    const supabase = await createServerClient()
+    const supabase = await createSupabaseClient()
 
     const { error } = await supabase.from("clients").delete().eq("id", id)
 
@@ -135,19 +135,41 @@ export async function deleteClient(id: string) {
 
 export async function bulkImportClients(clients: ClientData[]) {
   try {
-    const supabase = await createServerClient()
+    console.log("[v0] Starting bulk import of", clients.length, "clients")
+    const supabase = await createSupabaseClient()
 
-    const { data, error } = await supabase.from("clients").insert(clients).select()
+    const CHUNK_SIZE = 50
+    let totalImported = 0
+    let totalFailed = 0
+    const allData = []
 
-    if (error) {
-      console.error("[v0] Error bulk importing clients:", error)
-      return { success: false, error: error.message, imported: 0, failed: clients.length }
+    for (let i = 0; i < clients.length; i += CHUNK_SIZE) {
+      const chunk = clients.slice(i, i + CHUNK_SIZE)
+      console.log(`[v0] Importing chunk ${Math.floor(i / CHUNK_SIZE) + 1} (${chunk.length} clients)`)
+
+      const { data, error } = await supabase.from("clients").insert(chunk).select()
+
+      if (error) {
+        console.error("[v0] Error importing chunk:", error)
+        totalFailed += chunk.length
+      } else {
+        totalImported += data?.length || 0
+        allData.push(...(data || []))
+      }
     }
+
+    console.log(`[v0] Import complete: ${totalImported} imported, ${totalFailed} failed`)
 
     revalidatePath("/admin/clientes")
     revalidatePath("/gestion-clientes")
+    revalidatePath("/busqueda")
 
-    return { success: true, imported: data?.length || 0, failed: 0, data }
+    return {
+      success: totalImported > 0,
+      imported: totalImported,
+      failed: totalFailed,
+      data: allData,
+    }
   } catch (error) {
     console.error("[v0] Error in bulkImportClients:", error)
     return { success: false, error: "Error al importar clientes", imported: 0, failed: clients.length }
@@ -156,7 +178,7 @@ export async function bulkImportClients(clients: ClientData[]) {
 
 export async function searchClients(query: string) {
   try {
-    const supabase = await createServerClient()
+    const supabase = await createSupabaseClient()
 
     const { data, error } = await supabase
       .from("clients")
