@@ -80,7 +80,7 @@ interface Task {
 
 export default function UnifiedSearchPage() {
   const [searchTerm, setSearchTerm] = useState("")
-  const [activeTab, setActiveTab] = useState("tareas") // Changed default active tab from "campos" to "tareas"
+  const [activeTab, setActiveTab] = useState("campos") // Set campos as default tab
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [selectedCampo, setSelectedCampo] = useState<Campo | null>(null)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
@@ -478,7 +478,7 @@ export default function UnifiedSearchPage() {
           <TabsList className="grid w-full grid-cols-6 mb-6 h-auto">
             <TabsTrigger
               value="campos"
-              className="flex items-center gap-2 cursor-pointer data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              className="flex items-center gap-2 data-[state=active]:bg-orange-500 data-[state=active]:text-white"
             >
               <Folder className="h-4 w-4" />
               CAMPOS
@@ -520,7 +520,7 @@ export default function UnifiedSearchPage() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="campos" className="h-[calc(100vh-16rem)] min-h-[600px]">
+          <TabsContent value="campos" className="h-[calc(100vh-20rem)] min-h-[600px]">
             <CAMPOSFolderView />
           </TabsContent>
 

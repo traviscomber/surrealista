@@ -9,19 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { KMZMapDisplay } from "@/components/kmz/kmz-map-display"
 import { createBrowserClient } from "@/lib/supabase/client"
-import {
-  Folder,
-  FolderOpen,
-  File,
-  Search,
-  ChevronRight,
-  ChevronDown,
-  ChevronLeft,
-  MapPin,
-  RefreshCw,
-  Menu,
-  Info,
-} from "lucide-react"
+import { Folder, FolderOpen, File, Search, ChevronRight, ChevronDown, MapPin, RefreshCw, Menu } from "lucide-react"
 
 interface FolderItem {
   id: string
@@ -48,8 +36,8 @@ export function CAMPOSFolderView() {
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
   const [isFolderSheetOpen, setIsFolderSheetOpen] = useState(false)
   const [isDetailsSheetOpen, setIsDetailsSheetOpen] = useState(false)
-  const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true)
-  const [isRightPanelOpen, setIsRightPanelOpen] = useState(true)
+  const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(false)
+  const [isRightPanelOpen, setIsRightPanelOpen] = useState(false)
 
   const supabase = createBrowserClient()
 
@@ -456,7 +444,7 @@ export function CAMPOSFolderView() {
         <KMZMapDisplay kmzFiles={kmzFiles} centerCoordinates={mapCenter || undefined} height="100%" />
       </div>
 
-      <div className="md:hidden absolute top-4 left-4 right-4 z-[999] flex gap-2">
+      <div className="md:hidden absolute top-4 left-4 z-[999]">
         <Sheet open={isFolderSheetOpen} onOpenChange={setIsFolderSheetOpen}>
           <SheetTrigger asChild>
             <Button size="icon" className="shadow-lg bg-white hover:bg-gray-50">
@@ -467,19 +455,6 @@ export function CAMPOSFolderView() {
             <FolderList />
           </SheetContent>
         </Sheet>
-
-        {selectedItem && (
-          <Sheet open={isDetailsSheetOpen} onOpenChange={setIsDetailsSheetOpen}>
-            <SheetTrigger asChild>
-              <Button size="icon" variant="secondary" className="shadow-lg bg-white hover:bg-gray-50">
-                <Info className="h-5 w-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="right" className="w-[85vw] sm:w-[400px] p-0 flex flex-col h-full">
-              <DetailsPanel />
-            </SheetContent>
-          </Sheet>
-        )}
       </div>
 
       <div className="hidden md:block absolute inset-y-0 left-0 z-[999] pointer-events-none">
@@ -492,7 +467,7 @@ export function CAMPOSFolderView() {
                 className="h-8 w-8 rounded-full shadow-lg"
                 onClick={() => setIsLeftPanelOpen(false)}
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
             <FolderList />
@@ -506,35 +481,6 @@ export function CAMPOSFolderView() {
               onClick={() => setIsLeftPanelOpen(true)}
             >
               <Menu className="h-5 w-5" />
-            </Button>
-          </div>
-        )}
-      </div>
-
-      <div className="hidden md:block absolute inset-y-0 right-0 z-[999] pointer-events-none">
-        {isRightPanelOpen ? (
-          <Card className="m-4 w-80 h-[calc(100%-2rem)] flex flex-col pointer-events-auto shadow-2xl bg-white/95 backdrop-blur-sm">
-            <div className="absolute -left-3 top-1/2 -translate-y-1/2 z-10">
-              <Button
-                size="icon"
-                variant="secondary"
-                className="h-8 w-8 rounded-full shadow-lg"
-                onClick={() => setIsRightPanelOpen(false)}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-            <DetailsPanel />
-          </Card>
-        ) : (
-          <div className="m-4 pointer-events-auto">
-            <Button
-              size="icon"
-              variant="secondary"
-              className="shadow-lg bg-white hover:bg-gray-50"
-              onClick={() => setIsRightPanelOpen(true)}
-            >
-              <Info className="h-5 w-5" />
             </Button>
           </div>
         )}
