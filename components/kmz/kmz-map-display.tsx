@@ -629,36 +629,36 @@ export function KMZMapDisplay({ kmzFiles = [], height = "600px", centerCoordinat
       <div ref={mapRef} className="flex-1 h-full rounded-lg overflow-hidden border" />
 
       {layers.length > 0 && (
-        <Card className="w-[480px] p-4">
-          <h3 className="font-semibold mb-3 flex items-center gap-2">
+        <Card className="w-[280px] p-3">
+          <h3 className="font-semibold mb-2 flex items-center gap-2 text-sm">
             <MapPin className="h-4 w-4" />
-            Capas del Mapa ({layers.length})
+            Capas ({layers.length})
           </h3>
           <ScrollArea className="h-[calc(100%-2rem)]">
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               {layers.map((layer, index) => (
                 <div
                   key={index}
-                  className="flex items-start gap-2 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                  className="flex items-start gap-2 p-2 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
                 >
                   <div
-                    className="w-4 h-4 rounded flex-shrink-0 mt-0.5 border border-gray-300"
+                    className="w-3 h-3 rounded flex-shrink-0 mt-0.5 border border-gray-300"
                     style={{ backgroundColor: layer.color }}
                     title={`Color: ${layer.color}`}
                   />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{layer.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{layer.fileName}</p>
+                    <p className="text-xs font-medium truncate leading-tight">{layer.name}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">{layer.fileName}</p>
                     {layer.isLoadingLocation && (
-                      <p className="text-xs text-muted-foreground mt-1">Cargando ubicación...</p>
+                      <p className="text-[10px] text-muted-foreground mt-1">Cargando ubicación...</p>
                     )}
                     {layer.locationDetails && !layer.isLoadingLocation && (
-                      <div className="mt-2 space-y-0.5">
+                      <div className="mt-1 space-y-0.5">
                         {layer.locationDetails.comuna && (
-                          <p className="text-xs text-muted-foreground">📍 {layer.locationDetails.comuna}</p>
+                          <p className="text-[10px] text-muted-foreground">📍 {layer.locationDetails.comuna}</p>
                         )}
                         {layer.locationDetails.region && (
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-[10px] text-muted-foreground">
                             {layer.locationDetails.region.replace("Región de ", "")}
                           </p>
                         )}
@@ -669,20 +669,20 @@ export function KMZMapDisplay({ kmzFiles = [], height = "600px", centerCoordinat
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-7 w-7 p-0"
+                      className="h-6 w-6 p-0"
                       onClick={() => toggleLayerVisibility(index)}
                       title={layer.visible ? "Ocultar" : "Mostrar"}
                     >
-                      {layer.visible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+                      {layer.visible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-7 w-7 p-0"
+                      className="h-6 w-6 p-0"
                       onClick={() => zoomToLayer(index)}
                       title="Centrar en mapa"
                     >
-                      <MapPin className="h-3.5 w-3.5" />
+                      <MapPin className="h-3 w-3" />
                     </Button>
                   </div>
                 </div>

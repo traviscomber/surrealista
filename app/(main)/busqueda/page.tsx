@@ -92,6 +92,7 @@ export default function UnifiedSearchPage() {
   const [currentUser, setCurrentUser] = useState<any>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploadingKMZ, setUploadingKMZ] = useState(false)
+  const [selectedFromFolders, setSelectedFromFolders] = useState<any[]>([]) // Added state for selected KMZ files from folder view
 
   const { driveService, isConnected, isLoading: driveLoading, reconnect } = useGoogleDrive()
 
@@ -452,6 +453,77 @@ export default function UnifiedSearchPage() {
     }
   }
 
+  const handleFolderKMZSelection = async (driveItems: any[]) => {
+    console.log("[v0] Loading KMZ data for", driveItems.length, "selected files")
+    setLoading(true)
+
+    try {
+      const supabase = createBrowserClient()
+
+      // Get KMZ data from Supabase for the selected files
+      const fileNames = driveItems.map((item) => item.name)
+
+      const { data, error } = await supabase
+        .from("kmz_collection")
+        .select("*")
+        .eq("is_active", true)
+        .in("file_name", fileNames)
+
+      if (error) {
+        console.error("[v0] Error loading KMZ data:", error)
+        setKmzFiles([])
+        return
+      }
+
+      console.log("[v0] Loaded KMZ data for", data?.length || 0, "files")
+
+      // Transform to map format
+      const transformedKMZ = (data || []).map((record: any) => {
+        const placemarks = (record.coordinates || []).map((coordArray: any, index: number) => {
+          let geometryType = "Point"
+          let coordinates = coordArray
+
+          if (Array.isArray(coordArray) && coordArray.length > 3) {
+            if (Array.isArray(coordArray[0]) && coordArray[0].length >= 2 && typeof coordArray[0][0] === "number") {
+              geometryType = "Polygon"
+              coordinates = coordArray
+            }
+          }
+
+          return {
+            name: `${record.file_name} - ${geometryType === "Polygon" ? "Polígono" : "Punto"} ${index + 1}`,
+            type: geometryType,
+            coordinates: coordinates,
+            description: record.description || "",
+            properties: {
+              rol: record.rol_numbers?.[index] || "",
+              category: record.category || "general",
+            },
+          }
+        })
+
+        return {
+          fileName: record.file_name,
+          placemarks: placemarks,
+          bounds: record.bounds,
+          metadata: {
+            id: record.id,
+            category: record.category,
+            rolNumbers: record.rol_numbers || [],
+            placemarks_count: record.placemarks_count,
+          },
+        }
+      })
+
+      setKmzFiles(transformedKMZ)
+    } catch (err) {
+      console.error("[v0] Error loading KMZ data:", err)
+      setKmzFiles([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 p-6">
       <div className="max-w-7xl mx-auto">
@@ -515,39 +587,80 @@ export default function UnifiedSearchPage() {
 
           {/* CAMPOS Tab */}
           <TabsContent value="campos" className="h-[calc(100vh-16rem)] min-h-[600px]">
-            <div className="relative h-full w-full">
-              {/* Replace EnhancedFolderView with SimpleDriveFolderView */}
-              <SimpleDriveFolderView apiKey="AIzaSyB6AVo8HT0RyEmiu8YRKj3skR3ujXyjHTU" />
-
-              {/* Offline KMZ Upload Button - positioned absolutely */}
-              <div className="absolute top-4 right-4 z-[1000]">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".kmz,.kml"
-                  multiple
-                  onChange={handleOfflineKMZUpload}
-                  className="hidden"
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 h-full">
+              {/* Folder Structure */}
+              <div className="h-full overflow-hidden lg:col-span-1">
+                <SimpleDriveFolderView
+                  apiKey="AIzaSyB6AVo8HT0RyEmiu8YRKj3skR3ujXyjHTU"
+                  onKMZSelected={handleFolderKMZSelection}
                 />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploadingKMZ}
-                  className="bg-white shadow-lg hover:bg-gray-50"
-                >
-                  {uploadingKMZ ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Subiendo...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-4 w-4 mr-2" />
-                      Cargar KMZ Offline
-                    </>
-                  )}
-                </Button>
+              </div>
+
+              {/* Map Display */}
+              <div className="h-full relative lg:col-span-3">
+                <Card className="h-full flex flex-col">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <MapIcon className="h-5 w-5" />
+                      Visualización de Campos
+                      {kmzFiles.length > 0 && (
+                        <Badge variant="outline" className="ml-auto">
+                          {kmzFiles.length} archivo{kmzFiles.length !== 1 ? "s" : ""}
+                        </Badge>
+                      )}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex-1 overflow-hidden">
+                    {loading ? (
+                      <div className="h-full flex items-center justify-center bg-slate-100 rounded-xl">
+                        <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+                      </div>
+                    ) : kmzFiles.length > 0 ? (
+                      <div className="h-full w-full rounded-xl overflow-hidden relative z-0">
+                        <KMZMapDisplay kmzFiles={kmzFiles} height="100%" />
+                      </div>
+                    ) : (
+                      <div className="h-full flex flex-col items-center justify-center bg-slate-50 rounded-xl">
+                        <MapIcon className="h-16 w-16 text-gray-300 mb-4" />
+                        <p className="text-gray-500 font-medium">Selecciona una carpeta o archivo</p>
+                        <p className="text-sm text-gray-400 mt-2 text-center max-w-sm">
+                          Haz clic en las carpetas de la izquierda para visualizar los campos en el mapa
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Offline KMZ Upload Button */}
+                <div className="absolute top-4 right-4 z-[1000]">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".kmz,.kml"
+                    multiple
+                    onChange={handleOfflineKMZUpload}
+                    className="hidden"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingKMZ}
+                    className="bg-white shadow-lg hover:bg-gray-50"
+                  >
+                    {uploadingKMZ ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Subiendo...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4 mr-2" />
+                        Cargar KMZ Offline
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
           </TabsContent>
