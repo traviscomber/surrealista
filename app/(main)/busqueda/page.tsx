@@ -66,6 +66,7 @@ interface Client {
   budget_min?: number
   budget_max?: number
   last_contact_date?: string
+  rut?: string // Added RUT field
 }
 
 interface Campo {
@@ -424,6 +425,7 @@ export default function UnifiedSearchPage() {
         budget_min: client.budget_min,
         budget_max: client.budget_max,
         last_contact_date: client.last_contact_date,
+        rut: client.rut, // Added RUT field
       }))
 
       setClients(transformedClients)
@@ -717,8 +719,9 @@ export default function UnifiedSearchPage() {
                     <div className="space-y-2">
                       {/* Table Header */}
                       <div className="grid grid-cols-12 gap-4 px-4 py-3 bg-gray-50 rounded-lg font-medium text-sm text-gray-700">
-                        <div className="col-span-3">Cliente</div>
-                        <div className="col-span-2">Contacto</div>
+                        <div className="col-span-1">#</div>
+                        <div className="col-span-2">Cliente</div>
+                        <div className="col-span-2">RUT / Contacto</div>
                         <div className="col-span-2">Ubicación</div>
                         <div className="col-span-2">Interés</div>
                         <div className="col-span-1">Estado</div>
@@ -726,23 +729,39 @@ export default function UnifiedSearchPage() {
                       </div>
 
                       {/* Table Rows */}
-                      {clients.map((client) => (
+                      {clients.map((client, index) => (
                         <div
                           key={client.id}
                           className="grid grid-cols-12 gap-4 px-4 py-4 border rounded-lg hover:bg-gray-50 transition-colors items-center"
                         >
+                          {/* Row Number */}
+                          <div className="col-span-1">
+                            <span className="text-lg font-bold text-gray-900">{index + 1}</span>
+                          </div>
+
                           {/* Client Name & Company */}
-                          <div className="col-span-3">
+                          <div className="col-span-2">
                             <p className="font-semibold text-gray-900">
                               {client.first_name} {client.last_name}
                             </p>
                             {client.company_name && <p className="text-sm text-gray-600">{client.company_name}</p>}
                           </div>
 
-                          {/* Contact Info */}
+                          {/* RUT & Contact Info - RUT is now primary */}
                           <div className="col-span-2">
-                            {client.email && <p className="text-sm text-gray-700">{client.email}</p>}
-                            {client.phone && <p className="text-sm text-gray-600">{client.phone}</p>}
+                            <div className="text-sm space-y-1">
+                              {client.rut ? (
+                                <div className="font-semibold text-blue-700">RUT: {client.rut}</div>
+                              ) : (
+                                <div className="text-gray-400 text-xs">Sin RUT</div>
+                              )}
+                              {client.phone && <div className="text-gray-600 text-xs">📞 {client.phone}</div>}
+                              {client.email && (
+                                <div className="text-gray-600 text-xs truncate" title={client.email}>
+                                  ✉️ {client.email}
+                                </div>
+                              )}
+                            </div>
                           </div>
 
                           {/* Location */}
@@ -884,6 +903,10 @@ export default function UnifiedSearchPage() {
                             <p className="text-gray-500">No especificado</p>
                           )}
                         </div>
+                      </div>
+                      <div className="col-span-2">
+                        <label className="text-sm font-medium text-gray-700">RUT</label>
+                        <p className="text-gray-900">{(selectedClient as any).rut || "N/A"}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2 pt-4 border-t">

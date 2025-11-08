@@ -133,6 +133,125 @@ export async function deleteClient(id: string) {
   }
 }
 
+export async function detectDuplicates(clients: ClientData[]) {
+  try {
+    console.log("[v0] Detecting duplicates for", clients.length, "clients")
+    const supabase = await createSupabaseClient()
+
+    const duplicates: Array<{
+      newClient: ClientData
+      existingClient: any
+      matchType: string
+      index: number
+    }> = []
+
+    const nonDuplicates: Array<{ client: ClientData; index: number }> = []
+
+    for (let i = 0; i < clients.length; i++) {
+      const client = clients[i]
+      let matchFound = false
+
+      if (client.rut) {
+        const { data, error } = await supabase.from("clients").select("*").eq("rut", client.rut).limit(1)
+
+        if (!error && data && data.length > 0) {
+          duplicates.push({
+            newClient: client,
+            existingClient: data[0],
+            matchType: "rut",
+            index: i,
+          })
+          matchFound = true
+          continue
+        }
+      }
+
+      // Check for duplicates by phone (secondary identifier)
+      if (!matchFound && client.phone) {
+        const { data, error } = await supabase.from("clients").select("*").eq("phone", client.phone).limit(1)
+
+        if (!error && data && data.length > 0) {
+          duplicates.push({
+            newClient: client,
+            existingClient: data[0],
+            matchType: "phone",
+            index: i,
+          })
+          matchFound = true
+          continue
+        }
+      }
+
+      // Check by email if phone didn't match
+      if (!matchFound && client.email) {
+        const { data, error } = await supabase.from("clients").select("*").eq("email", client.email).limit(1)
+
+        if (!error && data && data.length > 0) {
+          duplicates.push({
+            newClient: client,
+            existingClient: data[0],
+            matchType: "email",
+            index: i,
+          })
+          matchFound = true
+          continue
+        }
+      }
+
+      // Check by name combination only if we have valid names (not numbers)
+      if (
+        !matchFound &&
+        client.first_name &&
+        client.last_name &&
+        isNaN(Number(client.first_name)) && // Make sure first_name is not a number
+        isNaN(Number(client.last_name)) // Make sure last_name is not a number
+      ) {
+        const { data, error } = await supabase
+          .from("clients")
+          .select("*")
+          .eq("first_name", client.first_name)
+          .eq("last_name", client.last_name)
+          .limit(1)
+
+        if (!error && data && data.length > 0) {
+          duplicates.push({
+            newClient: client,
+            existingClient: data[0],
+            matchType: "name",
+            index: i,
+          })
+          matchFound = true
+          continue
+        }
+      }
+
+      if (!matchFound) {
+        nonDuplicates.push({ client, index: i })
+      }
+    }
+
+    console.log(`[v0] Found ${duplicates.length} duplicates, ${nonDuplicates.length} new clients`)
+
+    return {
+      success: true,
+      duplicates,
+      nonDuplicates,
+      totalDuplicates: duplicates.length,
+      totalNew: nonDuplicates.length,
+    }
+  } catch (error) {
+    console.error("[v0] Error detecting duplicates:", error)
+    return {
+      success: false,
+      error: "Error al detectar duplicados",
+      duplicates: [],
+      nonDuplicates: [],
+      totalDuplicates: 0,
+      totalNew: 0,
+    }
+  }
+}
+
 export async function bulkImportClients(clients: ClientData[]) {
   try {
     console.log("[v0] Starting bulk import of", clients.length, "clients")
@@ -176,6 +295,72 @@ export async function bulkImportClients(clients: ClientData[]) {
   }
 }
 
+export async function bulkImportWithDuplicateHandling(
+  newClients: ClientData[],
+  updates: Array<{ id: string; data: ClientData }>,
+) {
+  try {
+    console.log("[v0] Importing", newClients.length, "new clients and updating", updates.length, "existing clients")
+    const supabase = await createSupabaseClient()
+
+    let totalImported = 0
+    let totalUpdated = 0
+    let totalFailed = 0
+
+    // Import new clients
+    if (newClients.length > 0) {
+      const CHUNK_SIZE = 50
+      for (let i = 0; i < newClients.length; i += CHUNK_SIZE) {
+        const chunk = newClients.slice(i, i + CHUNK_SIZE)
+        const { data, error } = await supabase.from("clients").insert(chunk).select()
+
+        if (error) {
+          console.error("[v0] Error importing chunk:", error)
+          totalFailed += chunk.length
+        } else {
+          totalImported += data?.length || 0
+        }
+      }
+    }
+
+    // Update existing clients
+    if (updates.length > 0) {
+      for (const update of updates) {
+        const { error } = await supabase.from("clients").update(update.data).eq("id", update.id)
+
+        if (error) {
+          console.error("[v0] Error updating client:", error)
+          totalFailed++
+        } else {
+          totalUpdated++
+        }
+      }
+    }
+
+    console.log(`[v0] Import complete: ${totalImported} new, ${totalUpdated} updated, ${totalFailed} failed`)
+
+    revalidatePath("/admin/clientes")
+    revalidatePath("/gestion-clientes")
+    revalidatePath("/busqueda")
+
+    return {
+      success: true,
+      imported: totalImported,
+      updated: totalUpdated,
+      failed: totalFailed,
+    }
+  } catch (error) {
+    console.error("[v0] Error in bulkImportWithDuplicateHandling:", error)
+    return {
+      success: false,
+      error: "Error al importar clientes",
+      imported: 0,
+      updated: 0,
+      failed: newClients.length + updates.length,
+    }
+  }
+}
+
 export async function searchClients(query: string) {
   try {
     const supabase = await createSupabaseClient()
@@ -196,5 +381,177 @@ export async function searchClients(query: string) {
   } catch (error) {
     console.error("[v0] Error in searchClients:", error)
     return { success: false, error: "Error al buscar clientes", data: [] }
+  }
+}
+
+export async function bulkImportInBatches(clients: ClientData[], batchSize = 10) {
+  try {
+    console.log("[v0] Starting batch import of", clients.length, "clients in batches of", batchSize)
+    const supabase = await createSupabaseClient()
+
+    const results = []
+
+    for (let i = 0; i < clients.length; i += batchSize) {
+      const batch = clients.slice(i, i + batchSize)
+      const batchNumber = Math.floor(i / batchSize) + 1
+      const totalBatches = Math.ceil(clients.length / batchSize)
+
+      console.log(`[v0] Processing batch ${batchNumber}/${totalBatches} (${batch.length} clients)`)
+
+      const { data, error } = await supabase.from("clients").insert(batch).select()
+
+      const batchResult = {
+        batchNumber,
+        totalBatches,
+        success: !error,
+        imported: data?.length || 0,
+        failed: error ? batch.length : 0,
+        data: data || [],
+        error: error?.message,
+      }
+
+      results.push(batchResult)
+      console.log(`[v0] Batch ${batchNumber} result:`, batchResult)
+    }
+
+    const totalImported = results.reduce((sum, r) => sum + r.imported, 0)
+    const totalFailed = results.reduce((sum, r) => sum + r.failed, 0)
+
+    console.log(`[v0] Batch import complete: ${totalImported} imported, ${totalFailed} failed`)
+
+    revalidatePath("/admin/clientes")
+    revalidatePath("/gestion-clientes")
+    revalidatePath("/busqueda")
+
+    return {
+      success: totalImported > 0,
+      imported: totalImported,
+      failed: totalFailed,
+      batches: results,
+    }
+  } catch (error) {
+    console.error("[v0] Error in bulkImportInBatches:", error)
+    return {
+      success: false,
+      error: "Error al importar clientes",
+      imported: 0,
+      failed: clients.length,
+      batches: [],
+    }
+  }
+}
+
+export async function bulkImportWithDuplicateHandlingInBatches(
+  newClients: ClientData[],
+  updates: Array<{ id: string; data: ClientData }>,
+  batchSize = 10,
+) {
+  try {
+    console.log(
+      "[v0] Importing",
+      newClients.length,
+      "new clients and updating",
+      updates.length,
+      "existing clients in batches",
+    )
+    const supabase = await createSupabaseClient()
+
+    let totalImported = 0
+    let totalUpdated = 0
+    let totalFailed = 0
+    const batchResults = []
+
+    // Import new clients in batches
+    if (newClients.length > 0) {
+      for (let i = 0; i < newClients.length; i += batchSize) {
+        const batch = newClients.slice(i, i + batchSize)
+        const batchNumber = Math.floor(i / batchSize) + 1
+        const totalBatches = Math.ceil(newClients.length / batchSize)
+
+        console.log(`[v0] Importing batch ${batchNumber}/${totalBatches} (${batch.length} new clients)`)
+
+        const { data, error } = await supabase.from("clients").insert(batch).select()
+
+        const batchResult = {
+          type: "import" as const,
+          batchNumber,
+          totalBatches,
+          success: !error,
+          count: data?.length || 0,
+          failed: error ? batch.length : 0,
+        }
+
+        batchResults.push(batchResult)
+
+        if (error) {
+          console.error("[v0] Error importing batch:", error)
+          totalFailed += batch.length
+        } else {
+          totalImported += data?.length || 0
+        }
+      }
+    }
+
+    // Update existing clients in batches
+    if (updates.length > 0) {
+      for (let i = 0; i < updates.length; i += batchSize) {
+        const batch = updates.slice(i, i + batchSize)
+        const batchNumber = Math.floor(i / batchSize) + 1
+        const totalBatches = Math.ceil(updates.length / batchSize)
+
+        console.log(`[v0] Updating batch ${batchNumber}/${totalBatches} (${batch.length} updates)`)
+
+        let batchSuccess = 0
+        let batchFailed = 0
+
+        for (const update of batch) {
+          const { error } = await supabase.from("clients").update(update.data).eq("id", update.id)
+
+          if (error) {
+            console.error("[v0] Error updating client:", error)
+            batchFailed++
+          } else {
+            batchSuccess++
+          }
+        }
+
+        const batchResult = {
+          type: "update" as const,
+          batchNumber,
+          totalBatches,
+          success: batchSuccess > 0,
+          count: batchSuccess,
+          failed: batchFailed,
+        }
+
+        batchResults.push(batchResult)
+        totalUpdated += batchSuccess
+        totalFailed += batchFailed
+      }
+    }
+
+    console.log(`[v0] Batch import complete: ${totalImported} new, ${totalUpdated} updated, ${totalFailed} failed`)
+
+    revalidatePath("/admin/clientes")
+    revalidatePath("/gestion-clientes")
+    revalidatePath("/busqueda")
+
+    return {
+      success: true,
+      imported: totalImported,
+      updated: totalUpdated,
+      failed: totalFailed,
+      batches: batchResults,
+    }
+  } catch (error) {
+    console.error("[v0] Error in bulkImportWithDuplicateHandlingInBatches:", error)
+    return {
+      success: false,
+      error: "Error al importar clientes",
+      imported: 0,
+      updated: 0,
+      failed: newClients.length + updates.length,
+      batches: [],
+    }
   }
 }
