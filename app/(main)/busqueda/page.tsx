@@ -38,6 +38,7 @@ import { SimpleDriveFolderView } from "@/components/google-drive/simple-drive-fo
 import { kmzReader } from "@/lib/kmz/kmz-reader"
 import { kmzStorageService } from "@/lib/kmz/kmz-storage-service"
 import { useRouter } from "next/navigation" // Added router for navigation
+import { RUTBulkValidationPanel } from "@/components/client-management/rut-validation-panel"
 
 const KMZMapDisplay = dynamicImport(() => import("@/components/kmz/kmz-map-display").then((mod) => mod.KMZMapDisplay), {
   ssr: false,
@@ -114,6 +115,7 @@ export default function UnifiedSearchPage() {
   const [loadingClients, setLoadingClients] = useState(false)
   const [quickTaskTitle, setQuickTaskTitle] = useState("")
   const [showQuickTask, setShowQuickTask] = useState(false)
+  const [showRUTValidation, setShowRUTValidation] = useState(false)
 
   const { driveService, isConnected, isLoading: driveLoading, reconnect } = useGoogleDrive()
 
@@ -627,6 +629,16 @@ export default function UnifiedSearchPage() {
                   </Badge>
                 </div>
                 <div className="flex items-center gap-2">
+                  {/* CHANGED: Added RUT validation button */}
+                  <Button
+                    onClick={() => setShowRUTValidation(!showRUTValidation)}
+                    size="sm"
+                    variant="outline"
+                    className="gap-2 border-blue-500 text-blue-700 hover:bg-blue-50"
+                  >
+                    <CheckSquare className="h-4 w-4" />
+                    Validar RUTs
+                  </Button>
                   <Button onClick={() => router.push("/admin/clientes")} size="sm" variant="outline" className="gap-2">
                     <FileSpreadsheet className="h-4 w-4" />
                     Importar Excel
@@ -644,6 +656,9 @@ export default function UnifiedSearchPage() {
                   </Button>
                 </div>
               </div>
+
+              {/* CHANGED: Added RUT Validation Panel */}
+              {showRUTValidation && <RUTBulkValidationPanel />}
 
               {/* Client Management Card */}
               <Card>
