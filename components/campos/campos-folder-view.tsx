@@ -10,6 +10,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { KMZMapDisplay } from "@/components/kmz/kmz-map-display"
 import { createBrowserClient } from "@/lib/supabase/client"
 import { Folder, FolderOpen, File, Search, ChevronRight, ChevronDown, MapPin, RefreshCw, Menu } from "lucide-react"
+import { useGoogleDrive } from "@/lib/contexts/google-drive-context"
 
 interface FolderItem {
   id: string
@@ -23,6 +24,8 @@ interface FolderItem {
   category?: string
   fileCount?: number
   dbId?: number
+  isDriveFile?: boolean
+  driveFileId?: string
 }
 
 export function CAMPOSFolderView() {
@@ -38,12 +41,18 @@ export function CAMPOSFolderView() {
   const [isDetailsSheetOpen, setIsDetailsSheetOpen] = useState(false)
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(false)
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(false)
+  const [driveKMZFiles, setDriveKMZFiles] = useState<any[]>([])
+  const [isLoadingDrive, setIsLoadingDrive] = useState(false)
 
   const supabase = createBrowserClient()
+  const { driveService, isConnected } = useGoogleDrive()
 
   useEffect(() => {
     loadRegionMetadata()
-  }, [])
+    if (isConnected && driveService) {
+      loadDriveKMZFiles()
+    }
+  }, [isConnected, driveService])
 
   const loadRegionMetadata = async () => {
     console.log("[v0] Loading region metadata from database...")
@@ -128,9 +137,11 @@ export function CAMPOSFolderView() {
             id: `file-${folderId}-${idx}`,
             name: file.file_name,
             type: "file" as const,
-            area: `${file.placemarks_count || 0} puntos`,
+            area: file.isDriveFile ? "🌐 Google Drive" : `${file.placemarks_count || 0} puntos`,
             location: fileCenter,
             dbId: file.id,
+            isDriveFile: file.isDriveFile || false,
+            driveFileId: file.driveFileId,
           }
         }),
         isOpen: false,
@@ -253,6 +264,89 @@ export function CAMPOSFolderView() {
     }
   }
 
+  const loadDriveKMZFiles = async () => {
+    if (!driveService || !isConnected) {
+      console.log("[v0] Google Drive not connected, skipping Drive KMZ search")
+      return
+    }
+
+    setIsLoadingDrive(true)
+    console.log("[v0] Searching for KMZ/KML files in Google Drive...")
+
+    try {
+      // Search for both KMZ and KML files
+      const kmzFiles = await driveService.searchFiles({
+        mimeType: "application/vnd.google-earth.kmz",
+      })
+
+      const kmlFiles = await driveService.searchFiles({
+        mimeType: "application/vnd.google-earth.kml",
+      })
+
+      const allDriveFiles = [...kmzFiles, ...kmlFiles]
+      console.log("[v0] Found", allDriveFiles.length, "KMZ/KML files in Google Drive")
+
+      setDriveKMZFiles(allDriveFiles)
+
+      if (allDriveFiles.length > 0) {
+        await integrateDriveToFolders(allDriveFiles)
+      }
+    } catch (error) {
+      console.error("[v0] Error loading Drive KMZ files:", error)
+    } finally {
+      setIsLoadingDrive(false)
+    }
+  }
+
+  const integrateDriveToFolders = async (driveFiles: any[]) => {
+    console.log("[v0] Integrating", driveFiles.length, "Drive files into folder structure")
+
+    // Get current database folders
+    const { data: dbData, error } = await supabase
+      .from("kmz_collection")
+      .select("id, file_name, region, placemarks_count, bounds, tags, file_path")
+      .eq("is_active", true)
+      .order("region", { ascending: true })
+
+    if (error) {
+      console.error("[v0] Error loading DB data:", error)
+      return
+    }
+
+    // Create a combined metadata array
+    const combinedMetadata = [...(dbData || [])]
+
+    // Add Drive files with folder structure
+    for (const file of driveFiles) {
+      // Get parent folder name
+      let folderName = "Google Drive - Sin Carpeta"
+
+      if (file.parents && file.parents.length > 0) {
+        try {
+          const parentFolder = await driveService.getFile(file.parents[0])
+          folderName = `Google Drive - ${parentFolder.name}`
+        } catch (err) {
+          console.error("[v0] Error getting parent folder:", err)
+        }
+      }
+
+      combinedMetadata.push({
+        id: `drive-${file.id}`,
+        file_name: file.name,
+        region: folderName,
+        placemarks_count: 0, // Will be loaded on demand
+        bounds: null,
+        tags: ["google-drive"],
+        file_path: file.webViewLink || file.webContentLink,
+        driveFileId: file.id,
+        isDriveFile: true,
+      })
+    }
+
+    console.log("[v0] Combined metadata:", combinedMetadata.length, "files from DB and Drive")
+    buildRegionFolders(combinedMetadata)
+  }
+
   const filteredFolders = folders.filter((folder) => folder.name.toLowerCase().includes(searchQuery.toLowerCase()))
 
   const FolderList = () => (
@@ -268,6 +362,17 @@ export function CAMPOSFolderView() {
         <div className="flex gap-2 flex-wrap">
           {folders.length > 0 && <Badge variant="secondary">{folders.length} regiones</Badge>}
           {selectedRegion && kmzFiles.length > 0 && <Badge variant="default">{kmzFiles.length} archivos</Badge>}
+          {isConnected && (
+            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+              🌐 Google Drive conectado
+            </Badge>
+          )}
+          {isLoadingDrive && (
+            <Badge variant="outline" className="bg-blue-50 text-blue-700">
+              <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+              Cargando Drive...
+            </Badge>
+          )}
         </div>
 
         <div className="relative">
