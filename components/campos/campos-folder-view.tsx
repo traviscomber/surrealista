@@ -1,6 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import type React from "react"
+
+import { useState, useEffect, useRef } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -9,8 +11,20 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { KMZMapDisplay } from "@/components/kmz/kmz-map-display"
 import { createBrowserClient } from "@/lib/supabase/client"
-import { Folder, FolderOpen, File, Search, ChevronRight, ChevronDown, MapPin, RefreshCw, Menu } from "lucide-react"
-import { useGoogleDrive } from "@/lib/contexts/google-drive-context"
+import {
+  Folder,
+  FolderOpen,
+  File,
+  Search,
+  ChevronRight,
+  ChevronDown,
+  MapPin,
+  RefreshCw,
+  Menu,
+  Upload,
+} from "lucide-react"
+// import { useGoogleDrive } from "@/lib/contexts/google-drive-context"
+import { kmzReader } from "@/lib/kmz/kmz-reader"
 
 interface FolderItem {
   id: string
@@ -41,18 +55,20 @@ export function CAMPOSFolderView() {
   const [isDetailsSheetOpen, setIsDetailsSheetOpen] = useState(false)
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(false)
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(false)
-  const [driveKMZFiles, setDriveKMZFiles] = useState<any[]>([])
-  const [isLoadingDrive, setIsLoadingDrive] = useState(false)
+  // const [driveKMZFiles, setDriveKMZFiles] = useState<any[]>([])
+  // const [isLoadingDrive, setIsLoadingDrive] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const supabase = createBrowserClient()
-  const { driveService, isConnected } = useGoogleDrive()
+  // const { driveService, isConnected } = useGoogleDrive()
 
   useEffect(() => {
     loadRegionMetadata()
-    if (isConnected && driveService) {
-      loadDriveKMZFiles()
-    }
-  }, [isConnected, driveService])
+    // if (isConnected && driveService) {
+    //   loadDriveKMZFiles()
+    // }
+  }, [])
 
   const loadRegionMetadata = async () => {
     console.log("[v0] Loading region metadata from database...")
@@ -137,11 +153,9 @@ export function CAMPOSFolderView() {
             id: `file-${folderId}-${idx}`,
             name: file.file_name,
             type: "file" as const,
-            area: file.isDriveFile ? "🌐 Google Drive" : `${file.placemarks_count || 0} puntos`,
+            area: `${file.placemarks_count || 0} puntos`,
             location: fileCenter,
             dbId: file.id,
-            isDriveFile: file.isDriveFile || false,
-            driveFileId: file.driveFileId,
           }
         }),
         isOpen: false,
@@ -264,87 +278,157 @@ export function CAMPOSFolderView() {
     }
   }
 
-  const loadDriveKMZFiles = async () => {
-    if (!driveService || !isConnected) {
-      console.log("[v0] Google Drive not connected, skipping Drive KMZ search")
-      return
-    }
+  // const loadDriveKMZFiles = async () => {
+  //   if (!driveService || !isConnected) {
+  //     console.log("[v0] Google Drive not connected, skipping Drive KMZ search")
+  //     return
+  //   }
 
-    setIsLoadingDrive(true)
-    console.log("[v0] Searching for KMZ/KML files in Google Drive...")
+  //   setIsLoadingDrive(true)
+  //   console.log("[v0] Searching for KMZ/KML files in Google Drive...")
+
+  //   try {
+  //     // Search for both KMZ and KML files
+  //     const kmzFiles = await driveService.searchFiles({
+  //       mimeType: "application/vnd.google-earth.kmz",
+  //     })
+
+  //     const kmlFiles = await driveService.searchFiles({
+  //       mimeType: "application/vnd.google-earth.kml",
+  //     })
+
+  //     const allDriveFiles = [...kmzFiles, ...kmlFiles]
+  //     console.log("[v0] Found", allDriveFiles.length, "KMZ/KML files in Google Drive")
+
+  //     setDriveKMZFiles(allDriveFiles)
+
+  //     if (allDriveFiles.length > 0) {
+  //       await integrateDriveToFolders(allDriveFiles)
+  //     }
+  //   } catch (error) {
+  //     console.error("[v0] Error loading Drive KMZ files:", error)
+  //   } finally {
+  //     setIsLoadingDrive(false)
+  //   }
+  // }
+
+  // const integrateDriveToFolders = async (driveFiles: any[]) => {
+  //   console.log("[v0] Integrating", driveFiles.length, "Drive files into folder structure")
+
+  //   // Get current database folders
+  //   const { data: dbData, error } = await supabase
+  //     .from("kmz_collection")
+  //     .select("id, file_name, region, placemarks_count, bounds, tags, file_path")
+  //     .eq("is_active", true)
+  //     .order("region", { ascending: true })
+
+  //   if (error) {
+  //     console.error("[v0] Error loading DB data:", error)
+  //     return
+  //   }
+
+  //   // Create a combined metadata array
+  //   const combinedMetadata = [...(dbData || [])]
+
+  //   // Add Drive files with folder structure
+  //   for (const file of driveFiles) {
+  //     // Get parent folder name
+  //     let folderName = "Google Drive - Sin Carpeta"
+
+  //     if (file.parents && file.parents.length > 0) {
+  //       try {
+  //         const parentFolder = await driveService.getFile(file.parents[0])
+  //         folderName = `Google Drive - ${parentFolder.name}`
+  //       } catch (err) {
+  //         console.error("[v0] Error getting parent folder:", err)
+  //       }
+  //     }
+
+  //     combinedMetadata.push({
+  //       id: `drive-${file.id}`,
+  //       file_name: file.name,
+  //       region: folderName,
+  //       placemarks_count: 0, // Will be loaded on demand
+  //       bounds: null,
+  //       tags: ["google-drive"],
+  //       file_path: file.webViewLink || file.webContentLink,
+  //       driveFileId: file.id,
+  //       isDriveFile: true,
+  //     })
+  //   }
+
+  //   console.log("[v0] Combined metadata:", combinedMetadata.length, "files from DB and Drive")
+  //   buildRegionFolders(combinedMetadata)
+  // }
+
+  const handleOfflineKMZUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files
+    if (!files || files.length === 0) return
+
+    setUploading(true)
+    console.log("[v0] Uploading", files.length, "KMZ files from local computer...")
 
     try {
-      // Search for both KMZ and KML files
-      const kmzFiles = await driveService.searchFiles({
-        mimeType: "application/vnd.google-earth.kmz",
-      })
+      let successCount = 0
+      let errorCount = 0
 
-      const kmlFiles = await driveService.searchFiles({
-        mimeType: "application/vnd.google-earth.kml",
-      })
-
-      const allDriveFiles = [...kmzFiles, ...kmlFiles]
-      console.log("[v0] Found", allDriveFiles.length, "KMZ/KML files in Google Drive")
-
-      setDriveKMZFiles(allDriveFiles)
-
-      if (allDriveFiles.length > 0) {
-        await integrateDriveToFolders(allDriveFiles)
-      }
-    } catch (error) {
-      console.error("[v0] Error loading Drive KMZ files:", error)
-    } finally {
-      setIsLoadingDrive(false)
-    }
-  }
-
-  const integrateDriveToFolders = async (driveFiles: any[]) => {
-    console.log("[v0] Integrating", driveFiles.length, "Drive files into folder structure")
-
-    // Get current database folders
-    const { data: dbData, error } = await supabase
-      .from("kmz_collection")
-      .select("id, file_name, region, placemarks_count, bounds, tags, file_path")
-      .eq("is_active", true)
-      .order("region", { ascending: true })
-
-    if (error) {
-      console.error("[v0] Error loading DB data:", error)
-      return
-    }
-
-    // Create a combined metadata array
-    const combinedMetadata = [...(dbData || [])]
-
-    // Add Drive files with folder structure
-    for (const file of driveFiles) {
-      // Get parent folder name
-      let folderName = "Google Drive - Sin Carpeta"
-
-      if (file.parents && file.parents.length > 0) {
+      for (const file of Array.from(files)) {
         try {
-          const parentFolder = await driveService.getFile(file.parents[0])
-          folderName = `Google Drive - ${parentFolder.name}`
-        } catch (err) {
-          console.error("[v0] Error getting parent folder:", err)
+          console.log(`[v0] Processing offline KMZ file: ${file.name}`)
+
+          // Parse KMZ file
+          const kmzData = await kmzReader.readKMZFile(file)
+          const rolNumbers = kmzReader.extractPropertyRoles(kmzData)
+
+          // Save to database
+          const { error } = await supabase.from("kmz_collection").insert({
+            file_name: file.name,
+            file_path: `offline/${file.name}`,
+            drive_file_id: null,
+            description: kmzData.metadata?.description || null,
+            metadata: kmzData.metadata,
+            placemarks_count: kmzData.placemarks.length,
+            rol_numbers: rolNumbers,
+            bounds: kmzData.bounds,
+            coordinates: kmzData.placemarks.map((p: any) => p.coordinates),
+            tags: ["offline"],
+            category: "offline",
+            is_active: true,
+          })
+
+          if (error) {
+            console.error(`[v0] Error saving ${file.name}:`, error.message)
+            errorCount++
+          } else {
+            console.log(`[v0] Successfully saved ${file.name} to database`)
+            successCount++
+          }
+        } catch (error) {
+          console.error(`[v0] Error processing ${file.name}:`, error)
+          errorCount++
         }
       }
 
-      combinedMetadata.push({
-        id: `drive-${file.id}`,
-        file_name: file.name,
-        region: folderName,
-        placemarks_count: 0, // Will be loaded on demand
-        bounds: null,
-        tags: ["google-drive"],
-        file_path: file.webViewLink || file.webContentLink,
-        driveFileId: file.id,
-        isDriveFile: true,
-      })
-    }
+      // Reload metadata after upload
+      await loadRegionMetadata()
 
-    console.log("[v0] Combined metadata:", combinedMetadata.length, "files from DB and Drive")
-    buildRegionFolders(combinedMetadata)
+      // Show result
+      if (successCount > 0) {
+        alert(
+          `✅ ${successCount} archivo(s) KMZ cargado(s) exitosamente!${errorCount > 0 ? `\n⚠️ ${errorCount} archivo(s) fallaron.` : ""}`,
+        )
+      } else {
+        alert(`❌ Error al cargar archivos KMZ. Por favor, verifica los archivos e intenta nuevamente.`)
+      }
+    } catch (error) {
+      console.error("[v0] Error uploading offline KMZ files:", error)
+      alert("Error al cargar archivos KMZ")
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
+      }
+    }
   }
 
   const filteredFolders = folders.filter((folder) => folder.name.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -362,17 +446,35 @@ export function CAMPOSFolderView() {
         <div className="flex gap-2 flex-wrap">
           {folders.length > 0 && <Badge variant="secondary">{folders.length} regiones</Badge>}
           {selectedRegion && kmzFiles.length > 0 && <Badge variant="default">{kmzFiles.length} archivos</Badge>}
-          {isConnected && (
-            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-              🌐 Google Drive conectado
-            </Badge>
-          )}
-          {isLoadingDrive && (
-            <Badge variant="outline" className="bg-blue-50 text-blue-700">
-              <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
-              Cargando Drive...
-            </Badge>
-          )}
+        </div>
+
+        <div className="space-y-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".kmz,.kml"
+            multiple
+            onChange={handleOfflineKMZUpload}
+            className="hidden"
+          />
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            variant="outline"
+            className="w-full justify-start gap-2 border-blue-200 hover:bg-blue-50"
+          >
+            {uploading ? (
+              <>
+                <RefreshCw className="h-4 w-4 animate-spin" />
+                Subiendo archivos...
+              </>
+            ) : (
+              <>
+                <Upload className="h-4 w-4" />
+                Cargar KMZ/KML Offline
+              </>
+            )}
+          </Button>
         </div>
 
         <div className="relative">

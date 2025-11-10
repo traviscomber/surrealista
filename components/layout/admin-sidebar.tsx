@@ -63,75 +63,13 @@ const menuItems: MenuItem[] = [
     badge: "New",
     badgeColor: "bg-green-500",
   },
-  /*
   {
-    title: "Vista CAMPOS",
-    href: "/campos",
-    icon: FolderOpen,
-    badge: "New",
-    badgeColor: "bg-blue-500",
-  },
-  {
-    title: "Extractor SII",
-    href: "/admin/sii-extractor",
-    icon: Search,
-    badge: "Beta",
-    badgeColor: "bg-orange-500",
-  },
-  {
-    title: "Explorador de Archivos",
-    href: "/admin/file-explorer",
-    icon: FolderOpen,
-    badge: "New",
-    badgeColor: "bg-purple-500",
-  },
-  {
-    title: "Análisis Vecindario KMZ",
-    href: "/admin/kmz-vecindario",
+    title: "Colección KMZ",
+    href: "/admin/kmz-collection",
     icon: MapPin,
     badge: "New",
     badgeColor: "bg-blue-500",
   },
-  */
-  /*
-  {
-    title: "MVP & Desarrollo",
-    icon: Rocket,
-    badge: "Live",
-    badgeVariant: "default",
-    badgeColor: "bg-green-500",
-    children: [
-      {
-        title: "Seguimiento MVP",
-        href: "/mvp/seguimiento",
-        icon: Activity,
-        badge: "85%",
-        badgeColor: "bg-blue-500",
-      },
-      {
-        title: "Fase 1 MVP",
-        href: "/admin/fase-1-mvp",
-        icon: Target,
-        badge: "85%",
-        badgeColor: "bg-green-500",
-      },
-      {
-        title: "Fase 2 MVP",
-        href: "/admin/fase-2-mvp",
-        icon: Target,
-        badge: "Próximo",
-        badgeColor: "bg-orange-500",
-      },
-      {
-        title: "Fase 3 MVP",
-        href: "/admin/fase-3-mvp",
-        icon: Target,
-        badge: "Futuro",
-        badgeColor: "bg-purple-500",
-      },
-    ],
-  },
-  */
   {
     title: "Gestión Documentos",
     icon: FileText,
@@ -169,22 +107,6 @@ const menuItems: MenuItem[] = [
       },
     ],
   },
-  /*
-  {
-    title: "Analytics MVP",
-    href: "/mvp/analytics-completo",
-    icon: BarChart3,
-    badge: "Live",
-    badgeColor: "bg-green-500",
-  },
-  {
-    title: "Mensajes",
-    href: "/admin/mensajes",
-    icon: MessageSquare,
-    badge: "5",
-    badgeVariant: "destructive",
-  },
-  */
 ]
 
 const getPageTitle = (pathname: string): string => {
@@ -192,6 +114,7 @@ const getPageTitle = (pathname: string): string => {
     "/admin": "Dashboard",
     "/busqueda": "Búsqueda Unificada",
     "/campos": "Vista CAMPOS",
+    "/admin/kmz-collection": "Colección KMZ",
     "/admin/sii-extractor": "Extractor de Coordenadas SII",
     "/admin/file-explorer": "Explorador de Archivos",
     "/admin/kmz-vecindario": "Análisis de Vecindario KMZ",
@@ -367,6 +290,13 @@ export function AdminSidebar() {
               <FolderOpen className="h-4 w-4" />
               Explorador de Archivos
               <Badge className="ml-auto bg-purple-500 text-white text-xs">New</Badge>
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
+            <Link href="/admin/kmz-collection">
+              <MapPin className="h-4 w-4" />
+              Colección KMZ
+              <Badge className="ml-auto bg-blue-500 text-white text-xs">New</Badge>
             </Link>
           </Button>
           <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
