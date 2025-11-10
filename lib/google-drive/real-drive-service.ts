@@ -68,14 +68,13 @@ class RealGoogleDriveService {
         return await this.startOAuthPopup()
       }
 
-      console.log("[v0] API error:", response.status, "falling back to demo mode")
-      this.accessToken = "demo_mode"
-      return true
+      console.log("[v0] API error:", response.status, "authentication failed")
+      this.accessToken = null
+      return false
     } catch (error) {
       console.error("[v0] Authentication failed:", error)
-      console.log("[v0] Falling back to demo mode due to authentication error")
-      this.accessToken = "demo_mode"
-      return true
+      this.accessToken = null
+      return false
     }
   }
 
@@ -84,9 +83,9 @@ class RealGoogleDriveService {
       const popup = window.open("/api/auth/google", "google-oauth", "width=500,height=600,scrollbars=yes,resizable=yes")
 
       if (!popup) {
-        console.error("[v0] Popup blocked, falling back to demo mode")
-        this.accessToken = "demo_mode"
-        resolve(true)
+        console.error("[v0] Popup blocked, authentication failed")
+        this.accessToken = null
+        resolve(false)
         return
       }
 
@@ -112,8 +111,8 @@ class RealGoogleDriveService {
           clearInterval(checkClosed)
           window.removeEventListener("message", messageListener)
           popup.close()
-          this.accessToken = "demo_mode"
-          resolve(true)
+          this.accessToken = null
+          resolve(false)
         }
       }
 
@@ -126,8 +125,8 @@ class RealGoogleDriveService {
         if (!popup.closed) {
           popup.close()
         }
-        this.accessToken = "demo_mode"
-        resolve(true)
+        this.accessToken = null
+        resolve(false)
       }, 300000)
     })
   }
@@ -143,8 +142,8 @@ class RealGoogleDriveService {
       console.error("[v0] Error checking auth status:", error)
     }
 
-    this.accessToken = "demo_mode"
-    return true
+    this.accessToken = null
+    return false
   }
 
   async listSuccessCases(): Promise<FolderStructure[]> {
@@ -152,9 +151,9 @@ class RealGoogleDriveService {
       throw new Error("Not authenticated. Call authenticate() first.")
     }
 
-    if (this.accessToken === "demo_mode") {
-      console.log("[v0] Using demo data - authentication fell back to demo mode")
-      return this.getEnhancedDemoSuccessCases()
+    if (this.accessToken !== "server_authenticated") {
+      console.log("[v0] Not authenticated - returning empty array")
+      return []
     }
 
     try {
@@ -183,8 +182,8 @@ class RealGoogleDriveService {
       return folders
     } catch (error) {
       console.error("[v0] Error fetching real data:", error)
-      console.log("[v0] Falling back to enhanced demo data")
-      return this.getEnhancedDemoSuccessCases()
+      console.log("[v0] Returning empty array - no connection to Drive")
+      return []
     }
   }
 
@@ -385,79 +384,6 @@ class RealGoogleDriveService {
     }
 
     return rolNumbers
-  }
-
-  private getEnhancedDemoSuccessCases(): FolderStructure[] {
-    return [
-      {
-        id: "1wJRhFJNpIqoJ_O9FPIhpPglmypnwgt5F",
-        name: "Valdivia 142 has Teresa F...",
-        originalName: "Valdivia 142 has Teresa F...",
-        displayName: "Valdivia 142 has Teresa F...",
-        files: [
-          {
-            id: "1",
-            name: "1_FOTOS",
-            mimeType: "application/vnd.google-apps.folder",
-            modifiedTime: "2025-08-12T00:00:00Z",
-            webViewLink: "https://drive.google.com/drive/folders/1wJRhFJNpIqoJ_O9FPIhpPglmypnwgt5F",
-          },
-          {
-            id: "2",
-            name: "2_DOCUMENTOS",
-            mimeType: "application/vnd.google-apps.folder",
-            modifiedTime: "2025-08-12T00:00:00Z",
-            webViewLink: "https://drive.google.com/drive/folders/1wJRhFJNpIqoJ_O9FPIhpPglmypnwgt5F",
-          },
-          {
-            id: "3",
-            name: "Fundo Iñipulli_140_110124_compressed.pdf",
-            mimeType: "application/pdf",
-            size: "5100000",
-            modifiedTime: "2024-01-12T00:00:00Z",
-            webViewLink: "https://drive.google.com/drive/folders/1wJRhFJNpIqoJ_O9FPIhpPglmypnwgt5F",
-          },
-          {
-            id: "4",
-            name: "Orden de Venta Iñipulli.docx",
-            mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-            size: "38000",
-            modifiedTime: "2023-11-23T00:00:00Z",
-            webViewLink: "https://drive.google.com/drive/folders/1wJRhFJNpIqoJ_O9FPIhpPglmypnwgt5F",
-          },
-          {
-            id: "5",
-            name: "Campo Iñipulli 140_has.kmz",
-            mimeType: "application/vnd.google-earth.kmz",
-            size: "2000",
-            modifiedTime: "2023-09-13T00:00:00Z",
-            webViewLink: "https://drive.google.com/drive/folders/1wJRhFJNpIqoJ_O9FPIhpPglmypnwgt5F",
-          },
-        ],
-        subfolders: [],
-        totalFiles: 8,
-        totalSize: 7200000,
-        completionStatus: "complete",
-        completenessScore: 100,
-        completenessDetails: {
-          overallScore: 100,
-          criteriaResults: [],
-          recommendations: [],
-          missingElements: [],
-          status: "excellent",
-        },
-        extractedInfo: {
-          rolNumbers: [],
-          location: "",
-          area: "",
-          year: "",
-        },
-      },
-    ]
-  }
-
-  private getDemoSuccessCases(): FolderStructure[] {
-    return this.getEnhancedDemoSuccessCases()
   }
 }
 
