@@ -352,21 +352,15 @@ export function TaskCreationDialog({
         console.log(`[v0] User ${user.name}: raw="${rawPhone}", cleaned="${phoneNumber}"`)
 
         // Validate Chilean phone format
-        // Chilean mobile: 56 9 XXXXXXXX (11 digits total)
-        // Format: country code (56) + mobile prefix (9) + 8 digits
-
         if (phoneNumber.startsWith("56")) {
-          // Already has country code
           const afterCountryCode = phoneNumber.substring(2)
           console.log(`[v0] After country code (56): "${afterCountryCode}"`)
 
-          // Check if it has double 9 (569940946660 should be 56940946660)
           if (afterCountryCode.startsWith("99")) {
             phoneNumber = "56" + afterCountryCode.substring(1)
             console.log(`[v0] Removed duplicate 9: "${phoneNumber}"`)
           }
 
-          // Validate length: should be 11 digits (56 + 9 + 8 digits)
           if (phoneNumber.length !== 11) {
             console.error(
               `[v0] Invalid Chilean phone length for ${user.name}: ${phoneNumber.length} digits (expected 11)`,
@@ -375,14 +369,12 @@ export function TaskCreationDialog({
             continue
           }
 
-          // Validate mobile prefix (should be 9 after country code)
           if (!phoneNumber.startsWith("569")) {
             console.error(`[v0] Invalid Chilean mobile prefix for ${user.name}: ${phoneNumber}`)
             alert(`⚠️ Número inválido para ${user.name}: ${rawPhone}\nLos móviles chilenos deben empezar con +56 9`)
             continue
           }
         } else if (phoneNumber.startsWith("9")) {
-          // Missing country code, add it
           phoneNumber = "56" + phoneNumber
           console.log(`[v0] Added country code: "${phoneNumber}"`)
 
@@ -397,24 +389,21 @@ export function TaskCreationDialog({
           continue
         }
 
-        // Final validation
         console.log(`[v0] Final phone number for ${user.name}: "${phoneNumber}" (${phoneNumber.length} digits)`)
         console.log(
           `[v0] Breakdown: Country=${phoneNumber.substring(0, 2)}, Mobile=${phoneNumber.substring(2, 3)}, Number=${phoneNumber.substring(3)}`,
         )
 
         const encodedMessage = encodeURIComponent(message)
-        const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodedMessage}`
+        const whatsappUrl = `https://web.whatsapp.com/send?phone=${phoneNumber}&text=${encodedMessage}`
 
         console.log(`[v0] WhatsApp URL for ${user.name}: ${whatsappUrl}`)
 
-        // Open in new tab with delay
         setTimeout(() => {
           window.open(whatsappUrl, "_blank")
           console.log(`[v0] Opened WhatsApp for ${user.name}`)
         }, i * 1500)
 
-        // Update notification status in database
         await supabase.from("task_notifications").insert({
           task_id: taskId,
           user_id: user.id,

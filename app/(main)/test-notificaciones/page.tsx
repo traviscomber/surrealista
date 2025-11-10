@@ -108,8 +108,7 @@ export default function TestNotificacionesPage() {
           `_Enviado desde Sur-Realista_`,
       )
 
-      // Generate WhatsApp Web URL
-      const whatsappUrl = `https://wa.me/${phoneNumber}?text=${whatsappMessage}`
+      const whatsappUrl = `https://web.whatsapp.com/send?phone=${phoneNumber}&text=${whatsappMessage}`
 
       console.log("[v0] Opening WhatsApp Web:", {
         to: phoneNumber,
