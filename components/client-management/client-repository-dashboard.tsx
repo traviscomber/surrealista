@@ -395,14 +395,14 @@ export function ClientRepositoryDashboard() {
                         )}
                       </TableCell>
                       <TableCell>
-                        <div className="space-y-1 min-w-[250px]">
+                        <div className="space-y-1">
                           <div className="text-sm flex items-center gap-1">
-                            <Mail className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                            <span className="break-all">{client.email || "-"}</span>
+                            <Mail className="w-3 h-3 text-gray-400" />
+                            {client.email || "-"}
                           </div>
                           <div className="text-sm flex items-center gap-1">
-                            <Phone className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                            <span>{client.phone || client.mobile || "-"}</span>
+                            <Phone className="w-3 h-3 text-gray-400" />
+                            {client.phone || client.mobile || "-"}
                           </div>
                         </div>
                       </TableCell>
