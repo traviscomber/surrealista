@@ -227,70 +227,6 @@ export function Header() {
               </Link>
             </NavigationMenuItem>
 
-            {/* Tools Dropdown */}
-            <NavigationMenuItem>
-              <NavigationMenuTrigger className="h-10">
-                <FolderOpen className="mr-2 h-4 w-4" />
-                Herramientas
-                <Badge className="ml-2 text-xs bg-green-500 text-white">Google Drive</Badge>
-              </NavigationMenuTrigger>
-              <NavigationMenuContent>
-                <div className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
-                  {toolsItems.map((item) => (
-                    <Link
-                      key={item.title}
-                      href={item.href}
-                      className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
-                    >
-                      <div className="flex items-center gap-2">
-                        <item.icon className="h-4 w-4" />
-                        <div className="text-sm font-medium leading-none">{item.title}</div>
-                        {item.badge && (
-                          <Badge className={cn("text-xs text-white", item.badgeColor || "bg-blue-500")}>
-                            {item.badge}
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">{item.description}</p>
-                    </Link>
-                  ))}
-                </div>
-              </NavigationMenuContent>
-            </NavigationMenuItem>
-
-            {/* MVP Dropdown */}
-            <NavigationMenuItem>
-              <NavigationMenuTrigger className="h-10">
-                <Rocket className="mr-2 h-4 w-4" />
-                MVP
-                <Badge variant="default" className="ml-2 text-xs bg-green-500">
-                  Live
-                </Badge>
-              </NavigationMenuTrigger>
-              <NavigationMenuContent>
-                <div className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-1 lg:w-[600px]">
-                  {mvpItems.map((item) => (
-                    <Link
-                      key={item.title}
-                      href={item.href}
-                      className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
-                    >
-                      <div className="flex items-center gap-2">
-                        <item.icon className="h-4 w-4" />
-                        <div className="text-sm font-medium leading-none">{item.title}</div>
-                        {item.badge && (
-                          <Badge className={cn("text-xs text-white", item.badgeColor || "bg-blue-500")}>
-                            {item.badge}
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">{item.description}</p>
-                    </Link>
-                  ))}
-                </div>
-              </NavigationMenuContent>
-            </NavigationMenuItem>
-
             {/* Documentation Dropdown */}
             <NavigationMenuItem>
               <NavigationMenuTrigger className="h-10">
@@ -431,58 +367,6 @@ export function Header() {
                     </div>
                     <Badge className="bg-green-500 text-white text-xs">New</Badge>
                   </Link>
-                </div>
-
-                {/* Mobile Tools */}
-                <div className="space-y-2">
-                  <h3 className="text-sm font-semibold text-muted-foreground px-3 flex items-center gap-2">
-                    Herramientas
-                    <Badge className="bg-green-500 text-white text-xs">Google Drive</Badge>
-                  </h3>
-                  {toolsItems.map((item) => (
-                    <Link
-                      key={item.title}
-                      href={item.href}
-                      className="flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
-                      onClick={() => setIsOpen(false)}
-                    >
-                      <div className="flex items-center space-x-2">
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
-                      </div>
-                      {item.badge && (
-                        <Badge className={cn("text-xs text-white", item.badgeColor || "bg-blue-500")}>
-                          {item.badge}
-                        </Badge>
-                      )}
-                    </Link>
-                  ))}
-                </div>
-
-                {/* Mobile MVP */}
-                <div className="space-y-2 pt-4 border-t">
-                  <h3 className="text-sm font-semibold text-muted-foreground px-3 flex items-center gap-2">
-                    MVP
-                    <Badge className="bg-green-500 text-white text-xs">Live</Badge>
-                  </h3>
-                  {mvpItems.map((item) => (
-                    <Link
-                      key={item.title}
-                      href={item.href}
-                      className="flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
-                      onClick={() => setIsOpen(false)}
-                    >
-                      <div className="flex items-center space-x-2">
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
-                      </div>
-                      {item.badge && (
-                        <Badge className={cn("text-xs text-white", item.badgeColor || "bg-blue-500")}>
-                          {item.badge}
-                        </Badge>
-                      )}
-                    </Link>
-                  ))}
                 </div>
 
                 {/* Mobile Documentation */}

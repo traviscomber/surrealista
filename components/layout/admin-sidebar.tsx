@@ -8,8 +8,6 @@ import { cn } from "@/lib/utils"
 import {
   LayoutDashboard,
   Building2,
-  MessageSquare,
-  BarChart3,
   Settings,
   Database,
   ChevronDown,
@@ -23,9 +21,7 @@ import {
   User,
   LogOut,
   HelpCircle,
-  Rocket,
   Activity,
-  Target,
   FolderOpen,
   MapPin,
 } from "lucide-react"
@@ -67,6 +63,7 @@ const menuItems: MenuItem[] = [
     badge: "New",
     badgeColor: "bg-green-500",
   },
+  /*
   {
     title: "Vista CAMPOS",
     href: "/campos",
@@ -95,6 +92,8 @@ const menuItems: MenuItem[] = [
     badge: "New",
     badgeColor: "bg-blue-500",
   },
+  */
+  /*
   {
     title: "MVP & Desarrollo",
     icon: Rocket,
@@ -132,6 +131,7 @@ const menuItems: MenuItem[] = [
       },
     ],
   },
+  */
   {
     title: "Gestión Documentos",
     icon: FileText,
@@ -169,6 +169,7 @@ const menuItems: MenuItem[] = [
       },
     ],
   },
+  /*
   {
     title: "Analytics MVP",
     href: "/mvp/analytics-completo",
@@ -183,6 +184,7 @@ const menuItems: MenuItem[] = [
     badge: "5",
     badgeVariant: "destructive",
   },
+  */
 ]
 
 const getPageTitle = (pathname: string): string => {
@@ -210,7 +212,7 @@ const getPageTitle = (pathname: string): string => {
 
 export function AdminSidebar() {
   const pathname = usePathname()
-  const [openItems, setOpenItems] = useState<string[]>(["MVP & Desarrollo", "Gestión Documentos"])
+  const [openItems, setOpenItems] = useState<string[]>(["Gestión Documentos"])
   const pageTitle = getPageTitle(pathname)
 
   const toggleItem = (title: string) => {
