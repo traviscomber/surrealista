@@ -6,6 +6,9 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
 import {
   MessageSquare,
   Instagram,
@@ -20,6 +23,9 @@ import {
   Send,
   Eye,
   AlertCircle,
+  Edit,
+  Trash2,
+  Plus,
 } from "lucide-react"
 import { createBrowserClient } from "@/lib/supabase/client"
 
@@ -45,6 +51,17 @@ export function CommunicationsTracking({ refreshTrigger }: CommunicationsTrackin
   const [searchTerm, setSearchTerm] = useState("")
   const [filterType, setFilterType] = useState("all")
   const [filterStatus, setFilterStatus] = useState("all")
+  const [editingComm, setEditingComm] = useState<Communication | null>(null)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [deletingCommId, setDeletingCommId] = useState<string | null>(null)
+  const [formData, setFormData] = useState({
+    subject: "",
+    content: "",
+    communication_type: "email",
+    communication_date: new Date().toISOString().split("T")[0],
+  })
   const supabase = createBrowserClient()
 
   useEffect(() => {
@@ -95,6 +112,89 @@ export function CommunicationsTracking({ refreshTrigger }: CommunicationsTrackin
     }
   }
 
+  const handleCreateCommunication = async () => {
+    try {
+      const { error } = await supabase.from("client_communications").insert({
+        subject: formData.subject,
+        content: formData.content,
+        communication_type: formData.communication_type,
+        communication_date: formData.communication_date,
+        direction: "outbound",
+        created_by: "system",
+        attachments: { status: "draft" },
+      })
+
+      if (error) throw error
+      setIsCreateDialogOpen(false)
+      setFormData({
+        subject: "",
+        content: "",
+        communication_type: "email",
+        communication_date: new Date().toISOString().split("T")[0],
+      })
+      loadCommunications()
+    } catch (error) {
+      console.error("Error creating communication:", error)
+      alert("Error al crear comunicación")
+    }
+  }
+
+  const handleEditCommunication = async () => {
+    if (!editingComm) return
+
+    try {
+      const { error } = await supabase
+        .from("client_communications")
+        .update({
+          subject: formData.subject,
+          content: formData.content,
+          communication_type: formData.communication_type,
+          communication_date: formData.communication_date,
+        })
+        .eq("id", editingComm.id)
+
+      if (error) throw error
+      setIsEditDialogOpen(false)
+      setEditingComm(null)
+      loadCommunications()
+    } catch (error) {
+      console.error("Error updating communication:", error)
+      alert("Error al actualizar comunicación")
+    }
+  }
+
+  const handleDeleteCommunication = async () => {
+    if (!deletingCommId) return
+
+    try {
+      const { error } = await supabase.from("client_communications").delete().eq("id", deletingCommId)
+
+      if (error) throw error
+      setIsDeleteDialogOpen(false)
+      setDeletingCommId(null)
+      loadCommunications()
+    } catch (error) {
+      console.error("Error deleting communication:", error)
+      alert("Error al eliminar comunicación")
+    }
+  }
+
+  const openEditDialog = (comm: Communication) => {
+    setEditingComm(comm)
+    setFormData({
+      subject: comm.subject,
+      content: comm.content,
+      communication_type: comm.communication_type,
+      communication_date: comm.communication_date.split("T")[0],
+    })
+    setIsEditDialogOpen(true)
+  }
+
+  const openDeleteDialog = (commId: string) => {
+    setDeletingCommId(commId)
+    setIsDeleteDialogOpen(true)
+  }
+
   const filteredCommunications = communications.filter((comm) => {
     const matchesSearch =
       comm.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -126,12 +226,14 @@ export function CommunicationsTracking({ refreshTrigger }: CommunicationsTrackin
 
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case "social_media":
+      case "instagram":
         return <Instagram className="h-4 w-4" />
       case "email":
         return <Mail className="h-4 w-4" />
       case "whatsapp":
         return <MessageSquare className="h-4 w-4" />
+      case "portal":
+        return <FileText className="h-4 w-4" />
       default:
         return <FileText className="h-4 w-4" />
     }
@@ -195,6 +297,10 @@ export function CommunicationsTracking({ refreshTrigger }: CommunicationsTrackin
                 className="pl-10"
               />
             </div>
+            <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Nueva Comunicación
+            </Button>
             <Select value={filterType} onValueChange={setFilterType}>
               <SelectTrigger className="w-[200px]">
                 <Filter className="h-4 w-4 mr-2" />
@@ -202,9 +308,10 @@ export function CommunicationsTracking({ refreshTrigger }: CommunicationsTrackin
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos los tipos</SelectItem>
-                <SelectItem value="social_media">Instagram</SelectItem>
+                <SelectItem value="instagram">Instagram</SelectItem>
                 <SelectItem value="email">Email</SelectItem>
                 <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                <SelectItem value="portal">Portal Inmobiliario</SelectItem>
               </SelectContent>
             </Select>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
@@ -236,7 +343,7 @@ export function CommunicationsTracking({ refreshTrigger }: CommunicationsTrackin
             <div className="text-center py-12">
               <MessageSquare className="h-16 w-16 text-gray-300 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-gray-700 mb-2">No hay comunicaciones</h3>
-              <p className="text-gray-500">Crea comunicaciones desde la biblioteca de templates</p>
+              <p className="text-gray-500">Crea una nueva comunicación o usa templates</p>
             </div>
           ) : (
             <div className="space-y-3">
@@ -271,8 +378,20 @@ export function CommunicationsTracking({ refreshTrigger }: CommunicationsTrackin
                                 {comm.communication_type}
                               </Badge>
                             </div>
-                            {/* Status Actions */}
                             <div className="flex items-center gap-2">
+                              <Button size="sm" variant="ghost" onClick={() => openEditDialog(comm)} className="gap-1">
+                                <Edit className="h-4 w-4" />
+                                Editar
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => openDeleteDialog(comm.id)}
+                                className="gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                                Eliminar
+                              </Button>
                               {currentStatus === "draft" && (
                                 <Button
                                   size="sm"
@@ -323,6 +442,105 @@ export function CommunicationsTracking({ refreshTrigger }: CommunicationsTrackin
           )}
         </CardContent>
       </Card>
+
+      {/* Create/Edit Dialog */}
+      <Dialog
+        open={isCreateDialogOpen || isEditDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setIsCreateDialogOpen(false)
+            setIsEditDialogOpen(false)
+            setEditingComm(null)
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editingComm ? "Editar Comunicación" : "Nueva Comunicación"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Asunto / Título</Label>
+              <Input
+                value={formData.subject}
+                onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                placeholder="Ej: Post Instagram - Propiedad en Valdivia"
+              />
+            </div>
+            <div>
+              <Label>Contenido</Label>
+              <Textarea
+                value={formData.content}
+                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                placeholder="Escribe el contenido de la comunicación..."
+                rows={8}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Tipo de Comunicación</Label>
+                <Select
+                  value={formData.communication_type}
+                  onValueChange={(value) => setFormData({ ...formData, communication_type: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="instagram">Instagram</SelectItem>
+                    <SelectItem value="email">Email</SelectItem>
+                    <SelectItem value="whatsapp">WhatsApp</SelectItem>
+                    <SelectItem value="portal">Portal Inmobiliario</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Fecha</Label>
+                <Input
+                  type="date"
+                  value={formData.communication_date}
+                  onChange={(e) => setFormData({ ...formData, communication_date: e.target.value })}
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsCreateDialogOpen(false)
+                setIsEditDialogOpen(false)
+                setEditingComm(null)
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={editingComm ? handleEditCommunication : handleCreateCommunication}>
+              {editingComm ? "Guardar Cambios" : "Crear Comunicación"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>¿Eliminar Comunicación?</DialogTitle>
+          </DialogHeader>
+          <p className="text-gray-600">
+            Esta acción no se puede deshacer. ¿Estás seguro de que deseas eliminar esta comunicación?
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteCommunication}>
+              Eliminar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
