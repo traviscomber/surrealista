@@ -235,16 +235,16 @@ Saludos,
 
       let communicationType = "email" // default fallback
 
-      // Map template.type to valid database values
       if (template.type === "instagram") {
-        communicationType = "social_media"
+        communicationType = "instagram"
       } else if (template.type === "whatsapp") {
         communicationType = "whatsapp"
       } else if (template.type === "email") {
         communicationType = "email"
-      } else if (template.type === "portal" || template.type === "document") {
-        // Portal and document communications are typically sent via email
-        communicationType = "email"
+      } else if (template.type === "portal") {
+        communicationType = "portal"
+      } else if (template.type === "document") {
+        communicationType = "document"
       }
 
       console.log("[v0] Creating communication with type:", communicationType, "from template:", template.type)
@@ -254,14 +254,14 @@ Saludos,
           communication_type: communicationType,
           subject: subject,
           content: filledContent,
-          direction: "outgoing",
+          direction: "outbound", // Changed from 'outgoing' to 'outbound'
           created_by: user?.email || "system",
           communication_date: new Date().toISOString(),
           attachments: {
             template_used: template.name,
             template_type: template.type,
             category: template.category,
-            status: "draft", // Track lifecycle status
+            status: "draft",
           },
         },
       ])
