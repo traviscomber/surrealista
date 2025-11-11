@@ -312,24 +312,16 @@ export class GoogleDriveService {
     try {
       console.log("[v0] Testing Google Drive connection...")
       if (!this._apiKey) {
-        console.error("[v0] No API key available")
+        console.log("[v0] No API key available - Drive features disabled")
         return false
       }
 
-      const response = await fetch(`https://www.googleapis.com/drive/v3/about?key=${this._apiKey}&fields=user`)
-
-      console.log("[v0] Connection test result:", response.ok)
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error("[v0] Connection test failed (expected in proxy): API error:", response.status)
-        console.log("[v0] Connection test failed, but API key may still work for operations")
-        return false
-      }
-
-      return true
+      // We'll return false but not throw errors since the app works without Drive connection
+      console.log("[v0] Drive API requires OAuth2 authentication - API key cannot be used for authentication")
+      console.log("[v0] Drive features will remain disabled until OAuth2 is configured")
+      return false
     } catch (error) {
-      console.error("[v0] Connection test failed:", error)
+      console.log("[v0] Connection test failed (expected):", error instanceof Error ? error.message : error)
       return false
     }
   }
