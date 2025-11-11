@@ -34,7 +34,11 @@ interface WeeklySummary {
   tasks: Task[]
 }
 
-export function WeeklyTaskSummary() {
+interface WeeklyTaskSummaryProps {
+  refreshTrigger?: number
+}
+
+export function WeeklyTaskSummary({ refreshTrigger }: WeeklyTaskSummaryProps) {
   const [summary, setSummary] = useState<WeeklySummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [weekStart, setWeekStart] = useState<Date>(getWeekStart(new Date()))
@@ -44,7 +48,7 @@ export function WeeklyTaskSummary() {
 
   useEffect(() => {
     loadWeeklySummary()
-  }, [weekStart, weekEnd])
+  }, [weekStart, weekEnd, refreshTrigger]) // Added refreshTrigger dependency
 
   function getWeekStart(date: Date): Date {
     const d = new Date(date)

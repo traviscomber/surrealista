@@ -116,6 +116,7 @@ export default function UnifiedSearchPage() {
   const [quickTaskTitle, setQuickTaskTitle] = useState("")
   const [showQuickTask, setShowQuickTask] = useState(false)
   const [showRUTValidation, setShowRUTValidation] = useState(false)
+  const [taskRefreshTrigger, setTaskRefreshTrigger] = useState(0)
 
   const { driveService, isConnected, isLoading: driveLoading, reconnect } = useGoogleDrive()
 
@@ -159,6 +160,7 @@ export default function UnifiedSearchPage() {
 
       if (error) throw error
       setTasks(data || [])
+      setTaskRefreshTrigger((prev) => prev + 1)
     } catch (error) {
       console.error("Error loading tasks:", error)
     }
@@ -1176,7 +1178,7 @@ export default function UnifiedSearchPage() {
           </TabsContent>
 
           <TabsContent value="resumen">
-            <WeeklyTaskSummary />
+            <WeeklyTaskSummary key={taskRefreshTrigger} refreshTrigger={taskRefreshTrigger} />
           </TabsContent>
 
           <TabsContent value="drive" className="h-[calc(100vh-16rem)] min-h-[600px]">

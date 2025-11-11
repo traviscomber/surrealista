@@ -423,7 +423,7 @@ export function TaskCreationDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto z-[9999] bg-background">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto bg-background">
         <DialogHeader>
           <DialogTitle>{isEditMode ? "Editar Tarea" : "Crear Nueva Tarea"}</DialogTitle>
           <DialogDescription>
@@ -526,10 +526,10 @@ export function TaskCreationDialog({
               <div className="grid gap-2">
                 <Label htmlFor="priority">Prioridad</Label>
                 <Select value={priority} onValueChange={setPriority}>
-                  <SelectTrigger>
-                    <SelectValue />
+                  <SelectTrigger id="priority">
+                    <SelectValue placeholder="Selecciona prioridad" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-[99999]" position="popper" sideOffset={5}>
                     <SelectItem value="low">Baja</SelectItem>
                     <SelectItem value="medium">Media</SelectItem>
                     <SelectItem value="high">Alta</SelectItem>
