@@ -39,6 +39,7 @@ import { kmzReader } from "@/lib/kmz/kmz-reader"
 import { kmzStorageService } from "@/lib/kmz/kmz-storage-service"
 import { useRouter } from "next/navigation" // Added router for navigation
 import { RUTBulkValidationPanel } from "@/components/client-management/rut-validation-panel"
+import { CommunicationsManager } from "@/components/communications/communications-manager"
 
 const KMZMapDisplay = dynamicImport(() => import("@/components/kmz/kmz-map-display").then((mod) => mod.KMZMapDisplay), {
   ssr: false,
@@ -873,9 +874,7 @@ export default function UnifiedSearchPage() {
                 <Card className="border-blue-200 bg-blue-50">
                   <CardHeader>
                     <CardTitle className="flex items-center justify-between">
-                      <span>
-                        Detalles: {selectedClient.first_name} {selectedClient.last_name}
-                      </span>
+                      Detalles: {selectedClient.first_name} {selectedClient.last_name}
                       <Button size="sm" variant="ghost" onClick={() => setSelectedClient(null)}>
                         ✕
                       </Button>
@@ -958,54 +957,7 @@ export default function UnifiedSearchPage() {
 
           {/* Comunicaciones Tab */}
           <TabsContent value="comunicaciones">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <MessageSquare className="h-5 w-5" />
-                  Comunicaciones (WZP, GMAIL)
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {[
-                    {
-                      type: "WhatsApp",
-                      from: "Carlos Mendoza",
-                      subject: "Consulta sobre terreno en Valdivia",
-                      date: "2024-01-15",
-                    },
-                    {
-                      type: "Gmail",
-                      from: "Ana Silva",
-                      subject: "Cotización proyecto Pucón",
-                      date: "2024-01-14",
-                    },
-                    {
-                      type: "WhatsApp",
-                      from: "Roberto Fernández",
-                      subject: "Seguimiento parcela Castro",
-                      date: "2024-01-13",
-                    },
-                  ].map((comm, idx) => (
-                    <div key={idx} className="p-4 border rounded-lg hover:bg-blue-50 cursor-pointer transition-colors">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <Badge variant="outline">{comm.type}</Badge>
-                            <span className="font-medium">{comm.from}</span>
-                          </div>
-                          <p className="text-sm text-gray-700">{comm.subject}</p>
-                          <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
-                            <Calendar className="h-4 w-4" />
-                            {comm.date}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+            <CommunicationsManager />
           </TabsContent>
 
           {/* Tareas Tab */}
