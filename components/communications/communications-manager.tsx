@@ -61,34 +61,34 @@ export function CommunicationsManager() {
       name: "Post Instagram - Propiedad",
       type: "instagram",
       icon: Instagram,
-      category: "social_media",
-      template: `🏡 ¡Propiedad Exclusiva en {LOCATION}!
+      category: "redes_sociales",
+      template: `🏡 ¡Propiedad Exclusiva en {UBICACION}!
 
-✨ {PROPERTY_TYPE} de {SIZE} m²
-💰 Precio: ${"{PRICE}"}
-📍 Ubicación: {LOCATION}
+✨ {TIPO_PROPIEDAD} de {METROS} m²
+💰 Precio: ${"{PRECIO}"}
+📍 Ubicación: {UBICACION}
 
 Características destacadas:
-🛏️ {BEDROOMS} dormitorios
-🚿 {BATHROOMS} baños
-🌳 {SPECIAL_FEATURES}
+🛏️ {DORMITORIOS} dormitorios
+🚿 {BANOS} baños
+🌳 {CARACTERISTICAS}
 
 📞 Contáctanos para más información
-✉️ {CONTACT_EMAIL}
-📱 {CONTACT_PHONE}
+✉️ {CORREO_CONTACTO}
+📱 {TELEFONO_CONTACTO}
 
-#Propiedades #BienesRaices {LOCATION_HASHTAG} #InversiónInmobiliaria`,
+#Propiedades #BienesRaices {HASHTAG_UBICACION} #InversiónInmobiliaria`,
       variables: [
-        "LOCATION",
-        "PROPERTY_TYPE",
-        "SIZE",
-        "PRICE",
-        "BEDROOMS",
-        "BATHROOMS",
-        "SPECIAL_FEATURES",
-        "CONTACT_EMAIL",
-        "CONTACT_PHONE",
-        "LOCATION_HASHTAG",
+        "UBICACION",
+        "TIPO_PROPIEDAD",
+        "METROS",
+        "PRECIO",
+        "DORMITORIOS",
+        "BANOS",
+        "CARACTERISTICAS",
+        "CORREO_CONTACTO",
+        "TELEFONO_CONTACTO",
+        "HASHTAG_UBICACION",
       ],
     },
     {
@@ -96,38 +96,38 @@ Características destacadas:
       name: "Post Instagram - Campo",
       type: "instagram",
       icon: Instagram,
-      category: "social_media",
-      template: `🌾 Campo en Venta - {LOCATION}
+      category: "redes_sociales",
+      template: `🌾 Campo en Venta - {UBICACION}
 
-📊 Superficie: {SIZE} hectáreas
-💰 Precio: ${"{PRICE}"}
-📍 {LOCATION}, {REGION}
+📊 Superficie: {HECTAREAS} hectáreas
+💰 Precio: ${"{PRECIO}"}
+📍 {UBICACION}, {REGION}
 
 Características:
-🚜 {LAND_USE}
-💧 {WATER_RIGHTS}
-🏠 {BUILDINGS}
-🌳 {VEGETATION}
+🚜 {USO_SUELO}
+💧 {DERECHOS_AGUA}
+🏠 {CONSTRUCCIONES}
+🌳 {VEGETACION}
 
-Ideal para {TARGET_USE}
+Ideal para {USO_OBJETIVO}
 
-📞 Consultas: {CONTACT_PHONE}
-✉️ {CONTACT_EMAIL}
+📞 Consultas: {TELEFONO_CONTACTO}
+✉️ {CORREO_CONTACTO}
 
-#Campo #Agricultura #InversiónRural #Fundo {LOCATION_HASHTAG}`,
+#Campo #Agricultura #InversiónRural #Fundo {HASHTAG_UBICACION}`,
       variables: [
-        "LOCATION",
-        "SIZE",
-        "PRICE",
+        "UBICACION",
+        "HECTAREAS",
+        "PRECIO",
         "REGION",
-        "LAND_USE",
-        "WATER_RIGHTS",
-        "BUILDINGS",
-        "VEGETATION",
-        "TARGET_USE",
-        "CONTACT_PHONE",
-        "CONTACT_EMAIL",
-        "LOCATION_HASHTAG",
+        "USO_SUELO",
+        "DERECHOS_AGUA",
+        "CONSTRUCCIONES",
+        "VEGETACION",
+        "USO_OBJETIVO",
+        "TELEFONO_CONTACTO",
+        "CORREO_CONTACTO",
+        "HASHTAG_UBICACION",
       ],
     },
     {
@@ -139,73 +139,73 @@ Ideal para {TARGET_USE}
       template: `PUBLICACIÓN PORTAL INMOBILIARIO
 
 TÍTULO:
-{PROPERTY_TYPE} en {LOCATION} - {SIZE} m²
+{TIPO_PROPIEDAD} en {UBICACION} - {METROS} m²
 
 DESCRIPCIÓN:
-{DESCRIPTION}
+{DESCRIPCION}
 
 CARACTERÍSTICAS:
-- Superficie total: {SIZE} m²
-- Superficie útil: {USABLE_SIZE} m²
-- Dormitorios: {BEDROOMS}
-- Baños: {BATHROOMS}
-- Estacionamientos: {PARKING}
-- Bodegas: {STORAGE}
-- Año construcción: {YEAR_BUILT}
-- Orientación: {ORIENTATION}
+- Superficie total: {METROS} m²
+- Superficie útil: {METROS_UTILES} m²
+- Dormitorios: {DORMITORIOS}
+- Baños: {BANOS}
+- Estacionamientos: {ESTACIONAMIENTOS}
+- Bodegas: {BODEGAS}
+- Año construcción: {ANO_CONSTRUCCION}
+- Orientación: {ORIENTACION}
 
 SERVICIOS Y COMODIDADES:
-{AMENITIES}
+{SERVICIOS}
 
 UBICACIÓN:
-Dirección: {ADDRESS}
+Dirección: {DIRECCION}
 Comuna: {COMUNA}
-Ciudad: {CITY}
+Ciudad: {CIUDAD}
 Región: {REGION}
 
-PRECIO: ${"{PRICE}"}
-GASTOS COMUNES: ${"{COMMON_EXPENSES}"}
-CONTRIBUCIONES: ${"{PROPERTY_TAX}"}
+PRECIO: ${"{PRECIO}"}
+GASTOS COMUNES: ${"{GASTOS_COMUNES}"}
+CONTRIBUCIONES: ${"{CONTRIBUCIONES}"}
 
 CONTACTO:
-Corredor: {AGENT_NAME}
-Teléfono: {AGENT_PHONE}
-Email: {AGENT_EMAIL}
+Corredor: {NOMBRE_CORREDOR}
+Teléfono: {TELEFONO_CORREDOR}
+Email: {EMAIL_CORREDOR}
 Empresa: Sur-Realista
 
 DOCUMENTACIÓN:
 - Certificado de dominio vigente
 - Avalúo fiscal actualizado
 - Planos
-- {ADDITIONAL_DOCS}
+- {DOCUMENTOS_ADICIONALES}
 
 NOTAS:
-{ADDITIONAL_NOTES}`,
+{NOTAS_ADICIONALES}`,
       variables: [
-        "PROPERTY_TYPE",
-        "LOCATION",
-        "SIZE",
-        "DESCRIPTION",
-        "USABLE_SIZE",
-        "BEDROOMS",
-        "BATHROOMS",
-        "PARKING",
-        "STORAGE",
-        "YEAR_BUILT",
-        "ORIENTATION",
-        "AMENITIES",
-        "ADDRESS",
+        "TIPO_PROPIEDAD",
+        "UBICACION",
+        "METROS",
+        "DESCRIPCION",
+        "METROS_UTILES",
+        "DORMITORIOS",
+        "BANOS",
+        "ESTACIONAMIENTOS",
+        "BODEGAS",
+        "ANO_CONSTRUCCION",
+        "ORIENTACION",
+        "SERVICIOS",
+        "DIRECCION",
         "COMUNA",
-        "CITY",
+        "CIUDAD",
         "REGION",
-        "PRICE",
-        "COMMON_EXPENSES",
-        "PROPERTY_TAX",
-        "AGENT_NAME",
-        "AGENT_PHONE",
-        "AGENT_EMAIL",
-        "ADDITIONAL_DOCS",
-        "ADDITIONAL_NOTES",
+        "PRECIO",
+        "GASTOS_COMUNES",
+        "CONTRIBUCIONES",
+        "NOMBRE_CORREDOR",
+        "TELEFONO_CORREDOR",
+        "EMAIL_CORREDOR",
+        "DOCUMENTOS_ADICIONALES",
+        "NOTAS_ADICIONALES",
       ],
     },
     {
@@ -216,66 +216,66 @@ NOTAS:
       category: "portales_venta",
       template: `PUBLICACIÓN PORTALINMUEBLES.COM
 
-{PROPERTY_TYPE} EN VENTA - {LOCATION}
+{TIPO_PROPIEDAD} EN VENTA - {UBICACION}
 
-PRECIO: UF {PRICE_UF} (${"{PRICE_CLP}"})
+PRECIO: UF {PRECIO_UF} (${"{PRECIO_CLP}"})
 
 DETALLES PRINCIPALES:
-✓ {SIZE} m² totales / {USABLE_SIZE} m² útiles
-✓ {BEDROOMS} dorms
-✓ {BATHROOMS} baños completos
-✓ {PARKING} estacionamientos
-✓ {STORAGE} bodegas
+✓ {METROS} m² totales / {METROS_UTILES} m² útiles
+✓ {DORMITORIOS} dorms
+✓ {BANOS} baños completos
+✓ {ESTACIONAMIENTOS} estacionamientos
+✓ {BODEGAS} bodegas
 
 DESCRIPCIÓN DETALLADA:
-{DETAILED_DESCRIPTION}
+{DESCRIPCION_DETALLADA}
 
 CARACTERÍSTICAS ESPECIALES:
-{SPECIAL_FEATURES}
+{CARACTERISTICAS_ESPECIALES}
 
 EQUIPAMIENTO:
-{EQUIPMENT}
+{EQUIPAMIENTO}
 
 UBICACIÓN Y ENTORNO:
-📍 {ADDRESS}, {COMUNA}
-🏙️ Cerca de: {NEARBY_PLACES}
-🚌 Transporte: {TRANSPORT_ACCESS}
+📍 {DIRECCION}, {COMUNA}
+🏙️ Cerca de: {LUGARES_CERCANOS}
+🚌 Transporte: {ACCESO_TRANSPORTE}
 
 GASTOS MENSUALES:
-- Gastos comunes: ${"{COMMON_EXPENSES}"}
-- Contribuciones: ${"{PROPERTY_TAX}"}
+- Gastos comunes: ${"{GASTOS_COMUNES}"}
+- Contribuciones: ${"{CONTRIBUCIONES}"}
 
-ROL DE AVALÚO: {ROL_NUMBER}
+ROL DE AVALÚO: {NUMERO_ROL}
 
 CONTACTO DIRECTO:
-{AGENT_NAME} - Sur-Realista
-📱 {AGENT_PHONE}
-📧 {AGENT_EMAIL}
+{NOMBRE_CORREDOR} - Sur-Realista
+📱 {TELEFONO_CORREDOR}
+📧 {EMAIL_CORREDOR}
 🌐 www.sur-realista.cl`,
       variables: [
-        "PROPERTY_TYPE",
-        "LOCATION",
-        "PRICE_UF",
-        "PRICE_CLP",
-        "SIZE",
-        "USABLE_SIZE",
-        "BEDROOMS",
-        "BATHROOMS",
-        "PARKING",
-        "STORAGE",
-        "DETAILED_DESCRIPTION",
-        "SPECIAL_FEATURES",
-        "EQUIPMENT",
-        "ADDRESS",
+        "TIPO_PROPIEDAD",
+        "UBICACION",
+        "PRECIO_UF",
+        "PRECIO_CLP",
+        "METROS",
+        "METROS_UTILES",
+        "DORMITORIOS",
+        "BANOS",
+        "ESTACIONAMIENTOS",
+        "BODEGAS",
+        "DESCRIPCION_DETALLADA",
+        "CARACTERISTICAS_ESPECIALES",
+        "EQUIPAMIENTO",
+        "DIRECCION",
         "COMUNA",
-        "NEARBY_PLACES",
-        "TRANSPORT_ACCESS",
-        "COMMON_EXPENSES",
-        "PROPERTY_TAX",
-        "ROL_NUMBER",
-        "AGENT_NAME",
-        "AGENT_PHONE",
-        "AGENT_EMAIL",
+        "LUGARES_CERCANOS",
+        "ACCESO_TRANSPORTE",
+        "GASTOS_COMUNES",
+        "CONTRIBUCIONES",
+        "NUMERO_ROL",
+        "NOMBRE_CORREDOR",
+        "TELEFONO_CORREDOR",
+        "EMAIL_CORREDOR",
       ],
     },
     {
@@ -283,27 +283,27 @@ CONTACTO DIRECTO:
       name: "Workflow Completo: IG + Portales",
       type: "workflow",
       icon: Sparkles,
-      category: "workflow",
+      category: "workflow_completo",
       template: `📋 WORKFLOW DE PUBLICACIÓN COMPLETA
 
-PROPIEDAD: {PROPERTY_TYPE} en {LOCATION}
+PROPIEDAD: {TIPO_PROPIEDAD} en {UBICACION}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📱 1. POST INSTAGRAM
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-🏡 ¡Nueva Propiedad en {LOCATION}!
+🏡 ¡Nueva Propiedad en {UBICACION}!
 
-✨ {PROPERTY_TYPE} de {SIZE} m²
-💰 ${"{PRICE}"} | UF {PRICE_UF}
-📍 {COMUNA}, {CITY}
+✨ {TIPO_PROPIEDAD} de {METROS} m²
+💰 ${"{PRECIO}"} | UF {PRECIO_UF}
+📍 {COMUNA}, {CIUDAD}
 
 Características:
-🛏️ {BEDROOMS} dorms | 🚿 {BATHROOMS} baños
-🚗 {PARKING} estac. | 📦 {STORAGE} bodegas
-{HIGHLIGHT_FEATURES}
+🛏️ {DORMITORIOS} dorms | 🚿 {BANOS} baños
+🚗 {ESTACIONAMIENTOS} estac. | 📦 {BODEGAS} bodegas
+{CARACTERISTICAS_DESTACADAS}
 
-📞 {AGENT_PHONE} | ✉️ {AGENT_EMAIL}
+📞 {TELEFONO_CORREDOR} | ✉️ {EMAIL_CORREDOR}
 
 #PropiedadesChile #{COMUNA} #BienesRaices #InversiónInmobiliaria
 
@@ -311,38 +311,38 @@ Características:
 🌐 2. PORTAL INMOBILIARIO
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-TÍTULO: {PROPERTY_TYPE} en {LOCATION} - {SIZE} m²
+TÍTULO: {TIPO_PROPIEDAD} en {UBICACION} - {METROS} m²
 
 DESCRIPCIÓN:
-{PORTAL_DESCRIPTION}
+{DESCRIPCION_PORTAL}
 
 DETALLES:
-- Superficie: {SIZE} m² / {USABLE_SIZE} m² útiles
-- Dormitorios: {BEDROOMS} | Baños: {BATHROOMS}
-- Estacionamientos: {PARKING} | Bodegas: {STORAGE}
-- Año: {YEAR_BUILT} | Orientación: {ORIENTATION}
+- Superficie: {METROS} m² / {METROS_UTILES} m² útiles
+- Dormitorios: {DORMITORIOS} | Baños: {BANOS}
+- Estacionamientos: {ESTACIONAMIENTOS} | Bodegas: {BODEGAS}
+- Año: {ANO_CONSTRUCCION} | Orientación: {ORIENTACION}
 
-UBICACIÓN: {ADDRESS}, {COMUNA}, {CITY}
-PRECIO: ${"{PRICE}"} | G.C.: ${"{COMMON_EXPENSES}"}
+UBICACIÓN: {DIRECCION}, {COMUNA}, {CIUDAD}
+PRECIO: ${"{PRECIO}"} | G.C.: ${"{GASTOS_COMUNES}"}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🏠 3. PORTALINMUEBLES.COM
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-{PROPERTY_TYPE} EN VENTA | {LOCATION}
+{TIPO_PROPIEDAD} EN VENTA | {UBICACION}
 
-UF {PRICE_UF} (${"{PRICE_CLP}"})
+UF {PRECIO_UF} (${"{PRECIO_CLP}"})
 
-✓ {SIZE} m² | {BEDROOMS} dorms | {BATHROOMS} baños
-✓ {PARKING} estac. | {STORAGE} bodegas
-✓ {SPECIAL_AMENITIES}
+✓ {METROS} m² | {DORMITORIOS} dorms | {BANOS} baños
+✓ {ESTACIONAMIENTOS} estac. | {BODEGAS} bodegas
+✓ {SERVICIOS_ESPECIALES}
 
-📍 {ADDRESS}, {COMUNA}
-🚌 Metro/Bus: {TRANSPORT}
-🏪 Cerca: {NEARBY_SERVICES}
+📍 {DIRECCION}, {COMUNA}
+🚌 Metro/Bus: {TRANSPORTE}
+🏪 Cerca: {SERVICIOS_CERCANOS}
 
-ROL: {ROL_NUMBER}
-G.C.: ${"{COMMON_EXPENSES}"} | Contrib.: ${"{PROPERTY_TAX}"}
+ROL: {NUMERO_ROL}
+G.C.: ${"{GASTOS_COMUNES}"} | Contrib.: ${"{CONTRIBUCIONES}"}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ✅ CHECKLIST DE PUBLICACIÓN
@@ -355,41 +355,40 @@ G.C.: ${"{COMMON_EXPENSES}"} | Contrib.: ${"{PROPERTY_TAX}"}
 □ Post Instagram publicado
 □ Listing en Portal Inmobiliario
 □ Listing en Portalinmuebles.com
-□ Histórico de portales.cl
 □ Yapo.cl
 □ Grupo Facebook propiedades
 
-RESPONSABLE: {AGENT_NAME}
-FECHA: {PUBLICATION_DATE}`,
+RESPONSABLE: {NOMBRE_CORREDOR}
+FECHA: {FECHA_PUBLICACION}`,
       variables: [
-        "PROPERTY_TYPE",
-        "LOCATION",
-        "SIZE",
-        "PRICE",
-        "PRICE_UF",
-        "PRICE_CLP",
+        "TIPO_PROPIEDAD",
+        "UBICACION",
+        "METROS",
+        "PRECIO",
+        "PRECIO_UF",
+        "PRECIO_CLP",
         "COMUNA",
-        "CITY",
-        "BEDROOMS",
-        "BATHROOMS",
-        "PARKING",
-        "STORAGE",
-        "HIGHLIGHT_FEATURES",
-        "AGENT_PHONE",
-        "AGENT_EMAIL",
-        "PORTAL_DESCRIPTION",
-        "USABLE_SIZE",
-        "YEAR_BUILT",
-        "ORIENTATION",
-        "ADDRESS",
-        "COMMON_EXPENSES",
-        "SPECIAL_AMENITIES",
-        "TRANSPORT",
-        "NEARBY_SERVICES",
-        "ROL_NUMBER",
-        "PROPERTY_TAX",
-        "AGENT_NAME",
-        "PUBLICATION_DATE",
+        "CIUDAD",
+        "DORMITORIOS",
+        "BANOS",
+        "ESTACIONAMIENTOS",
+        "BODEGAS",
+        "CARACTERISTICAS_DESTACADAS",
+        "TELEFONO_CORREDOR",
+        "EMAIL_CORREDOR",
+        "DESCRIPCION_PORTAL",
+        "METROS_UTILES",
+        "ANO_CONSTRUCCION",
+        "ORIENTACION",
+        "DIRECCION",
+        "GASTOS_COMUNES",
+        "SERVICIOS_ESPECIALES",
+        "TRANSPORTE",
+        "SERVICIOS_CERCANOS",
+        "NUMERO_ROL",
+        "CONTRIBUCIONES",
+        "NOMBRE_CORREDOR",
+        "FECHA_PUBLICACION",
       ],
     },
     {
@@ -397,31 +396,31 @@ FECHA: {PUBLICATION_DATE}`,
       name: "Mandato de Venta",
       type: "document",
       icon: FileText,
-      category: "legal",
+      category: "documentos_legales",
       template: `MANDATO DE VENTA EXCLUSIVO
 
-En {CITY}, {DATE}
+En {CIUDAD}, {FECHA}
 
 Comparecen:
 
-MANDANTE: {OWNER_NAME}, RUT: {OWNER_RUT}
-Dirección: {OWNER_ADDRESS}
-Email: {OWNER_EMAIL}
-Teléfono: {OWNER_PHONE}
+MANDANTE: {NOMBRE_PROPIETARIO}, RUT: {RUT_PROPIETARIO}
+Dirección: {DIRECCION_PROPIETARIO}
+Email: {EMAIL_PROPIETARIO}
+Teléfono: {TELEFONO_PROPIETARIO}
 
 MANDATARIO: Sur-Realista
-RUT: {COMPANY_RUT}
-Representada por: {AGENT_NAME}
+RUT: {RUT_EMPRESA}
+Representada por: {NOMBRE_CORREDOR}
 
 PROPIEDAD:
-Rol: {PROPERTY_ROL}
-Dirección: {PROPERTY_ADDRESS}
-Comuna: {PROPERTY_COMUNA}
-Superficie: {PROPERTY_SIZE} m²
+Rol: {ROL_PROPIEDAD}
+Dirección: {DIRECCION_PROPIEDAD}
+Comuna: {COMUNA_PROPIEDAD}
+Superficie: {METROS_PROPIEDAD} m²
 
-PRECIO DE VENTA: ${"{SALE_PRICE}"}
-COMISIÓN: {COMMISSION}%
-VIGENCIA: {DURATION} meses desde la fecha
+PRECIO DE VENTA: ${"{PRECIO_VENTA}"}
+COMISIÓN: {COMISION}%
+VIGENCIA: {DURACION} meses desde la fecha
 
 El mandante otorga facultad exclusiva al mandatario para:
 - Publicitar la propiedad en medios digitales y físicos
@@ -432,25 +431,25 @@ El mandante otorga facultad exclusiva al mandatario para:
 Firmado en conformidad,
 
 _________________          _________________
-{OWNER_NAME}               {AGENT_NAME}
+{NOMBRE_PROPIETARIO}       {NOMBRE_CORREDOR}
 Mandante                   Mandatario`,
       variables: [
-        "CITY",
-        "DATE",
-        "OWNER_NAME",
-        "OWNER_RUT",
-        "OWNER_ADDRESS",
-        "OWNER_EMAIL",
-        "OWNER_PHONE",
-        "COMPANY_RUT",
-        "AGENT_NAME",
-        "PROPERTY_ROL",
-        "PROPERTY_ADDRESS",
-        "PROPERTY_COMUNA",
-        "PROPERTY_SIZE",
-        "SALE_PRICE",
-        "COMMISSION",
-        "DURATION",
+        "CIUDAD",
+        "FECHA",
+        "NOMBRE_PROPIETARIO",
+        "RUT_PROPIETARIO",
+        "DIRECCION_PROPIETARIO",
+        "EMAIL_PROPIETARIO",
+        "TELEFONO_PROPIETARIO",
+        "RUT_EMPRESA",
+        "NOMBRE_CORREDOR",
+        "ROL_PROPIEDAD",
+        "DIRECCION_PROPIEDAD",
+        "COMUNA_PROPIEDAD",
+        "METROS_PROPIEDAD",
+        "PRECIO_VENTA",
+        "COMISION",
+        "DURACION",
       ],
     },
     {
@@ -458,41 +457,41 @@ Mandante                   Mandatario`,
       name: "Email - Seguimiento Cliente",
       type: "email",
       icon: Mail,
-      category: "client_communication",
-      template: `Asunto: Seguimiento - Propiedades en {LOCATION}
+      category: "comunicacion_clientes",
+      template: `Asunto: Seguimiento - Propiedades en {UBICACION}
 
-Estimado/a {CLIENT_NAME},
+Estimado/a {NOMBRE_CLIENTE},
 
 Espero que se encuentre muy bien.
 
-Le escribo para darle seguimiento a su búsqueda de {PROPERTY_TYPE} en {LOCATION}.
+Le escribo para darle seguimiento a su búsqueda de {TIPO_PROPIEDAD} en {UBICACION}.
 
-Tenemos {NEW_PROPERTIES} nuevas propiedades que coinciden con sus criterios:
+Tenemos {NUEVAS_PROPIEDADES} nuevas propiedades que coinciden con sus criterios:
 
-{PROPERTY_LIST}
+{LISTA_PROPIEDADES}
 
-¿Le gustaría agendar una visita para conocerlas? Estoy disponible {AVAILABLE_DATES}.
+¿Le gustaría agendar una visita para conocerlas? Estoy disponible {FECHAS_DISPONIBLES}.
 
 Quedo atento a su respuesta.
 
 Saludos cordiales,
 
-{AGENT_NAME}
-{AGENT_TITLE}
+{NOMBRE_CORREDOR}
+{CARGO_CORREDOR}
 Sur-Realista
-📱 {AGENT_PHONE}
-✉️ {AGENT_EMAIL}`,
+📱 {TELEFONO_CORREDOR}
+✉️ {EMAIL_CORREDOR}`,
       variables: [
-        "CLIENT_NAME",
-        "PROPERTY_TYPE",
-        "LOCATION",
-        "NEW_PROPERTIES",
-        "PROPERTY_LIST",
-        "AVAILABLE_DATES",
-        "AGENT_NAME",
-        "AGENT_TITLE",
-        "AGENT_PHONE",
-        "AGENT_EMAIL",
+        "NOMBRE_CLIENTE",
+        "TIPO_PROPIEDAD",
+        "UBICACION",
+        "NUEVAS_PROPIEDADES",
+        "LISTA_PROPIEDADES",
+        "FECHAS_DISPONIBLES",
+        "NOMBRE_CORREDOR",
+        "CARGO_CORREDOR",
+        "TELEFONO_CORREDOR",
+        "EMAIL_CORREDOR",
       ],
     },
     {
@@ -500,20 +499,20 @@ Sur-Realista
       name: "WhatsApp - Consulta Rápida",
       type: "whatsapp",
       icon: MessageSquare,
-      category: "client_communication",
-      template: `Hola {CLIENT_NAME} 👋
+      category: "comunicacion_clientes",
+      template: `Hola {NOMBRE_CLIENTE} 👋
 
-Te escribo sobre la propiedad en {LOCATION} que consultaste.
+Te escribo sobre la propiedad en {UBICACION} que consultaste.
 
-📍 {PROPERTY_ADDRESS}
-💰 Precio: ${"{PRICE}"}
-📊 {SIZE} m²
+📍 {DIRECCION_PROPIEDAD}
+💰 Precio: ${"{PRECIO}"}
+📊 {METROS} m²
 
 ¿Te gustaría más información o agendar una visita?
 
 Saludos,
-{AGENT_NAME}`,
-      variables: ["CLIENT_NAME", "LOCATION", "PROPERTY_ADDRESS", "PRICE", "SIZE", "AGENT_NAME"],
+{NOMBRE_CORREDOR}`,
+      variables: ["NOMBRE_CLIENTE", "UBICACION", "DIRECCION_PROPIEDAD", "PRECIO", "METROS", "NOMBRE_CORREDOR"],
     },
   ]
 
@@ -812,7 +811,7 @@ function TemplateDialog({
       <div className="grid grid-cols-2 gap-6">
         {/* Variables Form */}
         <div className="space-y-4">
-          <h4 className="font-semibold text-gray-900">Completar Variables</h4>
+          <h4 className="font-semibold text-gray-900">Completar Campos</h4>
           <div className="space-y-3 max-h-[500px] overflow-y-auto pr-2">
             <div>
               <Label>Asunto / Título</Label>
