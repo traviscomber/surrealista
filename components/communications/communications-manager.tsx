@@ -33,7 +33,7 @@ interface CommunicationTemplate {
 
 export function CommunicationsManager() {
   const [refreshTrigger, setRefreshTrigger] = useState(0)
-  const [showDemoData, setShowDemoData] = useState(true)
+  const [showDemoData, setShowDemoData] = useState(false)
 
   const handleCommunicationCreated = () => {
     setRefreshTrigger((prev) => prev + 1)
