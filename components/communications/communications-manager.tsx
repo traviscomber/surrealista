@@ -2,12 +2,13 @@
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { useState, useEffect } from "react"
-import { Card, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { MessageSquare, Sparkles, ListChecks, FileText, Eye, EyeOff, CheckSquare, BarChart3 } from "lucide-react"
 import { TemplateLibrary } from "./template-library"
 import { CommunicationsTracking } from "./communications-tracking"
 import { DocumentsManager } from "./documents-manager"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { TasksManager } from "@/components/tasks/tasks-manager"
 import { WeeklyTaskSummary } from "@/components/tasks/weekly-task-summary"
 import { createBrowserClient } from "@/lib/supabase/client"
@@ -30,6 +31,7 @@ export function CommunicationsManager() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [taskRefreshTrigger, setTaskRefreshTrigger] = useState(0)
+  const [activeTab, setActiveTab] = useState("tasks")
 
   const supabase = createBrowserClient()
 
@@ -82,20 +84,77 @@ export function CommunicationsManager() {
     loadTasks()
   }
 
+  const getContextualStats = () => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    switch (activeTab) {
+      case "tasks":
+        const urgentTasks = tasks.filter((t) => t.priority === "urgent" || t.priority === "high").length
+        const pendingTasks = tasks.filter((t) => t.status === "pending").length
+        const completedThisWeek = tasks.filter((t) => {
+          const taskDate = new Date(t.created_at)
+          const weekAgo = new Date(today)
+          weekAgo.setDate(weekAgo.getDate() - 7)
+          return t.status === "completed" && taskDate >= weekAgo
+        }).length
+        const overdueTasks = tasks.filter((t) => {
+          const dueDate = new Date(t.due_date)
+          return t.status !== "completed" && dueDate < today
+        }).length
+
+        return [
+          { label: "Urgentes Hoy", value: urgentTasks, color: "text-red-600" },
+          { label: "Pendientes", value: pendingTasks, color: "text-gray-600" },
+          { label: "Completadas (semana)", value: completedThisWeek, color: "text-green-600" },
+          { label: "Vencidas", value: overdueTasks, color: "text-orange-600" },
+        ]
+
+      case "summary":
+        const totalTasksWeek = tasks.filter((t) => {
+          const taskDate = new Date(t.created_at)
+          const weekAgo = new Date(today)
+          weekAgo.setDate(weekAgo.getDate() - 7)
+          return taskDate >= weekAgo
+        }).length
+        const completedTasksWeek = tasks.filter((t) => {
+          const taskDate = new Date(t.created_at)
+          const weekAgo = new Date(today)
+          weekAgo.setDate(weekAgo.getDate() - 7)
+          return t.status === "completed" && taskDate >= weekAgo
+        }).length
+        const completionRate = totalTasksWeek > 0 ? Math.round((completedTasksWeek / totalTasksWeek) * 100) : 0
+
+        return [
+          { label: "Tareas Semana", value: totalTasksWeek, color: "text-blue-600" },
+          { label: "Tasa Completitud", value: `${completionRate}%`, color: "text-green-600" },
+          { label: "Activas", value: tasks.filter((t) => t.status !== "completed").length, color: "text-orange-600" },
+          { label: "Total Tareas", value: tasks.length, color: "text-gray-600" },
+        ]
+
+      case "documents":
+      case "tracking":
+      case "templates":
+      default:
+        return []
+    }
+  }
+
+  const contextualStats = getContextualStats()
+
+  const urgentTasksCount = tasks.filter((t) => t.priority === "urgent" || t.priority === "high").length
+
   return (
     <div className="space-y-6">
-      {/* Header */}
       <Card className="border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
                 <MessageSquare className="h-6 w-6 text-purple-600" />
-                Gestión de Comunicaciones y Documentación
+                Centro de Trabajo
               </CardTitle>
-              <p className="text-sm text-gray-600 mt-2">
-                Sistema completo de comunicaciones, templates y documentos vinculados a propiedades
-              </p>
+              <p className="text-sm text-gray-600 mt-2">Tu hub completo de tareas, documentos y comunicaciones</p>
             </div>
             <Button
               variant="outline"
@@ -110,45 +169,68 @@ export function CommunicationsManager() {
         </CardHeader>
       </Card>
 
-      {/* Main Tabs - CHANGED: Added 2 new tabs */}
-      <Tabs defaultValue="tasks" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-5 h-auto">
-          <TabsTrigger value="tasks" className="flex items-center gap-2 py-3">
+          <TabsTrigger value="tasks" className="flex items-center gap-2 py-3 relative">
             <CheckSquare className="h-4 w-4" />
             <div className="text-left">
-              <div className="font-semibold">Nuevas Tareas</div>
-              <div className="text-xs text-muted-foreground">Gestión de tareas</div>
+              <div className="font-semibold flex items-center gap-2">
+                Nuevas Tareas
+                {urgentTasksCount > 0 && (
+                  <Badge className="bg-red-500 text-white text-xs px-1.5 py-0.5 ml-1">{urgentTasksCount}</Badge>
+                )}
+              </div>
+              <div className="text-xs text-muted-foreground">Crea y gestiona tu día a día</div>
             </div>
           </TabsTrigger>
-          <TabsTrigger value="templates" className="flex items-center gap-2 py-3">
-            <Sparkles className="h-4 w-4" />
-            <div className="text-left">
-              <div className="font-semibold">Biblioteca de Templates</div>
-              <div className="text-xs text-muted-foreground">Crear desde plantillas</div>
-            </div>
-          </TabsTrigger>
-          <TabsTrigger value="tracking" className="flex items-center gap-2 py-3">
-            <ListChecks className="h-4 w-4" />
-            <div className="text-left">
-              <div className="font-semibold">Gestión y Tracking</div>
-              <div className="text-xs text-muted-foreground">Seguimiento completo</div>
-            </div>
-          </TabsTrigger>
-          <TabsTrigger value="documents" className="flex items-center gap-2 py-3">
-            <FileText className="h-4 w-4" />
-            <div className="text-left">
-              <div className="font-semibold">Documentación</div>
-              <div className="text-xs text-muted-foreground">Docs vinculados a KMZ/KML</div>
-            </div>
-          </TabsTrigger>
+
           <TabsTrigger value="summary" className="flex items-center gap-2 py-3">
             <BarChart3 className="h-4 w-4" />
             <div className="text-left">
               <div className="font-semibold">Resumen Semanal</div>
-              <div className="text-xs text-muted-foreground">Análisis ejecutivo</div>
+              <div className="text-xs text-muted-foreground">Vista ejecutiva de progreso</div>
+            </div>
+          </TabsTrigger>
+
+          <TabsTrigger value="documents" className="flex items-center gap-2 py-3">
+            <FileText className="h-4 w-4" />
+            <div className="text-left">
+              <div className="font-semibold">Documentación</div>
+              <div className="text-xs text-muted-foreground">Archivos PDF, KMZ y documentos</div>
+            </div>
+          </TabsTrigger>
+
+          <TabsTrigger value="tracking" className="flex items-center gap-2 py-3">
+            <ListChecks className="h-4 w-4" />
+            <div className="text-left">
+              <div className="font-semibold">Gestión y Tracking</div>
+              <div className="text-xs text-muted-foreground">Historial de comunicaciones</div>
+            </div>
+          </TabsTrigger>
+
+          <TabsTrigger value="templates" className="flex items-center gap-2 py-3">
+            <Sparkles className="h-4 w-4" />
+            <div className="text-left">
+              <div className="font-semibold">Biblioteca de Templates</div>
+              <div className="text-xs text-muted-foreground">Plantillas reutilizables</div>
             </div>
           </TabsTrigger>
         </TabsList>
+
+        {contextualStats.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+            {contextualStats.map((stat, idx) => (
+              <Card key={idx}>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-sm font-medium text-gray-600">{stat.label}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className={`text-3xl font-bold ${stat.color}`}>{stat.value}</div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
 
         <TabsContent value="tasks" className="mt-6">
           <TasksManager
@@ -161,20 +243,20 @@ export function CommunicationsManager() {
           />
         </TabsContent>
 
-        <TabsContent value="templates" className="mt-6">
-          <TemplateLibrary onCommunicationCreated={handleCommunicationCreated} />
-        </TabsContent>
-
-        <TabsContent value="tracking" className="mt-6">
-          <CommunicationsTracking refreshTrigger={refreshTrigger} />
+        <TabsContent value="summary" className="mt-6">
+          <WeeklyTaskSummary key={taskRefreshTrigger} refreshTrigger={taskRefreshTrigger} />
         </TabsContent>
 
         <TabsContent value="documents" className="mt-6">
           <DocumentsManager showDemoData={showDemoData} />
         </TabsContent>
 
-        <TabsContent value="summary" className="mt-6">
-          <WeeklyTaskSummary key={taskRefreshTrigger} refreshTrigger={taskRefreshTrigger} />
+        <TabsContent value="tracking" className="mt-6">
+          <CommunicationsTracking refreshTrigger={refreshTrigger} />
+        </TabsContent>
+
+        <TabsContent value="templates" className="mt-6">
+          <TemplateLibrary onCommunicationCreated={handleCommunicationCreated} />
         </TabsContent>
       </Tabs>
     </div>
