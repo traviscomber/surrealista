@@ -488,7 +488,7 @@ export function CAMPOSFolderView() {
         </div>
       </div>
 
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto min-h-0">
         <div className="p-4 space-y-2">
           {filteredFolders.length === 0 && !isLoadingMetadata && (
             <p className="text-sm text-muted-foreground text-center py-4">
@@ -543,7 +543,7 @@ export function CAMPOSFolderView() {
             </div>
           ))}
         </div>
-      </ScrollArea>
+      </div>
     </>
   )
 
@@ -553,7 +553,7 @@ export function CAMPOSFolderView() {
         <h2 className="text-lg font-semibold">Detalles</h2>
       </div>
 
-      <ScrollArea className="flex-1">
+      <div className="flex-1 overflow-y-auto min-h-0">
         {selectedItem ? (
           <div className="p-4 space-y-4">
             <div>
@@ -593,19 +593,21 @@ export function CAMPOSFolderView() {
               <div>
                 <p className="text-sm font-medium mb-2">Archivos en esta región ({selectedItem.fileCount})</p>
                 {selectedItem.children && (
-                  <div className="space-y-1 max-h-60 overflow-y-auto">
-                    {selectedItem.children.map((child) => (
-                      <div key={child.id} className="text-sm p-2 rounded bg-muted/50 flex items-center gap-2">
-                        <File className="h-3 w-3" />
-                        <span className="flex-1 truncate">{child.name}</span>
-                        {child.area && (
-                          <Badge variant="outline" className="text-xs">
-                            {child.area}
-                          </Badge>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                  <ScrollArea className="h-[240px] rounded-md border">
+                    <div className="space-y-1 p-2">
+                      {selectedItem.children.map((child) => (
+                        <div key={child.id} className="text-sm p-2 rounded bg-muted/50 flex items-center gap-2">
+                          <File className="h-3 w-3" />
+                          <span className="flex-1 truncate">{child.name}</span>
+                          {child.area && (
+                            <Badge variant="outline" className="text-xs">
+                              {child.area}
+                            </Badge>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
                 )}
               </div>
             )}
@@ -613,17 +615,19 @@ export function CAMPOSFolderView() {
             {selectedRegion && kmzFiles.length > 0 && (
               <div>
                 <p className="text-sm font-medium mb-2">Archivos cargados en mapa ({kmzFiles.length})</p>
-                <div className="space-y-1 max-h-40 overflow-y-auto">
-                  {kmzFiles.map((file) => (
-                    <div key={file.metadata.id} className="text-sm p-2 rounded bg-muted/50 flex items-center gap-2">
-                      <MapPin className="h-3 w-3 text-primary" />
-                      <span className="flex-1 truncate">{file.fileName}</span>
-                      <Badge variant="outline" className="text-xs">
-                        {file.placemarks.length}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
+                <ScrollArea className="h-[160px] rounded-md border">
+                  <div className="space-y-1 p-2">
+                    {kmzFiles.map((file) => (
+                      <div key={file.metadata.id} className="text-sm p-2 rounded bg-muted/50 flex items-center gap-2">
+                        <MapPin className="h-3 w-3 text-primary" />
+                        <span className="flex-1 truncate">{file.fileName}</span>
+                        <Badge variant="outline" className="text-xs">
+                          {file.placemarks.length}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
               </div>
             )}
           </div>
@@ -633,7 +637,7 @@ export function CAMPOSFolderView() {
             <p className="text-sm">Selecciona una región para ver detalles y cargar archivos KMZ</p>
           </div>
         )}
-      </ScrollArea>
+      </div>
     </>
   )
 

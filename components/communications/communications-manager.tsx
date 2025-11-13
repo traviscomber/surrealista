@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { TasksManager } from "@/components/tasks/tasks-manager"
 import { WeeklyTaskSummary } from "@/components/tasks/weekly-task-summary"
 import { createBrowserClient } from "@/lib/supabase/client"
+import { WhitepaperBuilder } from "@/components/corporate-documents/whitepaper-builder"
 
 interface Task {
   id: string
@@ -248,7 +249,10 @@ export function CommunicationsManager() {
         </TabsContent>
 
         <TabsContent value="documents" className="mt-6">
-          <DocumentsManager showDemoData={showDemoData} />
+          <div className="space-y-6">
+            <WhitepaperBuilder />
+            <DocumentsManager showDemoData={showDemoData} />
+          </div>
         </TabsContent>
 
         <TabsContent value="tracking" className="mt-6">
