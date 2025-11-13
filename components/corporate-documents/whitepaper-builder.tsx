@@ -401,23 +401,29 @@ ${citiesText}`
 
   const handleImageUpload = async (key: string, file: File) => {
     try {
-      const fileExt = file.name.split(".").pop()
-      const fileName = `${Math.random()}.${fileExt}`
-      const filePath = `whitepaper-images/${fileName}`
+      console.log("[v0] Starting image upload for field:", key)
 
-      const { data, error } = await supabase.storage.from("property-images").upload(filePath, file)
+      const formDataObj = new FormData()
+      formDataObj.append("file", file)
 
-      if (error) throw error
+      const response = await fetch("/api/upload-whitepaper-image", {
+        method: "POST",
+        body: formDataObj,
+      })
 
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("property-images").getPublicUrl(filePath)
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || "Upload failed")
+      }
 
-      setFormData({ ...formData, [key]: publicUrl })
-      toast.success("Imagen subida exitosamente")
-    } catch (error) {
-      console.error("Error uploading image:", error)
-      toast.error("Error al subir imagen")
+      const data = await response.json()
+      console.log("[v0] Image uploaded successfully:", data.url)
+
+      setFormData({ ...formData, [key]: data.url })
+      toast.success("Imagen cargada correctamente")
+    } catch (error: any) {
+      console.error("[v0] Error uploading image:", error)
+      toast.error(error.message || "Error al subir la imagen")
     }
   }
 

@@ -42,7 +42,7 @@
     "@supabase/auth-helpers-nextjs": "latest",
     "@supabase/ssr": "latest",
     "@supabase/supabase-js": "latest",
-    "@vercel/blob": "2.0.0",
+    "@vercel/blob": "latest",
     "@xmldom/xmldom": "latest",
     "ai": "latest",
     "autoprefixer": "^10.4.20",
