@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { FileText, Sparkles, Download, Eye, MapPin, Zap, Droplets, BoldIcon as RoadIcon } from "lucide-react"
+import { FileText, Sparkles, Download, Eye, MapPin, Zap, Droplets, BoldIcon as RoadIcon } from 'lucide-react'
 import { createBrowserClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -166,9 +166,8 @@ export function WhitepaperBuilder() {
   const [currentStep, setCurrentStep] = useState<"data" | "preview">("data")
   const [formData, setFormData] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
-  const [loadingRegions, setLoadingRegions] = useState(false)
-  const [loadingProvinces, setLoadingProvinces] = useState(false)
-  const [loadingCommunes, setLoadingCommunes] = useState(false)
+  const [generatedDocs, setGeneratedDocs] = useState<any[]>([])
+  const [loadingDocs, setLoadingDocs] = useState(false)
   const supabase = createBrowserClient()
 
   const [regions, setRegions] = useState<Region[]>(CHILEAN_REGIONS)
@@ -177,6 +176,10 @@ export function WhitepaperBuilder() {
   const [selectedRegion, setSelectedRegion] = useState<string>("")
   const [selectedProvince, setSelectedProvince] = useState<string>("")
   const [selectedCommune, setSelectedCommune] = useState<string>("")
+
+  useEffect(() => {
+    loadGeneratedDocs()
+  }, [])
 
   useEffect(() => {
     if (selectedRegion) {
@@ -227,7 +230,7 @@ export function WhitepaperBuilder() {
           waterText = `Zona de ${locationDetails.climateZone?.name || "clima templado"}
 • Acceso a fuentes de agua locales
 • Sistemas de riego disponibles en la región
-• Consultar derechos de agua específicos`
+• Consultar rights de agua específicos`
 
           // Build electricity text
           electricityText = `• Electricidad disponible en la comuna
@@ -427,6 +430,24 @@ ${citiesText}`
     }
   }
 
+  const loadGeneratedDocs = async () => {
+    try {
+      setLoadingDocs(true)
+      const { data, error } = await supabase
+        .from("generated_corporate_documents")
+        .select("*")
+        .order("created_at", { ascending: false })
+
+      if (error) throw error
+      setGeneratedDocs(data || [])
+      console.log("[v0] Loaded generated whitepapers:", data?.length)
+    } catch (error) {
+      console.error("[v0] Error loading generated docs:", error)
+    } finally {
+      setLoadingDocs(false)
+    }
+  }
+
   const handleGenerate = async () => {
     try {
       setLoading(true)
@@ -443,6 +464,11 @@ ${citiesText}`
         ...formData,
       }
 
+      console.log("[v0] Generating whitepaper with data:", {
+        name: formData.property_name,
+        fields: Object.keys(completeData).length,
+      })
+
       const { data, error } = await supabase
         .from("generated_corporate_documents")
         .insert([
@@ -458,11 +484,21 @@ ${citiesText}`
 
       if (error) throw error
 
-      toast.success("Whitepaper generado exitosamente")
+      console.log("[v0] Whitepaper saved successfully:", data.id)
+      
+      toast.success("✅ Whitepaper generado y guardado exitosamente", {
+        description: `Puedes verlo en la lista de documentos generados`,
+      })
+      
+      await loadGeneratedDocs()
+      
       setIsOpen(false)
       setFormData({})
+      setSelectedRegion("")
+      setSelectedProvince("")
+      setSelectedCommune("")
     } catch (error) {
-      console.error("Error generating whitepaper:", error)
+      console.error("[v0] Error generating whitepaper:", error)
       toast.error("Error al generar whitepaper")
     } finally {
       setLoading(false)
@@ -490,6 +526,79 @@ ${citiesText}`
             </Button>
           </div>
         </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="font-medium text-sm text-gray-700">Documentos Generados</h3>
+              {generatedDocs.length > 0 && (
+                <Badge variant="secondary">{generatedDocs.length} documentos</Badge>
+              )}
+            </div>
+            
+            {loadingDocs ? (
+              <div className="text-center py-8 text-gray-500">
+                <p className="text-sm">Cargando documentos...</p>
+              </div>
+            ) : generatedDocs.length === 0 ? (
+              <div className="text-center py-8 text-gray-400">
+                <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p className="text-sm">No hay whitepapers generados aún</p>
+                <p className="text-xs mt-1">Crea tu primer documento haciendo clic en "Crear Whitepaper"</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {generatedDocs.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg hover:border-purple-300 hover:shadow-sm transition-all"
+                  >
+                    <div className="flex items-center gap-3">
+                      <FileText className="h-5 w-5 text-purple-600" />
+                      <div>
+                        <p className="font-medium text-sm">{doc.document_name}</p>
+                        <p className="text-xs text-gray-500">
+                          Creado: {new Date(doc.created_at).toLocaleDateString('es-CL', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant={doc.status === "generated" ? "default" : "secondary"}>
+                        {doc.status === "generated" ? "Generado" : doc.status}
+                      </Badge>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          // TODO: Implement preview/download
+                          toast.info("Próximamente: Descargar PDF")
+                        }}
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        Ver
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          // TODO: Implement download
+                          toast.info("Próximamente: Descargar PDF")
+                        }}
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </CardContent>
       </Card>
 
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -785,72 +894,288 @@ ${citiesText}`
             </TabsContent>
 
             <TabsContent value="preview" className="flex-1 overflow-y-auto mt-4">
-              <div className="space-y-4 p-6 bg-gray-50 rounded-lg">
-                <h3 className="font-semibold text-lg">Vista Previa del Whitepaper</h3>
-                <div className="space-y-6">
-                  {/* Slide 1: Cover */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-sm">Slide 1: Portada</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2 text-sm">
-                      <p>
-                        <strong>Logo:</strong> Sur Realista (blanco)
-                      </p>
-                      <p>
-                        <strong>Título:</strong> {formData.property_name || "[Nombre de propiedad]"}
-                      </p>
-                      <p>
-                        <strong>Subtítulo:</strong> {formData.property_subtitle || "[Subtítulo]"}
-                      </p>
-                      <p>
-                        <strong>Imagen Hero:</strong> {formData.hero_image ? "✓ Cargada" : "❌ Falta"}
-                      </p>
-                    </CardContent>
-                  </Card>
+              <div className="space-y-6 pb-6">
+                <div className="flex items-center justify-between px-6">
+                  <h3 className="font-semibold text-lg">Vista Previa del Whitepaper</h3>
+                  <Badge variant="secondary">7 Slides • 960x540px</Badge>
+                </div>
 
-                  {/* Slide 2: Details */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-sm">Slide 2: Detalles de Propiedad</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2 text-sm">
-                      <p>
-                        <strong>Ubicación:</strong> {formData.ubicacion || "[ubicación]"}
-                      </p>
-                      <p>
-                        <strong>Superficie:</strong> {formData.superficie_total || "[hectáreas]"} has.
-                      </p>
-                      <p>
-                        <strong>Infraestructura:</strong> {formData.infraestructura ? "✓ Completada" : "❌ Falta"}
-                      </p>
-                    </CardContent>
-                  </Card>
-
-                  {/* Slide 6: Back Cover */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-sm">Slide 6: Contraportada</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2 text-sm">
-                      <p>
-                        <strong>Contacto:</strong> {SUR_REALISTA_BRANDING.contact_name}
-                      </p>
-                      <p>
-                        <strong>Email:</strong> {SUR_REALISTA_BRANDING.contact_email}
-                      </p>
-                      <p>
-                        <strong>Teléfono:</strong> {SUR_REALISTA_BRANDING.contact_phone}
-                      </p>
-                      <p>
-                        <strong>Comisión:</strong> {SUR_REALISTA_BRANDING.commission}
-                      </p>
-                    </CardContent>
-                  </Card>
-
-                  <div className="text-center text-gray-500 py-4">
-                    <p>+ 4 slides adicionales con toda la información de la propiedad</p>
+                {/* Slide 1: Cover */}
+                <div className="bg-white rounded-lg shadow-lg overflow-hidden mx-6">
+                  <div className="bg-gray-100 p-2 border-b">
+                    <span className="text-xs font-medium">Slide 1: Portada</span>
                   </div>
+                  <div className="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 relative">
+                    {formData.hero_image ? (
+                      <img
+                        src={formData.hero_image || "/placeholder.svg"}
+                        alt="Hero"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="text-center text-gray-400">
+                          <FileText className="h-16 w-16 mx-auto mb-2" />
+                          <p className="text-sm">Imagen Principal</p>
+                        </div>
+                      </div>
+                    )}
+                    {/* Logo overlay */}
+                    <div className="absolute top-4 left-6 text-white">
+                      <div className="bg-white/10 backdrop-blur-sm px-3 py-2 rounded text-sm font-semibold">
+                        Sur Realista
+                      </div>
+                    </div>
+                    {/* Title overlay */}
+                    <div className="absolute bottom-20 left-6 text-white max-w-md">
+                      <h1 className="text-4xl font-bold mb-2">
+                        {formData.property_name || "Big Title"}
+                      </h1>
+                      <p className="text-xl">
+                        {formData.property_subtitle || "Small Title"}
+                      </p>
+                    </div>
+                    {/* Footer */}
+                    <div className="absolute bottom-4 left-6 right-6 flex justify-between text-white text-xs">
+                      <span>Sur Realista</span>
+                      <span>{formData.property_name} • {formData.superficie_total || "0"} hectáreas o m2</span>
+                      <span>{formData.comuna || "Comuna"}, {formData.region || "Región de Chile"}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Slide 2: Property Details (Dark) */}
+                <div className="bg-white rounded-lg shadow-lg overflow-hidden mx-6">
+                  <div className="bg-gray-100 p-2 border-b">
+                    <span className="text-xs font-medium">Slide 2: Detalles de Propiedad (Fondo Oscuro)</span>
+                  </div>
+                  <div className="aspect-video bg-[#374B5C] relative flex">
+                    <div className="w-1/2 p-8 text-white text-xs space-y-3 overflow-y-auto">
+                      <div>
+                        <p className="font-semibold mb-1">Ubicación:</p>
+                        <p className="text-gray-300">{formData.ubicacion || "Paine, Región Metropolitana"}</p>
+                      </div>
+                      <div>
+                        <p className="font-semibold mb-1">Superficie total: {formData.superficie_total || "10,67"} hectáreas.</p>
+                      </div>
+                      <div>
+                        <p className="font-semibold mb-1">Infraestructura:</p>
+                        <p className="text-gray-300 whitespace-pre-line">{formData.infraestructura || "• Casa principal\n• Bodega\n• Galpones"}</p>
+                      </div>
+                      {formData.agua_riego && (
+                        <div>
+                          <p className="font-semibold mb-1">Agua y Riego:</p>
+                          <p className="text-gray-300 whitespace-pre-line text-xs">{formData.agua_riego.slice(0, 150)}...</p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="w-1/2 p-4 flex items-center justify-center">
+                      {formData.polygon_image ? (
+                        <img
+                          src={formData.polygon_image || "/placeholder.svg"}
+                          alt="Polygon"
+                          className="max-w-full max-h-full object-contain rounded"
+                        />
+                      ) : (
+                        <div className="text-center text-gray-400 bg-gray-700/50 rounded-lg p-8">
+                          <MapPin className="h-12 w-12 mx-auto mb-2" />
+                          <p className="text-xs">Foto Polígono KMZ</p>
+                          <p className="text-xs">480x370px</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Slide 3: Stats Overview */}
+                <div className="bg-white rounded-lg shadow-lg overflow-hidden mx-6">
+                  <div className="bg-gray-100 p-2 border-b">
+                    <span className="text-xs font-medium">Slide 3: Vista General</span>
+                  </div>
+                  <div className="aspect-video bg-gradient-to-br from-amber-50 to-orange-50 relative p-8">
+                    <div className="absolute top-6 left-6">
+                      <h2 className="text-xl font-semibold text-gray-700">2. {formData.property_subtitle || "Small Title"}</h2>
+                    </div>
+                    <div className="absolute top-20 left-6">
+                      <p className="text-sm font-bold text-gray-600">SUPERFICIE TOTAL</p>
+                      <p className="text-2xl font-bold text-gray-800">{formData.superficie_total || "10,67"} has.</p>
+                    </div>
+                    <div className="absolute right-6 top-1/2 -translate-y-1/2 w-1/2">
+                      {formData.polygon_image ? (
+                        <img
+                          src={formData.polygon_image || "/placeholder.svg"}
+                          alt="Property"
+                          className="w-full h-auto object-contain rounded-lg shadow-lg"
+                        />
+                      ) : (
+                        <div className="aspect-video bg-gray-200/50 rounded-lg flex items-center justify-center">
+                          <div className="text-center text-gray-400">
+                            <FileText className="h-12 w-12 mx-auto mb-2" />
+                            <p className="text-xs">Foto Polígono KMZ</p>
+                            <p className="text-xs">575x370px</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Slide 4: Location Map */}
+                <div className="bg-white rounded-lg shadow-lg overflow-hidden mx-6">
+                  <div className="bg-gray-100 p-2 border-b">
+                    <span className="text-xs font-medium">Slide 4: Ubicación y Proximidad</span>
+                  </div>
+                  <div className="aspect-video bg-gradient-to-br from-blue-50 to-cyan-50 relative flex p-6">
+                    <div className="w-1/2 flex items-center justify-center">
+                      {formData.location_map ? (
+                        <img
+                          src={formData.location_map || "/placeholder.svg"}
+                          alt="Location"
+                          className="max-w-full max-h-full object-contain rounded-lg shadow"
+                        />
+                      ) : (
+                        <div className="aspect-video bg-gray-200 rounded-lg flex items-center justify-center w-full">
+                          <div className="text-center text-gray-400">
+                            <MapPin className="h-12 w-12 mx-auto mb-2" />
+                            <p className="text-xs">Mapa de Ubicación</p>
+                            <p className="text-xs">480x370px</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="w-1/2 pl-6 text-xs space-y-2 overflow-y-auto">
+                      <div>
+                        <p className="font-semibold">Comuna de {formData.comuna || "_______"}</p>
+                        <p className="text-gray-600">Región: {formData.region || "_______"}</p>
+                        <p className="text-gray-600">Provincia: {formData.provincia || "_______"}</p>
+                        <p className="text-gray-600">Cantidad habitantes: {formData.poblacion || "_______"}</p>
+                      </div>
+                      {formData.poblados_cercanos && (
+                        <div>
+                          <p className="font-semibold mt-3">Poblados cercanos</p>
+                          <p className="text-gray-600 whitespace-pre-line text-xs">{formData.poblados_cercanos.slice(0, 200)}...</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Slide 5: Photo Gallery */}
+                <div className="bg-white rounded-lg shadow-lg overflow-hidden mx-6">
+                  <div className="bg-gray-100 p-2 border-b">
+                    <span className="text-xs font-medium">Slide 5: Fotografías</span>
+                  </div>
+                  <div className="aspect-video bg-gradient-to-br from-gray-50 to-stone-100 relative p-6">
+                    <h2 className="text-lg font-semibold text-gray-700 mb-4">3. Fotografías</h2>
+                    <div className="grid grid-cols-2 gap-4 h-[calc(100%-3rem)]">
+                      <div className="bg-gray-200 rounded-lg overflow-hidden flex items-center justify-center">
+                        {formData.photo_1 ? (
+                          <img
+                            src={formData.photo_1 || "/placeholder.svg"}
+                            alt="Photo 1"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="text-center text-gray-400">
+                            <FileText className="h-10 w-10 mx-auto mb-2" />
+                            <p className="text-xs">Foto Galería 1</p>
+                            <p className="text-xs">478x490px</p>
+                          </div>
+                        )}
+                      </div>
+                      <div className="bg-gray-200 rounded-lg overflow-hidden flex items-center justify-center">
+                        {formData.photo_2 ? (
+                          <img
+                            src={formData.photo_2 || "/placeholder.svg"}
+                            alt="Photo 2"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="text-center text-gray-400">
+                            <FileText className="h-10 w-10 mx-auto mb-2" />
+                            <p className="text-xs">Foto Galería 2</p>
+                            <p className="text-xs">478x490px</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Slide 6: Back Cover */}
+                <div className="bg-white rounded-lg shadow-lg overflow-hidden mx-6">
+                  <div className="bg-gray-100 p-2 border-b">
+                    <span className="text-xs font-medium">Slide 6: Contraportada</span>
+                  </div>
+                  <div className="aspect-video bg-gradient-to-br from-gray-100 to-gray-300 relative">
+                    {formData.cover_image ? (
+                      <img
+                        src={formData.cover_image || "/placeholder.svg"}
+                        alt="Cover"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="text-center text-gray-400">
+                          <FileText className="h-16 w-16 mx-auto mb-2" />
+                          <p className="text-sm">Imagen Contraportada</p>
+                          <p className="text-xs">708x328px</p>
+                        </div>
+                      </div>
+                    )}
+                    <div className="absolute top-4 right-6">
+                      <div className="bg-white/90 backdrop-blur-sm px-3 py-2 rounded text-xs">
+                        <p className="font-semibold">Sur Realista</p>
+                        <p className="text-xs text-gray-600">Propiedades Rurales</p>
+                      </div>
+                    </div>
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
+                      <div className="grid grid-cols-2 gap-4 text-white text-xs">
+                        <div>
+                          <p className="font-semibold">{SUR_REALISTA_BRANDING.contact_name}</p>
+                          <p className="text-gray-300">{SUR_REALISTA_BRANDING.contact_email}</p>
+                          <p className="text-gray-300">{SUR_REALISTA_BRANDING.contact_phone}</p>
+                          <p className="text-gray-300">{SUR_REALISTA_BRANDING.contact_website}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold">* Comisión {SUR_REALISTA_BRANDING.commission}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Slide 7: Visual Tour */}
+                <div className="bg-white rounded-lg shadow-lg overflow-hidden mx-6">
+                  <div className="bg-gray-100 p-2 border-b">
+                    <span className="text-xs font-medium">Slide 7: Recorrido Visual</span>
+                  </div>
+                  <div className="aspect-video bg-gradient-to-br from-slate-200 to-gray-300 relative">
+                    {formData.tour_image ? (
+                      <img
+                        src={formData.tour_image || "/placeholder.svg"}
+                        alt="Tour"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="text-center text-gray-400">
+                          <Eye className="h-16 w-16 mx-auto mb-2" />
+                          <p className="text-sm">Imagen Recorrido Visual</p>
+                          <p className="text-xs">Fullscreen</p>
+                        </div>
+                      </div>
+                    )}
+                    <div className="absolute top-1/2 left-8 -translate-y-1/2 text-white drop-shadow-lg">
+                      <h2 className="text-3xl font-bold">
+                        {formData.property_subtitle || "Medium Title"}
+                      </h2>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="text-center text-gray-500 py-4 text-sm mx-6">
+                  ✨ Las imágenes se actualizan en tiempo real cuando las subes
                 </div>
               </div>
             </TabsContent>
