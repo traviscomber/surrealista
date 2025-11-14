@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname } from 'next/navigation'
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -22,26 +22,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import {
-  Building2,
-  Menu,
-  Calculator,
-  Bot,
-  Brain,
-  MapPin,
-  FileText,
-  TrendingUp,
-  Rocket,
-  BookOpen,
-  GitBranch,
-  Activity,
-  Settings,
-  BarChart3,
-  Shield,
-  FolderOpen,
-  Map,
-  Search,
-} from "lucide-react"
+import { Building2, Menu, Calculator, Bot, Brain, MapPin, FileText, TrendingUp, Rocket, BookOpen, GitBranch, Activity, Settings, BarChart3, Shield, FolderOpen, Map, Search } from 'lucide-react'
+import { GlobalCommandPalette } from '@/components/search/global-command-palette'
 // import { DriveStatusIndicator } from "@/components/google-drive/drive-status-indicator"
 
 const toolsItems = [
@@ -218,6 +200,10 @@ export function Header() {
         <NavigationMenu className="hidden lg:flex">
           <NavigationMenuList className="space-x-1">
             <NavigationMenuItem>
+              <GlobalCommandPalette />
+            </NavigationMenuItem>
+
+            <NavigationMenuItem>
               <Link href="/busqueda">
                 <Button variant={isActive("/busqueda") ? "default" : "ghost"} size="sm" className="h-10">
                   <Search className="mr-2 h-4 w-4" />
@@ -261,6 +247,10 @@ export function Header() {
 
         {/* Admin Access */}
         <div className="flex items-center space-x-4">
+          <div className="lg:hidden">
+            <GlobalCommandPalette />
+          </div>
+
           {/* Drive status indicator */}
           {/* <DriveStatusIndicator /> */}
 
