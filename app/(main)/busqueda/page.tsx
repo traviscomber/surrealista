@@ -9,19 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import {
-  Search,
-  Folder,
-  Users,
-  MessageSquare,
-  CheckSquare,
-  MapPin,
-  MapIcon,
-  Loader2,
-  Plus,
-  HardDrive,
-  FileSpreadsheet,
-} from "lucide-react"
+import { Search, Folder, Users, MessageSquare, CheckSquare, MapPin, MapIcon, Loader2, Plus, HardDrive, FileSpreadsheet } from 'lucide-react'
 import { createBrowserClient } from "@/lib/supabase/client"
 import { TaskCreationDialog } from "@/components/tasks/task-creation-dialog"
 import { useGoogleDrive } from "@/lib/contexts/google-drive-context"
@@ -30,7 +18,7 @@ import { CAMPOSFolderView } from "@/components/campos/campos-folder-view"
 import { SimpleDriveFolderView } from "@/components/google-drive/simple-drive-folder-view"
 import { kmzReader } from "@/lib/kmz/kmz-reader"
 import { kmzStorageService } from "@/lib/kmz/kmz-storage-service"
-import { useRouter } from "next/navigation" // Added router for navigation
+import { useRouter } from 'next/navigation' // Added router for navigation
 import { RUTBulkValidationPanel } from "@/components/client-management/rut-validation-panel"
 import { CommunicationsManager } from "@/components/communications/communications-manager"
 
@@ -42,6 +30,42 @@ const KMZMapDisplay = dynamicImport(() => import("@/components/kmz/kmz-map-displ
     </div>
   ),
 })
+
+const CAMPOSFolderView = dynamicImport(
+  () => import("@/components/campos/campos-folder-view").then((mod) => ({ default: mod.CAMPOSFolderView })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[600px] w-full flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
+      </div>
+    ),
+  }
+)
+
+const SimpleDriveFolderView = dynamicImport(
+  () => import("@/components/google-drive/simple-drive-folder-view").then((mod) => ({ default: mod.SimpleDriveFolderView })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[600px] w-full flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      </div>
+    ),
+  }
+)
+
+const CommunicationsManager = dynamicImport(
+  () => import("@/components/communications/communications-manager").then((mod) => ({ default: mod.CommunicationsManager })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="h-[600px] w-full flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+      </div>
+    ),
+  }
+)
 
 interface Client {
   id: string
@@ -121,8 +145,6 @@ export default function UnifiedSearchPage() {
   useEffect(() => {
     getCurrentUser()
     loadTasks()
-    loadCamposMetadata()
-    loadClients()
   }, [])
 
   useEffect(() => {
@@ -131,6 +153,12 @@ export default function UnifiedSearchPage() {
       loadDriveFolders()
     }
   }, [isConnected, driveService])
+
+  useEffect(() => {
+    if (activeTab === "clientes") {
+      loadClients()
+    }
+  }, [activeTab])
 
   const getCurrentUser = async () => {
     try {

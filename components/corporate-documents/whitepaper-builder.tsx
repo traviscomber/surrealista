@@ -168,6 +168,8 @@ export function WhitepaperBuilder() {
   const [loading, setLoading] = useState(false)
   const [generatedDocs, setGeneratedDocs] = useState<any[]>([])
   const [loadingDocs, setLoadingDocs] = useState(false)
+  const [previewDoc, setPreviewDoc] = useState<any | null>(null)
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const supabase = createBrowserClient()
 
   const [regions, setRegions] = useState<Region[]>(CHILEAN_REGIONS)
@@ -505,6 +507,11 @@ ${citiesText}`
     }
   }
 
+  const handleViewDocument = (doc: any) => {
+    setPreviewDoc(doc)
+    setIsPreviewOpen(true)
+  }
+
   return (
     <>
       <Card className="border-purple-200 bg-gradient-to-r from-purple-50 to-blue-50">
@@ -574,10 +581,7 @@ ${citiesText}`
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => {
-                          // TODO: Implement preview/download
-                          toast.info("Próximamente: Descargar PDF")
-                        }}
+                        onClick={() => handleViewDocument(doc)}
                       >
                         <Eye className="h-4 w-4 mr-1" />
                         Ver
@@ -1188,6 +1192,308 @@ ${citiesText}`
             <Button onClick={handleGenerate} disabled={loading}>
               {loading ? "Generando..." : "Generar Whitepaper"}
               <Download className="ml-2 h-4 w-4" />
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Vista Previa: {previewDoc?.document_name}</DialogTitle>
+            <DialogDescription>
+              Documento generado el {previewDoc?.created_at ? new Date(previewDoc.created_at).toLocaleDateString('es-CL', {
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+              }) : ''}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-y-auto">
+            {previewDoc?.document_data && (
+              <div className="space-y-6 pb-6">
+                <div className="flex items-center justify-between px-6">
+                  <h3 className="font-semibold text-lg">Presentación de Propiedad</h3>
+                  <Badge variant="secondary">7 Slides • 960x540px</Badge>
+                </div>
+
+                {/* Slide 1: Cover */}
+                <div className="bg-white rounded-lg shadow-lg overflow-hidden mx-6">
+                  <div className="bg-gray-100 p-2 border-b">
+                    <span className="text-xs font-medium">Slide 1: Portada</span>
+                  </div>
+                  <div className="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 relative">
+                    {previewDoc.document_data.hero_image ? (
+                      <img
+                        src={previewDoc.document_data.hero_image || "/placeholder.svg"}
+                        alt="Hero"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="text-center text-gray-400">
+                          <FileText className="h-16 w-16 mx-auto mb-2" />
+                          <p className="text-sm">Imagen Principal</p>
+                        </div>
+                      </div>
+                    )}
+                    <div className="absolute top-4 left-6 text-white">
+                      <div className="bg-white/10 backdrop-blur-sm px-3 py-2 rounded text-sm font-semibold">
+                        Sur Realista
+                      </div>
+                    </div>
+                    <div className="absolute bottom-20 left-6 text-white max-w-md">
+                      <h1 className="text-4xl font-bold mb-2">
+                        {previewDoc.document_data.property_name || "Título"}
+                      </h1>
+                      <p className="text-xl">
+                        {previewDoc.document_data.property_subtitle || "Subtítulo"}
+                      </p>
+                    </div>
+                    <div className="absolute bottom-4 left-6 right-6 flex justify-between text-white text-xs">
+                      <span>Sur Realista</span>
+                      <span>{previewDoc.document_data.property_name} • {previewDoc.document_data.superficie_total || "0"} hectáreas</span>
+                      <span>{previewDoc.document_data.comuna || "Comuna"}, {previewDoc.document_data.region || "Región"}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Slide 2: Details */}
+                <div className="bg-white rounded-lg shadow-lg overflow-hidden mx-6">
+                  <div className="bg-gray-100 p-2 border-b">
+                    <span className="text-xs font-medium">Slide 2: Detalles de Propiedad</span>
+                  </div>
+                  <div className="aspect-video bg-[#374B5C] relative flex">
+                    <div className="w-1/2 p-8 text-white text-xs space-y-3 overflow-y-auto">
+                      <div>
+                        <p className="font-semibold mb-1">Ubicación:</p>
+                        <p className="text-gray-300">{previewDoc.document_data.ubicacion || "N/A"}</p>
+                      </div>
+                      <div>
+                        <p className="font-semibold mb-1">Superficie total: {previewDoc.document_data.superficie_total || "0"} hectáreas</p>
+                      </div>
+                      <div>
+                        <p className="font-semibold mb-1">Infraestructura:</p>
+                        <p className="text-gray-300 whitespace-pre-line">{previewDoc.document_data.infraestructura || "N/A"}</p>
+                      </div>
+                      {previewDoc.document_data.agua_riego && (
+                        <div>
+                          <p className="font-semibold mb-1">Agua y Riego:</p>
+                          <p className="text-gray-300 whitespace-pre-line text-xs">{previewDoc.document_data.agua_riego.slice(0, 200)}...</p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="w-1/2 p-4 flex items-center justify-center">
+                      {previewDoc.document_data.polygon_image ? (
+                        <img
+                          src={previewDoc.document_data.polygon_image || "/placeholder.svg"}
+                          alt="Polygon"
+                          className="max-w-full max-h-full object-contain rounded"
+                        />
+                      ) : (
+                        <div className="text-center text-gray-400 bg-gray-700/50 rounded-lg p-8">
+                          <MapPin className="h-12 w-12 mx-auto mb-2" />
+                          <p className="text-xs">Foto Polígono</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Slide 3: Overview */}
+                <div className="bg-white rounded-lg shadow-lg overflow-hidden mx-6">
+                  <div className="bg-gray-100 p-2 border-b">
+                    <span className="text-xs font-medium">Slide 3: Vista General</span>
+                  </div>
+                  <div className="aspect-video bg-gradient-to-br from-amber-50 to-orange-50 relative p-8">
+                    <div className="absolute top-6 left-6">
+                      <h2 className="text-xl font-semibold text-gray-700">2. {previewDoc.document_data.property_subtitle || "Subtítulo"}</h2>
+                    </div>
+                    <div className="absolute top-20 left-6">
+                      <p className="text-sm font-bold text-gray-600">SUPERFICIE TOTAL</p>
+                      <p className="text-2xl font-bold text-gray-800">{previewDoc.document_data.superficie_total || "0"} has.</p>
+                    </div>
+                    <div className="absolute right-6 top-1/2 -translate-y-1/2 w-1/2">
+                      {previewDoc.document_data.polygon_image ? (
+                        <img
+                          src={previewDoc.document_data.polygon_image || "/placeholder.svg"}
+                          alt="Property"
+                          className="w-full h-auto object-contain rounded-lg shadow-lg"
+                        />
+                      ) : (
+                        <div className="aspect-video bg-gray-200/50 rounded-lg flex items-center justify-center">
+                          <div className="text-center text-gray-400">
+                            <FileText className="h-12 w-12 mx-auto mb-2" />
+                            <p className="text-xs">Imagen de propiedad</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Slide 4: Location */}
+                <div className="bg-white rounded-lg shadow-lg overflow-hidden mx-6">
+                  <div className="bg-gray-100 p-2 border-b">
+                    <span className="text-xs font-medium">Slide 4: Ubicación y Proximidad</span>
+                  </div>
+                  <div className="aspect-video bg-gradient-to-br from-blue-50 to-cyan-50 relative flex p-6">
+                    <div className="w-1/2 flex items-center justify-center">
+                      {previewDoc.document_data.location_map ? (
+                        <img
+                          src={previewDoc.document_data.location_map || "/placeholder.svg"}
+                          alt="Location"
+                          className="max-w-full max-h-full object-contain rounded-lg shadow"
+                        />
+                      ) : (
+                        <div className="aspect-video bg-gray-200 rounded-lg flex items-center justify-center w-full">
+                          <div className="text-center text-gray-400">
+                            <MapPin className="h-12 w-12 mx-auto mb-2" />
+                            <p className="text-xs">Mapa de Ubicación</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="w-1/2 pl-6 text-xs space-y-2 overflow-y-auto">
+                      <div>
+                        <p className="font-semibold">Comuna de {previewDoc.document_data.comuna || "N/A"}</p>
+                        <p className="text-gray-600">Región: {previewDoc.document_data.region || "N/A"}</p>
+                        <p className="text-gray-600">Provincia: {previewDoc.document_data.provincia || "N/A"}</p>
+                        <p className="text-gray-600">Habitantes: {previewDoc.document_data.poblacion || "N/A"}</p>
+                      </div>
+                      {previewDoc.document_data.poblados_cercanos && (
+                        <div>
+                          <p className="font-semibold mt-3">Conectividad</p>
+                          <p className="text-gray-600 whitespace-pre-line text-xs">{previewDoc.document_data.poblados_cercanos.slice(0, 300)}...</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Slide 5: Photos */}
+                <div className="bg-white rounded-lg shadow-lg overflow-hidden mx-6">
+                  <div className="bg-gray-100 p-2 border-b">
+                    <span className="text-xs font-medium">Slide 5: Fotografías</span>
+                  </div>
+                  <div className="aspect-video bg-gradient-to-br from-gray-50 to-stone-100 relative p-6">
+                    <h2 className="text-lg font-semibold text-gray-700 mb-4">3. Fotografías</h2>
+                    <div className="grid grid-cols-2 gap-4 h-[calc(100%-3rem)]">
+                      <div className="bg-gray-200 rounded-lg overflow-hidden flex items-center justify-center">
+                        {previewDoc.document_data.photo_1 ? (
+                          <img
+                            src={previewDoc.document_data.photo_1 || "/placeholder.svg"}
+                            alt="Photo 1"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="text-center text-gray-400">
+                            <FileText className="h-10 w-10 mx-auto mb-2" />
+                            <p className="text-xs">Fotografía 1</p>
+                          </div>
+                        )}
+                      </div>
+                      <div className="bg-gray-200 rounded-lg overflow-hidden flex items-center justify-center">
+                        {previewDoc.document_data.photo_2 ? (
+                          <img
+                            src={previewDoc.document_data.photo_2 || "/placeholder.svg"}
+                            alt="Photo 2"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="text-center text-gray-400">
+                            <FileText className="h-10 w-10 mx-auto mb-2" />
+                            <p className="text-xs">Fotografía 2</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Slide 6: Back Cover */}
+                <div className="bg-white rounded-lg shadow-lg overflow-hidden mx-6">
+                  <div className="bg-gray-100 p-2 border-b">
+                    <span className="text-xs font-medium">Slide 6: Contraportada</span>
+                  </div>
+                  <div className="aspect-video bg-gradient-to-br from-gray-100 to-gray-300 relative">
+                    {previewDoc.document_data.cover_image ? (
+                      <img
+                        src={previewDoc.document_data.cover_image || "/placeholder.svg"}
+                        alt="Cover"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="text-center text-gray-400">
+                          <FileText className="h-16 w-16 mx-auto mb-2" />
+                          <p className="text-sm">Imagen Contraportada</p>
+                        </div>
+                      </div>
+                    )}
+                    <div className="absolute top-4 right-6">
+                      <div className="bg-white/90 backdrop-blur-sm px-3 py-2 rounded text-xs">
+                        <p className="font-semibold">Sur Realista</p>
+                        <p className="text-xs text-gray-600">Propiedades Rurales</p>
+                      </div>
+                    </div>
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-6">
+                      <div className="grid grid-cols-2 gap-4 text-white text-xs">
+                        <div>
+                          <p className="font-semibold">{SUR_REALISTA_BRANDING.contact_name}</p>
+                          <p className="text-gray-300">{SUR_REALISTA_BRANDING.contact_email}</p>
+                          <p className="text-gray-300">{SUR_REALISTA_BRANDING.contact_phone}</p>
+                          <p className="text-gray-300">{SUR_REALISTA_BRANDING.contact_website}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold">* Comisión {SUR_REALISTA_BRANDING.commission}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Slide 7: Tour */}
+                <div className="bg-white rounded-lg shadow-lg overflow-hidden mx-6">
+                  <div className="bg-gray-100 p-2 border-b">
+                    <span className="text-xs font-medium">Slide 7: Recorrido Visual</span>
+                  </div>
+                  <div className="aspect-video bg-gradient-to-br from-slate-200 to-gray-300 relative">
+                    {previewDoc.document_data.tour_image ? (
+                      <img
+                        src={previewDoc.document_data.tour_image || "/placeholder.svg"}
+                        alt="Tour"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <div className="text-center text-gray-400">
+                          <Eye className="h-16 w-16 mx-auto mb-2" />
+                          <p className="text-sm">Recorrido Visual</p>
+                        </div>
+                      </div>
+                    )}
+                    <div className="absolute top-1/2 left-8 -translate-y-1/2 text-white drop-shadow-lg">
+                      <h2 className="text-3xl font-bold">
+                        {previewDoc.document_data.property_subtitle || "Título"}
+                      </h2>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPreviewOpen(false)}>
+              Cerrar
+            </Button>
+            <Button onClick={() => toast.info("Próximamente: Descargar PDF")}>
+              <Download className="h-4 w-4 mr-2" />
+              Descargar PDF
             </Button>
           </DialogFooter>
         </DialogContent>
