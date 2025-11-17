@@ -11,20 +11,12 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { KMZMapDisplay } from "@/components/kmz/kmz-map-display"
 import { createBrowserClient } from "@/lib/supabase/client"
-import {
-  Folder,
-  FolderOpen,
-  File,
-  Search,
-  ChevronRight,
-  ChevronDown,
-  MapPin,
-  RefreshCw,
-  Menu,
-  Upload,
-} from "lucide-react"
+import { Folder, FolderOpen, File, Search, ChevronRight, ChevronDown, MapPin, RefreshCw, Menu, Upload } from 'lucide-react'
 // import { useGoogleDrive } from "@/lib/contexts/google-drive-context"
 import { kmzReader } from "@/lib/kmz/kmz-reader"
+import { kmzStorageService } from "@/lib/kmz/kmz-storage-service"
+import { regionRescanService, type RescanProgress } from "@/lib/kmz/region-rescan-service"
+import { useToast } from "@/hooks/use-toast"
 
 interface FolderItem {
   id: string
@@ -62,6 +54,10 @@ export function CAMPOSFolderView() {
 
   const supabase = createBrowserClient()
   // const { driveService, isConnected } = useGoogleDrive()
+
+  const { toast } = useToast()
+  const [isRescanning, setIsRescanning] = useState(false)
+  const [rescanProgress, setRescanProgress] = useState<RescanProgress | null>(null)
 
   useEffect(() => {
     loadRegionMetadata()
@@ -372,6 +368,10 @@ export function CAMPOSFolderView() {
       let successCount = 0
       let errorCount = 0
 
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
       for (const file of Array.from(files)) {
         try {
           console.log(`[v0] Processing offline KMZ file: ${file.name}`)
@@ -380,12 +380,11 @@ export function CAMPOSFolderView() {
           const kmzData = await kmzReader.readKMZFile(file)
           const rolNumbers = kmzReader.extractPropertyRoles(kmzData)
 
-          // Save to database
-          const { error } = await supabase.from("kmz_collection").insert({
+          // This automatically detects and sets the region using detectRegionFromBounds()
+          const saveResult = await kmzStorageService.saveKMZ({
             file_name: file.name,
             file_path: `offline/${file.name}`,
-            drive_file_id: null,
-            description: kmzData.metadata?.description || null,
+            description: kmzData.metadata?.description,
             metadata: kmzData.metadata,
             placemarks_count: kmzData.placemarks.length,
             rol_numbers: rolNumbers,
@@ -393,14 +392,15 @@ export function CAMPOSFolderView() {
             coordinates: kmzData.placemarks.map((p: any) => p.coordinates),
             tags: ["offline"],
             category: "offline",
-            is_active: true,
+            created_by: user?.id,
+            file_size: file.size,
           })
 
-          if (error) {
-            console.error(`[v0] Error saving ${file.name}:`, error.message)
+          if (!saveResult.success) {
+            console.error(`[v0] Error saving ${file.name}:`, saveResult.error)
             errorCount++
           } else {
-            console.log(`[v0] Successfully saved ${file.name} to database`)
+            console.log(`[v0] Successfully saved ${file.name} with region auto-detection`)
             successCount++
           }
         } catch (error) {
@@ -431,22 +431,143 @@ export function CAMPOSFolderView() {
     }
   }
 
+  const handleRescanRegions = async () => {
+    if (isRescanning) return
+    
+    const sinRegionFolder = folders.find((f) => f.name === "Sin Región")
+    const fileCount = sinRegionFolder?.fileCount || 0
+    
+    if (fileCount === 0) {
+      toast({
+        title: "No hay archivos para reasignar",
+        description: "Todos los archivos ya tienen una región asignada.",
+      })
+      return
+    }
+    
+    const confirmed = confirm(
+      `¿Deseas reanalizar ${fileCount} archivos KMZ en 'Sin Región' y asignarlos a sus regiones correctas?\n\n` +
+      "Esto puede tomar varios minutos dependiendo de la cantidad de archivos."
+    )
+    
+    if (!confirmed) return
+
+    setIsRescanning(true)
+    setRescanProgress({ total: 0, processed: 0, updated: 0, failed: 0, currentFile: "" })
+
+    try {
+      const result = await regionRescanService.rescanAndUpdateRegions((progress) => {
+        setRescanProgress(progress)
+      })
+
+      if (result.success) {
+        toast({
+          title: "Reasignación completada",
+          description: `Se reasignaron ${result.totalUpdated} archivos a sus regiones correctas.`,
+        })
+        
+        // Refresh the folder structure
+        await loadRegionMetadata()
+      } else {
+        toast({
+          title: "Error en reasignación",
+          description: "Ocurrió un error al reasignar las regiones. Ver consola para detalles.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("[v0] Error during rescan:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo completar la reasignación de regiones.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsRescanning(false)
+      setRescanProgress(null)
+    }
+  }
+
   const filteredFolders = folders.filter((folder) => folder.name.toLowerCase().includes(searchQuery.toLowerCase()))
+
+  const totalFiles = folders.reduce((sum, folder) => sum + (folder.fileCount || 0), 0)
 
   const FolderList = () => (
     <>
       <div className="p-4 border-b space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Carpetas CAMPOS</h2>
-          <Button onClick={loadRegionMetadata} disabled={isLoadingMetadata} size="sm" variant="outline">
+          <Button onClick={loadRegionMetadata} disabled={isLoadingMetadata || isRescanning} size="sm" variant="outline">
             <RefreshCw className={`h-4 w-4 ${isLoadingMetadata ? "animate-spin" : ""}`} />
           </Button>
         </div>
 
         <div className="flex gap-2 flex-wrap">
+          <Badge variant="default" className="text-sm font-semibold">
+            {totalFiles} archivos
+          </Badge>
           {folders.length > 0 && <Badge variant="secondary">{folders.length} regiones</Badge>}
-          {selectedRegion && kmzFiles.length > 0 && <Badge variant="default">{kmzFiles.length} archivos</Badge>}
+          {selectedRegion && kmzFiles.length > 0 && <Badge variant="outline">{kmzFiles.length} en mapa</Badge>}
         </div>
+
+        {(folders.find((f) => f.name === "Sin Región")?.fileCount || 0) > 0 && (
+          <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg space-y-2">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-orange-900">
+                  {folders.find((f) => f.name === "Sin Región")?.fileCount || 0} archivos sin región
+                </p>
+                <p className="text-xs text-orange-700 mt-1">
+                  Pueden reasignarse automáticamente según coordenadas
+                </p>
+              </div>
+              <Button
+                onClick={handleRescanRegions}
+                disabled={isRescanning}
+                size="sm"
+                className="bg-orange-600 hover:bg-orange-700 text-white"
+              >
+                {isRescanning ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Reasignando...
+                  </>
+                ) : (
+                  <>
+                    <MapPin className="h-4 w-4 mr-2" />
+                    Reasignar
+                  </>
+                )}
+              </Button>
+            </div>
+            
+            {rescanProgress && rescanProgress.total > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs text-orange-700">
+                  <span>
+                    {rescanProgress.processed} / {rescanProgress.total}
+                  </span>
+                  <span>
+                    ✓ {rescanProgress.updated} | ✗ {rescanProgress.failed}
+                  </span>
+                </div>
+                <div className="w-full bg-orange-200 rounded-full h-2">
+                  <div
+                    className="bg-orange-600 h-2 rounded-full transition-all duration-300"
+                    style={{
+                      width: `${(rescanProgress.processed / rescanProgress.total) * 100}%`,
+                    }}
+                  />
+                </div>
+                {rescanProgress.currentFile && (
+                  <p className="text-xs text-orange-600 truncate">
+                    {rescanProgress.currentFile}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="space-y-2">
           <input
@@ -459,7 +580,7 @@ export function CAMPOSFolderView() {
           />
           <Button
             onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
+            disabled={uploading || isRescanning}
             variant="outline"
             className="w-full justify-start gap-2 border-blue-200 hover:bg-blue-50"
           >
