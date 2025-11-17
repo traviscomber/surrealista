@@ -11,14 +11,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
-import { Loader2, Mic, MicOff, Zap, MoreHorizontal } from "lucide-react"
+import { Loader2, Mic, MicOff, Zap, MoreHorizontal } from 'lucide-react'
 import { useSpeechToText } from "@/lib/hooks/use-speech-to-text"
 import { Badge } from "@/components/ui/badge"
 
 interface QuickTaskCreationProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  currentUser: any
   onTaskCreated: () => void
   onOpenCompleteDialog: () => void
 }
@@ -26,7 +25,6 @@ interface QuickTaskCreationProps {
 export function QuickTaskCreation({
   open,
   onOpenChange,
-  currentUser,
   onTaskCreated,
   onOpenCompleteDialog,
 }: QuickTaskCreationProps) {
@@ -99,12 +97,29 @@ export function QuickTaskCreation({
     const supabase = createClient()
 
     try {
+      let createdBy = "system"
+      try {
+        const {
+          data: { user },
+          error: userError,
+        } = await supabase.auth.getUser()
+
+        if (user) {
+          createdBy = user.email || user.id || "system"
+          console.log("[v0] Creating task as user:", createdBy)
+        } else {
+          console.log("[v0] No user logged in, creating task as system")
+        }
+      } catch (authError) {
+        console.log("[v0] Auth check failed, using system as creator:", authError)
+      }
+
       const { error } = await supabase.from("tasks").insert({
         title: formData.title,
         description: formData.description || null,
         priority: formData.priority,
         status: "pending",
-        created_by: currentUser?.id || null,
+        created_by: createdBy, // Use createdBy instead of null
         // assigned_to is NOT set for quick tasks
       })
 
