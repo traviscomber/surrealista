@@ -16,37 +16,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import {
-  Search,
-  Upload,
-  Users,
-  TrendingUp,
-  MoreHorizontal,
-  Eye,
-  Edit,
-  Trash2,
-  FolderOpen,
-  Calendar,
-  Building,
-  Phone,
-  Mail,
-  Settings,
-  AlertCircle,
-  Clock,
-  Star,
-  Activity,
-  Filter,
-  RefreshCw,
-  ExternalLink,
-  Plus,
-  MapPin,
-  DollarSign,
-  Target,
-  Zap,
-  Loader2,
-} from "lucide-react"
-import { getClients, deleteClient } from "@/app/actions/clients"
-import { useRouter } from "next/navigation"
+import { Search, Upload, Users, TrendingUp, MoreHorizontal, Eye, Edit, Trash2, FolderOpen, Calendar, Building, Phone, Mail, Settings, AlertCircle, Clock, Star, Activity, Filter, RefreshCw, ExternalLink, Plus, MapPin, DollarSign, Target, Zap, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { getClientsPaginated, getClientStatistics, deleteClient } from "@/app/actions/clients"
+import { useRouter } from 'next/navigation'
 
 interface Client {
   id: string
@@ -113,50 +85,80 @@ export function ClientRepositoryDashboard() {
   const [industryFilter, setIndustryFilter] = useState("all")
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(0)
+  const [totalClients, setTotalClients] = useState(0)
+  const [pageSize] = useState(50)
+  
+  const [statistics, setStatistics] = useState<any>(null)
+  
   const router = useRouter()
 
   useEffect(() => {
     loadClients()
+  }, [currentPage, statusFilter, industryFilter])
+  
+  useEffect(() => {
+    loadStatistics()
   }, [])
+  
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchTerm) {
+        setCurrentPage(1)
+        loadClients()
+      }
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [searchTerm])
 
   const loadClients = async () => {
+    console.log("[v0] Loading clients page", currentPage)
     setIsLoading(true)
-    const result = await getClients()
+    
+    const filters: any = {}
+    if (searchTerm) filters.search = searchTerm
+    if (statusFilter !== "all") filters.status = statusFilter
+    if (industryFilter !== "all") filters.industry = industryFilter
+    
+    const result = await getClientsPaginated(currentPage, pageSize, filters)
+    
     if (result.success) {
+      console.log("[v0] Loaded", result.data.length, "clients of", result.total, "total")
       setClients(result.data)
+      setTotalPages(result.totalPages || 0)
+      setTotalClients(result.total || 0)
     }
+    
     setIsLoading(false)
   }
+  
+  const loadStatistics = async () => {
+    const result = await getClientStatistics()
+    if (result.success) {
+      setStatistics(result)
+    }
+  }
 
-  const filteredClients = clients.filter((client) => {
-    const fullName = `${client.first_name || ""} ${client.last_name || ""}`.toLowerCase()
-    const matchesSearch =
-      fullName.includes(searchTerm.toLowerCase()) ||
-      (client.company_name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
-      (client.email?.toLowerCase() || "").includes(searchTerm.toLowerCase())
-    const matchesStatus = statusFilter === "all" || client.status === statusFilter
-    const matchesIndustry = industryFilter === "all" || client.industry === industryFilter
-
-    return matchesSearch && matchesStatus && matchesIndustry
-  })
+  const filteredClients = clients
 
   const stats = {
-    total: clients.length,
-    hot: clients.filter((c) => c.status === "hot").length,
-    warm: clients.filter((c) => c.status === "warm").length,
-    cold: clients.filter((c) => c.status === "cold").length,
-    inactive: clients.filter((c) => c.status === "inactive").length,
+    total: statistics?.total || 0,
+    hot: statistics?.byStatus?.hot || 0,
+    warm: statistics?.byStatus?.warm || 0,
+    cold: statistics?.byStatus?.cold || 0,
+    inactive: statistics?.byStatus?.inactive || 0,
     totalValue: clients.reduce((sum, c) => sum + (c.budget_max || 0), 0),
     totalDocuments: clients.reduce(
       (sum, c) => sum + ((c.properties_bought || 0) + (c.properties_sold || 0) + (c.properties_quoted || 0)),
       0,
     ),
-    avgBudget:
-      clients.length > 0 ? Math.round(clients.reduce((sum, c) => sum + (c.budget_max || 0), 0) / clients.length) : 0,
+    avgBudget: statistics?.total > 0 ? Math.round(clients.reduce((sum, c) => sum + (c.budget_max || 0), 0) / clients.length) : 0,
   }
 
   const handleRefresh = async () => {
-    await loadClients()
+    await Promise.all([loadClients(), loadStatistics()])
   }
 
   const handleDelete = async (id: string) => {
@@ -164,6 +166,7 @@ export function ClientRepositoryDashboard() {
       const result = await deleteClient(id)
       if (result.success) {
         await loadClients()
+        await loadStatistics()
       }
     }
   }
@@ -339,9 +342,11 @@ export function ClientRepositoryDashboard() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            <span>Lista de Clientes ({filteredClients.length})</span>
+            <span>Lista de Clientes ({totalClients.toLocaleString()} total, mostrando {filteredClients.length})</span>
           </CardTitle>
-          <CardDescription>Sistema de gestión de clientes con importación desde Excel</CardDescription>
+          <CardDescription>
+            Página {currentPage} de {totalPages} - Sistema con paginación optimizada para grandes volúmenes
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
@@ -471,6 +476,37 @@ export function ClientRepositoryDashboard() {
               </TableBody>
             </Table>
           </div>
+          
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-6 pt-6 border-t">
+              <div className="text-sm text-gray-600">
+                Mostrando {(currentPage - 1) * pageSize + 1} a {Math.min(currentPage * pageSize, totalClients)} de {totalClients.toLocaleString()} clientes
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1 || isLoading}
+                >
+                  <ChevronLeft className="w-4 h-4 mr-1" />
+                  Anterior
+                </Button>
+                <div className="text-sm font-medium px-3">
+                  Página {currentPage} de {totalPages}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages || isLoading}
+                >
+                  Siguiente
+                  <ChevronRight className="w-4 h-4 ml-1" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

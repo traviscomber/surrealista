@@ -6,24 +6,10 @@ import { useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import {
-  Upload,
-  Download,
-  FileSpreadsheet,
-  CheckCircle2,
-  XCircle,
-  AlertCircle,
-  Loader2,
-  ArrowLeft,
-  Users,
-  Eye,
-  RefreshCw,
-  UserPlus,
-  SkipForward,
-} from "lucide-react"
+import { Upload, Download, FileSpreadsheet, CheckCircle2, XCircle, AlertCircle, Loader2, ArrowLeft, Users, Eye, RefreshCw, UserPlus, SkipForward } from 'lucide-react'
 import { smartParseExcelFile, type SmartParseResult } from "@/lib/excel/excel-parser"
-import { detectDuplicates, bulkImportWithDuplicateHandlingInBatches } from "@/app/actions/clients"
-import { useRouter } from "next/navigation"
+import { detectDuplicatesBatch, bulkImportWithDuplicateHandlingInBatches } from "@/app/actions/clients"
+import { useRouter } from 'next/navigation'
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { ColumnMappingReview } from "./column-mapping-review"
@@ -125,8 +111,8 @@ export function ClientImportInterface() {
 
     setIsProcessing(true)
     try {
-      console.log("[v0] Checking for duplicates...")
-      const result = await detectDuplicates(parseResult.data)
+      console.log("[v0] Checking for duplicates with optimized batch detection...")
+      const result = await detectDuplicatesBatch(parseResult.data)
       console.log("[v0] Duplicate detection result:", result)
       setDuplicateResult(result)
 

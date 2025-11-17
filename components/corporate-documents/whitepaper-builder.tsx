@@ -36,6 +36,7 @@ import {
   findNearestPort,
   estimateTravelTime,
 } from "@/lib/chile-geographic-data"
+import { jsPDF } from "jspdf" // Import jsPDF
 
 interface WhitepaperVariable {
   key: string
@@ -178,6 +179,10 @@ export function WhitepaperBuilder() {
   const [selectedRegion, setSelectedRegion] = useState<string>("")
   const [selectedProvince, setSelectedProvince] = useState<string>("")
   const [selectedCommune, setSelectedCommune] = useState<string>("")
+
+  const [loadingRegions, setLoadingRegions] = useState(false)
+  const [loadingProvinces, setLoadingProvinces] = useState(false)
+  const [loadingCommunes, setLoadingCommunes] = useState(false)
 
   useEffect(() => {
     loadGeneratedDocs()
@@ -438,11 +443,24 @@ ${citiesText}`
       const { data, error } = await supabase
         .from("generated_corporate_documents")
         .select("*")
+        .or("created_by.neq.demo,created_by.is.null") // Exclude documents created by "demo" user
         .order("created_at", { ascending: false })
 
       if (error) throw error
-      setGeneratedDocs(data || [])
-      console.log("[v0] Loaded generated whitepapers:", data?.length)
+      
+      // Additional client-side filtering to exclude demo documents
+      const realDocs = (data || []).filter(doc => {
+        // Exclude if document name contains "demo" or template identifiers
+        const name = (doc.document_name || "").toLowerCase()
+        const isDemo = name.includes("demo") || 
+                      name.includes("iñipulli") || 
+                      name.includes("plantilla") ||
+                      name.includes("template")
+        return !isDemo
+      })
+      
+      setGeneratedDocs(realDocs)
+      console.log("[v0] Loaded generated whitepapers (excluding demos):", realDocs.length, "of", data?.length, "total")
     } catch (error) {
       console.error("[v0] Error loading generated docs:", error)
     } finally {
@@ -510,6 +528,240 @@ ${citiesText}`
   const handleViewDocument = (doc: any) => {
     setPreviewDoc(doc)
     setIsPreviewOpen(true)
+  }
+
+  const handleDownloadPDF = async (doc: any) => {
+    try {
+      console.log("[v0] Generating PDF for document:", doc.document_name)
+      
+      const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "px",
+        format: [960, 540], // 16:9 aspect ratio
+      })
+
+      const data = doc.document_data
+
+      // Helper function to load image and add to PDF
+      const addImageSlide = async (imageUrl: string | undefined, fallbackText: string) => {
+        if (imageUrl) {
+          try {
+            const response = await fetch(imageUrl)
+            const blob = await response.blob()
+            const dataUrl = await new Promise<string>((resolve) => {
+              const reader = new FileReader()
+              reader.onloadend = () => resolve(reader.result as string)
+              reader.readAsDataURL(blob)
+            })
+            pdf.addImage(dataUrl, "JPEG", 0, 0, 960, 540)
+          } catch (error) {
+            console.error("[v0] Error loading image:", error)
+            pdf.setFillColor(200, 200, 200)
+            pdf.rect(0, 0, 960, 540, "F")
+            pdf.setFontSize(20)
+            pdf.setTextColor(100, 100, 100)
+            pdf.text(fallbackText, 480, 270, { align: "center" })
+          }
+        } else {
+          pdf.setFillColor(200, 200, 200)
+          pdf.rect(0, 0, 960, 540, "F")
+          pdf.setFontSize(20)
+          pdf.setTextColor(100, 100, 100)
+          pdf.text(fallbackText, 480, 270, { align: "center" })
+        }
+      }
+
+      // Slide 1: Cover
+      await addImageSlide(data.hero_image, "Imagen Principal")
+      // Add text overlays
+      pdf.setFillColor(255, 255, 255, 0.1)
+      pdf.rect(20, 15, 200, 50, "F")
+      pdf.setFontSize(16)
+      pdf.setTextColor(255, 255, 255)
+      pdf.text("Sur Realista", 30, 45)
+      
+      pdf.setFontSize(36)
+      pdf.text(data.property_name || "Propiedad", 30, 420)
+      pdf.setFontSize(18)
+      pdf.text(data.property_subtitle || "", 30, 450)
+      
+      pdf.setFontSize(10)
+      pdf.text(`${data.property_name} • ${data.superficie_total || "0"} hectáreas`, 480, 520, { align: "center" })
+
+      // Slide 2: Details (Dark background with split layout)
+      pdf.addPage()
+      pdf.setFillColor(55, 75, 92) // #374B5C
+      pdf.rect(0, 0, 960, 540, "F")
+      
+      // Left side - text
+      pdf.setFontSize(12)
+      pdf.setTextColor(255, 255, 255)
+      let yPos = 40
+      pdf.text("Ubicación:", 30, yPos)
+      pdf.setFontSize(10)
+      pdf.setTextColor(200, 200, 200)
+      yPos += 20
+      pdf.text(data.ubicacion || "N/A", 30, yPos)
+      
+      yPos += 30
+      pdf.setFontSize(12)
+      pdf.setTextColor(255, 255, 255)
+      pdf.text(`Superficie total: ${data.superficie_total || "0"} hectáreas`, 30, yPos)
+      
+      yPos += 30
+      pdf.text("Infraestructura:", 30, yPos)
+      pdf.setFontSize(9)
+      pdf.setTextColor(200, 200, 200)
+      yPos += 15
+      const infraLines = pdf.splitTextToSize(data.infraestructura || "N/A", 400)
+      pdf.text(infraLines.slice(0, 10), 30, yPos)
+
+      // Right side - polygon image
+      if (data.polygon_image) {
+        try {
+          const response = await fetch(data.polygon_image)
+          const blob = await response.blob()
+          const dataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader()
+            reader.onloadend = () => resolve(reader.result as string)
+            reader.readAsDataURL(blob)
+          })
+          pdf.addImage(dataUrl, "JPEG", 500, 70, 400, 400, undefined, "FAST")
+        } catch (error) {
+          console.error("[v0] Error loading polygon image:", error)
+        }
+      }
+
+      // Slide 3: Overview
+      pdf.addPage()
+      await addImageSlide(data.polygon_image, "Vista General")
+      // Add overlay text
+      pdf.setFillColor(255, 255, 255, 0.9)
+      pdf.rect(30, 30, 400, 120, "F")
+      pdf.setFontSize(20)
+      pdf.setTextColor(60, 60, 60)
+      pdf.text(data.property_subtitle || "Propiedad", 50, 70)
+      pdf.setFontSize(14)
+      pdf.text("SUPERFICIE TOTAL", 50, 100)
+      pdf.setFontSize(28)
+      pdf.text(`${data.superficie_total || "0"} has.`, 50, 130)
+
+      // Slide 4: Location map
+      pdf.addPage()
+      pdf.setFillColor(240, 248, 255)
+      pdf.rect(0, 0, 960, 540, "F")
+      
+      if (data.location_map) {
+        try {
+          const response = await fetch(data.location_map)
+          const blob = await response.blob()
+          const dataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader()
+            reader.onloadend = () => resolve(reader.result as string)
+            reader.readAsDataURL(blob)
+          })
+          pdf.addImage(dataUrl, "JPEG", 30, 30, 450, 480, undefined, "FAST")
+        } catch (error) {
+          console.error("[v0] Error loading location map:", error)
+        }
+      }
+      
+      // Location details on the right
+      pdf.setFontSize(12)
+      pdf.setTextColor(50, 50, 50)
+      yPos = 50
+      pdf.text(`Comuna de ${data.comuna || "N/A"}`, 520, yPos)
+      yPos += 20
+      pdf.setFontSize(10)
+      pdf.text(`Región: ${data.region || "N/A"}`, 520, yPos)
+      yPos += 15
+      pdf.text(`Provincia: ${data.provincia || "N/A"}`, 520, yPos)
+      yPos += 15
+      pdf.text(`Población: ${data.poblacion || "N/A"}`, 520, yPos)
+      
+      if (data.poblados_cercanos) {
+        yPos += 30
+        pdf.setFontSize(11)
+        pdf.text("Conectividad:", 520, yPos)
+        yPos += 15
+        pdf.setFontSize(9)
+        const nearbyLines = pdf.splitTextToSize(data.poblados_cercanos, 400)
+        pdf.text(nearbyLines.slice(0, 15), 520, yPos)
+      }
+
+      // Slide 5: Photos
+      pdf.addPage()
+      pdf.setFillColor(250, 250, 250)
+      pdf.rect(0, 0, 960, 540, "F")
+      pdf.setFontSize(18)
+      pdf.setTextColor(60, 60, 60)
+      pdf.text("3. Fotografías", 40, 50)
+      
+      if (data.photo_1) {
+        try {
+          const response = await fetch(data.photo_1)
+          const blob = await response.blob()
+          const dataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader()
+            reader.onloadend = () => resolve(reader.result as string)
+            reader.readAsDataURL(blob)
+          })
+          pdf.addImage(dataUrl, "JPEG", 40, 80, 440, 430, undefined, "FAST")
+        } catch (error) {
+          console.error("[v0] Error loading photo 1:", error)
+        }
+      }
+      
+      if (data.photo_2) {
+        try {
+          const response = await fetch(data.photo_2)
+          const blob = await response.blob()
+          const dataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader()
+            reader.onloadend = () => resolve(reader.result as string)
+            reader.readAsDataURL(blob)
+          })
+          pdf.addImage(dataUrl, "JPEG", 500, 80, 440, 430, undefined, "FAST")
+        } catch (error) {
+          console.error("[v0] Error loading photo 2:", error)
+        }
+      }
+
+      // Slide 6: Back cover
+      pdf.addPage()
+      await addImageSlide(data.cover_image, "Contraportada")
+      // Contact info overlay
+      pdf.setFillColor(0, 0, 0, 0.8)
+      pdf.rect(0, 440, 960, 100, "F")
+      pdf.setFontSize(11)
+      pdf.setTextColor(255, 255, 255)
+      pdf.text(SUR_REALISTA_BRANDING.contact_name, 40, 470)
+      pdf.setFontSize(9)
+      pdf.text(SUR_REALISTA_BRANDING.contact_email, 40, 490)
+      pdf.text(SUR_REALISTA_BRANDING.contact_phone, 40, 505)
+      pdf.text(SUR_REALISTA_BRANDING.contact_website, 40, 520)
+      pdf.text(`* Comisión ${SUR_REALISTA_BRANDING.commission}`, 800, 490, { align: "right" })
+
+      // Slide 7: Tour
+      pdf.addPage()
+      await addImageSlide(data.tour_image, "Recorrido Visual")
+      pdf.setFontSize(32)
+      pdf.setTextColor(255, 255, 255)
+      pdf.text(data.property_subtitle || "", 40, 270)
+
+      // Save PDF
+      const fileName = `${data.property_name || "Presentacion"}_Sur-Realista.pdf`
+      pdf.save(fileName)
+      
+      toast.success("PDF descargado exitosamente", {
+        description: `${fileName}`,
+      })
+      
+      console.log("[v0] PDF generated successfully:", fileName)
+    } catch (error) {
+      console.error("[v0] Error generating PDF:", error)
+      toast.error("Error al generar PDF")
+    }
   }
 
   return (
@@ -589,10 +841,7 @@ ${citiesText}`
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => {
-                          // TODO: Implement download
-                          toast.info("Próximamente: Descargar PDF")
-                        }}
+                        onClick={() => handleDownloadPDF(doc)}
                       >
                         <Download className="h-4 w-4" />
                       </Button>
@@ -1491,7 +1740,7 @@ ${citiesText}`
             <Button variant="outline" onClick={() => setIsPreviewOpen(false)}>
               Cerrar
             </Button>
-            <Button onClick={() => toast.info("Próximamente: Descargar PDF")}>
+            <Button onClick={() => handleDownloadPDF(previewDoc)}>
               <Download className="h-4 w-4 mr-2" />
               Descargar PDF
             </Button>

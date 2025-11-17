@@ -555,3 +555,200 @@ export async function bulkImportWithDuplicateHandlingInBatches(
     }
   }
 }
+
+export async function getClientsPaginated(page = 1, pageSize = 50, filters?: {
+  search?: string
+  status?: string
+  industry?: string
+  clientType?: string
+}) {
+  try {
+    console.log(`[v0] Fetching clients page ${page} with filters:`, filters)
+    const supabase = await createSupabaseClient()
+    
+    const offset = (page - 1) * pageSize
+    let query = supabase
+      .from("clients")
+      .select("*", { count: "exact" })
+
+    if (filters?.search) {
+      query = query.or(
+        `first_name.ilike.%${filters.search}%,last_name.ilike.%${filters.search}%,email.ilike.%${filters.search}%,company_name.ilike.%${filters.search}%,rut.ilike.%${filters.search}%`
+      )
+    }
+    
+    if (filters?.status) {
+      query = query.eq("status", filters.status)
+    }
+    
+    if (filters?.industry) {
+      query = query.eq("industry", filters.industry)
+    }
+    
+    if (filters?.clientType) {
+      query = query.eq("client_type", filters.clientType)
+    }
+
+    const { data, error, count } = await query
+      .order("created_at", { ascending: false })
+      .range(offset, offset + pageSize - 1)
+
+    if (error) {
+      console.error("[v0] Error fetching paginated clients:", error)
+      return { success: false, error: error.message, data: [], total: 0, page, pageSize }
+    }
+
+    console.log(`[v0] Fetched ${data?.length || 0} clients of ${count} total`)
+    
+    return { 
+      success: true, 
+      data: data || [], 
+      total: count || 0,
+      page,
+      pageSize,
+      totalPages: Math.ceil((count || 0) / pageSize)
+    }
+  } catch (error) {
+    console.error("[v0] Error in getClientsPaginated:", error)
+    return { success: false, error: "Error al obtener clientes", data: [], total: 0, page, pageSize, totalPages: 0 }
+  }
+}
+
+export async function detectDuplicatesBatch(clients: ClientData[]) {
+  try {
+    console.log("[v0] Batch detecting duplicates for", clients.length, "clients")
+    const supabase = await createSupabaseClient()
+
+    const duplicates: Array<{
+      newClient: ClientData
+      existingClient: any
+      matchType: string
+      index: number
+    }> = []
+
+    const nonDuplicates: Array<{ client: ClientData; index: number }> = []
+
+    const ruts = clients.map(c => c.rut).filter(Boolean) as string[]
+    const phones = clients.map(c => c.phone).filter(Boolean) as string[]
+    const emails = clients.map(c => c.email).filter(Boolean) as string[]
+    
+    const [rutMatches, phoneMatches, emailMatches] = await Promise.all([
+      ruts.length > 0 ? supabase.from("clients").select("*").in("rut", ruts) : { data: [] },
+      phones.length > 0 ? supabase.from("clients").select("*").in("phone", phones) : { data: [] },
+      emails.length > 0 ? supabase.from("clients").select("*").in("email", emails) : { data: [] }
+    ])
+
+    const rutMap = new Map(rutMatches.data?.map(c => [c.rut, c]) || [])
+    const phoneMap = new Map(phoneMatches.data?.map(c => [c.phone, c]) || [])
+    const emailMap = new Map(emailMatches.data?.map(c => [c.email, c]) || [])
+
+    for (let i = 0; i < clients.length; i++) {
+      const client = clients[i]
+      let matchFound = false
+
+      // Check RUT first (primary identifier)
+      if (client.rut && rutMap.has(client.rut)) {
+        duplicates.push({
+          newClient: client,
+          existingClient: rutMap.get(client.rut),
+          matchType: "rut",
+          index: i,
+        })
+        matchFound = true
+        continue
+      }
+
+      // Check phone (secondary identifier)
+      if (!matchFound && client.phone && phoneMap.has(client.phone)) {
+        duplicates.push({
+          newClient: client,
+          existingClient: phoneMap.get(client.phone),
+          matchType: "phone",
+          index: i,
+        })
+        matchFound = true
+        continue
+      }
+
+      // Check email (tertiary identifier)
+      if (!matchFound && client.email && emailMap.has(client.email)) {
+        duplicates.push({
+          newClient: client,
+          existingClient: emailMap.get(client.email),
+          matchType: "email",
+          index: i,
+        })
+        matchFound = true
+        continue
+      }
+
+      if (!matchFound) {
+        nonDuplicates.push({ client, index: i })
+      }
+    }
+
+    console.log(`[v0] Batch duplicate detection complete: ${duplicates.length} duplicates, ${nonDuplicates.length} new`)
+
+    return {
+      success: true,
+      duplicates,
+      nonDuplicates,
+      totalDuplicates: duplicates.length,
+      totalNew: nonDuplicates.length,
+    }
+  } catch (error) {
+    console.error("[v0] Error in detectDuplicatesBatch:", error)
+    return {
+      success: false,
+      error: "Error al detectar duplicados",
+      duplicates: [],
+      nonDuplicates: [],
+      totalDuplicates: 0,
+      totalNew: 0,
+    }
+  }
+}
+
+export async function getClientStatistics() {
+  try {
+    const supabase = await createSupabaseClient()
+    
+    const [totalResult, statusResult, industryResult] = await Promise.all([
+      supabase.from("clients").select("*", { count: "exact", head: true }),
+      supabase.from("clients").select("status"),
+      supabase.from("clients").select("industry")
+    ])
+
+    const total = totalResult.count || 0
+    
+    // Count by status
+    const statusCounts: Record<string, number> = {}
+    statusResult.data?.forEach(c => {
+      const status = c.status || "Sin estado"
+      statusCounts[status] = (statusCounts[status] || 0) + 1
+    })
+    
+    // Count by industry
+    const industryCounts: Record<string, number> = {}
+    industryResult.data?.forEach(c => {
+      const industry = c.industry || "Sin industria"
+      industryCounts[industry] = (industryCounts[industry] || 0) + 1
+    })
+
+    return {
+      success: true,
+      total,
+      byStatus: statusCounts,
+      byIndustry: industryCounts
+    }
+  } catch (error) {
+    console.error("[v0] Error getting client statistics:", error)
+    return {
+      success: false,
+      error: "Error al obtener estadísticas",
+      total: 0,
+      byStatus: {},
+      byIndustry: {}
+    }
+  }
+}
