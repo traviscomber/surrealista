@@ -1,11 +1,21 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Inter } from "next/font/google"
+import { Inter, Lora } from 'next/font/google'
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { GoogleDriveProvider } from "@/lib/contexts/google-drive-context"
 
-const inter = Inter({ subsets: ["latin"] })
+const lora = Lora({ 
+  subsets: ["latin"],
+  variable: "--font-lora",
+  display: "swap",
+})
+
+const inter = Inter({ 
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+})
 
 export const metadata: Metadata = {
   title: "Sur-Realista - Inmobiliaria Premium del Sur de Chile",
@@ -22,7 +32,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={`${inter.variable} ${lora.variable} font-sans`}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
           <GoogleDriveProvider>{children}</GoogleDriveProvider>
         </ThemeProvider>

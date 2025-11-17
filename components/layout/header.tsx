@@ -184,14 +184,14 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="container flex h-16 items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center space-x-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-purple-600">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-forest">
             <Building2 className="h-4 w-4 text-white" />
           </div>
-          <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+          <span className="text-xl font-serif font-semibold bg-gradient-to-r from-primary to-forest bg-clip-text text-transparent">
             Sur-Realista
           </span>
         </Link>
@@ -339,10 +339,10 @@ export function Header() {
             <SheetContent side="right" className="w-80">
               <div className="flex flex-col space-y-4 mt-4">
                 <div className="flex items-center space-x-2 pb-4 border-b">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-600 to-purple-600">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-forest">
                     <Building2 className="h-4 w-4 text-white" />
                   </div>
-                  <span className="text-lg font-bold">Sur-Realista</span>
+                  <span className="text-lg font-serif font-semibold">Sur-Realista</span>
                 </div>
 
                 <div className="space-y-2">

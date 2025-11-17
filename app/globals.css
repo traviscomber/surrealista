@@ -10,22 +10,25 @@
 
 @layer base {
   :root {
+    /* Updated to Sur-Realista sage green and natural color palette */
     --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
+    --foreground: 150 15% 20%;
     --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
+    --card-foreground: 150 15% 20%;
     --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    /* Updated primary colors to warm terracotta inspired by iChiloe */
-    --primary: 14 78% 52%;
+    --popover-foreground: 150 15% 20%;
+    /* Sage green as primary - inspired by Sur-Realista nature focus */
+    --primary: 150 25% 45%;
     --primary-foreground: 0 0% 98%;
-    --secondary: 25 95% 95%;
-    --secondary-foreground: 14 78% 52%;
-    --muted: 25 95% 95%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 39 100% 85%;
-    --accent-foreground: 14 78% 52%;
-    /* Added agricultural theme colors */
+    /* Warm beige for secondary */
+    --secondary: 35 25% 92%;
+    --secondary-foreground: 150 25% 45%;
+    --muted: 35 25% 92%;
+    --muted-foreground: 150 10% 40%;
+    /* Soft blue-gray for accents */
+    --accent: 195 25% 85%;
+    --accent-foreground: 150 25% 45%;
+    /* Keep nature-themed colors for properties */
     --agricultural: 120 40% 45%;
     --agricultural-foreground: 0 0% 98%;
     --rural: 35 65% 55%;
@@ -34,40 +37,40 @@
     --water-foreground: 0 0% 98%;
     --forest: 140 50% 35%;
     --forest-foreground: 0 0% 98%;
-    --destructive: 0 84.2% 60.2%;
+    --destructive: 0 70% 55%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 14 78% 52%;
-    --chart-1: 14 78% 52%;
+    --border: 150 15% 88%;
+    --input: 150 15% 88%;
+    --ring: 150 25% 45%;
+    --chart-1: 150 25% 45%;
     --chart-2: 120 40% 45%;
     --chart-3: 35 65% 55%;
     --chart-4: 200 85% 55%;
     --chart-5: 140 50% 35%;
-    --radius: 0.75rem;
+    --radius: 0.5rem;
     --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 14 78% 52%;
+    --sidebar-foreground: 150 15% 25%;
+    --sidebar-primary: 150 25% 45%;
     --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 25 95% 95%;
-    --sidebar-accent-foreground: 14 78% 52%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 14 78% 52%;
+    --sidebar-accent: 35 25% 92%;
+    --sidebar-accent-foreground: 150 25% 45%;
+    --sidebar-border: 150 15% 91%;
+    --sidebar-ring: 150 25% 45%;
   }
   .dark {
-    --background: 0 0% 3.9%;
+    --background: 150 15% 8%;
     --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
+    --card: 150 15% 10%;
     --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
+    --popover: 150 15% 10%;
     --popover-foreground: 0 0% 98%;
-    --primary: 14 78% 52%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
+    --primary: 150 25% 55%;
+    --primary-foreground: 150 15% 10%;
+    --secondary: 150 10% 18%;
     --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
+    --muted: 150 10% 18%;
+    --muted-foreground: 0 0% 70%;
+    --accent: 150 15% 20%;
     --accent-foreground: 0 0% 98%;
     --agricultural: 120 40% 45%;
     --agricultural-foreground: 0 0% 98%;
@@ -77,24 +80,24 @@
     --water-foreground: 0 0% 98%;
     --forest: 140 50% 35%;
     --forest-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
+    --destructive: 0 62% 45%;
     --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 14 78% 52%;
-    --chart-1: 14 78% 52%;
+    --border: 150 15% 18%;
+    --input: 150 15% 18%;
+    --ring: 150 25% 55%;
+    --chart-1: 150 25% 55%;
     --chart-2: 120 40% 45%;
     --chart-3: 35 65% 55%;
     --chart-4: 200 85% 55%;
     --chart-5: 140 50% 35%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 14 78% 52%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 14 78% 52%;
+    --sidebar-background: 150 15% 10%;
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-primary: 150 25% 55%;
+    --sidebar-primary-foreground: 150 15% 10%;
+    --sidebar-accent: 150 15% 18%;
+    --sidebar-accent-foreground: 0 0% 95%;
+    --sidebar-border: 150 15% 18%;
+    --sidebar-ring: 150 25% 55%;
   }
 }
 
@@ -123,13 +126,14 @@
 }
 
 /* Added agricultural property specific styles */
+/* Enhanced property card hover with softer shadows */
 .property-card-hover {
   transition: all 0.3s ease;
 }
 
 .property-card-hover:hover {
   transform: translateY(-4px);
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  box-shadow: 0 12px 24px -8px rgba(107, 142, 122, 0.15), 0 8px 16px -8px rgba(107, 142, 122, 0.1);
 }
 
 .map-marker-pulse {

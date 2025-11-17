@@ -234,58 +234,58 @@ export function ClientRepositoryDashboard() {
 
       {/* Traffic Light Status Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card>
+        <Card className="border-sage/30 bg-sage/5">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Clientes</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-sage-dark">Total Clientes</CardTitle>
+            <Users className="h-4 w-4 text-sage" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.total}</div>
-            <p className="text-xs text-muted-foreground">{stats.totalDocuments} propiedades gestionadas</p>
+            <div className="text-2xl font-bold text-sage-dark">{stats.total}</div>
+            <p className="text-xs text-sage">{stats.totalDocuments} propiedades gestionadas</p>
           </CardContent>
         </Card>
 
-        <Card className="border-red-200 bg-red-50">
+        <Card className="border-sage/30 bg-sage/5">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-red-700">Clientes Calientes</CardTitle>
+            <CardTitle className="text-sm font-medium text-sage-dark">Clientes Calientes</CardTitle>
             <Zap className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{stats.hot}</div>
-            <p className="text-xs text-red-600">Alta probabilidad de cierre</p>
+            <div className="text-2xl font-bold text-sage-dark">{stats.hot}</div>
+            <p className="text-xs text-sage">Alta probabilidad de cierre</p>
           </CardContent>
         </Card>
 
-        <Card className="border-yellow-200 bg-yellow-50">
+        <Card className="border-sage/30 bg-sage/5">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-yellow-700">Clientes Tibios</CardTitle>
+            <CardTitle className="text-sm font-medium text-sage-dark">Clientes Tibios</CardTitle>
             <Target className="h-4 w-4 text-yellow-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-yellow-600">{stats.warm}</div>
-            <p className="text-xs text-yellow-600">Seguimiento activo</p>
+            <div className="text-2xl font-bold text-sage-dark">{stats.warm}</div>
+            <p className="text-xs text-sage">Seguimiento activo</p>
           </CardContent>
         </Card>
 
-        <Card className="border-blue-200 bg-blue-50">
+        <Card className="border-sage/30 bg-sage/5">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-blue-700">Clientes Fríos</CardTitle>
+            <CardTitle className="text-sm font-medium text-sage-dark">Clientes Fríos</CardTitle>
             <Clock className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{stats.cold}</div>
-            <p className="text-xs text-blue-600">Seguimiento espaciado</p>
+            <div className="text-2xl font-bold text-sage-dark">{stats.cold}</div>
+            <p className="text-xs text-sage">Seguimiento espaciado</p>
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="border-sage/30 bg-sage/5">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Presupuesto Promedio</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-sage-dark">Presupuesto Promedio</CardTitle>
+            <TrendingUp className="h-4 w-4 text-sage" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(stats.avgBudget)}</div>
-            <p className="text-xs text-muted-foreground">Valor total: {formatCurrency(stats.totalValue)}</p>
+            <div className="text-2xl font-bold text-sage-dark">{formatCurrency(stats.avgBudget)}</div>
+            <p className="text-xs text-sage">Valor total: {formatCurrency(stats.totalValue)}</p>
           </CardContent>
         </Card>
       </div>

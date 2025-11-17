@@ -38,7 +38,7 @@ const CAMPOSFolderView = dynamicImport(
     ssr: false,
     loading: () => (
       <div className="h-[600px] w-full flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-orange-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-sage-600" />
       </div>
     ),
   }
@@ -530,24 +530,11 @@ export default function UnifiedSearchPage() {
           <p className="text-gray-600">Sistema integrado de búsqueda para CAMPOS, Clientes, Comunicaciones y Tareas</p>
         </div>
 
-        {/* Search Bar */}
-        <div className="mb-6">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-            <Input
-              placeholder="Buscar en todos los módulos..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-12 h-14 text-lg"
-            />
-          </div>
-        </div>
-
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="grid w-full grid-cols-4 mb-6 h-auto">
             <TabsTrigger
               value="campos"
-              className="flex items-center gap-2 data-[state=active]:bg-orange-500 data-[state=active]:text-white"
+              className="flex items-center gap-2 data-[state=active]:bg-sage/10 data-[state=active]:text-sage-dark data-[state=active]:border-sage-dark data-[state=active]:border-b-2"
             >
               <Folder className="h-4 w-4" />
               CAMPOS

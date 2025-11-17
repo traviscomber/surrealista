@@ -522,13 +522,13 @@ export function CAMPOSFolderView() {
         </div>
 
         {(folders.find((f) => f.name === "Sin Región")?.fileCount || 0) > 0 && (
-          <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg space-y-2">
+          <div className="p-3 bg-sage-50 border border-sage-200 rounded-lg space-y-2">
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1">
-                <p className="text-sm font-medium text-orange-900">
+                <p className="text-sm font-medium text-sage-900">
                   {folders.find((f) => f.name === "Sin Región")?.fileCount || 0} archivos sin región
                 </p>
-                <p className="text-xs text-orange-700 mt-1">
+                <p className="text-xs text-sage-700 mt-1">
                   Pueden reasignarse automáticamente según coordenadas
                 </p>
               </div>
@@ -536,7 +536,7 @@ export function CAMPOSFolderView() {
                 onClick={handleRescanRegions}
                 disabled={isRescanning}
                 size="sm"
-                className="bg-orange-600 hover:bg-orange-700 text-white"
+                className="bg-sage hover:bg-sage-dark text-white"
               >
                 {isRescanning ? (
                   <>
@@ -554,7 +554,7 @@ export function CAMPOSFolderView() {
             
             {rescanProgress && rescanProgress.total > 0 && (
               <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs text-orange-700">
+                <div className="flex items-center justify-between text-xs text-sage-700">
                   <span>
                     {rescanProgress.processed} / {rescanProgress.total}
                   </span>
@@ -562,16 +562,16 @@ export function CAMPOSFolderView() {
                     ✓ {rescanProgress.updated} | ✗ {rescanProgress.failed}
                   </span>
                 </div>
-                <div className="w-full bg-orange-200 rounded-full h-2">
+                <div className="w-full bg-sage-200 rounded-full h-2">
                   <div
-                    className="bg-orange-600 h-2 rounded-full transition-all duration-300"
+                    className="bg-sage h-2 rounded-full transition-all duration-300"
                     style={{
                       width: `${(rescanProgress.processed / rescanProgress.total) * 100}%`,
                     }}
                   />
                 </div>
                 {rescanProgress.currentFile && (
-                  <p className="text-xs text-orange-600 truncate">
+                  <p className="text-xs text-sage-600 truncate">
                     {rescanProgress.currentFile}
                   </p>
                 )}
