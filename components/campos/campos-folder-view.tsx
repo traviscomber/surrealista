@@ -34,6 +34,15 @@ interface FolderItem {
   driveFileId?: string
 }
 
+const getCleanRegionName = (fullName: string): string => {
+  if (!fullName) return fullName
+  
+  // Remove "Región de " or "Región del "
+  return fullName
+    .replace(/^Región de /i, "")
+    .replace(/^Región del /i, "")
+}
+
 export function CAMPOSFolderView() {
   const [folders, setFolders] = useState<FolderItem[]>([])
   const [selectedItem, setSelectedItem] = useState<FolderItem | null>(null)
@@ -158,6 +167,8 @@ export function CAMPOSFolderView() {
       })
       folderId++
     }
+
+    folderItems.sort((a, b) => (b.fileCount || 0) - (a.fileCount || 0))
 
     console.log("[v0] Built", folderItems.length, "region folders with", metadata.length, "total files")
     setFolders(folderItems)
@@ -626,7 +637,7 @@ export function CAMPOSFolderView() {
               >
                 {folder.isOpen ? <ChevronDown className="h-4 w-4 mr-2" /> : <ChevronRight className="h-4 w-4 mr-2" />}
                 {folder.isOpen ? <FolderOpen className="h-4 w-4 mr-2" /> : <Folder className="h-4 w-4 mr-2" />}
-                <span className="flex-1 text-left truncate">{folder.name}</span>
+                <span className="flex-1 text-left truncate">{getCleanRegionName(folder.name)}</span>
                 <Badge variant="outline" className="text-xs ml-2">
                   {folder.fileCount || 0}
                 </Badge>
