@@ -561,6 +561,7 @@ export async function getClientsPaginated(page = 1, pageSize = 50, filters?: {
   status?: string
   industry?: string
   clientType?: string
+  sortBy?: 'completeness' | 'created_at'
 }) {
   try {
     console.log(`[v0] Fetching clients page ${page} with filters:`, filters)
@@ -589,24 +590,73 @@ export async function getClientsPaginated(page = 1, pageSize = 50, filters?: {
       query = query.eq("client_type", filters.clientType)
     }
 
-    const { data, error, count } = await query
-      .order("created_at", { ascending: false })
-      .range(offset, offset + pageSize - 1)
+    if (filters?.sortBy === 'completeness') {
+      // For completeness sorting, we need to fetch all data and sort client-side
+      const { data: allData, error, count } = await query
+      
+      if (error) {
+        console.error("[v0] Error fetching clients for completeness sorting:", error)
+        return { success: false, error: error.message, data: [], total: 0, page, pageSize }
+      }
 
-    if (error) {
-      console.error("[v0] Error fetching paginated clients:", error)
-      return { success: false, error: error.message, data: [], total: 0, page, pageSize }
-    }
+      // Calculate completeness score for each client
+      const dataWithScores = (allData || []).map(client => {
+        const fields = [
+          'first_name', 'last_name', 'second_last_name', 'rut', 'nationality',
+          'email', 'phone', 'mobile', 'company_name', 'position', 'company_rut',
+          'industry', 'address', 'city', 'region', 'country', 'client_type',
+          'main_interest', 'budget_min', 'budget_max', 'desired_surface_area_min',
+          'desired_surface_area_max', 'notes', 'status', 'contact_frequency', 'birth_date'
+        ]
+        
+        const filledFields = fields.filter(field => {
+          const value = client[field]
+          return value !== null && value !== undefined && value !== ''
+        }).length
+        
+        return {
+          ...client,
+          completeness_score: filledFields
+        }
+      })
 
-    console.log(`[v0] Fetched ${data?.length || 0} clients of ${count} total`)
-    
-    return { 
-      success: true, 
-      data: data || [], 
-      total: count || 0,
-      page,
-      pageSize,
-      totalPages: Math.ceil((count || 0) / pageSize)
+      // Sort by completeness score (highest first)
+      dataWithScores.sort((a, b) => b.completeness_score - a.completeness_score)
+      
+      // Paginate the sorted results
+      const paginatedData = dataWithScores.slice(offset, offset + pageSize)
+      
+      console.log(`[v0] Fetched ${paginatedData.length} clients of ${count} total (sorted by completeness)`)
+      
+      return { 
+        success: true, 
+        data: paginatedData, 
+        total: count || 0,
+        page,
+        pageSize,
+        totalPages: Math.ceil((count || 0) / pageSize)
+      }
+    } else {
+      // Default sorting by created_at
+      const { data, error, count } = await query
+        .order("created_at", { ascending: false })
+        .range(offset, offset + pageSize - 1)
+
+      if (error) {
+        console.error("[v0] Error fetching paginated clients:", error)
+        return { success: false, error: error.message, data: [], total: 0, page, pageSize }
+      }
+
+      console.log(`[v0] Fetched ${data?.length || 0} clients of ${count} total`)
+      
+      return { 
+        success: true, 
+        data: data || [], 
+        total: count || 0,
+        page,
+        pageSize,
+        totalPages: Math.ceil((count || 0) / pageSize)
+      }
     }
   } catch (error) {
     console.error("[v0] Error in getClientsPaginated:", error)

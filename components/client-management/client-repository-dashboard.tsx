@@ -83,6 +83,7 @@ export function ClientRepositoryDashboard() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [industryFilter, setIndustryFilter] = useState("all")
+  const [sortBy, setSortBy] = useState<'completeness' | 'created_at'>('completeness')
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   
@@ -97,7 +98,7 @@ export function ClientRepositoryDashboard() {
 
   useEffect(() => {
     loadClients()
-  }, [currentPage, statusFilter, industryFilter])
+  }, [currentPage, statusFilter, industryFilter, sortBy])
   
   useEffect(() => {
     loadStatistics()
@@ -121,6 +122,7 @@ export function ClientRepositoryDashboard() {
     if (searchTerm) filters.search = searchTerm
     if (statusFilter !== "all") filters.status = statusFilter
     if (industryFilter !== "all") filters.industry = industryFilter
+    filters.sortBy = sortBy
     
     const result = await getClientsPaginated(currentPage, pageSize, filters)
     
@@ -144,7 +146,7 @@ export function ClientRepositoryDashboard() {
   const filteredClients = clients
 
   const stats = {
-    total: statistics?.total || 0,
+    total: totalClients || statistics?.total || 0,
     hot: statistics?.byStatus?.hot || 0,
     warm: statistics?.byStatus?.warm || 0,
     cold: statistics?.byStatus?.cold || 0,
@@ -154,7 +156,7 @@ export function ClientRepositoryDashboard() {
       (sum, c) => sum + ((c.properties_bought || 0) + (c.properties_sold || 0) + (c.properties_quoted || 0)),
       0,
     ),
-    avgBudget: statistics?.total > 0 ? Math.round(clients.reduce((sum, c) => sum + (c.budget_max || 0), 0) / clients.length) : 0,
+    avgBudget: totalClients > 0 ? Math.round(clients.reduce((sum, c) => sum + (c.budget_max || 0), 0) / clients.length) : 0,
   }
 
   const handleRefresh = async () => {
@@ -309,6 +311,15 @@ export function ClientRepositoryDashboard() {
                 />
               </div>
             </div>
+            <Select value={sortBy} onValueChange={(value: 'completeness' | 'created_at') => setSortBy(value)}>
+              <SelectTrigger className="w-full sm:w-[200px]">
+                <SelectValue placeholder="Ordenar por" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="completeness">⭐ Más Completos</SelectItem>
+                <SelectItem value="created_at">📅 Más Recientes</SelectItem>
+              </SelectContent>
+            </Select>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-full sm:w-[200px]">
                 <SelectValue placeholder="Estado del cliente" />
