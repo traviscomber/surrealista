@@ -534,28 +534,28 @@ export default function UnifiedSearchPage() {
           <TabsList className="grid w-full grid-cols-4 mb-6 h-auto">
             <TabsTrigger
               value="campos"
-              className="flex items-center gap-2 data-[state=active]:bg-sage/10 data-[state=active]:text-sage-dark data-[state=active]:border-sage-dark data-[state=active]:border-b-2"
+              className="flex items-center gap-2 data-[state=active]:bg-sage data-[state=active]:text-white"
             >
               <Folder className="h-4 w-4" />
               CAMPOS
             </TabsTrigger>
             <TabsTrigger
               value="clientes"
-              className="flex items-center gap-2 cursor-pointer data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              className="flex items-center gap-2 cursor-pointer data-[state=active]:bg-sage data-[state=active]:text-white"
             >
               <Users className="h-4 w-4" />
               Clientes
             </TabsTrigger>
             <TabsTrigger
               value="comunicaciones"
-              className="flex items-center gap-2 cursor-pointer data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              className="flex items-center gap-2 cursor-pointer data-[state=active]:bg-sage data-[state=active]:text-white"
             >
               <MessageSquare className="h-4 w-4" />
               Comunicaciones
             </TabsTrigger>
             <TabsTrigger
               value="drive"
-              className="flex items-center gap-2 cursor-pointer data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+              className="flex items-center gap-2 cursor-pointer data-[state=active]:bg-sage data-[state=active]:text-white"
             >
               <HardDrive className="h-4 w-4" />
               Google Drive

@@ -152,7 +152,7 @@ export function QuickTaskCreation({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Zap className="h-5 w-5 text-orange-500" />
+            <Zap className="h-5 w-5 text-sage-dark" />
             Crear Tarea Rápida
           </DialogTitle>
           <DialogDescription>
@@ -272,7 +272,7 @@ export function QuickTaskCreation({
           </div>
 
           <div className="flex flex-col gap-2 pt-2">
-            <Button type="submit" disabled={isSubmitting} className="w-full bg-orange-600 hover:bg-orange-700">
+            <Button type="submit" disabled={isSubmitting} className="w-full bg-sage hover:bg-sage-dark">
               {isSubmitting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />

@@ -57,6 +57,11 @@ const config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        sage: {
+          DEFAULT: "hsl(150 25% 45%)", // Main sage green
+          dark: "hsl(150 30% 35%)", // Darker sage for contrast
+          light: "hsl(150 20% 90%)", // Light sage for backgrounds
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

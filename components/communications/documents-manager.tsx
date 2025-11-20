@@ -27,20 +27,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
-import {
-  FileText,
-  Plus,
-  Search,
-  Filter,
-  Edit,
-  Trash2,
-  ExternalLink,
-  Calendar,
-  Tag,
-  MapPin,
-  Lightbulb,
-  CheckCircle2,
-} from "lucide-react"
+import { FileText, Plus, Search, Filter, Edit, Trash2, ExternalLink, Calendar, Tag, MapPin, Lightbulb, CheckCircle2 } from 'lucide-react'
 import { createBrowserClient } from "@supabase/ssr"
 import { toast } from "sonner"
 import { FileUploader } from "./file-uploader"
@@ -82,9 +69,9 @@ const DOCUMENT_TYPES = [
 ]
 
 const STATUS_OPTIONS = [
-  { value: "vigente", label: "Vigente", color: "bg-green-500" },
+  { value: "vigente", label: "Vigente", color: "bg-sage" },
   { value: "borrador", label: "Borrador", color: "bg-gray-500" },
-  { value: "archivado", label: "Archivado", color: "bg-blue-500" },
+  { value: "archivado", label: "Archivado", color: "bg-sage-dark" },
   { value: "vencido", label: "Vencido", color: "bg-red-500" },
 ]
 
@@ -341,7 +328,7 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
             <CardTitle className="text-sm font-medium text-gray-600">Activos</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-green-600">{stats.active}</div>
+            <div className="text-3xl font-bold text-sage-dark">{stats.active}</div>
           </CardContent>
         </Card>
         <Card>
@@ -357,7 +344,7 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
             <CardTitle className="text-sm font-medium text-gray-600">Archivados</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-blue-600">{stats.archived}</div>
+            <div className="text-3xl font-bold text-sage">{stats.archived}</div>
           </CardContent>
         </Card>
       </div>
@@ -432,11 +419,11 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
                   </div>
 
                   {uploadedFiles.length > 0 && (
-                    <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
-                      <p className="text-sm font-medium text-blue-900 mb-2">
+                    <div className="p-4 bg-sage/5 border border-sage/30 rounded-md">
+                      <p className="text-sm font-medium text-sage-dark mb-2">
                         {uploadedFiles.length} archivo(s) subido(s):
                       </p>
-                      <ul className="text-sm text-blue-700 space-y-1">
+                      <ul className="text-sm text-sage-dark space-y-1">
                         {uploadedFiles.map((file, idx) => (
                           <li key={idx} className="flex items-center gap-2">
                             <CheckCircle2 className="h-3 w-3" />
@@ -444,7 +431,7 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
                           </li>
                         ))}
                       </ul>
-                      <p className="text-xs text-blue-600 mt-2">
+                      <p className="text-xs text-sage mt-2">
                         Los campos a continuación se aplicarán a todos los documentos
                       </p>
                     </div>

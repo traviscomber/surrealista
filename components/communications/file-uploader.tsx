@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useCallback } from "react"
-import { Upload, X, type File, CheckCircle2, AlertCircle, FileText, Map } from "lucide-react"
+import { Upload, X, Type as type, File, CheckCircle2, AlertCircle, FileText, Map } from 'lucide-react'
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { cn } from "@/lib/utils"
@@ -207,7 +207,7 @@ export function FileUploader({
         onDrop={handleDrop}
         className={cn(
           "border-2 border-dashed rounded-lg p-8 text-center transition-colors",
-          isDragging ? "border-orange-500 bg-orange-50" : "border-gray-300 bg-gray-50",
+          isDragging ? "border-sage bg-sage/5" : "border-gray-300 bg-gray-50",
           isUploading && "opacity-50 pointer-events-none",
         )}
       >
@@ -231,7 +231,7 @@ export function FileUploader({
             </p>
             <p className="text-sm text-gray-500">Archivos permitidos: PDF, DOC, DOCX, KMZ, KML (máx. {maxSizeMB}MB)</p>
             {multiple && (
-              <p className="text-sm text-orange-600 font-medium mt-2">
+              <p className="text-sm text-sage-dark font-medium mt-2">
                 💡 Puedes subir múltiples documentos y archivos KMZ/KML a la vez
               </p>
             )}
@@ -245,9 +245,9 @@ export function FileUploader({
                 key={idx}
                 className={cn(
                   "p-4 rounded-lg border text-left",
-                  fileState.status === "complete" && "bg-green-50 border-green-200",
+                  fileState.status === "complete" && "bg-sage/10 border-sage/30",
                   fileState.status === "error" && "bg-red-50 border-red-200",
-                  fileState.status === "uploading" && "bg-blue-50 border-blue-200",
+                  fileState.status === "uploading" && "bg-sage/5 border-sage/20",
                 )}
               >
                 <div className="flex items-start gap-3">
@@ -270,7 +270,7 @@ export function FileUploader({
                     )}
 
                     {fileState.status === "complete" && (
-                      <Badge className="mt-2 bg-green-600 text-white">Subido exitosamente</Badge>
+                      <Badge className="mt-2 bg-sage text-white">Subido exitosamente</Badge>
                     )}
 
                     {fileState.status === "error" && <p className="text-xs text-red-600 mt-1">{fileState.error}</p>}

@@ -3,7 +3,7 @@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { useState, useEffect } from "react"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
-import { MessageSquare, Sparkles, ListChecks, FileText, Eye, EyeOff, CheckSquare, BarChart3 } from "lucide-react"
+import { MessageSquare, Sparkles, ListChecks, FileText, Eye, EyeOff, CheckSquare, BarChart3 } from 'lucide-react'
 import { TemplateLibrary } from "./template-library"
 import { CommunicationsTracking } from "./communications-tracking"
 import { DocumentsManager } from "./documents-manager"
@@ -107,8 +107,8 @@ export function CommunicationsManager() {
         return [
           { label: "Urgentes Hoy", value: urgentTasks, color: "text-red-600" },
           { label: "Pendientes", value: pendingTasks, color: "text-gray-600" },
-          { label: "Completadas (semana)", value: completedThisWeek, color: "text-green-600" },
-          { label: "Vencidas", value: overdueTasks, color: "text-orange-600" },
+          { label: "Completadas (semana)", value: completedThisWeek, color: "text-sage-dark" },
+          { label: "Vencidas", value: overdueTasks, color: "text-sage" },
         ]
 
       case "summary":
@@ -127,9 +127,9 @@ export function CommunicationsManager() {
         const completionRate = totalTasksWeek > 0 ? Math.round((completedTasksWeek / totalTasksWeek) * 100) : 0
 
         return [
-          { label: "Tareas Semana", value: totalTasksWeek, color: "text-blue-600" },
-          { label: "Tasa Completitud", value: `${completionRate}%`, color: "text-green-600" },
-          { label: "Activas", value: tasks.filter((t) => t.status !== "completed").length, color: "text-orange-600" },
+          { label: "Tareas Semana", value: totalTasksWeek, color: "text-sage-dark" },
+          { label: "Tasa Completitud", value: `${completionRate}%`, color: "text-sage-dark" },
+          { label: "Activas", value: tasks.filter((t) => t.status !== "completed").length, color: "text-sage" },
           { label: "Total Tareas", value: tasks.length, color: "text-gray-600" },
         ]
 
@@ -147,12 +147,12 @@ export function CommunicationsManager() {
 
   return (
     <div className="space-y-6">
-      <Card className="border-purple-200 bg-gradient-to-r from-purple-50 to-pink-50">
+      <Card className="border-sage-dark/30 bg-gradient-to-r from-sage/5 to-sage-light/10">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
               <CardTitle className="flex items-center gap-2">
-                <MessageSquare className="h-6 w-6 text-purple-600" />
+                <MessageSquare className="h-6 w-6 text-sage-dark" />
                 Centro de Trabajo
               </CardTitle>
               <p className="text-sm text-gray-600 mt-2">Tu hub completo de tareas, documentos y comunicaciones</p>
@@ -172,7 +172,7 @@ export function CommunicationsManager() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-5 h-auto">
-          <TabsTrigger value="tasks" className="flex items-center gap-2 py-3 relative">
+          <TabsTrigger value="tasks" className="flex items-center gap-2 py-3 relative data-[state=active]:bg-sage data-[state=active]:text-white">
             <CheckSquare className="h-4 w-4" />
             <div className="text-left">
               <div className="font-semibold flex items-center gap-2">
@@ -185,7 +185,7 @@ export function CommunicationsManager() {
             </div>
           </TabsTrigger>
 
-          <TabsTrigger value="summary" className="flex items-center gap-2 py-3">
+          <TabsTrigger value="summary" className="flex items-center gap-2 py-3 data-[state=active]:bg-sage data-[state=active]:text-white">
             <BarChart3 className="h-4 w-4" />
             <div className="text-left">
               <div className="font-semibold">Resumen Semanal</div>
@@ -193,7 +193,7 @@ export function CommunicationsManager() {
             </div>
           </TabsTrigger>
 
-          <TabsTrigger value="documents" className="flex items-center gap-2 py-3">
+          <TabsTrigger value="documents" className="flex items-center gap-2 py-3 data-[state=active]:bg-sage data-[state=active]:text-white">
             <FileText className="h-4 w-4" />
             <div className="text-left">
               <div className="font-semibold">Documentación</div>
@@ -201,7 +201,7 @@ export function CommunicationsManager() {
             </div>
           </TabsTrigger>
 
-          <TabsTrigger value="tracking" className="flex items-center gap-2 py-3">
+          <TabsTrigger value="tracking" className="flex items-center gap-2 py-3 data-[state=active]:bg-sage data-[state=active]:text-white">
             <ListChecks className="h-4 w-4" />
             <div className="text-left">
               <div className="font-semibold">Gestión y Tracking</div>
@@ -209,7 +209,7 @@ export function CommunicationsManager() {
             </div>
           </TabsTrigger>
 
-          <TabsTrigger value="templates" className="flex items-center gap-2 py-3">
+          <TabsTrigger value="templates" className="flex items-center gap-2 py-3 data-[state=active]:bg-sage data-[state=active]:text-white">
             <Sparkles className="h-4 w-4" />
             <div className="text-left">
               <div className="font-semibold">Biblioteca de Templates</div>
