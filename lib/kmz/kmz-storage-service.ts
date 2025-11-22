@@ -1,4 +1,4 @@
-import { createBrowserClient } from "@/lib/supabase/client"
+import { supabase } from "@/lib/supabase/client"
 import { detectRegionFromBounds } from "@/lib/utils/region-detector"
 
 export interface StoredKMZ {
@@ -31,7 +31,7 @@ export interface KMZForMap {
 }
 
 class KMZStorageService {
-  private supabase = createBrowserClient()
+  private supabase = supabase
 
   /**
    * Load all active KMZ files from database

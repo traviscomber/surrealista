@@ -11,11 +11,24 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { KMZMapDisplay } from "@/components/kmz/kmz-map-display"
 import { createBrowserClient } from "@/lib/supabase/client"
-import { Folder, FolderOpen, File, Search, ChevronRight, ChevronDown, MapPin, RefreshCw, Menu, Upload } from 'lucide-react'
-// import { useGoogleDrive } from "@/lib/contexts/google-drive-context"
+import {
+  Folder,
+  FolderOpen,
+  File,
+  Search,
+  ChevronRight,
+  ChevronDown,
+  MapPin,
+  RefreshCw,
+  Menu,
+  Upload,
+  FileText,
+  ExternalLink,
+} from "lucide-react"
 import { kmzReader } from "@/lib/kmz/kmz-reader"
 import { kmzStorageService } from "@/lib/kmz/kmz-storage-service"
 import { regionRescanService, type RescanProgress } from "@/lib/kmz/region-rescan-service"
+import { documentKMZLinker, type KMZDocumentLink } from "@/lib/documents/document-kmz-linker"
 import { useToast } from "@/hooks/use-toast"
 
 interface FolderItem {
@@ -36,11 +49,9 @@ interface FolderItem {
 
 const getCleanRegionName = (fullName: string): string => {
   if (!fullName) return fullName
-  
+
   // Remove "Región de " or "Región del "
-  return fullName
-    .replace(/^Región de /i, "")
-    .replace(/^Región del /i, "")
+  return fullName.replace(/^Región de /i, "").replace(/^Región del /i, "")
 }
 
 export function CAMPOSFolderView() {
@@ -56,23 +67,20 @@ export function CAMPOSFolderView() {
   const [isDetailsSheetOpen, setIsDetailsSheetOpen] = useState(false)
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(false)
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(false)
-  // const [driveKMZFiles, setDriveKMZFiles] = useState<any[]>([])
-  // const [isLoadingDrive, setIsLoadingDrive] = useState(false)
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const supabase = createBrowserClient()
-  // const { driveService, isConnected } = useGoogleDrive()
-
   const { toast } = useToast()
   const [isRescanning, setIsRescanning] = useState(false)
   const [rescanProgress, setRescanProgress] = useState<RescanProgress | null>(null)
 
+  const [selectedItemDocuments, setSelectedItemDocuments] = useState<KMZDocumentLink[]>([])
+  const [documentCount, setDocumentCount] = useState<number>(0)
+  const [loadingDocuments, setLoadingDocuments] = useState(false)
+
   useEffect(() => {
     loadRegionMetadata()
-    // if (isConnected && driveService) {
-    //   loadDriveKMZFiles()
-    // }
   }, [])
 
   const loadRegionMetadata = async () => {
@@ -269,11 +277,32 @@ export function CAMPOSFolderView() {
   const handleItemClick = async (item: FolderItem) => {
     console.log("[v0] Item clicked:", item.name, "type:", item.type)
     setSelectedItem(item)
-    setIsDetailsSheetOpen(true) // Auto-open details on mobile
+    setIsDetailsSheetOpen(true)
 
     if (item.location) {
       console.log("[v0] Centering map on coordinates:", item.location)
       setMapCenter(item.location)
+    }
+
+    if (item.type === "file" && item.dbId) {
+      setLoadingDocuments(true)
+      try {
+        const docs = await documentKMZLinker.getDocumentsForKMZ(item.dbId.toString(), item.name)
+        const count = await documentKMZLinker.getDocumentCountForKMZ(item.dbId.toString(), item.name)
+        setSelectedItemDocuments(docs)
+        setDocumentCount(count)
+        console.log("[v0] Loaded", count, "documents for KMZ:", item.name)
+      } catch (error) {
+        console.error("[v0] Error loading documents for KMZ:", error)
+        setSelectedItemDocuments([])
+        setDocumentCount(0)
+      } finally {
+        setLoadingDocuments(false)
+      }
+    } else {
+      // Clear documents if not a file
+      setSelectedItemDocuments([])
+      setDocumentCount(0)
     }
 
     if (item.type === "folder") {
@@ -284,89 +313,6 @@ export function CAMPOSFolderView() {
       }
     }
   }
-
-  // const loadDriveKMZFiles = async () => {
-  //   if (!driveService || !isConnected) {
-  //     console.log("[v0] Google Drive not connected, skipping Drive KMZ search")
-  //     return
-  //   }
-
-  //   setIsLoadingDrive(true)
-  //   console.log("[v0] Searching for KMZ/KML files in Google Drive...")
-
-  //   try {
-  //     // Search for both KMZ and KML files
-  //     const kmzFiles = await driveService.searchFiles({
-  //       mimeType: "application/vnd.google-earth.kmz",
-  //     })
-
-  //     const kmlFiles = await driveService.searchFiles({
-  //       mimeType: "application/vnd.google-earth.kml",
-  //     })
-
-  //     const allDriveFiles = [...kmzFiles, ...kmlFiles]
-  //     console.log("[v0] Found", allDriveFiles.length, "KMZ/KML files in Google Drive")
-
-  //     setDriveKMZFiles(allDriveFiles)
-
-  //     if (allDriveFiles.length > 0) {
-  //       await integrateDriveToFolders(allDriveFiles)
-  //     }
-  //   } catch (error) {
-  //     console.error("[v0] Error loading Drive KMZ files:", error)
-  //   } finally {
-  //     setIsLoadingDrive(false)
-  //   }
-  // }
-
-  // const integrateDriveToFolders = async (driveFiles: any[]) => {
-  //   console.log("[v0] Integrating", driveFiles.length, "Drive files into folder structure")
-
-  //   // Get current database folders
-  //   const { data: dbData, error } = await supabase
-  //     .from("kmz_collection")
-  //     .select("id, file_name, region, placemarks_count, bounds, tags, file_path")
-  //     .eq("is_active", true)
-  //     .order("region", { ascending: true })
-
-  //   if (error) {
-  //     console.error("[v0] Error loading DB data:", error)
-  //     return
-  //   }
-
-  //   // Create a combined metadata array
-  //   const combinedMetadata = [...(dbData || [])]
-
-  //   // Add Drive files with folder structure
-  //   for (const file of driveFiles) {
-  //     // Get parent folder name
-  //     let folderName = "Google Drive - Sin Carpeta"
-
-  //     if (file.parents && file.parents.length > 0) {
-  //       try {
-  //         const parentFolder = await driveService.getFile(file.parents[0])
-  //         folderName = `Google Drive - ${parentFolder.name}`
-  //       } catch (err) {
-  //         console.error("[v0] Error getting parent folder:", err)
-  //       }
-  //     }
-
-  //     combinedMetadata.push({
-  //       id: `drive-${file.id}`,
-  //       file_name: file.name,
-  //       region: folderName,
-  //       placemarks_count: 0, // Will be loaded on demand
-  //       bounds: null,
-  //       tags: ["google-drive"],
-  //       file_path: file.webViewLink || file.webContentLink,
-  //       driveFileId: file.id,
-  //       isDriveFile: true,
-  //     })
-  //   }
-
-  //   console.log("[v0] Combined metadata:", combinedMetadata.length, "files from DB and Drive")
-  //   buildRegionFolders(combinedMetadata)
-  // }
 
   const handleOfflineKMZUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files
@@ -444,10 +390,10 @@ export function CAMPOSFolderView() {
 
   const handleRescanRegions = async () => {
     if (isRescanning) return
-    
+
     const sinRegionFolder = folders.find((f) => f.name === "Sin Región")
     const fileCount = sinRegionFolder?.fileCount || 0
-    
+
     if (fileCount === 0) {
       toast({
         title: "No hay archivos para reasignar",
@@ -455,12 +401,12 @@ export function CAMPOSFolderView() {
       })
       return
     }
-    
+
     const confirmed = confirm(
       `¿Deseas reanalizar ${fileCount} archivos KMZ en 'Sin Región' y asignarlos a sus regiones correctas?\n\n` +
-      "Esto puede tomar varios minutos dependiendo de la cantidad de archivos."
+        "Esto puede tomar varios minutos dependiendo de la cantidad de archivos.",
     )
-    
+
     if (!confirmed) return
 
     setIsRescanning(true)
@@ -476,7 +422,7 @@ export function CAMPOSFolderView() {
           title: "Reasignación completada",
           description: `Se reasignaron ${result.totalUpdated} archivos a sus regiones correctas.`,
         })
-        
+
         // Refresh the folder structure
         await loadRegionMetadata()
       } else {
@@ -528,9 +474,7 @@ export function CAMPOSFolderView() {
                 <p className="text-sm font-medium text-sage-900">
                   {folders.find((f) => f.name === "Sin Región")?.fileCount || 0} archivos sin región
                 </p>
-                <p className="text-xs text-sage-700 mt-1">
-                  Pueden reasignarse automáticamente según coordenadas
-                </p>
+                <p className="text-xs text-sage-700 mt-1">Pueden reasignarse automáticamente según coordenadas</p>
               </div>
               <Button
                 onClick={handleRescanRegions}
@@ -551,7 +495,7 @@ export function CAMPOSFolderView() {
                 )}
               </Button>
             </div>
-            
+
             {rescanProgress && rescanProgress.total > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-xs text-sage-700">
@@ -571,9 +515,7 @@ export function CAMPOSFolderView() {
                   />
                 </div>
                 {rescanProgress.currentFile && (
-                  <p className="text-xs text-sage-600 truncate">
-                    {rescanProgress.currentFile}
-                  </p>
+                  <p className="text-xs text-sage-600 truncate">{rescanProgress.currentFile}</p>
                 )}
               </div>
             )}
@@ -718,6 +660,72 @@ export function CAMPOSFolderView() {
                   <p>Lat: {selectedItem.location.lat.toFixed(6)}</p>
                   <p>Lng: {selectedItem.location.lng.toFixed(6)}</p>
                 </div>
+              </div>
+            )}
+
+            {selectedItem.type === "file" && (
+              <div className="pt-4 border-t">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-semibold flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Documentos Asociados
+                  </h4>
+                  {documentCount > 0 && (
+                    <Badge variant="secondary" className="text-xs">
+                      {documentCount}
+                    </Badge>
+                  )}
+                </div>
+
+                {loadingDocuments && (
+                  <div className="flex items-center justify-center py-4">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-sage"></div>
+                  </div>
+                )}
+
+                {!loadingDocuments && documentCount > 0 && (
+                  <div className="space-y-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="w-full justify-start bg-transparent"
+                      onClick={() => {
+                        const folderPath = documentKMZLinker.getDocumentFolderPath(selectedItem.name)
+                        window.location.href = folderPath
+                      }}
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Ver Carpeta de Documentos ({documentCount})
+                    </Button>
+
+                    <div className="text-xs text-muted-foreground">
+                      <p className="mb-1">Documentos recientes:</p>
+                      <ScrollArea className="h-24">
+                        <div className="space-y-1">
+                          {selectedItemDocuments.slice(0, 5).map((doc) => (
+                            <div
+                              key={doc.documentId}
+                              className="flex items-start gap-2 p-1.5 rounded hover:bg-accent/50"
+                            >
+                              <FileText className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs truncate">{doc.documentTitle}</p>
+                                <p className="text-[10px] text-muted-foreground">{doc.documentType}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </div>
+                )}
+
+                {!loadingDocuments && documentCount === 0 && (
+                  <div className="text-xs text-muted-foreground py-2 bg-muted/30 rounded p-3">
+                    <p>No hay documentos asociados a este campo.</p>
+                    <p className="mt-1">Puedes agregar documentos desde la sección de Documentación.</p>
+                  </div>
+                )}
               </div>
             )}
 
