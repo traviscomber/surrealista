@@ -27,7 +27,24 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Badge } from "@/components/ui/badge"
-import { FileText, Plus, Search, Filter, Edit, Trash2, ExternalLink, Calendar, Tag, MapPin, Lightbulb, CheckCircle2 } from 'lucide-react'
+import {
+  FileText,
+  Plus,
+  Search,
+  Filter,
+  Edit,
+  Trash2,
+  ExternalLink,
+  Calendar,
+  Tag,
+  MapPin,
+  Lightbulb,
+  CheckCircle2,
+  Folder,
+  FolderOpen,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react"
 import { createBrowserClient } from "@supabase/ssr"
 import { toast } from "sonner"
 import { FileUploader } from "./file-uploader"
@@ -55,6 +72,9 @@ interface Document {
   updated_at: string
 }
 
+// Renaming for clarity in the context of the updates
+type PropertyDocument = Document
+
 const DOCUMENT_TYPES = [
   { value: "orden_venta", label: "Orden de Venta", icon: "📋" },
   { value: "documento_comercial", label: "Documento Comercial", icon: "💼" },
@@ -76,17 +96,20 @@ const STATUS_OPTIONS = [
 ]
 
 export function DocumentsManager({ showDemoData = true }: { showDemoData?: boolean }) {
-  const [documents, setDocuments] = useState<Document[]>([])
+  const [documents, setDocuments] = useState<PropertyDocument[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [typeFilter, setTypeFilter] = useState<string>("todos")
   const [statusFilter, setStatusFilter] = useState<string>("todos")
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [editingDocument, setEditingDocument] = useState<Document | null>(null)
-  const [deletingDocument, setDeleteingDocument] = useState<Document | null>(null)
+  const [editingDocument, setEditingDocument] = useState<PropertyDocument | null>(null)
+  const [deletingDocument, setDeleteingDocument] = useState<PropertyDocument | null>(null)
   const [uploadedFiles, setUploadedFiles] = useState<
     { url: string; fileName: string; fileSize: number; fileType: string }[]
   >([])
+
+  const [viewMode, setViewMode] = useState<"list" | "folders">("list")
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
 
   // Form state
   const [formData, setFormData] = useState({
@@ -255,7 +278,7 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
     setUploadedFiles([])
   }
 
-  const openEditDialog = (doc: Document) => {
+  const openEditDialog = (doc: PropertyDocument) => {
     setEditingDocument(doc)
     setFormData({
       title: doc.title,
@@ -309,6 +332,57 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
     active: documents.filter((d) => d.status === "vigente").length,
     archived: documents.filter((d) => d.status === "archivado").length,
     draft: documents.filter((d) => d.status === "borrador").length,
+  }
+
+  const extractCampoName = (title: string): string | null => {
+    // Try to extract campo name from title (e.g., "Campo Iñipulli - Plano" -> "Iñipulli")
+    const campoMatch = title.match(/Campo\s+([^-]+)/i)
+    if (campoMatch) {
+      let campoName = campoMatch[1].trim()
+      // Normalize common variations: IñipuIIi (with II) -> Iñipulli
+      campoName = campoName.replace(/I{2,}/gi, "i")
+      // Normalize whitespace
+      campoName = campoName.replace(/\s+/g, " ").trim()
+      return campoName
+    }
+    return null
+  }
+
+  const groupDocumentsByCampo = (docs: PropertyDocument[]): Record<string, PropertyDocument[]> => {
+    const folders: Record<string, PropertyDocument[]> = {}
+
+    docs.forEach((doc) => {
+      const campoName = extractCampoName(doc.title)
+      console.log("[v0] Extracting campo from:", doc.title, "-> Campo name:", campoName)
+
+      if (campoName) {
+        // Use lowercase for grouping to avoid case-sensitive duplicates
+        const normalizedKey = campoName.toLowerCase()
+        if (!folders[normalizedKey]) {
+          folders[normalizedKey] = []
+        }
+        folders[normalizedKey].push(doc)
+      } else {
+        // Put documents without campo pattern in "Otros"
+        if (!folders["otros"]) {
+          folders["otros"] = []
+        }
+        folders["otros"].push(doc)
+      }
+    })
+
+    console.log("[v0] Grouped folders:", Object.keys(folders), "Total documents:", docs.length)
+    return folders
+  }
+
+  const toggleFolder = (folderName: string) => {
+    const newExpanded = new Set(expandedFolders)
+    if (newExpanded.has(folderName)) {
+      newExpanded.delete(folderName)
+    } else {
+      newExpanded.add(folderName)
+    }
+    setExpandedFolders(newExpanded)
   }
 
   return (
@@ -387,6 +461,16 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
                     {status.label}
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+            <Select value={viewMode} onValueChange={(value: any) => setViewMode(value)}>
+              <SelectTrigger className="w-full md:w-[180px]">
+                {viewMode === "folders" ? <Folder className="h-4 w-4 mr-2" /> : <FileText className="h-4 w-4 mr-2" />}
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="list">Vista de Lista</SelectItem>
+                <SelectItem value="folders">Vista de Carpetas</SelectItem>
               </SelectContent>
             </Select>
             <Dialog
@@ -575,99 +659,232 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
         </CardContent>
       </Card>
 
-      {/* Documents List */}
+      {/* Documents List or Folders */}
       <div className="space-y-4">
         {loading ? (
           <Card>
             <CardContent className="py-12 text-center text-gray-500">Cargando documentos...</CardContent>
           </Card>
-        ) : filteredDocuments.length === 0 ? (
-          <Card>
-            <CardContent className="py-12 text-center text-gray-500">
-              <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-              <p>No se encontraron documentos</p>
-            </CardContent>
-          </Card>
-        ) : (
-          filteredDocuments.map((doc) => {
-            const docType = DOCUMENT_TYPES.find((t) => t.value === doc.document_type)
-            const statusInfo = STATUS_OPTIONS.find((s) => s.value === doc.status)
-            const isDemo =
-              doc.tags?.includes("demo") ||
-              doc.tags?.includes("ejemplo") ||
-              doc.kmz_references.some((kmz) => kmz.toLowerCase().includes("ranco")) ||
-              doc.title.toLowerCase().includes("ranco")
+        ) : viewMode === "folders" ? (
+          <>
+            {/* Consolidated folder view logic */}
+            {Object.keys(groupDocumentsByCampo(filteredDocuments)).length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center text-gray-500">
+                  <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                  <p>No se encontraron documentos</p>
+                </CardContent>
+              </Card>
+            ) : (
+              Object.entries(groupDocumentsByCampo(filteredDocuments))
+                .sort(([a], [b]) => a.localeCompare(b)) // Sort folders alphabetically by normalized key
+                .map(([campoKey, docs]) => {
+                  // campoKey is the lowercase normalized key
+                  const isExpanded = expandedFolders.has(campoKey)
+                  // Use original casing from first document for display, or fallback to capitalized key
+                  const displayName =
+                    extractCampoName(docs[0].title) || campoKey.charAt(0).toUpperCase() + campoKey.slice(1)
 
-            return (
-              <Card key={doc.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 space-y-3">
-                      <div className="flex items-start gap-3">
-                        <div className="text-3xl">{docType?.icon}</div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold text-lg">{doc.title}</h3>
-                            <Badge className={`${statusInfo?.color} text-white`} variant="secondary">
-                              {statusInfo?.label}
-                            </Badge>
-                            {isDemo && (
-                              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300">
-                                <Lightbulb className="h-3 w-3 mr-1" />
-                                DEMO
-                              </Badge>
-                            )}
+                  return (
+                    <Card key={campoKey} className="border rounded-lg overflow-hidden bg-white">
+                      <div
+                        className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+                        onClick={() => toggleFolder(campoKey)} // Use normalized key for toggling
+                      >
+                        <div className="flex items-center gap-3 flex-1">
+                          {isExpanded ? (
+                            <FolderOpen className="h-5 w-5 text-sage-dark" />
+                          ) : (
+                            <Folder className="h-5 w-5 text-sage-dark" />
+                          )}
+                          <div>
+                            <h3 className="font-medium">Campo {displayName}</h3>
+                            <p className="text-sm text-gray-500">{docs.length} documento(s)</p>
                           </div>
-                          <p className="text-sm text-gray-600 mb-2">{docType?.label}</p>
-                          {doc.description && <p className="text-sm text-gray-700 mb-3">{doc.description}</p>}
-
-                          <div className="flex flex-wrap gap-4 text-sm text-gray-600">
-                            {doc.kmz_references.length > 0 && (
-                              <div className="flex items-center gap-1">
-                                <MapPin className="h-4 w-4" />
-                                <span className="font-medium">KMZ/KML: {doc.kmz_references.join(", ")}</span>
-                              </div>
-                            )}
-                            {doc.document_date && (
-                              <div className="flex items-center gap-1">
-                                <Calendar className="h-4 w-4" />
-                                {new Date(doc.document_date).toLocaleDateString("es-CL")}
-                              </div>
-                            )}
-                          </div>
-
-                          {doc.tags.length > 0 && (
-                            <div className="flex items-center gap-2 mt-2 flex-wrap">
-                              <Tag className="h-3 w-3 text-gray-400" />
-                              {doc.tags.map((tag, idx) => (
-                                <Badge key={idx} variant="outline" className="text-xs">
-                                  {tag}
-                                </Badge>
-                              ))}
-                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              // Use the display name for the URL to maintain original casing if possible
+                              window.open(`/documentacion/campos/${displayName}`, "_blank")
+                            }}
+                          >
+                            <ExternalLink className="h-4 w-4 mr-1" />
+                            Abrir Carpeta
+                          </Button>
+                          {isExpanded ? (
+                            <ChevronDown className="h-5 w-5 text-gray-400" />
+                          ) : (
+                            <ChevronRight className="h-5 w-5 text-gray-400" />
                           )}
                         </div>
                       </div>
-                    </div>
 
-                    <div className="flex items-center gap-2">
-                      {doc.file_url && (
-                        <Button size="sm" variant="outline" onClick={() => window.open(doc.file_url, "_blank")}>
-                          <ExternalLink className="h-4 w-4" />
-                        </Button>
+                      {/* Expanded folder content */}
+                      {isExpanded && (
+                        <div className="border-t bg-gray-50">
+                          {docs.map((doc) => {
+                            const docType = DOCUMENT_TYPES.find((t) => t.value === doc.document_type)
+                            const statusInfo = STATUS_OPTIONS.find((s) => s.value === doc.status)
+                            const isDemo =
+                              doc.tags?.includes("demo") ||
+                              doc.tags?.includes("ejemplo") ||
+                              doc.kmz_references.some((kmz) => kmz.toLowerCase().includes("ranco")) ||
+                              doc.title.toLowerCase().includes("ranco")
+
+                            return (
+                              <div key={doc.id} className="p-4 border-b last:border-b-0 bg-white">
+                                <div className="flex items-start justify-between gap-4">
+                                  <div className="flex-1 space-y-2">
+                                    <div className="flex items-start gap-3">
+                                      <div className="text-2xl">{docType?.icon}</div>
+                                      <div className="flex-1">
+                                        <div className="flex items-center gap-2 mb-1">
+                                          <h4 className="font-medium">{doc.title}</h4>
+                                          <Badge className={`${statusInfo?.color} text-white`} variant="secondary">
+                                            {statusInfo?.label}
+                                          </Badge>
+                                          {isDemo && (
+                                            <Badge
+                                              variant="outline"
+                                              className="bg-amber-50 text-amber-700 border-amber-300"
+                                            >
+                                              <Lightbulb className="h-3 w-3 mr-1" />
+                                              DEMO
+                                            </Badge>
+                                          )}
+                                        </div>
+                                        <p className="text-sm text-gray-600">{docType?.label}</p>
+                                        {doc.description && (
+                                          <p className="text-sm text-gray-700 mt-1">{doc.description}</p>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-2">
+                                    {doc.file_url && (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => window.open(doc.file_url, "_blank")}
+                                      >
+                                        <ExternalLink className="h-4 w-4" />
+                                      </Button>
+                                    )}
+                                    <Button size="sm" variant="outline" onClick={() => openEditDialog(doc)}>
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button size="sm" variant="outline" onClick={() => setDeleteingDocument(doc)}>
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
                       )}
-                      <Button size="sm" variant="outline" onClick={() => openEditDialog(doc)}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button size="sm" variant="outline" onClick={() => setDeleteingDocument(doc)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
+                    </Card>
+                  )
+                })
+            )}
+          </>
+        ) : (
+          // Original list view
+          <>
+            {filteredDocuments.length === 0 ? (
+              <Card>
+                <CardContent className="py-12 text-center text-gray-500">
+                  <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                  <p>No se encontraron documentos</p>
                 </CardContent>
               </Card>
-            )
-          })
+            ) : (
+              filteredDocuments.map((doc) => {
+                const docType = DOCUMENT_TYPES.find((t) => t.value === doc.document_type)
+                const statusInfo = STATUS_OPTIONS.find((s) => s.value === doc.status)
+                const isDemo =
+                  doc.tags?.includes("demo") ||
+                  doc.tags?.includes("ejemplo") ||
+                  doc.kmz_references.some((kmz) => kmz.toLowerCase().includes("ranco")) ||
+                  doc.title.toLowerCase().includes("ranco")
+
+                return (
+                  <Card key={doc.id} className="hover:shadow-md transition-shadow">
+                    <CardContent className="p-6">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 space-y-3">
+                          <div className="flex items-start gap-3">
+                            <div className="text-3xl">{docType?.icon}</div>
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="font-semibold text-lg">{doc.title}</h3>
+                                <Badge className={`${statusInfo?.color} text-white`} variant="secondary">
+                                  {statusInfo?.label}
+                                </Badge>
+                                {isDemo && (
+                                  <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300">
+                                    <Lightbulb className="h-3 w-3 mr-1" />
+                                    DEMO
+                                  </Badge>
+                                )}
+                              </div>
+                              <p className="text-sm text-gray-600 mb-2">{docType?.label}</p>
+                              {doc.description && <p className="text-sm text-gray-700 mb-3">{doc.description}</p>}
+
+                              <div className="flex flex-wrap gap-4 text-sm text-gray-600">
+                                {doc.kmz_references.length > 0 && (
+                                  <div className="flex items-center gap-1">
+                                    <MapPin className="h-4 w-4" />
+                                    <span className="font-medium">KMZ/KML: {doc.kmz_references.join(", ")}</span>
+                                  </div>
+                                )}
+                                {doc.document_date && (
+                                  <div className="flex items-center gap-1">
+                                    <Calendar className="h-4 w-4" />
+                                    {new Date(doc.document_date).toLocaleDateString("es-CL")}
+                                  </div>
+                                )}
+                              </div>
+
+                              {doc.tags.length > 0 && (
+                                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                  <Tag className="h-3 w-3 text-gray-400" />
+                                  {doc.tags.map((tag, idx) => (
+                                    <Badge key={idx} variant="outline" className="text-xs">
+                                      {tag}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {doc.file_url && (
+                            <Button size="sm" variant="outline" onClick={() => window.open(doc.file_url, "_blank")}>
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                          )}
+                          <Button size="sm" variant="outline" onClick={() => openEditDialog(doc)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => setDeleteingDocument(doc)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })
+            )}
+          </>
         )}
       </div>
 
