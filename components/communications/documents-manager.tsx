@@ -144,6 +144,10 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
     status: "vigente",
   })
 
+  const [editUploadedFiles, setEditUploadedFiles] = useState<
+    { url: string; fileName: string; fileSize: number; fileType: string }[]
+  >([])
+
   const supabase = getSupabaseClient()
 
   useEffect(() => {
@@ -245,8 +249,9 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
         title: formData.title,
         document_type: formData.document_type,
         description: formData.description || null,
-        file_url: formData.file_url || null,
-        file_name: formData.file_name || null,
+        file_url: editUploadedFiles.length > 0 ? editUploadedFiles[0].url : formData.file_url,
+        file_type: editUploadedFiles.length > 0 ? editUploadedFiles[0].fileType : formData.file_type,
+        file_size: editUploadedFiles.length > 0 ? editUploadedFiles[0].fileSize : formData.file_size,
         linked_kmz_ids: formData.kmz_references ? formData.kmz_references.split(",").map((k) => k.trim()) : [],
         tags: formData.tags ? formData.tags.split(",").map((t) => t.trim()) : [],
         document_date: formData.document_date || null,
@@ -260,6 +265,7 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
       toast.success("Documento actualizado exitosamente")
       setEditingDocument(null)
       resetForm()
+      setEditUploadedFiles([])
       loadDocuments()
     } catch (error: any) {
       console.error("Error updating document:", error)
@@ -301,12 +307,15 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
 
   const openEditDialog = (doc: PropertyDocument) => {
     setEditingDocument(doc)
+    setEditUploadedFiles([])
     setFormData({
       title: doc.title,
       document_type: doc.document_type,
       description: doc.description || "",
       file_url: doc.file_url || "",
-      file_name: doc.file_name || "",
+      file_name: doc.file_name || "", // This field exists in the interface but not in the table, handle carefully
+      file_type: doc.file_type || "",
+      file_size: doc.file_size || 0,
       kmz_references: (doc.linked_kmz_ids || []).join(", "), // Populate input from linked_kmz_ids
       tags: doc.tags.join(", "),
       document_date: doc.document_date || "",
@@ -323,7 +332,25 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
         ...formData,
         file_url: files[0].url,
         file_name: files[0].fileName,
+        file_type: files[0].fileType,
+        file_size: files[0].fileSize,
         title: formData.title || files[0].fileName.replace(/\.[^/.]+$/, ""),
+      })
+    }
+  }
+
+  const handleEditFileUpload = (files: { url: string; fileName: string; fileSize: number; fileType: string }[]) => {
+    setEditUploadedFiles(files)
+
+    // If only one file, auto-populate form fields
+    if (files.length === 1) {
+      setFormData({
+        ...formData,
+        file_url: files[0].url,
+        file_name: files[0].fileName,
+        file_type: files[0].fileType,
+        file_size: files[0].fileSize,
+        // Don't overwrite title here, let user decide in edit form
       })
     }
   }
@@ -855,15 +882,6 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
                           placeholder="https://..."
                         />
                       </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="file_name">Nombre del Archivo</Label>
-                        <Input
-                          id="file_name"
-                          value={formData.file_name}
-                          onChange={(e) => setFormData({ ...formData, file_name: e.target.value })}
-                          placeholder="documento.pdf"
-                        />
-                      </div>
                     </>
                   )}
                 </div>
@@ -1186,7 +1204,15 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
 
                         <div className="flex items-center gap-2">
                           {doc.file_url && (
-                            <Button size="sm" variant="outline" onClick={() => window.open(doc.file_url, "_blank")}>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                console.log("[v0] Opening file URL:", doc.file_url)
+                                console.log("[v0] Document title:", doc.title)
+                                window.open(doc.file_url, "_blank")
+                              }}
+                            >
                               <ExternalLink className="h-4 w-4" />
                             </Button>
                           )}
@@ -1213,6 +1239,7 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
         onOpenChange={(open) => {
           if (!open) {
             setEditingDocument(null)
+            setEditUploadedFiles([])
             resetForm()
           }
         }}
@@ -1266,22 +1293,29 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
                 onChange={(e) => setFormData({ ...formData, kmz_references: e.target.value })}
               />
             </div>
+
             <div className="grid gap-2">
-              <Label htmlFor="edit-file_url">URL del Archivo</Label>
+              <Label>Subir Nuevo Archivo (opcional)</Label>
+              <FileUploader
+                onUploadComplete={handleEditFileUpload}
+                multiple={false}
+                acceptedTypes=".pdf,.doc,.docx,.kmz,.kml,.jpg,.jpeg,.png"
+              />
+              {editUploadedFiles.length > 0 && (
+                <p className="text-sm text-green-600">✓ Archivo cargado: {editUploadedFiles[0].fileName}</p>
+              )}
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="edit-file-url">URL del Archivo</Label>
               <Input
-                id="edit-file_url"
-                value={formData.file_url}
+                id="edit-file-url"
+                value={formData.file_url || ""}
                 onChange={(e) => setFormData({ ...formData, file_url: e.target.value })}
+                placeholder="https://..."
               />
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-file_name">Nombre del Archivo</Label>
-              <Input
-                id="edit-file_name"
-                value={formData.file_name}
-                onChange={(e) => setFormData({ ...formData, file_name: e.target.value })}
-              />
-            </div>
+
             <div className="grid gap-2">
               <Label htmlFor="edit-tags">Etiquetas (separadas por coma)</Label>
               <Input
@@ -1320,6 +1354,7 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
               variant="outline"
               onClick={() => {
                 setEditingDocument(null)
+                setEditUploadedFiles([])
                 resetForm()
               }}
             >

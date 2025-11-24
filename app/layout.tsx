@@ -1,17 +1,18 @@
 import type React from "react"
 import type { Metadata } from "next"
-import { Inter, Lora } from 'next/font/google'
+import { Inter, Lora } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { GoogleDriveProvider } from "@/lib/contexts/google-drive-context"
+import { PasswordGate } from "@/components/auth/password-gate"
 
-const lora = Lora({ 
+const lora = Lora({
   subsets: ["latin"],
   variable: "--font-lora",
   display: "swap",
 })
 
-const inter = Inter({ 
+const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
   display: "swap",
@@ -34,7 +35,9 @@ export default function RootLayout({
     <html lang="es" suppressHydrationWarning>
       <body className={`${inter.variable} ${lora.variable} font-sans`}>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-          <GoogleDriveProvider>{children}</GoogleDriveProvider>
+          <GoogleDriveProvider>
+            <PasswordGate>{children}</PasswordGate>
+          </GoogleDriveProvider>
         </ThemeProvider>
       </body>
     </html>
