@@ -171,6 +171,14 @@ export function EnhancedKMZViewer() {
               <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Archivo:</strong> ${kmzData.fileName}</p>
               <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Tipo:</strong> ${placemark.type}</p>
               <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Coordenadas:</strong> ${lat.toFixed(6)}, ${lng.toFixed(6)}</p>
+              <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
+                <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>📁 Documentación:</strong></p>
+                <a href="/documentacion/campos/${encodeURIComponent(kmzData.fileName.replace(".kmz", "").replace(".kml", ""))}" 
+                   target="_blank"
+                   style="color: #6B8E7A; text-decoration: none; font-size: 11px; display: inline-block; padding: 4px 8px; background: #f0f4f0; border-radius: 4px; margin-top: 4px;">
+                  Ver carpeta de documentos →
+                </a>
+              </div>
               ${placemark.description ? `<p style="margin: 4px 0 0 0; font-size: 11px; color: #666;">${placemark.description.substring(0, 100)}...</p>` : ""}
             </div>
           `)
@@ -215,6 +223,14 @@ export function EnhancedKMZViewer() {
               <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Archivo:</strong> ${kmzData.fileName}</p>
               <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Tipo:</strong> ${placemark.type}</p>
               <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Puntos:</strong> ${leafletCoords.length}</p>
+              <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
+                <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>📁 Documentación:</strong></p>
+                <a href="/documentacion/campos/${encodeURIComponent(kmzData.fileName.replace(".kmz", "").replace(".kml", ""))}" 
+                   target="_blank"
+                   style="color: #6B8E7A; text-decoration: none; font-size: 11px; display: inline-block; padding: 4px 8px; background: #f0f4f0; border-radius: 4px; margin-top: 4px;">
+                  Ver carpeta de documentos →
+                </a>
+              </div>
               ${placemark.description ? `<p style="margin: 4px 0 0 0; font-size: 11px; color: #666;">${placemark.description.substring(0, 100)}...</p>` : ""}
             </div>
           `)
