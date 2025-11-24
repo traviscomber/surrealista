@@ -42,12 +42,17 @@ import {
   CheckCircle2,
   Folder,
   FolderOpen,
-  ChevronDown,
   ChevronRight,
+  Edit2,
+  Check,
+  X,
+  AlertTriangle,
+  Merge,
 } from "lucide-react"
-import { createBrowserClient } from "@supabase/ssr"
 import { toast } from "sonner"
 import { FileUploader } from "./file-uploader"
+import { cn } from "@/lib/utils" // Assuming cn utility is available
+import { getSupabaseClient } from "@/lib/supabase/client" // Import the singleton client function
 
 interface Document {
   id: string
@@ -59,7 +64,8 @@ interface Document {
   file_size?: number
   file_type?: string
   property_ids: string[]
-  kmz_references: string[]
+  kmz_references: string[] // This field name is kept for compatibility with older data, but linked_kmz_ids is preferred
+  linked_kmz_ids: string[] // The actual field name used for linking KMZs
   tags: string[]
   related_client_id?: string
   document_date?: string
@@ -89,7 +95,7 @@ const DOCUMENT_TYPES = [
 ]
 
 const STATUS_OPTIONS = [
-  { value: "vigente", label: "Vigente", color: "bg-sage" },
+  { value: "vigente", label: "Vigente", color: "bg-sage-dark" },
   { value: "borrador", label: "Borrador", color: "bg-gray-500" },
   { value: "archivado", label: "Archivado", color: "bg-sage-dark" },
   { value: "vencido", label: "Vencido", color: "bg-red-500" },
@@ -108,8 +114,22 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
     { url: string; fileName: string; fileSize: number; fileType: string }[]
   >([])
 
-  const [viewMode, setViewMode] = useState<"list" | "folders">("list")
+  const [viewMode, setViewMode] = useState<"list" | "folders">("folders")
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
+  const [editingFolderId, setEditingFolderId] = useState<string | null>(null)
+  const [editingDocId, setEditingDocId] = useState<string | null>(null)
+  const [editingValue, setEditingValue] = useState("")
+  const [showMergeDialog, setShowMergeDialog] = useState(false)
+  const [mergeDialogData, setMergeDialogData] = useState<{
+    oldCampoName: string
+    newCampoName: string
+    existingDocsCount: number
+    newDocsCount: number
+  } | null>(null)
+
+  const [showManualMergeDialog, setShowManualMergeDialog] = useState(false)
+  const [mergeSourceFolder, setMergeSourceFolder] = useState<string>("")
+  const [mergeTargetFolder, setMergeTargetFolder] = useState<string>("")
 
   // Form state
   const [formData, setFormData] = useState({
@@ -118,16 +138,13 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
     description: "",
     file_url: "",
     file_name: "",
-    kmz_references: "",
+    kmz_references: "", // This field is for input, will be parsed to linked_kmz_ids
     tags: "",
     document_date: "",
     status: "vigente",
   })
 
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  )
+  const supabase = getSupabaseClient()
 
   useEffect(() => {
     loadDocuments()
@@ -137,7 +154,10 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
     try {
       setLoading(true)
       console.log("[v0] Loading documents from database...")
-      const { data, error } = await supabase.from("documents").select("*").order("created_at", { ascending: false })
+      const { data, error } = await supabase
+        .from("property_documents")
+        .select("*")
+        .order("created_at", { ascending: false })
 
       if (error) {
         console.error("[v0] Error loading documents:", error)
@@ -160,21 +180,22 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
       if (uploadedFiles.length > 0) {
         const promises = uploadedFiles.map((file) => {
           const documentData = {
-            title: file.fileName.replace(/\.[^/.]+$/, ""), // Remove extension for title
+            title: formData.title || file.fileName.replace(/\.[^/.]+$/, ""), // Use form title if provided, otherwise filename without extension
             document_type: formData.document_type,
             description: formData.description || null,
             file_url: file.url,
             file_name: file.fileName,
             file_size: file.fileSize,
             file_type: file.fileType,
-            kmz_references: formData.kmz_references ? formData.kmz_references.split(",").map((k) => k.trim()) : [],
+            // Parse kmz_references input into linked_kmz_ids array
+            linked_kmz_ids: formData.kmz_references ? formData.kmz_references.split(",").map((k) => k.trim()) : [],
             tags: formData.tags ? formData.tags.split(",").map((t) => t.trim()) : [],
             document_date: formData.document_date || null,
             status: formData.status,
-            created_by: "system",
+            created_by: "system", // Consider using user ID from auth
           }
 
-          return supabase.from("documents").insert([documentData])
+          return supabase.from("property_documents").insert([documentData])
         })
 
         const results = await Promise.all(promises)
@@ -193,14 +214,14 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
           description: formData.description || null,
           file_url: formData.file_url || null,
           file_name: formData.file_name || null,
-          kmz_references: formData.kmz_references ? formData.kmz_references.split(",").map((k) => k.trim()) : [],
+          linked_kmz_ids: formData.kmz_references ? formData.kmz_references.split(",").map((k) => k.trim()) : [],
           tags: formData.tags ? formData.tags.split(",").map((t) => t.trim()) : [],
           document_date: formData.document_date || null,
           status: formData.status,
-          created_by: "system",
+          created_by: "system", // Consider using user ID from auth
         }
 
-        const { error } = await supabase.from("documents").insert([documentData])
+        const { error } = await supabase.from("property_documents").insert([documentData])
         if (error) throw error
 
         toast.success("Documento creado exitosamente")
@@ -226,13 +247,13 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
         description: formData.description || null,
         file_url: formData.file_url || null,
         file_name: formData.file_name || null,
-        kmz_references: formData.kmz_references ? formData.kmz_references.split(",").map((k) => k.trim()) : [],
+        linked_kmz_ids: formData.kmz_references ? formData.kmz_references.split(",").map((k) => k.trim()) : [],
         tags: formData.tags ? formData.tags.split(",").map((t) => t.trim()) : [],
         document_date: formData.document_date || null,
         status: formData.status,
       }
 
-      const { error } = await supabase.from("documents").update(documentData).eq("id", editingDocument.id)
+      const { error } = await supabase.from("property_documents").update(documentData).eq("id", editingDocument.id)
 
       if (error) throw error
 
@@ -250,7 +271,7 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
     if (!deletingDocument) return
 
     try {
-      const { error } = await supabase.from("documents").delete().eq("id", deletingDocument.id)
+      const { error } = await supabase.from("property_documents").delete().eq("id", deletingDocument.id)
 
       if (error) throw error
 
@@ -286,7 +307,7 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
       description: doc.description || "",
       file_url: doc.file_url || "",
       file_name: doc.file_name || "",
-      kmz_references: doc.kmz_references.join(", "),
+      kmz_references: (doc.linked_kmz_ids || []).join(", "), // Populate input from linked_kmz_ids
       tags: doc.tags.join(", "),
       document_date: doc.document_date || "",
       status: doc.status,
@@ -311,7 +332,7 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
     const matchesSearch =
       doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       doc.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.kmz_references.some((kmz) => kmz.toLowerCase().includes(searchQuery.toLowerCase()))
+      (doc.linked_kmz_ids || []).some((kmz) => kmz.toLowerCase().includes(searchQuery.toLowerCase()))
 
     const matchesType = typeFilter === "todos" || doc.document_type === typeFilter
     const matchesStatus = statusFilter === "todos" || doc.status === statusFilter
@@ -319,7 +340,7 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
     const isDemo =
       doc.tags?.includes("demo") ||
       doc.tags?.includes("ejemplo") ||
-      doc.kmz_references.some((kmz) => kmz.toLowerCase().includes("ranco")) ||
+      (doc.linked_kmz_ids || []).some((kmz) => kmz.toLowerCase().includes("ranco")) ||
       doc.title.toLowerCase().includes("ranco")
     const matchesDemoFilter = showDemoData || !isDemo
 
@@ -335,35 +356,41 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
   }
 
   const extractCampoName = (title: string): string | null => {
-    // Try to extract campo name from title (e.g., "Campo Iñipulli - Plano" -> "Iñipulli")
-    const campoMatch = title.match(/Campo\s+([^-]+)/i)
+    console.log(`[v0] Extracting campo from: ${title}`)
+
+    // Try pattern: "Campo XXX - YYY" or "Campo XXX"
+    const campoMatch = title.match(/Campo\s+([^-]+?)(?:\s*-|$)/i)
     if (campoMatch) {
-      let campoName = campoMatch[1].trim()
-      // Normalize common variations: IñipuIIi (with II) -> Iñipulli
-      campoName = campoName.replace(/I{2,}/gi, "i")
-      // Normalize whitespace
-      campoName = campoName.replace(/\s+/g, " ").trim()
+      const campoName = campoMatch[1].trim()
+      console.log(`[v0] -> Campo name: ${campoName}`)
       return campoName
     }
+
+    const words = title.trim().split(/\s+/)
+    if (words.length <= 2 && !title.includes("-") && !title.includes("–")) {
+      // Likely a standalone campo name like "Iñipulli"
+      console.log(`[v0] -> Standalone campo name: ${title}`)
+      return title.trim()
+    }
+
+    console.log(`[v0] -> Campo name: null (moved to Otros)`)
     return null
   }
 
-  const groupDocumentsByCampo = (docs: PropertyDocument[]): Record<string, PropertyDocument[]> => {
+  const groupDocumentsByCampo = (): Record<string, { displayName: string; documents: PropertyDocument[] }> => {
     const folders: Record<string, PropertyDocument[]> = {}
 
-    docs.forEach((doc) => {
+    filteredDocuments.forEach((doc) => {
       const campoName = extractCampoName(doc.title)
       console.log("[v0] Extracting campo from:", doc.title, "-> Campo name:", campoName)
 
       if (campoName) {
-        // Use lowercase for grouping to avoid case-sensitive duplicates
         const normalizedKey = campoName.toLowerCase()
         if (!folders[normalizedKey]) {
           folders[normalizedKey] = []
         }
         folders[normalizedKey].push(doc)
       } else {
-        // Put documents without campo pattern in "Otros"
         if (!folders["otros"]) {
           folders["otros"] = []
         }
@@ -371,8 +398,18 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
       }
     })
 
-    console.log("[v0] Grouped folders:", Object.keys(folders), "Total documents:", docs.length)
-    return folders
+    const groupedResult: Record<string, { displayName: string; documents: PropertyDocument[] }> = {}
+    Object.entries(folders).forEach(([key, docs]) => {
+      // Use original casing from the first document if available, otherwise fallback to capitalized key
+      const displayName =
+        docs.length > 0
+          ? extractCampoName(docs[0].title) || key.charAt(0).toUpperCase() + key.slice(1)
+          : key.charAt(0).toUpperCase() + key.slice(1)
+      groupedResult[key] = { displayName, documents: docs }
+    })
+
+    console.log("[v0] Grouped folders:", Object.keys(groupedResult), "Total documents:", filteredDocuments.length)
+    return groupedResult
   }
 
   const toggleFolder = (folderName: string) => {
@@ -383,6 +420,198 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
       newExpanded.add(folderName)
     }
     setExpandedFolders(newExpanded)
+  }
+
+  const handleRenameDocumentTitle = async (docId: string, newTitle: string) => {
+    if (!newTitle.trim()) {
+      toast.error("El título no puede estar vacío")
+      setEditingDocId(null)
+      setEditingValue("")
+      return
+    }
+
+    try {
+      const { error } = await supabase.from("property_documents").update({ title: newTitle.trim() }).eq("id", docId)
+
+      if (error) throw error
+
+      toast.success("Título actualizado")
+      await loadDocuments()
+
+      setEditingDocId(null)
+      setEditingValue("")
+    } catch (error) {
+      console.error("Error renaming document:", error)
+      toast.error("Error al actualizar el título")
+      setEditingDocId(null)
+      setEditingValue("")
+    }
+  }
+
+  const handleRenameCampo = async (oldCampoName: string, newCampoName: string) => {
+    if (!newCampoName.trim()) {
+      toast.error("El nombre del campo no puede estar vacío")
+      setEditingFolderId(null)
+      setEditingValue("")
+      return
+    }
+
+    const trimmedNewName = newCampoName.trim()
+    const normalizedNewName = trimmedNewName.toLowerCase()
+    const normalizedOldName = oldCampoName.toLowerCase()
+
+    // Check if name actually changed
+    if (normalizedNewName === normalizedOldName) {
+      setEditingFolderId(null)
+      setEditingValue("")
+      return
+    }
+
+    // Check if new name already exists
+    const allFolders = groupDocumentsByCampo()
+    const existingFolderKey = Object.keys(allFolders).find((key) => key === normalizedNewName)
+
+    if (existingFolderKey && existingFolderKey !== normalizedOldName) {
+      const existingDocs = allFolders[existingFolderKey].documents || []
+      const currentDocs = allFolders[normalizedOldName]?.documents || []
+
+      setMergeDialogData({
+        oldCampoName: oldCampoName,
+        newCampoName: trimmedNewName,
+        existingDocsCount: existingDocs.length,
+        newDocsCount: currentDocs.length,
+      })
+      setShowMergeDialog(true)
+      return
+    }
+
+    // Proceed with rename
+    try {
+      const docsToUpdate = documents.filter((doc) => {
+        const campoName = extractCampoName(doc.title)
+        return campoName?.toLowerCase() === normalizedOldName
+      })
+
+      for (const doc of docsToUpdate) {
+        // Dynamically construct the replacement string based on the original title format
+        let newTitle = doc.title
+        const campoPrefixMatch = doc.title.match(/^Campo\s+/)
+        if (campoPrefixMatch) {
+          // If title starts with "Campo X", replace X with the new name
+          newTitle = doc.title.replace(new RegExp(`^Campo\\s+${oldCampoName}`, "i"), `Campo ${trimmedNewName}`)
+        } else {
+          // If it's a standalone campo name, replace it directly
+          newTitle = doc.title.replace(new RegExp(`^${oldCampoName}`, "i"), trimmedNewName)
+        }
+
+        const { error } = await supabase.from("property_documents").update({ title: newTitle }).eq("id", doc.id)
+
+        if (error) throw error
+      }
+
+      toast.success(`Carpeta renombrada a "${trimmedNewName}"`)
+      await loadDocuments()
+
+      setEditingFolderId(null)
+      setEditingValue("")
+      setExpandedFolders(new Set())
+    } catch (error) {
+      console.error("Error renaming campo:", error)
+      toast.error("Error al renombrar la carpeta")
+      setEditingFolderId(null)
+      setEditingValue("")
+    }
+  }
+
+  const cancelEdit = () => {
+    setEditingFolderId(null)
+    setEditingDocId(null)
+    setEditingValue("")
+  }
+
+  const handleMergeConfirm = async () => {
+    if (!mergeDialogData) return
+
+    try {
+      // Perform the rename operation for the documents to move
+      const { oldCampoName, newCampoName } = mergeDialogData
+      const normalizedOldName = oldCampoName.toLowerCase()
+      const trimmedNewName = newCampoName
+
+      const docsToUpdate = documents.filter((doc) => {
+        const campoName = extractCampoName(doc.title)
+        return campoName?.toLowerCase() === normalizedOldName
+      })
+
+      for (const doc of docsToUpdate) {
+        let newTitle = doc.title
+        const campoPrefixMatch = doc.title.match(/^Campo\s+/)
+        if (campoPrefixMatch) {
+          newTitle = doc.title.replace(new RegExp(`^Campo\\s+${oldCampoName}`, "i"), `Campo ${trimmedNewName}`)
+        } else {
+          newTitle = doc.title.replace(new RegExp(`^${oldCampoName}`, "i"), trimmedNewName)
+        }
+
+        const { error } = await supabase.from("property_documents").update({ title: newTitle }).eq("id", doc.id)
+        if (error) throw error
+      }
+
+      toast.success(`${docsToUpdate.length} documento(s) movidos a la carpeta "${trimmedNewName}"`)
+      await loadDocuments() // Refresh documents list
+    } catch (error) {
+      console.error("Error merging folders:", error)
+      toast.error("Error al fusionar las carpetas")
+    } finally {
+      setShowMergeDialog(false)
+      setMergeDialogData(null)
+      setEditingFolderId(null)
+      setEditingDocId(null)
+      setEditingValue("")
+      setExpandedFolders(new Set()) // Collapse all folders after merge
+    }
+  }
+
+  const handleMergeCancel = () => {
+    setShowMergeDialog(false)
+    setMergeDialogData(null)
+    setEditingFolderId(null)
+    setEditingDocId(null)
+    setEditingValue("")
+  }
+
+  const handleManualMerge = async () => {
+    if (!mergeSourceFolder || !mergeTargetFolder) return
+
+    try {
+      const sourceDocs = groupDocumentsByCampo()[mergeSourceFolder]?.documents || []
+      const targetDisplayName = groupDocumentsByCampo()[mergeTargetFolder]?.displayName || mergeTargetFolder
+
+      for (const doc of sourceDocs) {
+        let newTitle = doc.title
+        const sourceDisplayName = groupDocumentsByCampo()[mergeSourceFolder]?.displayName || mergeSourceFolder
+
+        // Replace source campo name with target campo name
+        const campoPrefixMatch = doc.title.match(/^Campo\s+/)
+        if (campoPrefixMatch) {
+          newTitle = doc.title.replace(new RegExp(`^Campo\\s+${sourceDisplayName}`, "i"), `Campo ${targetDisplayName}`)
+        } else {
+          newTitle = doc.title.replace(new RegExp(`^${sourceDisplayName}`, "i"), targetDisplayName)
+        }
+
+        const { error } = await supabase.from("property_documents").update({ title: newTitle }).eq("id", doc.id)
+        if (error) throw error
+      }
+
+      toast.success(`${sourceDocs.length} documento(s) fusionados en "Campo ${targetDisplayName}"`)
+      await loadDocuments()
+      setShowManualMergeDialog(false)
+      setMergeSourceFolder("")
+      setMergeTargetFolder("")
+      setExpandedFolders(new Set())
+    } catch (error) {
+      console.error("Error merging folders:", error)
+      toast.error("Error al fusionar las carpetas")
+    }
   }
 
   return (
@@ -666,9 +895,9 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
             <CardContent className="py-12 text-center text-gray-500">Cargando documentos...</CardContent>
           </Card>
         ) : viewMode === "folders" ? (
+          // Render folders view
           <>
-            {/* Consolidated folder view logic */}
-            {Object.keys(groupDocumentsByCampo(filteredDocuments)).length === 0 ? (
+            {Object.keys(groupDocumentsByCampo()).length === 0 ? (
               <Card>
                 <CardContent className="py-12 text-center text-gray-500">
                   <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
@@ -676,121 +905,209 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
                 </CardContent>
               </Card>
             ) : (
-              Object.entries(groupDocumentsByCampo(filteredDocuments))
-                .sort(([a], [b]) => a.localeCompare(b)) // Sort folders alphabetically by normalized key
-                .map(([campoKey, docs]) => {
-                  // campoKey is the lowercase normalized key
-                  const isExpanded = expandedFolders.has(campoKey)
-                  // Use original casing from first document for display, or fallback to capitalized key
-                  const displayName =
-                    extractCampoName(docs[0].title) || campoKey.charAt(0).toUpperCase() + campoKey.slice(1)
+              <div className="space-y-2">
+                {Object.entries(groupDocumentsByCampo())
+                  .sort(([a], [b]) => {
+                    if (a === "otros") return 1
+                    if (b === "otros") return -1
+                    return a.localeCompare(b)
+                  })
+                  .map(([campoKey, { displayName, documents: folderDocs }]) => {
+                    const isExpanded = expandedFolders.has(campoKey)
 
-                  return (
-                    <Card key={campoKey} className="border rounded-lg overflow-hidden bg-white">
-                      <div
-                        className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
-                        onClick={() => toggleFolder(campoKey)} // Use normalized key for toggling
-                      >
-                        <div className="flex items-center gap-3 flex-1">
-                          {isExpanded ? (
-                            <FolderOpen className="h-5 w-5 text-sage-dark" />
-                          ) : (
-                            <Folder className="h-5 w-5 text-sage-dark" />
-                          )}
-                          <div>
-                            <h3 className="font-medium">Campo {displayName}</h3>
-                            <p className="text-sm text-gray-500">{docs.length} documento(s)</p>
+                    return (
+                      <div key={campoKey} className="border rounded-lg overflow-hidden group">
+                        <div
+                          className="p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 transition-colors"
+                          onClick={() => {
+                            if (!editingFolderId && !editingDocId) {
+                              toggleFolder(campoKey)
+                            }
+                          }}
+                        >
+                          <div className="flex items-center gap-3 flex-1">
+                            {isExpanded ? (
+                              <FolderOpen className="h-5 w-5 text-sage-dark" />
+                            ) : (
+                              <Folder className="h-5 w-5 text-sage-dark" />
+                            )}
+                            <div className="flex-1">
+                              {editingFolderId === campoKey ? (
+                                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                  <input
+                                    type="text"
+                                    value={editingValue}
+                                    onChange={(e) => setEditingValue(e.target.value)}
+                                    className="px-2 py-1 border rounded text-sm font-medium flex-1"
+                                    autoFocus
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") {
+                                        handleRenameCampo(displayName, editingValue)
+                                      } else if (e.key === "Escape") {
+                                        cancelEdit()
+                                      }
+                                    }}
+                                  />
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => handleRenameCampo(displayName, editingValue)}
+                                    className="h-8 w-8 p-0"
+                                  >
+                                    <Check className="h-4 w-4 text-green-600" />
+                                  </Button>
+                                  <Button size="sm" variant="ghost" onClick={cancelEdit} className="h-8 w-8 p-0">
+                                    <X className="h-4 w-4 text-red-600" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <h3 className="font-medium">
+                                    {campoKey === "otros" ? "Otros Documentos" : `Campo ${displayName}`}
+                                  </h3>
+                                  {campoKey !== "otros" && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        setEditingFolderId(campoKey)
+                                        setEditingValue(displayName)
+                                      }}
+                                      className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                      <Edit2 className="h-3 w-3 text-gray-400" />
+                                    </Button>
+                                  )}
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      setMergeSourceFolder(campoKey)
+                                      setMergeTargetFolder("")
+                                      setShowManualMergeDialog(true)
+                                    }}
+                                    className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    title="Fusionar con otra carpeta"
+                                  >
+                                    <Merge className="h-3 w-3 text-blue-500" />
+                                  </Button>
+                                </div>
+                              )}
+                              <p className="text-sm text-gray-500 mt-1">{folderDocs.length} documento(s)</p>
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              // Use the display name for the URL to maintain original casing if possible
-                              window.open(`/documentacion/campos/${displayName}`, "_blank")
-                            }}
-                          >
-                            <ExternalLink className="h-4 w-4 mr-1" />
-                            Abrir Carpeta
-                          </Button>
-                          {isExpanded ? (
-                            <ChevronDown className="h-5 w-5 text-gray-400" />
-                          ) : (
-                            <ChevronRight className="h-5 w-5 text-gray-400" />
+                          {!editingFolderId && (
+                            <ChevronRight className={cn("h-5 w-5 transition-transform", isExpanded && "rotate-90")} />
                           )}
                         </div>
-                      </div>
 
-                      {/* Expanded folder content */}
-                      {isExpanded && (
-                        <div className="border-t bg-gray-50">
-                          {docs.map((doc) => {
-                            const docType = DOCUMENT_TYPES.find((t) => t.value === doc.document_type)
-                            const statusInfo = STATUS_OPTIONS.find((s) => s.value === doc.status)
-                            const isDemo =
-                              doc.tags?.includes("demo") ||
-                              doc.tags?.includes("ejemplo") ||
-                              doc.kmz_references.some((kmz) => kmz.toLowerCase().includes("ranco")) ||
-                              doc.title.toLowerCase().includes("ranco")
+                        {isExpanded && (
+                          <div className="border-t bg-gray-50/50">
+                            {folderDocs.map((doc) => {
+                              const docType = DOCUMENT_TYPES.find((t) => t.value === doc.document_type)
+                              const statusInfo = STATUS_OPTIONS.find((s) => s.value === doc.status)
+                              const isDemo =
+                                doc.tags?.includes("demo") ||
+                                doc.tags?.includes("ejemplo") ||
+                                (doc.linked_kmz_ids || []).some((kmz) => kmz.toLowerCase().includes("ranco")) ||
+                                doc.title.toLowerCase().includes("ranco")
 
-                            return (
-                              <div key={doc.id} className="p-4 border-b last:border-b-0 bg-white">
-                                <div className="flex items-start justify-between gap-4">
-                                  <div className="flex-1 space-y-2">
-                                    <div className="flex items-start gap-3">
-                                      <div className="text-2xl">{docType?.icon}</div>
-                                      <div className="flex-1">
-                                        <div className="flex items-center gap-2 mb-1">
-                                          <h4 className="font-medium">{doc.title}</h4>
-                                          <Badge className={`${statusInfo?.color} text-white`} variant="secondary">
-                                            {statusInfo?.label}
-                                          </Badge>
-                                          {isDemo && (
-                                            <Badge
-                                              variant="outline"
-                                              className="bg-amber-50 text-amber-700 border-amber-300"
-                                            >
-                                              <Lightbulb className="h-3 w-3 mr-1" />
-                                              DEMO
-                                            </Badge>
-                                          )}
+                              return (
+                                <div
+                                  key={doc.id}
+                                  className="p-4 flex items-center justify-between hover:bg-white transition-colors border-b last:border-b-0"
+                                >
+                                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                                    <FileText className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                                    <div className="flex-1 min-w-0">
+                                      {editingDocId === doc.id ? (
+                                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                          <input
+                                            type="text"
+                                            value={editingValue}
+                                            onChange={(e) => setEditingValue(e.target.value)}
+                                            className="px-2 py-1 border rounded text-sm flex-1"
+                                            autoFocus
+                                            onKeyDown={(e) => {
+                                              if (e.key === "Enter") {
+                                                handleRenameDocumentTitle(doc.id, editingValue)
+                                              } else if (e.key === "Escape") {
+                                                cancelEdit()
+                                              }
+                                            }}
+                                          />
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={() => handleRenameDocumentTitle(doc.id, editingValue)}
+                                            className="h-7 w-7 p-0"
+                                          >
+                                            <Check className="h-3 w-3 text-green-600" />
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={cancelEdit}
+                                            className="h-7 w-7 p-0"
+                                          >
+                                            <X className="h-3 w-3 text-red-600" />
+                                          </Button>
                                         </div>
-                                        <p className="text-sm text-gray-600">{docType?.label}</p>
-                                        {doc.description && (
-                                          <p className="text-sm text-gray-700 mt-1">{doc.description}</p>
-                                        )}
-                                      </div>
+                                      ) : (
+                                        <div className="flex items-center gap-2">
+                                          <h4 className="font-medium text-sm truncate">{doc.title}</h4>
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              setEditingDocId(doc.id)
+                                              setEditingValue(doc.title)
+                                            }}
+                                            className="h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                                          >
+                                            <Edit2 className="h-3 w-3 text-gray-400" />
+                                          </Button>
+                                        </div>
+                                      )}
+                                      <p className="text-xs text-gray-500 mt-1">{docType?.label}</p>
                                     </div>
                                   </div>
-
-                                  <div className="flex items-center gap-2">
-                                    {doc.file_url && (
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => window.open(doc.file_url, "_blank")}
-                                      >
-                                        <ExternalLink className="h-4 w-4" />
-                                      </Button>
-                                    )}
-                                    <Button size="sm" variant="outline" onClick={() => openEditDialog(doc)}>
-                                      <Edit className="h-4 w-4" />
+                                  <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+                                    <Badge
+                                      variant={doc.status === "vigente" ? "default" : "secondary"}
+                                      className="text-xs"
+                                    >
+                                      {statusInfo?.label}
+                                    </Badge>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => openEditDialog(doc)}
+                                      className="h-8 w-8 p-0"
+                                    >
+                                      <ExternalLink className="h-4 w-4" />
                                     </Button>
-                                    <Button size="sm" variant="outline" onClick={() => setDeleteingDocument(doc)}>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => setDeleteingDocument(doc)}
+                                      className="h-8 w-8 p-0 text-red-600 hover:text-red-700"
+                                    >
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
                                   </div>
                                 </div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                      )}
-                    </Card>
-                  )
-                })
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+              </div>
             )}
           </>
         ) : (
@@ -810,7 +1127,7 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
                 const isDemo =
                   doc.tags?.includes("demo") ||
                   doc.tags?.includes("ejemplo") ||
-                  doc.kmz_references.some((kmz) => kmz.toLowerCase().includes("ranco")) ||
+                  (doc.linked_kmz_ids || []).some((kmz) => kmz.toLowerCase().includes("ranco")) ||
                   doc.title.toLowerCase().includes("ranco")
 
                 return (
@@ -837,10 +1154,12 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
                               {doc.description && <p className="text-sm text-gray-700 mb-3">{doc.description}</p>}
 
                               <div className="flex flex-wrap gap-4 text-sm text-gray-600">
-                                {doc.kmz_references.length > 0 && (
+                                {(doc.linked_kmz_ids || []).length > 0 && (
                                   <div className="flex items-center gap-1">
                                     <MapPin className="h-4 w-4" />
-                                    <span className="font-medium">KMZ/KML: {doc.kmz_references.join(", ")}</span>
+                                    <span className="font-medium">
+                                      KMZ/KML: {(doc.linked_kmz_ids || []).join(", ")}
+                                    </span>
                                   </div>
                                 )}
                                 {doc.document_date && (
@@ -1033,6 +1352,131 @@ export function DocumentsManager({ showDemoData = true }: { showDemoData?: boole
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Merge confirmation dialog */}
+      {showMergeDialog && mergeDialogData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="max-w-md w-full mx-4 p-6 space-y-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-6 w-6 text-amber-500 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h3 className="font-semibold text-lg mb-2">Carpeta Duplicada Detectada</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Ya existe una carpeta llamada <strong>"{mergeDialogData.newCampoName}"</strong> con{" "}
+                  <strong>{mergeDialogData.existingDocsCount}</strong> documento(s).
+                </p>
+                <p className="text-sm text-gray-600 mb-4">
+                  ¿Deseas fusionar los <strong>{mergeDialogData.newDocsCount}</strong> documento(s) de{" "}
+                  <strong>"{mergeDialogData.oldCampoName}"</strong> en la carpeta existente?
+                </p>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+                  <p className="text-xs text-blue-800">
+                    <strong>Resultado:</strong> Todos los documentos se agruparán bajo "Campo{" "}
+                    {mergeDialogData.newCampoName}". No se perderá ningún dato.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <Button variant="outline" onClick={handleMergeCancel}>
+                <X className="h-4 w-4 mr-2" />
+                Cancelar
+              </Button>
+              <Button onClick={handleMergeConfirm} className="bg-sage hover:bg-sage-dark">
+                <Check className="h-4 w-4 mr-2" />
+                Fusionar Carpetas
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {showManualMergeDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <Card className="max-w-md w-full mx-4 p-6 space-y-4">
+            <div>
+              <h3 className="font-semibold text-lg mb-2">Fusionar Carpetas</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Selecciona la carpeta de destino donde quieres mover todos los documentos.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Carpeta origen:</Label>
+                <div className="p-3 bg-gray-50 rounded-md">
+                  <p className="font-medium">
+                    {mergeSourceFolder === "otros"
+                      ? "Otros Documentos"
+                      : `Campo ${groupDocumentsByCampo()[mergeSourceFolder]?.displayName || mergeSourceFolder}`}
+                  </p>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {groupDocumentsByCampo()[mergeSourceFolder]?.documents.length || 0} documento(s)
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Carpeta destino:</Label>
+                <Select value={mergeTargetFolder} onValueChange={setMergeTargetFolder}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecciona una carpeta..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.keys(groupDocumentsByCampo())
+                      .filter((key) => key !== mergeSourceFolder)
+                      .sort((a, b) => {
+                        if (a === "otros") return 1
+                        if (b === "otros") return -1
+                        return a.localeCompare(b)
+                      })
+                      .map((key) => {
+                        const folder = groupDocumentsByCampo()[key]
+                        return (
+                          <SelectItem key={key} value={key}>
+                            {key === "otros" ? "Otros Documentos" : `Campo ${folder.displayName}`} (
+                            {folder.documents.length} docs)
+                          </SelectItem>
+                        )
+                      })}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {mergeTargetFolder && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <p className="text-xs text-blue-800">
+                    Se moverán {groupDocumentsByCampo()[mergeSourceFolder]?.documents.length || 0} documento(s) a{" "}
+                    {mergeTargetFolder === "otros"
+                      ? "Otros Documentos"
+                      : `Campo ${groupDocumentsByCampo()[mergeTargetFolder]?.displayName || mergeTargetFolder}`}
+                    . No se perderá ningún dato.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-2 justify-end pt-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowManualMergeDialog(false)
+                  setMergeSourceFolder("")
+                  setMergeTargetFolder("")
+                }}
+              >
+                <X className="h-4 w-4 mr-2" />
+                Cancelar
+              </Button>
+              <Button onClick={handleManualMerge} disabled={!mergeTargetFolder} className="bg-sage hover:bg-sage-dark">
+                <Check className="h-4 w-4 mr-2" />
+                Fusionar
+              </Button>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   )
 }
