@@ -5,22 +5,15 @@ export const dynamic = "force-dynamic"
 
 import { useState, useEffect, useRef } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Search, Folder, Users, MessageSquare, CheckSquare, MapPin, MapIcon, Loader2, Plus, HardDrive, FileSpreadsheet } from 'lucide-react'
+import { Folder, Users, MessageSquare, Loader2, HardDrive } from "lucide-react"
 import { createBrowserClient } from "@/lib/supabase/client"
 import { TaskCreationDialog } from "@/components/tasks/task-creation-dialog"
 import { useGoogleDrive } from "@/lib/contexts/google-drive-context"
 import dynamicImport from "next/dynamic"
 import { CAMPOSFolderView } from "@/components/campos/campos-folder-view"
-import { SimpleDriveFolderView } from "@/components/google-drive/simple-drive-folder-view"
 import { kmzReader } from "@/lib/kmz/kmz-reader"
 import { kmzStorageService } from "@/lib/kmz/kmz-storage-service"
-import { useRouter } from 'next/navigation' // Added router for navigation
-import { RUTBulkValidationPanel } from "@/components/client-management/rut-validation-panel"
-import { CommunicationsManager } from "@/components/communications/communications-manager"
+import { useRouter } from "next/navigation" // Added router for navigation
 import { ClientRepositoryDashboard } from "@/components/client-management/client-repository-dashboard"
 
 const KMZMapDisplay = dynamicImport(() => import("@/components/kmz/kmz-map-display").then((mod) => mod.KMZMapDisplay), {
@@ -32,20 +25,11 @@ const KMZMapDisplay = dynamicImport(() => import("@/components/kmz/kmz-map-displ
   ),
 })
 
-const CAMPOSFolderView = dynamicImport(
-  () => import("@/components/campos/campos-folder-view").then((mod) => ({ default: mod.CAMPOSFolderView })),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="h-[600px] w-full flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-sage-600" />
-      </div>
-    ),
-  }
-)
-
-const SimpleDriveFolderView = dynamicImport(
-  () => import("@/components/google-drive/simple-drive-folder-view").then((mod) => ({ default: mod.SimpleDriveFolderView })),
+const SimpleDriveFolderViewDynamic = dynamicImport(
+  () =>
+    import("@/components/google-drive/simple-drive-folder-view").then((mod) => ({
+      default: mod.SimpleDriveFolderView,
+    })),
   {
     ssr: false,
     loading: () => (
@@ -53,11 +37,14 @@ const SimpleDriveFolderView = dynamicImport(
         <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
       </div>
     ),
-  }
+  },
 )
 
-const CommunicationsManager = dynamicImport(
-  () => import("@/components/communications/communications-manager").then((mod) => ({ default: mod.CommunicationsManager })),
+const CommunicationsManagerDynamic = dynamicImport(
+  () =>
+    import("@/components/communications/communications-manager").then((mod) => ({
+      default: mod.CommunicationsManager,
+    })),
   {
     ssr: false,
     loading: () => (
@@ -65,7 +52,7 @@ const CommunicationsManager = dynamicImport(
         <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
       </div>
     ),
-  }
+  },
 )
 
 interface Client {
@@ -526,8 +513,8 @@ export default function UnifiedSearchPage() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Búsqueda Unificada Sur-Realista</h1>
-          <p className="text-gray-600">Sistema integrado de búsqueda para CAMPOS, Clientes, Comunicaciones y Tareas</p>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Sur-Realista</h1>
+          <p className="text-gray-600">Sistema integrado de gestión para CAMPOS, Clientes, Comunicaciones y Tareas</p>
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
@@ -571,11 +558,11 @@ export default function UnifiedSearchPage() {
           </TabsContent>
 
           <TabsContent value="comunicaciones">
-            <CommunicationsManager />
+            <CommunicationsManagerDynamic />
           </TabsContent>
 
           <TabsContent value="drive" className="h-[calc(100vh-16rem)] min-h-[600px]">
-            <SimpleDriveFolderView />
+            <SimpleDriveFolderViewDynamic />
           </TabsContent>
         </Tabs>
 
