@@ -1,14 +1,14 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { type NextRequest, NextResponse } from "next/server"
+import { createClient } from "@supabase/supabase-js"
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
 
 export async function POST(request: NextRequest) {
   try {
-    const { query, types, limit = 50 } = await request.json()
+    const { query: searchQuery, types, limit = 50 } = await request.json()
 
-    if (!query || query.length < 2) {
+    if (!searchQuery || searchQuery.length < 2) {
       return NextResponse.json({ results: [], total: 0 })
     }
 
@@ -17,58 +17,60 @@ export async function POST(request: NextRequest) {
 
     const searchPromises: Promise<any>[] = []
 
-    if (!types || types.includes('clients')) {
+    if (!types || types.includes("clients")) {
       searchPromises.push(
         supabase
-          .from('clients')
-          .select('id, first_name, last_name, email, phone, company_name, status, main_interest')
-          .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%,email.ilike.%${query}%,company_name.ilike.%${query}%`)
+          .from("clients")
+          .select("id, first_name, last_name, email, phone, company_name, status, main_interest")
+          .or(
+            `first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,company_name.ilike.%${searchQuery}%`,
+          )
           .limit(limit)
-          .then(({ data }) => data?.map(d => ({ ...d, _type: 'client' })) || [])
+          .then(({ data }) => data?.map((d) => ({ ...d, _type: "client" })) || []),
       )
     }
 
-    if (!types || types.includes('campos')) {
+    if (!types || types.includes("campos")) {
       searchPromises.push(
         supabase
-          .from('kmz_collection')
-          .select('id, file_name, region, description, placemarks_count, category')
-          .or(`file_name.ilike.%${query}%,description.ilike.%${query}%,region.ilike.%${query}%`)
+          .from("kmz_collection")
+          .select("id, file_name, region, description, placemarks_count, category, coordinates")
+          .or(`file_name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,region.ilike.%${searchQuery}%`)
           .limit(limit)
-          .then(({ data }) => data?.map(d => ({ ...d, _type: 'campo' })) || [])
+          .then(({ data }) => data?.map((d) => ({ ...d, _type: "campo" })) || []),
       )
     }
 
-    if (!types || types.includes('documents')) {
+    if (!types || types.includes("documents")) {
       searchPromises.push(
         supabase
-          .from('documents')
-          .select('id, title, description, document_type, status, file_name')
-          .or(`title.ilike.%${query}%,description.ilike.%${query}%,file_name.ilike.%${query}%`)
+          .from("documents")
+          .select("id, title, description, document_type, status, file_name")
+          .or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,file_name.ilike.%${searchQuery}%`)
           .limit(limit)
-          .then(({ data }) => data?.map(d => ({ ...d, _type: 'document' })) || [])
+          .then(({ data }) => data?.map((d) => ({ ...d, _type: "document" })) || []),
       )
     }
 
-    if (!types || types.includes('messages')) {
+    if (!types || types.includes("messages")) {
       searchPromises.push(
         supabase
-          .from('messages')
-          .select('id, name, email, subject, message, status')
-          .or(`name.ilike.%${query}%,subject.ilike.%${query}%,message.ilike.%${query}%`)
+          .from("messages")
+          .select("id, name, email, subject, message, status")
+          .or(`name.ilike.%${searchQuery}%,subject.ilike.%${searchQuery}%,message.ilike.%${searchQuery}%`)
           .limit(limit)
-          .then(({ data }) => data?.map(d => ({ ...d, _type: 'message' })) || [])
+          .then(({ data }) => data?.map((d) => ({ ...d, _type: "message" })) || []),
       )
     }
 
-    if (!types || types.includes('tasks')) {
+    if (!types || types.includes("tasks")) {
       searchPromises.push(
         supabase
-          .from('tasks')
-          .select('id, title, description, status, priority, location')
-          .or(`title.ilike.%${query}%,description.ilike.%${query}%,location.ilike.%${query}%`)
+          .from("tasks")
+          .select("id, title, description, status, priority, location")
+          .or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,location.ilike.%${searchQuery}%`)
           .limit(limit)
-          .then(({ data }) => data?.map(d => ({ ...d, _type: 'task' })) || [])
+          .then(({ data }) => data?.map((d) => ({ ...d, _type: "task" })) || []),
       )
     }
 
@@ -78,13 +80,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       results: allResults,
       total: allResults.length,
-      query,
+      query: searchQuery,
     })
   } catch (error) {
-    console.error('[v0] Global search API error:', error)
-    return NextResponse.json(
-      { error: 'Search failed', message: error.message },
-      { status: 500 }
-    )
+    console.error("[v0] Global search API error:", error)
+    return NextResponse.json({ error: "Search failed", message: error.message }, { status: 500 })
   }
 }
