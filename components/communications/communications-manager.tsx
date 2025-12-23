@@ -120,7 +120,7 @@ export function CommunicationsManager() {
           >
             <Zap className="h-4 w-4" />
             <div className="text-left">
-              <div className="font-semibold">Generador de Whitepapers</div>
+              <div className="font-semibold">Generador de Documentos</div>
               <div className="text-xs text-muted-foreground">Crear documentos</div>
             </div>
           </TabsTrigger>
