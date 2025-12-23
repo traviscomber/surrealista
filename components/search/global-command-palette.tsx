@@ -1,9 +1,10 @@
 "use client"
 
 import type React from "react"
-
+import { NeighborhoodAnalysisModal } from "@/components/kmz/neighborhood-analysis-modal"
 import { useEffect, useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
+import { Button } from "@/components/ui/button"
 import {
   CommandDialog,
   CommandEmpty,
@@ -16,6 +17,7 @@ import {
 import { Search, FileText, Users, MapPin, MessageSquare, CheckSquare, Mail } from "lucide-react"
 import { supabase } from "@/lib/supabase/client"
 import { Badge } from "@/components/ui/badge"
+import { normalizeString, matchesQuery } from "@/lib/utils/normalize-string"
 
 interface SearchResult {
   id: string
@@ -34,6 +36,9 @@ export function GlobalCommandPalette() {
   const [query, setQuery] = useState("")
   const [results, setResults] = useState<SearchResult[]>([])
   const [isSearching, setIsSearching] = useState(false)
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false)
+  const [selectedCampoForAnalysis, setSelectedCampoForAnalysis] = useState<any>(null)
+  const [selectedCampoName, setSelectedCampoName] = useState<string | null>(null)
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -55,20 +60,21 @@ export function GlobalCommandPalette() {
 
     setIsSearching(true)
     const allResults: SearchResult[] = []
+    const normalizedQuery = normalizeString(searchQuery)
 
     try {
       // Search CLIENTES
       const { data: clients } = await supabase
         .from("clients")
         .select("id, first_name, last_name, email, phone, company_name, status, main_interest")
-        .or(
-          `first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,company_name.ilike.%${searchQuery}%,main_interest.ilike.%${searchQuery}%`,
-        )
         .limit(10)
 
       if (clients) {
+        const filteredClients = clients.filter((c) =>
+          matchesQuery(`${c.first_name} ${c.last_name} ${c.email} ${c.company_name}`, searchQuery),
+        )
         allResults.push(
-          ...clients.map((client) => ({
+          ...filteredClients.map((client) => ({
             id: client.id,
             type: "client" as const,
             title:
@@ -88,21 +94,30 @@ export function GlobalCommandPalette() {
       const { data: campos } = await supabase
         .from("kmz_collection")
         .select("id, file_name, region, description, placemarks_count, category, tags, coordinates")
-        .or(`file_name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,region.ilike.%${searchQuery}%`)
-        .limit(10)
+        .limit(100)
 
       if (campos) {
+        const filteredCampos = campos.filter((c) =>
+          matchesQuery(`${c.file_name} ${c.description} ${c.region}`, searchQuery),
+        )
+        const sortedCampos = filteredCampos.sort((a, b) => {
+          const aName = normalizeString(a.file_name)
+          const bName = normalizeString(b.file_name)
+          const normalizedQuery = normalizeString(searchQuery)
+
+          const aStartsWith = aName.startsWith(normalizedQuery) ? 0 : 1
+          const bStartsWith = bName.startsWith(normalizedQuery) ? 0 : 1
+
+          return aStartsWith - bStartsWith
+        })
         allResults.push(
-          ...campos.map((campo) => {
+          ...sortedCampos.slice(0, 10).map((campo) => {
             const locationDisplay = campo.region || "Sin región"
 
-            // If we have coordinates, we could add reverse geocoding here in the future
-            // For now, just display the region
             if (campo.coordinates && Array.isArray(campo.coordinates) && campo.coordinates.length > 0) {
               const centerCoord = campo.coordinates[Math.floor(campo.coordinates.length / 2)]
               if (Array.isArray(centerCoord) && centerCoord.length >= 2) {
                 // In the future, we can use reverseGeocoder here to get comuna
-                // For now, just use region
               }
             }
 
@@ -124,12 +139,14 @@ export function GlobalCommandPalette() {
       const { data: documents } = await supabase
         .from("documents")
         .select("id, title, description, document_type, status, file_name, created_at")
-        .or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,file_name.ilike.%${searchQuery}%`)
         .limit(10)
 
       if (documents) {
+        const filteredDocuments = documents.filter((d) =>
+          matchesQuery(`${d.title} ${d.description} ${d.file_name}`, searchQuery),
+        )
         allResults.push(
-          ...documents.map((doc) => ({
+          ...filteredDocuments.map((doc) => ({
             id: doc.id,
             type: "document" as const,
             title: doc.title || doc.file_name || "Documento sin título",
@@ -146,14 +163,14 @@ export function GlobalCommandPalette() {
       const { data: messages } = await supabase
         .from("messages")
         .select("id, name, email, subject, message, status, created_at")
-        .or(
-          `name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,subject.ilike.%${searchQuery}%,message.ilike.%${searchQuery}%`,
-        )
         .limit(10)
 
       if (messages) {
+        const filteredMessages = messages.filter((m) =>
+          matchesQuery(`${m.name} ${m.email} ${m.subject} ${m.message}`, searchQuery),
+        )
         allResults.push(
-          ...messages.map((msg) => ({
+          ...filteredMessages.map((msg) => ({
             id: msg.id.toString(),
             type: "message" as const,
             title: msg.subject || msg.name || "Mensaje sin asunto",
@@ -170,12 +187,14 @@ export function GlobalCommandPalette() {
       const { data: communications } = await supabase
         .from("client_communications")
         .select("id, subject, content, communication_type, communication_date, created_by")
-        .or(`subject.ilike.%${searchQuery}%,content.ilike.%${searchQuery}%,created_by.ilike.%${searchQuery}%`)
         .limit(10)
 
       if (communications) {
+        const filteredCommunications = communications.filter((c) =>
+          matchesQuery(`${c.subject} ${c.content} ${c.created_by}`, searchQuery),
+        )
         allResults.push(
-          ...communications.map((comm) => ({
+          ...filteredCommunications.map((comm) => ({
             id: comm.id,
             type: "communication" as const,
             title: comm.subject || "Comunicación sin asunto",
@@ -192,12 +211,14 @@ export function GlobalCommandPalette() {
       const { data: tasks } = await supabase
         .from("tasks")
         .select("id, title, description, status, priority, location, due_date")
-        .or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,location.ilike.%${searchQuery}%`)
         .limit(10)
 
       if (tasks) {
+        const filteredTasks = tasks.filter((t) =>
+          matchesQuery(`${t.title} ${t.description} ${t.location}`, searchQuery),
+        )
         allResults.push(
-          ...tasks.map((task) => ({
+          ...filteredTasks.map((task) => ({
             id: task.id,
             type: "task" as const,
             title: task.title || "Tarea sin título",
@@ -229,9 +250,23 @@ export function GlobalCommandPalette() {
   }, [query, performSearch])
 
   const handleSelect = (result: SearchResult) => {
-    setOpen(false)
-    setQuery("")
-    router.push(result.url)
+    if (result.type === "campo") {
+      setSelectedCampoForAnalysis(result)
+      setShowAnalysisModal(true)
+      setOpen(false)
+    } else {
+      setOpen(false)
+      setQuery("")
+      router.push(result.url)
+    }
+  }
+
+  const handleAnalyzeKMZ = () => {
+    if (selectedCampoForAnalysis) {
+      setShowAnalysisModal(false)
+      setSelectedCampoForAnalysis(null)
+      router.push("/kmz-analisis")
+    }
   }
 
   const getTypeLabel = (type: SearchResult["type"]) => {
@@ -280,6 +315,12 @@ export function GlobalCommandPalette() {
         </kbd>
       </button>
 
+      <NeighborhoodAnalysisModal
+        open={showAnalysisModal}
+        onOpenChange={setShowAnalysisModal}
+        kmzName={selectedCampoName || undefined}
+      />
+
       <CommandDialog open={open} onOpenChange={setOpen}>
         <CommandInput
           placeholder="Buscar clientes, campos, documentos, mensajes..."
@@ -297,7 +338,15 @@ export function GlobalCommandPalette() {
                   <CommandItem
                     key={result.id}
                     value={result.title}
-                    onSelect={() => handleSelect(result)}
+                    onSelect={() => {
+                      if (result.type === "campo") {
+                        setSelectedCampoForAnalysis(result)
+                        setShowAnalysisModal(true)
+                        setOpen(false)
+                      } else {
+                        handleSelect(result)
+                      }
+                    }}
                     className="flex items-start gap-3 py-3"
                   >
                     <div className="mt-0.5">{result.icon}</div>
@@ -315,6 +364,21 @@ export function GlobalCommandPalette() {
                       )}
                       {result.description && (
                         <div className="text-xs text-muted-foreground/70 truncate mt-0.5">{result.description}</div>
+                      )}
+                      {result.type === "campo" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="mt-2 text-xs h-6 bg-transparent"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setSelectedCampoForAnalysis(result)
+                            setShowAnalysisModal(true)
+                            setOpen(false)
+                          }}
+                        >
+                          Analizar Vecindario
+                        </Button>
                       )}
                     </div>
                     <Badge variant="outline" className="text-xs whitespace-nowrap">

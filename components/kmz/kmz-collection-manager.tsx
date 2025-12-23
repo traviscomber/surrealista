@@ -22,6 +22,7 @@ import {
 import { createBrowserClient } from "@supabase/ssr"
 import { driveService } from "@/lib/google-drive/drive-service"
 import { kmzReader } from "@/lib/kmz/kmz-reader"
+import { NeighborhoodAnalysisModal } from "@/components/kmz/neighborhood-analysis-modal"
 
 interface KMZRecord {
   id: string
@@ -50,6 +51,8 @@ export function KMZCollectionManager() {
   const [selectedCategory, setSelectedCategory] = useState<string>("all")
   const [settingUpTable, setSettingUpTable] = useState(false)
   const [tableExists, setTableExists] = useState<boolean | null>(null)
+  const [selectedKmzForAnalysis, setSelectedKmzForAnalysis] = useState<KMZRecord | null>(null)
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false)
   const [stats, setStats] = useState({
     total: 0,
     active: 0,
@@ -259,6 +262,11 @@ export function KMZCollectionManager() {
     window.location.href = "/mapas"
   }
 
+  const openNeighborhoodAnalysis = (kmz: KMZRecord) => {
+    setSelectedKmzForAnalysis(kmz)
+    setShowAnalysisModal(true)
+  }
+
   const handleOfflineKMZUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files
     if (!files || files.length === 0) return
@@ -354,6 +362,11 @@ export function KMZCollectionManager() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-100">
+      <NeighborhoodAnalysisModal
+        open={showAnalysisModal}
+        onOpenChange={setShowAnalysisModal}
+        kmz={selectedKmzForAnalysis}
+      />
       <div className="container mx-auto p-6 space-y-8">
         {/* Header */}
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-700 p-8 text-white">
@@ -545,7 +558,7 @@ export function KMZCollectionManager() {
               <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
                 <Input
-                  placeholder="Buscar por nombre, ruta o número de rol..."
+                  placeholder="Buscar campos..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
@@ -643,6 +656,14 @@ export function KMZCollectionManager() {
                     >
                       <Layers className="h-4 w-4 mr-2" />
                       Cargar en Mapa
+                    </Button>
+                    <Button
+                      onClick={() => openNeighborhoodAnalysis(kmz)}
+                      variant="outline"
+                      className="flex-1 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                    >
+                      <MapPin className="h-4 w-4 mr-2" />
+                      Analizar
                     </Button>
                   </div>
 

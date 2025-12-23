@@ -31,13 +31,31 @@ export async function POST(request: NextRequest) {
     }
 
     if (!types || types.includes("campos")) {
+      const directKmzSearch = supabase
+        .from("kmz_collection")
+        .select("id, file_name, region, description, placemarks_count, category, coordinates")
+        .or(`file_name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,region.ilike.%${searchQuery}%`)
+        .limit(limit)
+        .then(({ data }) => data?.map((d) => ({ ...d, _type: "campo" })) || [])
+
+      const regionKmzSearch = supabase
+        .from("kmz_collection")
+        .select("id, file_name, region, description, placemarks_count, category, coordinates")
+        .ilike("region", `%${searchQuery}%`)
+        .limit(limit)
+        .then(({ data }) => data?.map((d) => ({ ...d, _type: "campo", _source: "region_match" })) || [])
+
       searchPromises.push(
-        supabase
-          .from("kmz_collection")
-          .select("id, file_name, region, description, placemarks_count, category, coordinates")
-          .or(`file_name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,region.ilike.%${searchQuery}%`)
-          .limit(limit)
-          .then(({ data }) => data?.map((d) => ({ ...d, _type: "campo" })) || []),
+        Promise.all([directKmzSearch, regionKmzSearch]).then(([direct, byRegion]) => {
+          // Combine results and deduplicate by id
+          const combined = [...direct, ...byRegion]
+          const seen = new Set<string>()
+          return combined.filter((item) => {
+            if (seen.has(item.id)) return false
+            seen.add(item.id)
+            return true
+          })
+        }),
       )
     }
 

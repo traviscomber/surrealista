@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { usePathname } from 'next/navigation'
+import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -22,8 +22,27 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { Building2, Menu, Calculator, Bot, Brain, MapPin, FileText, TrendingUp, Rocket, BookOpen, GitBranch, Activity, Settings, BarChart3, Shield, FolderOpen, Map, Search } from 'lucide-react'
-import { GlobalCommandPalette } from '@/components/search/global-command-palette'
+import {
+  Building2,
+  Menu,
+  Calculator,
+  Bot,
+  Brain,
+  MapPin,
+  FileText,
+  TrendingUp,
+  Rocket,
+  BookOpen,
+  GitBranch,
+  Activity,
+  Settings,
+  BarChart3,
+  Shield,
+  FolderOpen,
+  Map,
+  Search,
+} from "lucide-react"
+import { GlobalCommandPalette } from "@/components/search/global-command-palette"
 // import { DriveStatusIndicator } from "@/components/google-drive/drive-status-indicator"
 
 const toolsItems = [
@@ -84,6 +103,14 @@ const toolsItems = [
     icon: FolderOpen,
     description: "Demo de organización profesional de carpetas",
     badge: "Demo",
+  },
+  {
+    title: "Análisis de Vecindario KMZ",
+    href: "/kmz-analisis",
+    icon: MapPin,
+    description: "Identifica roles vecinos, accesos y distancias",
+    badge: "Análisis",
+    badgeColor: "bg-emerald-500",
   },
 ]
 
@@ -213,6 +240,36 @@ export function Header() {
               </Link>
             </NavigationMenuItem>
 
+            {/* Tools Dropdown */}
+            <NavigationMenuItem>
+              <NavigationMenuTrigger className="h-10">
+                <Building2 className="mr-2 h-4 w-4" />
+                Herramientas
+              </NavigationMenuTrigger>
+              <NavigationMenuContent>
+                <div className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
+                  {toolsItems.map((item) => (
+                    <Link
+                      key={item.title}
+                      href={item.href}
+                      className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
+                    >
+                      <div className="flex items-center gap-2">
+                        <item.icon className="h-4 w-4" />
+                        <div className="text-sm font-medium leading-none">{item.title}</div>
+                        {item.badge && (
+                          <Badge className={cn("text-xs text-white", item.badgeColor || "bg-blue-500")}>
+                            {item.badge}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">{item.description}</p>
+                    </Link>
+                  ))}
+                </div>
+              </NavigationMenuContent>
+            </NavigationMenuItem>
+
             {/* Documentation Dropdown */}
             <NavigationMenuItem>
               <NavigationMenuTrigger className="h-10">
@@ -325,6 +382,13 @@ export function Header() {
                   <Badge className="ml-auto bg-purple-500 text-white text-xs">Nuevo</Badge>
                 </Link>
               </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/kmz-analisis" className="flex items-center">
+                  <MapPin className="mr-2 h-4 w-4" />
+                  <span>Análisis de Vecindario KMZ</span>
+                  <Badge className="ml-auto bg-emerald-500 text-white text-xs">Nuevo</Badge>
+                </Link>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -357,6 +421,29 @@ export function Header() {
                     </div>
                     <Badge className="bg-green-500 text-white text-xs">New</Badge>
                   </Link>
+                </div>
+
+                {/* Mobile Tools */}
+                <div className="space-y-2 pt-4 border-t">
+                  <h3 className="text-sm font-semibold text-muted-foreground px-3">Herramientas</h3>
+                  {toolsItems.map((item) => (
+                    <Link
+                      key={item.title}
+                      href={item.href}
+                      className="flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
+                      onClick={() => setIsOpen(false)}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </div>
+                      {item.badge && (
+                        <Badge variant="secondary" className="text-xs">
+                          {item.badge}
+                        </Badge>
+                      )}
+                    </Link>
+                  ))}
                 </div>
 
                 {/* Mobile Documentation */}
@@ -400,6 +487,15 @@ export function Header() {
                     <Brain className="mr-2 h-4 w-4" />
                     <span>Agentes Documentales</span>
                     <Badge className="ml-auto bg-purple-500 text-white text-xs">Nuevo</Badge>
+                  </Link>
+                  <Link
+                    href="/kmz-analisis"
+                    className="flex items-center space-x-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <MapPin className="mr-2 h-4 w-4" />
+                    <span>Análisis de Vecindario KMZ</span>
+                    <Badge className="ml-auto bg-emerald-500 text-white text-xs">Nuevo</Badge>
                   </Link>
                 </div>
               </div>
