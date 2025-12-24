@@ -34,7 +34,7 @@ export function NeighborhoodAnalysisModal({ open, onOpenChange, kmz }: Neighborh
           </DialogDescription>
         </DialogHeader>
         <div className="max-h-[calc(90vh-120px)] overflow-y-auto">
-          <KMZNeighborhoodAnalyzer kmzFile={kmz} />
+          {kmz && <KMZNeighborhoodAnalyzer kmzFile={kmz} />}
         </div>
       </DialogContent>
     </Dialog>

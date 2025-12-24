@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -41,66 +41,33 @@ const KMZMapDisplay = dynamic(() => import("@/components/kmz/kmz-map-display").t
   ),
 })
 
-interface KMZRecord {
-  id: string
-  file_name: string
-  file_path: string
-  region?: string
-  [key: string]: unknown
-}
-
-interface KMZNeighborhoodAnalyzerProps {
-  kmzFile?: KMZRecord | null
-}
-
-export function KMZNeighborhoodAnalyzer({ kmzFile }: KMZNeighborhoodAnalyzerProps = {}) {
+export function KMZNeighborhoodAnalyzer() {
   const [kmzFiles, setKmzFiles] = useState<KMZData[]>([])
   const [loading, setLoading] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
   const [analysis, setAnalysis] = useState<NeighborhoodAnalysis | null>(null)
-  const [searchRadius, setSearchRadius] = useState(5)
+  const [searchRadius, setSearchRadius] = useState(5) // km
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null)
 
-  useEffect(() => {
-    if (kmzFile?.file_path && kmzFiles.length === 0) {
-      loadKMZFromPath(kmzFile.file_path, kmzFile.file_name)
-    }
-  }, [kmzFile])
-
-  const loadKMZFromPath = async (filePath: string, fileName: string) => {
-    setLoading(true)
-    try {
-      const response = await fetch(filePath)
-      const blob = await response.blob()
-      const file = new File([blob], fileName, { type: "application/vnd.google-earth.kmz" })
-      const kmzData = await kmzReader.readKMZFile(file)
-      setKmzFiles([kmzData])
-    } catch (error) {
-      console.error(`Error loading ${fileName}:`, error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    const kmzFilesLocal = acceptedFiles.filter(
+    const kmzFiles = acceptedFiles.filter(
       (file) => file.name.toLowerCase().endsWith(".kmz") || file.name.toLowerCase().endsWith(".kml"),
     )
 
-    if (kmzFilesLocal.length === 0) {
+    if (kmzFiles.length === 0) {
       alert("Por favor selecciona archivos KMZ o KML válidos")
       return
     }
 
     setLoading(true)
-    setUploadProgress({ current: 0, total: kmzFilesLocal.length })
+    setUploadProgress({ current: 0, total: kmzFiles.length })
 
     try {
       const results = await Promise.allSettled(
-        kmzFilesLocal.map(async (file, index) => {
+        kmzFiles.map(async (file, index) => {
           try {
             const kmzData = await kmzReader.readKMZFile(file)
-            setUploadProgress({ current: index + 1, total: kmzFilesLocal.length })
+            setUploadProgress({ current: index + 1, total: kmzFiles.length })
             return kmzData
           } catch (error) {
             console.error(`Error processing ${file.name}:`, error)
