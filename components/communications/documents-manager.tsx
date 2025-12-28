@@ -36,25 +36,50 @@ import {
   ChevronDown,
   ChevronRight,
   Folder,
+  MoreVertical,
 } from "lucide-react"
+
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
 const DocumentsManager = () => {
   const [docs, setDocs] = useState([])
+  const [folders, setFolders] = useState([])
   const [editingDoc, setEditingDoc] = useState(null)
   const [deletingDoc, setDeletingDoc] = useState(null)
+  const [editingFolder, setEditingFolder] = useState(null)
+  const [deletingFolder, setDeletingFolder] = useState(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [filterStatus, setFilterStatus] = useState("all")
   const [expandedFolders, setExpandedFolders] = useState({})
   const [showNewFolderDialog, setShowNewFolderDialog] = useState(false)
   const [newFolderName, setNewFolderName] = useState("")
+  const [userId, setUserId] = useState(null)
   const supabase = createBrowserClient()
 
   useEffect(() => {
-    const fetchDocuments = async () => {
+    const fetchUserAndDocuments = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (user) {
+        setUserId(user.id)
+        console.log("[v0] User authenticated:", user.id)
+      } else {
+        setUserId("00000000-0000-0000-0000-000000000000")
+        console.log("[v0] No user authenticated, using system UUID")
+      }
+
+      const { data: foldersData } = await supabase.from("folders").select("*").order("created_at")
+
+      if (foldersData) {
+        console.log("[v0] Loaded folders from database:", foldersData)
+        setFolders(foldersData)
+      }
+
       const { data } = await supabase.from("property_documents").select("*").order("title")
       setDocs(data || [])
     }
-    fetchDocuments()
+    fetchUserAndDocuments()
   }, [])
 
   const extractFolderName = (title) => {
@@ -71,6 +96,18 @@ const DocumentsManager = () => {
     return acc
   }, {})
 
+  const allFolders = {}
+
+  // Add folders from documents
+  Object.assign(allFolders, groupedDocs)
+
+  // Add folders from database
+  folders.forEach((folder) => {
+    if (!allFolders[folder.name]) {
+      allFolders[folder.name] = []
+    }
+  })
+
   const handleToggleFolder = (folderName) => {
     setExpandedFolders((prev) => ({
       ...prev,
@@ -79,23 +116,53 @@ const DocumentsManager = () => {
   }
 
   const handleCreateFolder = async () => {
-    if (!newFolderName.trim()) return
-
-    const placeholderDoc = {
-      title: `Campo ${newFolderName} - Carpeta`,
-      description: `Carpeta: ${newFolderName}`,
-      folder: `Campo ${newFolderName}`,
-      status: "vigente",
-      is_folder: true,
+    if (!newFolderName.trim()) {
+      console.log("[v0] Folder name is empty")
+      return
     }
 
-    const { error } = await supabase.from("property_documents").insert([placeholderDoc])
-    if (!error) {
-      const { data } = await supabase.from("property_documents").select("*").order("title")
-      setDocs(data || [])
+    if (!userId) {
+      console.error("[v0] No authenticated user, cannot create folder")
+      return
+    }
+
+    const folderName = newFolderName.trim()
+    const folderKey = `Campo ${folderName}`
+
+    try {
+      const { data, error } = await supabase
+        .from("folders")
+        .insert([
+          {
+            name: folderKey,
+            parent_id: null,
+            created_by: userId,
+          },
+        ])
+        .select()
+
+      if (error) {
+        console.error("[v0] Error creating folder:", error)
+        return
+      }
+
+      console.log("[v0] Folder created in database:", data)
+
+      if (data && data.length > 0) {
+        setFolders((prev) => [...prev, data[0]])
+      }
+
+      // Clear form and close dialog
       setNewFolderName("")
       setShowNewFolderDialog(false)
-      handleToggleFolder(`Campo ${newFolderName}`)
+
+      // Expand the new folder
+      setExpandedFolders((prev) => ({
+        ...prev,
+        [folderKey]: true,
+      }))
+    } catch (err) {
+      console.error("[v0] Unexpected error creating folder:", err)
     }
   }
 
@@ -146,13 +213,50 @@ const DocumentsManager = () => {
     })
   }
 
-  const filteredFolders = Object.entries(groupedDocs).reduce((acc, [folderName, folderDocs]) => {
+  const handleDeleteFolder = async (folderId) => {
+    try {
+      const { error } = await supabase.from("folders").delete().eq("id", folderId)
+      if (error) {
+        console.error("[v0] Error deleting folder:", error)
+        return
+      }
+      setFolders((prev) => prev.filter((f) => f.id !== folderId))
+      setDeletingFolder(null)
+      console.log("[v0] Folder deleted successfully")
+    } catch (err) {
+      console.error("[v0] Unexpected error deleting folder:", err)
+    }
+  }
+
+  const handleUpdateFolder = async () => {
+    if (!editingFolder?.name?.trim()) {
+      console.log("[v0] Folder name is empty")
+      return
+    }
+
+    try {
+      const { error } = await supabase.from("folders").update({ name: editingFolder.name }).eq("id", editingFolder.id)
+
+      if (error) {
+        console.error("[v0] Error updating folder:", error)
+        return
+      }
+
+      setFolders((prev) => prev.map((f) => (f.id === editingFolder.id ? { ...f, name: editingFolder.name } : f)))
+      setEditingFolder(null)
+      console.log("[v0] Folder updated successfully")
+    } catch (err) {
+      console.error("[v0] Unexpected error updating folder:", err)
+    }
+  }
+
+  const filteredFolders = Object.entries(allFolders).reduce((acc, [folderName, folderDocs]) => {
     const filtered = folderDocs.filter((doc) => {
       if (filterStatus !== "all" && doc.status !== filterStatus) return false
       if (!searchQuery) return true
       return doc.title.toLowerCase().includes(searchQuery.toLowerCase())
     })
-    if (filtered.length > 0) {
+    if (filtered.length > 0 || searchQuery === "") {
       acc[folderName] = filtered
     }
     return acc
@@ -186,106 +290,134 @@ const DocumentsManager = () => {
       </div>
 
       <div className="space-y-2">
-        {Object.entries(filteredFolders).map(([folderName, folderDocs]) => (
-          <div key={folderName} className="border rounded-lg">
-            {/* Folder header */}
-            <button
-              onClick={() => handleToggleFolder(folderName)}
-              className="w-full flex items-center gap-2 p-3 hover:bg-muted/50 transition-colors"
-            >
-              {expandedFolders[folderName] ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-              <Folder className="h-4 w-4 text-emerald-600" />
-              <span className="font-medium">{folderName}</span>
-              <span className="text-xs text-muted-foreground ml-auto">{folderDocs.length} documento(s)</span>
-            </button>
+        {Object.entries(filteredFolders).map(([folderName, folderDocs]) => {
+          const folderObj = folders.find((f) => f.name === folderName)
 
-            {/* Folder contents */}
-            {expandedFolders[folderName] && (
-              <div className="border-t divide-y bg-muted/20 p-2 space-y-1">
-                {folderDocs.map((doc) => (
-                  <div key={doc.id} className="flex items-center gap-2 p-2 hover:bg-muted/30 rounded">
-                    <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    <div className="flex-grow min-w-0">
-                      <div className="text-sm font-medium truncate">{doc.title}</div>
-                      <div className="text-xs text-muted-foreground">{doc.description || ""}</div>
-                    </div>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                      <Badge variant={doc.status === "vigente" ? "default" : "secondary"} className="text-xs">
-                        {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
-                      </Badge>
-                      {doc.file_url && !doc.is_folder && (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              window.open(doc.file_url, "_blank")
-                            }}
-                            className="h-7 w-7 p-0"
-                            title="Ver archivo"
-                          >
-                            <ExternalLink className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              const link = document.createElement("a")
-                              link.href = doc.file_url
-                              link.download = doc.title || "document"
-                              document.body.appendChild(link)
-                              link.click()
-                              document.body.removeChild(link)
-                            }}
-                            className="h-7 w-7 p-0"
-                            title="Descargar"
-                          >
-                            <Download className="h-3 w-3" />
-                          </Button>
-                        </>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          openEditDialog(doc)
-                        }}
-                        className="h-7 w-7 p-0"
-                        title="Editar"
-                      >
-                        <Edit className="h-3 w-3" />
+          return (
+            <div key={folderName} className="border rounded-lg">
+              <div className="w-full flex items-center gap-2 p-3 hover:bg-muted/50 transition-colors group">
+                <button onClick={() => handleToggleFolder(folderName)} className="flex items-center gap-2 flex-1">
+                  {expandedFolders[folderName] ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                  <Folder className="h-4 w-4 text-emerald-600" />
+                  <span className="font-medium">{folderName}</span>
+                  <span className="text-xs text-muted-foreground ml-auto">{folderDocs.length} documento(s)</span>
+                </button>
+
+                {folderObj && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100">
+                        <MoreVertical className="h-4 w-4" />
                       </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setDeletingDocument(doc)
-                        }}
-                        className="h-7 w-7 p-0 text-red-600 hover:text-red-700"
-                        title="Eliminar"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-                {/* Add document to folder button */}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleAddDocumentToFolder(folderName)}
-                  className="w-full text-xs mt-2"
-                >
-                  + Agregar documento
-                </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => setEditingFolder(folderObj)}>
+                        <Edit className="h-4 w-4 mr-2" />
+                        Renombrar
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setDeletingFolder(folderObj)} className="text-red-600">
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Eliminar
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </div>
-            )}
-          </div>
-        ))}
+
+              {expandedFolders[folderName] && (
+                <div className="border-t divide-y bg-muted/20 p-2 space-y-1">
+                  {folderDocs.length === 0 ? (
+                    <div className="text-xs text-muted-foreground p-2">No hay documentos en esta carpeta</div>
+                  ) : (
+                    folderDocs.map((doc) => (
+                      <div key={doc.id} className="flex items-center gap-2 p-2 hover:bg-muted/30 rounded">
+                        <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <div className="flex-grow min-w-0">
+                          <div className="text-sm font-medium truncate">{doc.title}</div>
+                          <div className="text-xs text-muted-foreground">{doc.description || ""}</div>
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <Badge variant={doc.status === "vigente" ? "default" : "secondary"} className="text-xs">
+                            {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
+                          </Badge>
+                          {doc.file_url && !doc.is_folder && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  window.open(doc.file_url, "_blank")
+                                }}
+                                className="h-7 w-7 p-0"
+                                title="Ver archivo"
+                              >
+                                <ExternalLink className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  const link = document.createElement("a")
+                                  link.href = doc.file_url
+                                  link.download = doc.title || "document"
+                                  document.body.appendChild(link)
+                                  link.click()
+                                  document.body.removeChild(link)
+                                }}
+                                className="h-7 w-7 p-0"
+                                title="Descargar"
+                              >
+                                <Download className="h-3 w-3" />
+                              </Button>
+                            </>
+                          )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              openEditDialog(doc)
+                            }}
+                            className="h-7 w-7 p-0"
+                            title="Editar"
+                          >
+                            <Edit className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setDeletingDocument(doc)
+                            }}
+                            className="h-7 w-7 p-0 text-red-600 hover:text-red-700"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleAddDocumentToFolder(folderName)}
+                    className="w-full text-xs mt-2"
+                  >
+                    + Agregar documento
+                  </Button>
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
 
       {showNewFolderDialog && (
@@ -314,6 +446,56 @@ const DocumentsManager = () => {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+      )}
+
+      {editingFolder && (
+        <Dialog open={!!editingFolder} onOpenChange={() => setEditingFolder(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Renombrar Carpeta</DialogTitle>
+              <DialogDescription>Cambiar el nombre de la carpeta</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label htmlFor="folder-edit-name">Nombre de la Carpeta</Label>
+                <Input
+                  id="folder-edit-name"
+                  value={editingFolder.name}
+                  onChange={(e) => setEditingFolder({ ...editingFolder, name: e.target.value })}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditingFolder(null)}>
+                Cancelar
+              </Button>
+              <Button onClick={handleUpdateFolder}>Guardar Cambios</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {deletingFolder && (
+        <AlertDialog open={!!deletingFolder} onOpenChange={() => setDeletingFolder(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Eliminar Carpeta</AlertDialogTitle>
+              <AlertDialogDescription>
+                ¿Estás seguro de que quieres eliminar la carpeta "{deletingFolder.name}"? Esta acción no se puede
+                deshacer.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => handleDeleteFolder(deletingFolder.id)}
+                className="bg-red-600 hover:bg-red-700"
+              >
+                Eliminar
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
 
       {editingDoc && (
