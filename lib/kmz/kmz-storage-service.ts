@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase/client"
 import { detectRegionFromBounds } from "@/lib/utils/region-detector"
+import { kmzPlacemarkService } from "./kmz-placemark-service"
 
 export interface StoredKMZ {
   id: string
@@ -220,7 +221,8 @@ class KMZStorageService {
     tags?: string[]
     category?: string
     created_by?: string
-    file_size?: number // Added file_size parameter
+    file_size?: number
+    placemarks?: any[] // Added placemarks array to save individual records
   }): Promise<{ success: boolean; id?: string; error?: any }> {
     try {
       const MAX_SIZE = 10 * 1024 * 1024 // 10MB
@@ -272,7 +274,17 @@ class KMZStorageService {
 
       if (error) throw error
 
-      console.log("[v0] KMZ saved to database:", kmzData.file_name, "Region:", region)
+      if (kmzData.placemarks && kmzData.placemarks.length > 0) {
+        await kmzPlacemarkService.savePlacemarks(data.id, kmzData.placemarks)
+      }
+
+      console.log(
+        "[v0] KMZ saved to database:",
+        kmzData.file_name,
+        "with",
+        kmzData.placemarks?.length || 0,
+        "placemarks",
+      )
       return { success: true, id: data.id }
     } catch (error) {
       console.error("[v0] Error saving KMZ to database:", error)
