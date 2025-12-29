@@ -786,7 +786,7 @@ export function CAMPOSFolderView() {
   )
 
   return (
-    <div className="flex h-screen w-screen bg-slate-50">
+    <div className="flex h-screen w-full bg-slate-50">
       {/* Left Panel - Folder Navigation */}
       <div className="hidden md:flex flex-col w-80 border-r bg-white overflow-hidden">
         <FolderList />
