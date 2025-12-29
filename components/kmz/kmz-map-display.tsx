@@ -201,12 +201,7 @@ export function KMZMapDisplay({
     }
   }
 
-  const renderPlacemarksInChunks = async (
-    placemarks: any[],
-    kmzData: any,
-    allBounds: any[],
-    newLayers: LayerInfo[],
-  ) => {
+  const renderPlacemarksInChunks = async (placemarks: any[], allBounds: any[], newLayers: LayerInfo[]) => {
     const chunkSize = 50
     const L = (window as any).L
 
@@ -220,6 +215,7 @@ export function KMZMapDisplay({
 
               for (let i = startIndex; i < endIndex; i++) {
                 const placemark = placemarks[i]
+                const kmzData = placemark._kmzData // Get kmzData from placemark
                 const color = getColorForPlacemark(kmzData.fileName, placemark.name)
 
                 if (placemark.type === "Point" && placemark.coordinates.length > 0) {
@@ -447,7 +443,9 @@ export function KMZMapDisplay({
       return kmzData.placemarks.map((p) => ({ ...p, _kmzData: kmzData }))
     })
 
-    renderPlacemarksInChunks(allPlacemarks, safeKmzFiles[0], allBounds, newLayers).then(() => {
+    console.log("[v0] Total placemarks to render:", allPlacemarks.length)
+
+    renderPlacemarksInChunks(allPlacemarks, allBounds, newLayers).then(() => {
       console.log("[v0] Placemark rendering complete, finalizing...")
       processGeocodingQueue()
 
