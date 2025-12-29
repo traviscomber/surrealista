@@ -787,22 +787,22 @@ export function CAMPOSFolderView() {
 
   return (
     <div className="flex h-screen w-full bg-slate-50">
-      {/* Left Panel - Folder Navigation */}
+      {/* Left sidebar - hidden on mobile */}
       <div className="hidden md:flex flex-col w-80 border-r bg-white overflow-hidden">
         <FolderList />
       </div>
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden">
+      {/* Main content area */}
+      <div className="flex-1 flex flex-col overflow-hidden">
         <div className="flex items-center justify-between px-4 py-2 border-b bg-white flex-shrink-0">
           <h1 className="text-2xl font-bold text-gray-900">CAMPOS</h1>
         </div>
 
         <>
           {/* Map Display */}
-          <div className="flex-1 overflow-hidden relative">
+          <div className="flex-1 overflow-hidden relative w-full">
             {kmzFiles.length > 0 && mapCenter ? (
-              <KMZMapDisplay kmzFiles={kmzFiles} center={mapCenter} zoom={8} />
+              <KMZMapDisplay kmzFiles={kmzFiles} center={mapCenter} zoom={8} height="100%" />
             ) : (
               <div className="h-full flex items-center justify-center bg-slate-100">
                 <div className="text-center">

@@ -1,3 +1,4 @@
+-- Removed PostGIS GEOMETRY type, using simple latitude/longitude for compatibility
 -- Create KMZ Placemarks table for storing individual placemarks
 -- Optimized for 10,000+ KMZ files with hundreds of thousands of placemarks
 
@@ -10,25 +11,26 @@ CREATE TABLE IF NOT EXISTS kmz_placemarks (
   type TEXT NOT NULL, -- Point, LineString, Polygon
   style_url TEXT,
   properties JSONB,
-  center_point GEOMETRY(POINT, 4326), -- PostGIS point for spatial queries
-  region TEXT, -- Derived from center_point for faster queries
+  -- Using simple decimal coordinates instead of PostGIS GEOMETRY type
+  center_lat DECIMAL(10, 8),
+  center_lng DECIMAL(11, 8),
+  region TEXT, -- Region name for faster queries
   bounds JSONB, -- Geographic bounds {north, south, east, west}
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   
   -- Constraints
-  CONSTRAINT valid_type CHECK (type IN ('Point', 'LineString', 'Polygon'))
+  CONSTRAINT valid_type CHECK (type IN ('Point', 'LineString', 'Polygon')),
+  CONSTRAINT valid_latitude CHECK (center_lat IS NULL OR (center_lat >= -90 AND center_lat <= 90)),
+  CONSTRAINT valid_longitude CHECK (center_lng IS NULL OR (center_lng >= -180 AND center_lng <= 180))
 );
 
 -- Create indexes for optimal query performance
 CREATE INDEX IF NOT EXISTS idx_kmz_placemarks_kmz_id ON kmz_placemarks(kmz_id);
-CREATE INDEX IF NOT EXISTS idx_kmz_placemarks_name ON kmz_placemarks USING GIN(name gin_trgm_ops); -- Full-text search
 CREATE INDEX IF NOT EXISTS idx_kmz_placemarks_region ON kmz_placemarks(region);
 CREATE INDEX IF NOT EXISTS idx_kmz_placemarks_type ON kmz_placemarks(type);
-CREATE INDEX IF NOT EXISTS idx_kmz_placemarks_center_point ON kmz_placemarks USING GIST(center_point); -- Spatial index
-
--- Install PostGIS extension if not already installed
-CREATE EXTENSION IF NOT EXISTS postgis;
-CREATE EXTENSION IF NOT EXISTS pg_trgm; -- For text search
+-- Using simple coordinate indexes instead of PostGIS spatial index
+CREATE INDEX IF NOT EXISTS idx_kmz_placemarks_center_coords ON kmz_placemarks(center_lat, center_lng);
 
 -- Enable Row Level Security
 ALTER TABLE kmz_placemarks ENABLE ROW LEVEL SECURITY;
@@ -45,6 +47,7 @@ CREATE POLICY "Allow authenticated users to insert kmz_placemarks"
   WITH CHECK (true);
 
 -- Add comments
-COMMENT ON TABLE kmz_placemarks IS 'Individual placemarks extracted from KMZ files for fast querying and spatial analysis';
-COMMENT ON COLUMN kmz_placemarks.center_point IS 'PostGIS POINT for spatial queries (ST_DWithin, ST_Contains, etc)';
-COMMENT ON COLUMN kmz_placemarks.region IS 'Cached region for faster filtering without PostGIS queries';
+COMMENT ON TABLE kmz_placemarks IS 'Individual placemarks extracted from KMZ files for fast querying and filtering';
+COMMENT ON COLUMN kmz_placemarks.center_lat IS 'Latitude of placemark center point';
+COMMENT ON COLUMN kmz_placemarks.center_lng IS 'Longitude of placemark center point';
+COMMENT ON COLUMN kmz_placemarks.region IS 'Cached region for faster filtering';

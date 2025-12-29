@@ -5,13 +5,12 @@ import { AlertCircle, Eye, EyeOff, MapPin, Maximize, Minimize } from "lucide-rea
 import type { KMZData } from "@/lib/kmz/kmz-reader"
 import { reverseGeocoder, type ChileanLocationDetails } from "@/lib/geocoding/reverse-geocode"
 import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { ScrollArea } from "@/components/ui/scroll-area"
 
 interface KMZMapDisplayProps {
-  kmzFiles?: KMZData[] // Made optional to handle undefined
+  kmzFiles?: KMZData[]
   height?: string
   centerCoordinates?: { lat: number; lng: number }
+  onPlacemarkSelect?: (placemark: LayerInfo | null) => void // add callback for placemark selection
 }
 
 interface LayerInfo {
@@ -25,7 +24,12 @@ interface LayerInfo {
   isLoadingLocation?: boolean
 }
 
-export function KMZMapDisplay({ kmzFiles = [], height = "600px", centerCoordinates }: KMZMapDisplayProps) {
+export function KMZMapDisplay({
+  kmzFiles = [],
+  height = "600px",
+  centerCoordinates,
+  onPlacemarkSelect, // receive callback
+}: KMZMapDisplayProps) {
   const [mapInstance, setMapInstance] = useState<any>(null)
   const [leafletLoaded, setLeafletLoaded] = useState(false)
   const [mapError, setMapError] = useState<string | null>(null)
@@ -33,6 +37,7 @@ export function KMZMapDisplay({ kmzFiles = [], height = "600px", centerCoordinat
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isLoadingLayers, setIsLoadingLayers] = useState(false)
   const [layerProgress, setLayerProgress] = useState(0)
+  const [selectedLayer, setSelectedLayer] = useState<LayerInfo | null>(null) // track selected layer
   const mapRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const clientMarkerRef = useRef<any>(null)
@@ -657,89 +662,167 @@ export function KMZMapDisplay({ kmzFiles = [], height = "600px", centerCoordinat
   }
 
   return (
-    <div ref={containerRef} className="flex gap-4 w-full relative" style={{ height: isFullscreen ? "100vh" : height }}>
-      <Button
-        variant="secondary"
-        size="sm"
-        className="absolute top-4 left-4 z-[1000] shadow-lg"
-        onClick={toggleFullscreen}
-        title={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
+    <>
+      {mapError && (
+        <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <AlertCircle className="h-5 w-5 text-red-600" />
+          <p className="text-sm text-red-800">{mapError}</p>
+        </div>
+      )}
+
+      <div
+        ref={containerRef}
+        className="flex w-full h-full relative pr-96"
+        style={{ height: isFullscreen ? "100vh" : height || "100%" }}
       >
-        {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
-      </Button>
+        <Button
+          variant="secondary"
+          size="sm"
+          className="absolute top-4 left-4 z-[1000] shadow-lg"
+          onClick={toggleFullscreen}
+          title={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
+        >
+          {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+        </Button>
 
-      <div ref={mapRef} className="flex-1 h-full rounded-lg overflow-hidden border" />
+        <div ref={mapRef} className="flex-1 h-full rounded-lg overflow-hidden border" />
 
-      {layers.length > 0 && (
-        <Card className="w-[280px] p-3">
-          <h3 className="font-semibold mb-2 flex items-center gap-2 text-sm">
-            <MapPin className="h-4 w-4" />
-            Capas del Mapa ({layers.length})
-          </h3>
-          <ScrollArea className="h-[calc(100%-2rem)]">
-            <div className="space-y-1.5">
-              {layers.map((layer, index) => (
-                <div
-                  key={index}
-                  onClick={() => zoomToLayer(index)}
-                  className="flex items-start gap-2 p-2 rounded-lg border bg-card hover:bg-accent/70 transition-colors cursor-pointer"
-                >
-                  <div
-                    className="w-3 h-3 rounded flex-shrink-0 mt-0.5 border border-gray-300"
-                    style={{ backgroundColor: layer.color }}
-                    title={`Color: ${layer.color}`}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium truncate">{layer.name}</p>
-                    <p className="text-[10px] text-muted-foreground truncate">{layer.fileName}</p>
-                    {layer.isLoadingLocation && (
-                      <p className="text-[10px] text-muted-foreground mt-0.5">Cargando ubicación...</p>
-                    )}
-                    {layer.locationDetails && !layer.isLoadingLocation && (
-                      <div className="mt-1 space-y-0.5">
-                        {layer.locationDetails.comuna && (
-                          <p className="text-[10px] text-muted-foreground">📍 {layer.locationDetails.comuna}</p>
+        <div className="absolute inset-y-0 right-0 w-96 flex flex-col pointer-events-auto bg-white border-l shadow-lg z-[200]">
+          {/* Capas del Mapa section */}
+          <div className="flex-1 border-b overflow-y-auto">
+            <div className="p-4">
+              <h3 className="font-semibold flex items-center gap-2 text-sm mb-3">
+                <MapPin className="h-4 w-4" />
+                Capas del Mapa ({layers.length})
+              </h3>
+
+              {isLoadingLayers && (
+                <div className="mb-2 p-2 bg-blue-50 rounded text-xs text-blue-700">
+                  Cargando capas: {layerProgress}%
+                </div>
+              )}
+
+              {layers.length === 0 ? (
+                <p className="text-xs text-gray-500">No hay capas cargadas</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {layers.map((layer, index) => (
+                    <div
+                      key={index}
+                      onClick={() => {
+                        zoomToLayer(index)
+                        setSelectedLayer(layer)
+                        onPlacemarkSelect?.(layer)
+                      }}
+                      className={`flex items-start gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
+                        selectedLayer?.name === layer.name
+                          ? "bg-blue-50 border-blue-300"
+                          : "bg-card hover:bg-accent/70 border-gray-200"
+                      }`}
+                    >
+                      <div
+                        className="w-3 h-3 rounded flex-shrink-0 mt-0.5 border border-gray-300"
+                        style={{ backgroundColor: layer.color }}
+                        title={`Color: ${layer.color}`}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium truncate">{layer.name}</p>
+                        <p className="text-[10px] text-muted-foreground truncate">{layer.fileName}</p>
+                        {layer.isLoadingLocation && (
+                          <p className="text-[10px] text-muted-foreground mt-0.5">Cargando ubicación...</p>
                         )}
-                        {layer.locationDetails.region && (
-                          <p className="text-[10px] text-muted-foreground">
-                            {layer.locationDetails.region.replace("Región de ", "")}
-                          </p>
+                        {layer.locationDetails && !layer.isLoadingLocation && (
+                          <div className="mt-1 space-y-0.5">
+                            {layer.locationDetails.comuna && (
+                              <p className="text-[10px] text-muted-foreground">📍 {layer.locationDetails.comuna}</p>
+                            )}
+                            {layer.locationDetails.region && (
+                              <p className="text-[10px] text-muted-foreground">
+                                {layer.locationDetails.region.replace("Región de ", "")}
+                              </p>
+                            )}
+                          </div>
                         )}
                       </div>
-                    )}
-                  </div>
-                  <div className="flex gap-0.5 flex-shrink-0">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        toggleLayerVisibility(index)
-                      }}
-                      title={layer.visible ? "Ocultar" : "Mostrar"}
-                    >
-                      {layer.visible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        zoomToLayer(index)
-                      }}
-                      title="Centrar en mapa"
-                    >
-                      <MapPin className="h-3 w-3" />
-                    </Button>
-                  </div>
+                      <div className="flex gap-0.5 flex-shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            toggleLayerVisibility(index)
+                          }}
+                          title={layer.visible ? "Ocultar" : "Mostrar"}
+                        >
+                          {layer.visible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            zoomToLayer(index)
+                          }}
+                          title="Centrar en mapa"
+                        >
+                          <MapPin className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
-          </ScrollArea>
-        </Card>
-      )}
-    </div>
+          </div>
+
+          {/* Detalles del Pinpoint section */}
+          {selectedLayer && (
+            <div className="h-64 p-4 overflow-y-auto bg-slate-50 border-t">
+              <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
+                <MapPin className="h-4 w-4" />
+                Detalles
+              </h4>
+              <div className="space-y-2 text-xs">
+                <div>
+                  <p className="font-medium text-gray-700">{selectedLayer.name}</p>
+                  <p className="text-gray-600">Archivo: {selectedLayer.fileName}</p>
+                </div>
+                {selectedLayer.locationDetails && (
+                  <>
+                    {selectedLayer.locationDetails.region && (
+                      <div className="pt-2 border-t">
+                        <p className="font-medium text-gray-700">Región</p>
+                        <p className="text-gray-600">{selectedLayer.locationDetails.region}</p>
+                      </div>
+                    )}
+                    {selectedLayer.locationDetails.provincia && (
+                      <div className="pt-2 border-t">
+                        <p className="font-medium text-gray-700">Provincia</p>
+                        <p className="text-gray-600">{selectedLayer.locationDetails.provincia}</p>
+                      </div>
+                    )}
+                    {selectedLayer.locationDetails.comuna && (
+                      <div className="pt-2 border-t">
+                        <p className="font-medium text-gray-700">Comuna</p>
+                        <p className="text-gray-600">{selectedLayer.locationDetails.comuna}</p>
+                      </div>
+                    )}
+                    {selectedLayer.locationDetails.nearbyCities &&
+                      selectedLayer.locationDetails.nearbyCities.length > 0 && (
+                        <div className="pt-2 border-t">
+                          <p className="font-medium text-gray-700">Ciudades Cercanas</p>
+                          <p className="text-gray-600">{selectedLayer.locationDetails.nearbyCities.join(", ")}</p>
+                        </div>
+                      )}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </>
   )
 }
