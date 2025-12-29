@@ -16,9 +16,40 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Search, Upload, Users, TrendingUp, MoreHorizontal, Eye, Edit, Trash2, FolderOpen, Calendar, Building, Phone, Mail, Settings, AlertCircle, Clock, Star, Activity, Filter, RefreshCw, ExternalLink, Plus, MapPin, DollarSign, Target, Zap, Loader2, ChevronLeft, ChevronRight } from 'lucide-react'
+import {
+  Search,
+  Upload,
+  Users,
+  TrendingUp,
+  MoreHorizontal,
+  Eye,
+  Edit,
+  Trash2,
+  FolderOpen,
+  Calendar,
+  Building,
+  Phone,
+  Mail,
+  Settings,
+  AlertCircle,
+  Clock,
+  Star,
+  Activity,
+  Filter,
+  RefreshCw,
+  ExternalLink,
+  Plus,
+  MapPin,
+  DollarSign,
+  Target,
+  Zap,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react"
 import { getClientsPaginated, getClientStatistics, deleteClient } from "@/app/actions/clients"
-import { useRouter } from 'next/navigation'
+import { useRouter } from "next/navigation"
+import { ClientEmailDialog } from "@/components/email/client-email-dialog"
 
 interface Client {
   id: string
@@ -83,27 +114,29 @@ export function ClientRepositoryDashboard() {
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [industryFilter, setIndustryFilter] = useState("all")
-  const [sortBy, setSortBy] = useState<'completeness' | 'created_at'>('completeness')
+  const [sortBy, setSortBy] = useState<"completeness" | "created_at">("completeness")
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false)
+  const [selectedClientForEmail, setSelectedClientForEmail] = useState<any>(null)
   const [isLoading, setIsLoading] = useState(true)
-  
+
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(0)
   const [totalClients, setTotalClients] = useState(0)
   const [pageSize] = useState(50)
-  
+
   const [statistics, setStatistics] = useState<any>(null)
-  
+
   const router = useRouter()
 
   useEffect(() => {
     loadClients()
   }, [currentPage, statusFilter, industryFilter, sortBy])
-  
+
   useEffect(() => {
     loadStatistics()
   }, [])
-  
+
   useEffect(() => {
     const timer = setTimeout(() => {
       if (searchTerm) {
@@ -117,25 +150,25 @@ export function ClientRepositoryDashboard() {
   const loadClients = async () => {
     console.log("[v0] Loading clients page", currentPage)
     setIsLoading(true)
-    
+
     const filters: any = {}
     if (searchTerm) filters.search = searchTerm
     if (statusFilter !== "all") filters.status = statusFilter
     if (industryFilter !== "all") filters.industry = industryFilter
     filters.sortBy = sortBy
-    
+
     const result = await getClientsPaginated(currentPage, pageSize, filters)
-    
+
     if (result.success) {
       console.log("[v0] Loaded", result.data.length, "clients of", result.total, "total")
       setClients(result.data)
       setTotalPages(result.totalPages || 0)
       setTotalClients(result.total || 0)
     }
-    
+
     setIsLoading(false)
   }
-  
+
   const loadStatistics = async () => {
     const result = await getClientStatistics()
     if (result.success) {
@@ -156,7 +189,8 @@ export function ClientRepositoryDashboard() {
       (sum, c) => sum + ((c.properties_bought || 0) + (c.properties_sold || 0) + (c.properties_quoted || 0)),
       0,
     ),
-    avgBudget: totalClients > 0 ? Math.round(clients.reduce((sum, c) => sum + (c.budget_max || 0), 0) / clients.length) : 0,
+    avgBudget:
+      totalClients > 0 ? Math.round(clients.reduce((sum, c) => sum + (c.budget_max || 0), 0) / clients.length) : 0,
   }
 
   const handleRefresh = async () => {
@@ -311,7 +345,7 @@ export function ClientRepositoryDashboard() {
                 />
               </div>
             </div>
-            <Select value={sortBy} onValueChange={(value: 'completeness' | 'created_at') => setSortBy(value)}>
+            <Select value={sortBy} onValueChange={(value: "completeness" | "created_at") => setSortBy(value)}>
               <SelectTrigger className="w-full sm:w-[200px]">
                 <SelectValue placeholder="Ordenar por" />
               </SelectTrigger>
@@ -353,7 +387,9 @@ export function ClientRepositoryDashboard() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
-            <span>Lista de Clientes ({totalClients.toLocaleString()} total, mostrando {filteredClients.length})</span>
+            <span>
+              Lista de Clientes ({totalClients.toLocaleString()} total, mostrando {filteredClients.length})
+            </span>
           </CardTitle>
           <CardDescription>
             Página {currentPage} de {totalPages} - Sistema con paginación optimizada para grandes volúmenes
@@ -465,6 +501,20 @@ export function ClientRepositoryDashboard() {
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
                             <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                            {client.email && (
+                              <>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setSelectedClientForEmail(client)
+                                    setEmailDialogOpen(true)
+                                  }}
+                                >
+                                  <Mail className="mr-2 h-4 w-4" />
+                                  Enviar Email
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                              </>
+                            )}
                             <DropdownMenuItem onClick={() => setSelectedClient(client)}>
                               <Eye className="mr-2 h-4 w-4" />
                               Ver detalles
@@ -487,17 +537,18 @@ export function ClientRepositoryDashboard() {
               </TableBody>
             </Table>
           </div>
-          
+
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-6 pt-6 border-t">
               <div className="text-sm text-gray-600">
-                Mostrando {(currentPage - 1) * pageSize + 1} a {Math.min(currentPage * pageSize, totalClients)} de {totalClients.toLocaleString()} clientes
+                Mostrando {(currentPage - 1) * pageSize + 1} a {Math.min(currentPage * pageSize, totalClients)} de{" "}
+                {totalClients.toLocaleString()} clientes
               </div>
               <div className="flex items-center gap-2">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1 || isLoading}
                 >
                   <ChevronLeft className="w-4 h-4 mr-1" />
@@ -509,7 +560,7 @@ export function ClientRepositoryDashboard() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages || isLoading}
                 >
                   Siguiente
@@ -814,6 +865,17 @@ export function ClientRepositoryDashboard() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Email Dialog Component */}
+      {selectedClientForEmail && (
+        <ClientEmailDialog
+          open={emailDialogOpen}
+          onOpenChange={setEmailDialogOpen}
+          clientName={`${selectedClientForEmail.first_name || ""} ${selectedClientForEmail.last_name || ""}`}
+          clientEmail={selectedClientForEmail.email}
+          clientId={selectedClientForEmail.id}
+        />
+      )}
     </div>
   )
 }

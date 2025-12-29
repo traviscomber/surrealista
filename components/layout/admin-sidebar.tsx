@@ -24,6 +24,7 @@ import {
   Activity,
   FolderOpen,
   MapPin,
+  Mail,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -69,6 +70,28 @@ const menuItems: MenuItem[] = [
     icon: MapPin,
     badge: "New",
     badgeColor: "bg-blue-500",
+  },
+  {
+    title: "Comunicaciones",
+    icon: Mail,
+    badge: "Nuevo",
+    badgeColor: "bg-blue-500",
+    children: [
+      {
+        title: "Enviar Emails",
+        href: "/comunicaciones/email",
+        icon: Mail,
+        badge: "Feature",
+        badgeColor: "bg-blue-500",
+      },
+      {
+        title: "Historial",
+        href: "/comunicaciones/email",
+        icon: FileText,
+        badge: "Logs",
+        badgeColor: "bg-gray-500",
+      },
+    ],
   },
   {
     title: "Gestión Documentos",
@@ -128,6 +151,7 @@ const getPageTitle = (pathname: string): string => {
     "/admin/documentacion-para-method": "Método PARA - Documentación",
     "/admin/migracion-data-real": "Migración Data Real",
     "/admin/mensajes": "Centro de Mensajes",
+    "/comunicaciones/email": "Enviar Emails",
   }
 
   return routes[pathname] || "Panel de Administración"
@@ -318,6 +342,21 @@ export function AdminSidebar() {
               <FolderOpen className="h-4 w-4" />
               Vista CAMPOS
               <Badge className="ml-auto bg-blue-500 text-white text-xs">New</Badge>
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
+            <Link href="/comunicaciones/email">
+              <Mail className="h-4 w-4" />
+              Comunicaciones
+              <Badge className="ml-auto bg-blue-500 text-white text-xs">Nuevo</Badge>
+            </Link>
+          </Button>
+          {/* Added email sending to quick actions */}
+          <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
+            <Link href="/comunicaciones/email">
+              <Mail className="h-4 w-4" />
+              Enviar Emails
+              <Badge className="ml-auto bg-blue-500 text-white text-xs">Nuevo</Badge>
             </Link>
           </Button>
         </div>
