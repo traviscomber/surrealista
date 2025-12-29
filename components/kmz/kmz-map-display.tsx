@@ -31,11 +31,17 @@ export function KMZMapDisplay({ kmzFiles = [], height = "600px", centerCoordinat
   const [mapError, setMapError] = useState<string | null>(null)
   const [layers, setLayers] = useState<LayerInfo[]>([])
   const [isFullscreen, setIsFullscreen] = useState(false)
+  const [isLoadingLayers, setIsLoadingLayers] = useState(false)
+  const [layerProgress, setLayerProgress] = useState(0)
   const mapRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const clientMarkerRef = useRef<any>(null)
   const currentKmzDataRef = useRef<string>("")
   const isProcessingRef = useRef<boolean>(false)
+  const renderQueueRef = useRef<any[]>([])
+  const geocodingQueueRef = useRef<Array<{ lat: number; lng: number; callback: (details: any) => void }>>([])
+  const activeGeocodingRef = useRef<number>(0)
+  const maxConcurrentGeocoding = 5
 
   const safeKmzFiles = Array.isArray(kmzFiles) ? kmzFiles : []
 
@@ -167,12 +173,229 @@ export function KMZMapDisplay({ kmzFiles = [], height = "600px", centerCoordinat
     initMap()
   }, [leafletLoaded, mapInstance])
 
+  const processGeocodingQueue = async () => {
+    while (geocodingQueueRef.current.length > 0 && activeGeocodingRef.current < maxConcurrentGeocoding) {
+      const item = geocodingQueueRef.current.shift()
+      if (!item) break
+
+      activeGeocodingRef.current++
+      reverseGeocoder
+        .getLocationDetails(item.lat, item.lng)
+        .then((details) => {
+          item.callback(details)
+        })
+        .catch((error) => {
+          console.error("[v0] Geocoding error:", error)
+        })
+        .finally(() => {
+          activeGeocodingRef.current--
+          if (geocodingQueueRef.current.length > 0) {
+            processGeocodingQueue()
+          }
+        })
+    }
+  }
+
+  const renderPlacemarksInChunks = async (
+    placemarks: any[],
+    kmzData: any,
+    allBounds: any[],
+    newLayers: LayerInfo[],
+  ) => {
+    const chunkSize = 50
+    const L = (window as any).L
+
+    const processChunk = (startIndex: number) => {
+      return new Promise<void>((resolve) => {
+        if (typeof requestIdleCallback !== "undefined") {
+          requestIdleCallback(
+            () => {
+              const endIndex = Math.min(startIndex + chunkSize, placemarks.length)
+              console.log(`[v0] Processing placemarks chunk ${startIndex}-${endIndex}/${placemarks.length}`)
+
+              for (let i = startIndex; i < endIndex; i++) {
+                const placemark = placemarks[i]
+                const color = getColorForPlacemark(kmzData.fileName, placemark.name)
+
+                if (placemark.type === "Point" && placemark.coordinates.length > 0) {
+                  const [lng, lat] = placemark.coordinates[0]
+
+                  if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+                    console.warn(`[v0] Invalid coordinates for ${placemark.name}`)
+                    continue
+                  }
+
+                  const marker = L.marker([lat, lng], { isKMZ: true }).addTo(mapInstance)
+
+                  marker.bindPopup(`
+                    <div style="min-width: 250px;">
+                      <h4 style="margin: 0 0 8px 0; color: ${color}; font-weight: bold;">${placemark.name}</h4>
+                      <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Archivo:</strong> ${kmzData.fileName}</p>
+                      <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Coordenadas:</strong> ${lat.toFixed(6)}, ${lng.toFixed(6)}</p>
+                      <div id="location-details-${placemark.name}" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
+                        <p style="margin: 0; font-size: 11px; color: #666;">Cargando información de ubicación...</p>
+                      </div>
+                      <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
+                        <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>📁 Documentación:</strong></p>
+                        <a href="/documentacion/campos/${encodeURIComponent(kmzData.fileName.replace(".kmz", "").replace(".kml", ""))}" 
+                           target="_blank"
+                           style="color: #6B8E7A; text-decoration: none; font-size: 11px; display: inline-block; padding: 4px 8px; background: #f0f4f0; border-radius: 4px; margin-top: 4px;">
+                          Ver carpeta de documentos →
+                        </a>
+                      </div>
+                      ${placemark.description ? `<p style="margin: 8px 0 0 0; font-size: 11px; color: #666;">${placemark.description.substring(0, 100)}...</p>` : ""}
+                    </div>
+                  `)
+
+                  allBounds.push([lat, lng])
+
+                  const layerInfo: LayerInfo = {
+                    name: placemark.name,
+                    fileName: kmzData.fileName,
+                    layer: marker,
+                    visible: true,
+                    color,
+                    bounds: [[lat, lng]],
+                    isLoadingLocation: true,
+                  }
+
+                  newLayers.push(layerInfo)
+
+                  geocodingQueueRef.current.push({
+                    lat,
+                    lng,
+                    callback: (details) => {
+                      layerInfo.locationDetails = details
+                      layerInfo.isLoadingLocation = false
+                      marker.setPopupContent(buildPopupContent(placemark, kmzData, color, lat, lng, details))
+                      setLayers([...newLayers])
+                    },
+                  })
+                } else if (
+                  (placemark.type === "LineString" || placemark.type === "Polygon") &&
+                  placemark.coordinates.length > 1
+                ) {
+                  const leafletCoords = placemark.coordinates
+                    .filter(
+                      ([lng, lat]: [number, number]) =>
+                        !isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180,
+                    )
+                    .map(([lng, lat]: [number, number]) => [lat, lng] as [number, number])
+
+                  if (leafletCoords.length < 2) continue
+
+                  let shape: any
+                  if (placemark.type === "Polygon") {
+                    shape = L.polygon(leafletCoords, {
+                      color,
+                      weight: 2,
+                      opacity: 0.8,
+                      fillColor: color,
+                      fillOpacity: 0.3,
+                      isKMZ: true,
+                    }).addTo(mapInstance)
+                  } else {
+                    shape = L.polyline(leafletCoords, {
+                      color,
+                      weight: 3,
+                      opacity: 0.8,
+                      isKMZ: true,
+                    }).addTo(mapInstance)
+                  }
+
+                  allBounds.push(...leafletCoords)
+
+                  const layerInfo: LayerInfo = {
+                    name: placemark.name,
+                    fileName: kmzData.fileName,
+                    layer: shape,
+                    visible: true,
+                    color,
+                    bounds: leafletCoords,
+                    isLoadingLocation: true,
+                  }
+
+                  newLayers.push(layerInfo)
+
+                  const centerLat = (leafletCoords[0][0] + leafletCoords[leafletCoords.length - 1][0]) / 2
+                  const centerLng = (leafletCoords[0][1] + leafletCoords[leafletCoords.length - 1][1]) / 2
+
+                  geocodingQueueRef.current.push({
+                    lat: centerLat,
+                    lng: centerLng,
+                    callback: (details) => {
+                      layerInfo.locationDetails = details
+                      layerInfo.isLoadingLocation = false
+                      shape.setPopupContent(buildPopupContent(placemark, kmzData, color, centerLat, centerLng, details))
+                      setLayers([...newLayers])
+                    },
+                  })
+                }
+              }
+
+              setLayerProgress(Math.round((endIndex / placemarks.length) * 100))
+
+              if (endIndex < placemarks.length) {
+                processChunk(endIndex)
+              } else {
+                resolve()
+              }
+            },
+            { timeout: 1000 },
+          )
+        } else {
+          // Fallback for browsers without requestIdleCallback
+          setTimeout(() => {
+            processChunk(startIndex)
+          }, 10)
+        }
+      })
+    }
+
+    await processChunk(0)
+  }
+
+  const buildPopupContent = (
+    placemark: any,
+    kmzData: any,
+    color: string,
+    lat: number,
+    lng: number,
+    details?: ChileanLocationDetails,
+  ) => {
+    const locationHtml = details
+      ? `
+      <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
+        ${details.region ? `<p style="margin: 0 0 3px 0; font-size: 12px;"><strong>Región:</strong> ${details.region}</p>` : ""}
+        ${details.provincia ? `<p style="margin: 0 0 3px 0; font-size: 12px;"><strong>Provincia:</strong> ${details.provincia}</p>` : ""}
+        ${details.comuna ? `<p style="margin: 0 0 3px 0; font-size: 12px;"><strong>Comuna:</strong> ${details.comuna}</p>` : ""}
+        ${details.nearbyCities && details.nearbyCities.length > 0 ? `<p style="margin: 0 0 3px 0; font-size: 11px; color: #666;"><strong>Cerca de:</strong> ${details.nearbyCities.join(", ")}</p>` : ""}
+      </div>
+    `
+      : `<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;"><p style="margin: 0; font-size: 11px; color: #666;">Cargando información de ubicación...</p></div>`
+
+    return `
+      <div style="min-width: 250px;">
+        <h4 style="margin: 0 0 8px 0; color: ${color}; font-weight: bold;">${placemark.name}</h4>
+        <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Archivo:</strong> ${kmzData.fileName}</p>
+        <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Coordenadas:</strong> ${lat.toFixed(6)}, ${lng.toFixed(6)}</p>
+        ${locationHtml}
+        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
+          <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>📁 Documentación:</strong></p>
+          <a href="/documentacion/campos/${encodeURIComponent(kmzData.fileName.replace(".kmz", "").replace(".kml", ""))}" 
+             target="_blank"
+             style="color: #6B8E7A; text-decoration: none; font-size: 11px; display: inline-block; padding: 4px 8px; background: #f0f4f0; border-radius: 4px; margin-top: 4px;">
+            Ver carpeta de documentos →
+          </a>
+        </div>
+        ${placemark.description ? `<p style="margin: 8px 0 0 0; font-size: 11px; color: #666; padding-top: 8px; border-top: 1px solid #e0e0e0;">${placemark.description.substring(0, 100)}...</p>` : ""}
+      </div>
+    `
+  }
+
   useEffect(() => {
     if (!mapInstance || !safeKmzFiles || safeKmzFiles.length === 0) {
-      console.log("[v0] Map not ready or no KMZ files:", {
-        mapInstance: !!mapInstance,
-        kmzFiles: safeKmzFiles.length,
-      })
+      console.log("[v0] Map not ready or no KMZ files")
       return
     }
 
@@ -184,22 +407,24 @@ export function KMZMapDisplay({ kmzFiles = [], height = "600px", centerCoordinat
     )
 
     if (isProcessingRef.current || currentKmzDataRef.current === kmzDataHash) {
-      console.log("[v0] Skipping duplicate render - data unchanged or already processing")
+      console.log("[v0] Skipping duplicate render")
       return
     }
 
     isProcessingRef.current = true
     currentKmzDataRef.current = kmzDataHash
+    setIsLoadingLayers(true)
+    setLayerProgress(0)
 
     const L = (window as any).L
     if (!L) {
-      console.error("[v0] Leaflet not available for adding KMZ data")
       isProcessingRef.current = false
       return
     }
 
-    console.log("[v0] Adding KMZ data to map...")
+    console.log("[v0] Starting chunked KMZ rendering...")
 
+    // Clear existing KMZ layers
     mapInstance.eachLayer((layer: any) => {
       if (layer.options && layer.options.isKMZ) {
         mapInstance.removeLayer(layer)
@@ -209,247 +434,32 @@ export function KMZMapDisplay({ kmzFiles = [], height = "600px", centerCoordinat
     const allBounds: any[] = []
     const newLayers: LayerInfo[] = []
 
-    safeKmzFiles.forEach((kmzData, kmzIndex) => {
-      console.log("[v0] Processing KMZ file:", kmzData.fileName, "with", kmzData.placemarks?.length || 0, "placemarks")
-
+    // Process each KMZ file
+    const allPlacemarks = safeKmzFiles.flatMap((kmzData) => {
       if (!kmzData.placemarks || !Array.isArray(kmzData.placemarks)) {
-        console.warn("[v0] KMZ file has no placemarks array:", kmzData.fileName)
-        return
+        return []
       }
-
-      kmzData.placemarks.forEach((placemark) => {
-        const color = getColorForPlacemark(kmzData.fileName, placemark.name)
-
-        console.log(
-          "[v0] Processing placemark:",
-          placemark.name,
-          "type:",
-          placemark.type,
-          "coords:",
-          placemark.coordinates.length,
-          "color:",
-          color,
-        )
-
-        if (placemark.type === "Point" && placemark.coordinates.length > 0) {
-          const [lng, lat] = placemark.coordinates[0]
-
-          if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-            console.warn(`[v0] Invalid coordinates for ${placemark.name}: [${lng}, ${lat}]`)
-            return
-          }
-
-          console.log("[v0] Adding point marker at:", [lat, lng])
-
-          const marker = L.marker([lat, lng], {
-            isKMZ: true,
-          }).addTo(mapInstance)
-
-          marker.bindPopup(`
-            <div style="min-width: 250px;">
-              <h4 style="margin: 0 0 8px 0; color: ${color}; font-weight: bold;">${placemark.name}</h4>
-              <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Archivo:</strong> ${kmzData.fileName}</p>
-              <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Coordenadas:</strong> ${lat.toFixed(6)}, ${lng.toFixed(6)}</p>
-              <div id="location-details-${placemark.name}" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
-                <p style="margin: 0; font-size: 11px; color: #666;">Cargando información de ubicación...</p>
-              </div>
-              <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
-                <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>📁 Documentación:</strong></p>
-                <a href="/documentacion/campos/${encodeURIComponent(kmzData.fileName.replace(".kmz", "").replace(".kml", ""))}" 
-                   target="_blank"
-                   style="color: #6B8E7A; text-decoration: none; font-size: 11px; display: inline-block; padding: 4px 8px; background: #f0f4f0; border-radius: 4px; margin-top: 4px;">
-                  Ver carpeta de documentos →
-                </a>
-              </div>
-              ${placemark.description ? `<p style="margin: 8px 0 0 0; font-size: 11px; color: #666;">${placemark.description.substring(0, 100)}...</p>` : ""}
-            </div>
-          `)
-
-          const bounds = [[lat, lng]]
-          allBounds.push([lat, lng])
-
-          const layerInfo: LayerInfo = {
-            name: placemark.name,
-            fileName: kmzData.fileName,
-            layer: marker,
-            visible: true,
-            color: color,
-            bounds: bounds,
-            isLoadingLocation: true,
-          }
-
-          newLayers.push(layerInfo)
-
-          reverseGeocoder
-            .getLocationDetails(lat, lng)
-            .then((details) => {
-              layerInfo.locationDetails = details
-              layerInfo.isLoadingLocation = false
-
-              const locationHtml = `
-              <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
-                ${details.region ? `<p style="margin: 0 0 3px 0; font-size: 12px;"><strong>Región:</strong> ${details.region}</p>` : ""}
-                ${details.provincia ? `<p style="margin: 0 0 3px 0; font-size: 12px;"><strong>Provincia:</strong> ${details.provincia}</p>` : ""}
-                ${details.comuna ? `<p style="margin: 0 0 3px 0; font-size: 12px;"><strong>Comuna:</strong> ${details.comuna}</p>` : ""}
-                ${details.city ? `<p style="margin: 0 0 3px 0; font-size: 12px;"><strong>Ciudad:</strong> ${details.city}</p>` : ""}
-                ${details.nearbyCities && details.nearbyCities.length > 0 ? `<p style="margin: 0 0 3px 0; font-size: 11px; color: #666;"><strong>Cerca de:</strong> ${details.nearbyCities.join(", ")}</p>` : ""}
-              </div>
-            `
-
-              marker.setPopupContent(`
-              <div style="min-width: 250px;">
-                <h4 style="margin: 0 0 8px 0; color: ${color}; font-weight: bold;">${placemark.name}</h4>
-                <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Archivo:</strong> ${kmzData.fileName}</p>
-                <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Coordenadas:</strong> ${lat.toFixed(6)}, ${lng.toFixed(6)}</p>
-                ${locationHtml}
-                <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
-                  <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>📁 Documentación:</strong></p>
-                  <a href="/documentacion/campos/${encodeURIComponent(kmzData.fileName.replace(".kmz", "").replace(".kml", ""))}" 
-                     target="_blank"
-                     style="color: #6B8E7A; text-decoration: none; font-size: 11px; display: inline-block; padding: 4px 8px; background: #f0f4f0; border-radius: 4px; margin-top: 4px;">
-                    Ver carpeta de documentos →
-                  </a>
-                </div>
-                ${placemark.description ? `<p style="margin: 8px 0 0 0; font-size: 11px; color: #666; padding-top: 8px; border-top: 1px solid #e0e0e0;">${placemark.description.substring(0, 100)}...</p>` : ""}
-              </div>
-            `)
-
-              setLayers([...newLayers])
-            })
-            .catch((error) => {
-              console.error("[v0] Error fetching location details:", error)
-              layerInfo.isLoadingLocation = false
-            })
-        } else if (
-          (placemark.type === "LineString" || placemark.type === "Polygon") &&
-          placemark.coordinates.length > 1
-        ) {
-          const leafletCoords = placemark.coordinates
-            .filter(([lng, lat]) => !isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180)
-            .map(([lng, lat]) => [lat, lng] as [number, number])
-
-          if (leafletCoords.length < 2) {
-            console.warn(`[v0] Insufficient valid coordinates for ${placemark.name}`)
-            return
-          }
-
-          console.log("[v0] Adding", placemark.type, "with", leafletCoords.length, "points", "color:", color)
-
-          let shape: any
-          if (placemark.type === "Polygon") {
-            shape = L.polygon(leafletCoords, {
-              color: color,
-              weight: 2,
-              opacity: 0.8,
-              fillColor: color,
-              fillOpacity: 0.3,
-              isKMZ: true,
-            }).addTo(mapInstance)
-          } else {
-            shape = L.polyline(leafletCoords, {
-              color: color,
-              weight: 3,
-              opacity: 0.8,
-              isKMZ: true,
-            }).addTo(mapInstance)
-          }
-
-          shape.bindPopup(`
-            <div style="min-width: 250px;">
-              <h4 style="margin: 0 0 8px 0; color: ${color}; font-weight: bold;">${placemark.name}</h4>
-              <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Archivo:</strong> ${kmzData.fileName}</p>
-              <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Tipo:</strong> ${placemark.type}</p>
-              <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Puntos:</strong> ${leafletCoords.length}</p>
-              <div id="location-details-${placemark.name}" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
-                <p style="margin: 0; font-size: 11px; color: #666;">Cargando información de ubicación...</p>
-              </div>
-              <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
-                <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>📁 Documentación:</strong></p>
-                <a href="/documentacion/campos/${encodeURIComponent(kmzData.fileName.replace(".kmz", "").replace(".kml", ""))}" 
-                   target="_blank"
-                   style="color: #6B8E7A; text-decoration: none; font-size: 11px; display: inline-block; padding: 4px 8px; background: #f0f4f0; border-radius: 4px; margin-top: 4px;">
-                  Ver carpeta de documentos →
-                </a>
-              </div>
-              ${placemark.description ? `<p style="margin: 8px 0 0 0; font-size: 11px; color: #666;">${placemark.description.substring(0, 100)}...</p>` : ""}
-            </div>
-          `)
-
-          allBounds.push(...leafletCoords)
-
-          const layerInfo: LayerInfo = {
-            name: placemark.name,
-            fileName: kmzData.fileName,
-            layer: shape,
-            visible: true,
-            color: color,
-            bounds: leafletCoords,
-            isLoadingLocation: true,
-          }
-
-          newLayers.push(layerInfo)
-
-          reverseGeocoder
-            .getLocationDetails(
-              (leafletCoords[0][0] + leafletCoords[leafletCoords.length - 1][0]) / 2,
-              (leafletCoords[0][1] + leafletCoords[leafletCoords.length - 1][1]) / 2,
-            )
-            .then((details) => {
-              layerInfo.locationDetails = details
-              layerInfo.isLoadingLocation = false
-
-              const locationHtml = `
-              <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
-                ${details.region ? `<p style="margin: 0 0 3px 0; font-size: 12px;"><strong>Región:</strong> ${details.region}</p>` : ""}
-                ${details.provincia ? `<p style="margin: 0 0 3px 0; font-size: 12px;"><strong>Provincia:</strong> ${details.provincia}</p>` : ""}
-                ${details.comuna ? `<p style="margin: 0 0 3px 0; font-size: 12px;"><strong>Comuna:</strong> ${details.comuna}</p>` : ""}
-                ${details.nearbyCities && details.nearbyCities.length > 0 ? `<p style="margin: 0 0 3px 0; font-size: 11px; color: #666;"><strong>Cerca de:</strong> ${details.nearbyCities.join(", ")}</p>` : ""}
-              </div>
-            `
-
-              shape.setPopupContent(`
-              <div style="min-width: 250px;">
-                <h4 style="margin: 0 0 8px 0; color: ${color}; font-weight: bold;">${placemark.name}</h4>
-                <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Archivo:</strong> ${kmzData.fileName}</p>
-                <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Tipo:</strong> ${placemark.type}</p>
-                <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Puntos:</strong> ${leafletCoords.length}</p>
-                ${locationHtml}
-                <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
-                  <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>📁 Documentación:</strong></p>
-                  <a href="/documentacion/campos/${encodeURIComponent(kmzData.fileName.replace(".kmz", "").replace(".kml", ""))}" 
-                     target="_blank"
-                     style="color: #6B8E7A; text-decoration: none; font-size: 11px; display: inline-block; padding: 4px 8px; background: #f0f4f0; border-radius: 4px; margin-top: 4px;">
-                    Ver carpeta de documentos →
-                  </a>
-                </div>
-                ${placemark.description ? `<p style="margin: 8px 0 0 0; font-size: 11px; color: #666; padding-top: 8px; border-top: 1px solid #e0e0e0;">${placemark.description.substring(0, 100)}...</p>` : ""}
-              </div>
-            `)
-
-              setLayers([...newLayers])
-            })
-            .catch((error) => {
-              console.error("[v0] Error fetching location details:", error)
-              layerInfo.isLoadingLocation = false
-            })
-        }
-      })
+      return kmzData.placemarks.map((p) => ({ ...p, _kmzData: kmzData }))
     })
 
-    console.log("[v0] Added", newLayers.length, "placemarks to map")
-    setLayers(newLayers)
+    renderPlacemarksInChunks(allPlacemarks, safeKmzFiles[0], allBounds, newLayers).then(() => {
+      console.log("[v0] Placemark rendering complete, finalizing...")
+      processGeocodingQueue()
 
-    isProcessingRef.current = false
+      setLayers(newLayers)
+      setIsLoadingLayers(false)
+      isProcessingRef.current = false
 
-    if (allBounds.length > 0) {
-      try {
-        const bounds = L.latLngBounds(allBounds)
-        mapInstance.fitBounds(bounds, { padding: [50, 50] })
-        console.log("[v0] Map bounds fitted to show all data")
-      } catch (error) {
-        console.warn("[v0] Error fitting bounds:", error)
+      if (allBounds.length > 0) {
+        try {
+          const bounds = L.latLngBounds(allBounds)
+          mapInstance.fitBounds(bounds, { padding: [50, 50] })
+          console.log("[v0] Map bounds fitted")
+        } catch (error) {
+          console.warn("[v0] Error fitting bounds:", error)
+        }
       }
-    }
+    })
   }, [mapInstance, safeKmzFiles])
 
   useEffect(() => {
