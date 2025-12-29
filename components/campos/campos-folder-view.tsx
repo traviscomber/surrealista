@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect, useRef } from "react"
-import { Card } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -24,12 +24,15 @@ import {
   Upload,
   FileText,
   ExternalLink,
+  X,
+  Sparkles,
 } from "lucide-react"
 import { kmzReader } from "@/lib/kmz/kmz-reader"
 import { kmzStorageService } from "@/lib/kmz/kmz-storage-service"
 import { regionRescanService, type RescanProgress } from "@/lib/kmz/region-rescan-service"
 import { documentKMZLinker, type KMZDocumentLink } from "@/lib/documents/document-kmz-linker"
 import { useToast } from "@/hooks/use-toast"
+import { CAMPOSAIAgent } from "@/components/campos/campos-ai-agent"
 
 interface FolderItem {
   id: string
@@ -69,6 +72,7 @@ export function CAMPOSFolderView() {
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(false)
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [showAIAgent, setShowAIAgent] = useState(false)
 
   const supabase = createBrowserClient()
   const { toast } = useToast()
@@ -782,46 +786,97 @@ export function CAMPOSFolderView() {
   )
 
   return (
-    <div className="relative h-full w-full min-h-[600px]">
-      <div className="absolute inset-0 z-0">
-        {isLoadingKMZ && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-background/95 backdrop-blur-sm px-4 py-2 rounded-lg shadow-lg border">
-            <div className="flex items-center gap-2">
-              <RefreshCw className="h-4 w-4 animate-spin" />
-              <span className="text-sm font-medium">Cargando archivos KMZ...</span>
+    <div className="flex h-screen w-screen bg-slate-50">
+      {/* Left Panel - Folder Navigation */}
+      <div className="hidden md:flex flex-col w-80 border-r bg-white overflow-hidden">
+        <FolderList />
+      </div>
+
+      {/* Main Content Area */}
+      <div className="flex-1 flex flex-col h-screen overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-2 border-b bg-white flex-shrink-0">
+          <h1 className="text-2xl font-bold text-gray-900">CAMPOS</h1>
+        </div>
+
+        <>
+          {/* Map Display */}
+          <div className="flex-1 overflow-hidden relative">
+            {kmzFiles.length > 0 && mapCenter ? (
+              <KMZMapDisplay kmzFiles={kmzFiles} center={mapCenter} zoom={8} />
+            ) : (
+              <div className="h-full flex items-center justify-center bg-slate-100">
+                <div className="text-center">
+                  <MapPin className="h-12 w-12 mx-auto text-gray-400 mb-3" />
+                  <p className="text-gray-600">Selecciona una región para ver el mapa</p>
+                </div>
+              </div>
+            )}
+
+            <div className="fixed bottom-6 right-6 z-40">
+              <Button
+                onClick={() => setShowAIAgent(!showAIAgent)}
+                className={`h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 ${
+                  showAIAgent
+                    ? "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
+                    : "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700"
+                }`}
+                size="icon"
+              >
+                {showAIAgent ? <X className="h-6 w-6" /> : <Sparkles className="h-6 w-6" />}
+              </Button>
             </div>
+
+            {showAIAgent && (
+              <div className="fixed bottom-24 right-6 z-40 w-96 h-[500px] max-w-[calc(100vw-3rem)]">
+                <Card className="h-full flex flex-col shadow-2xl border-0 bg-white">
+                  <CardHeader className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-t-lg py-3">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Sparkles className="h-4 w-4" />
+                      Asistente IA CAMPOS
+                      <Badge variant="secondary" className="ml-auto bg-white/20 text-white text-xs">
+                        En línea
+                      </Badge>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="flex-1 flex flex-col p-0 overflow-hidden">
+                    <CAMPOSAIAgent />
+                  </CardContent>
+                </Card>
+              </div>
+            )}
           </div>
-        )}
-        <KMZMapDisplay kmzFiles={kmzFiles} centerCoordinates={mapCenter || undefined} height="100%" />
+
+          {/* Bottom Sheets for Mobile */}
+          <div className="md:hidden absolute top-4 left-4 z-[999]">
+            <Sheet open={isFolderSheetOpen} onOpenChange={setIsFolderSheetOpen}>
+              <SheetTrigger asChild>
+                <Button size="icon" className="shadow-lg bg-white hover:bg-gray-50">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-[85vw] sm:w-[400px] p-0 flex flex-col h-full">
+                <FolderList />
+              </SheetContent>
+            </Sheet>
+          </div>
+        </>
       </div>
 
-      <div className="md:hidden absolute top-4 left-4 z-[999]">
-        <Sheet open={isFolderSheetOpen} onOpenChange={setIsFolderSheetOpen}>
-          <SheetTrigger asChild>
-            <Button size="icon" className="shadow-lg bg-white hover:bg-gray-50">
-              <Menu className="h-5 w-5" />
-            </Button>
-          </SheetTrigger>
-          <SheetContent side="left" className="w-[85vw] sm:w-[400px] p-0 flex flex-col h-full">
-            <FolderList />
-          </SheetContent>
-        </Sheet>
-      </div>
-
-      <div className="hidden md:block absolute inset-y-0 left-0 z-[999] pointer-events-none">
-        {isLeftPanelOpen ? (
+      {/* Right Panel - Details (Desktop) */}
+      <div className="hidden md:block fixed inset-y-0 right-0 z-[999] pointer-events-none">
+        {isRightPanelOpen ? (
           <Card className="m-4 w-80 h-[calc(100%-2rem)] flex flex-col pointer-events-auto shadow-2xl bg-white/95 backdrop-blur-sm">
-            <div className="absolute -right-3 top-1/2 -translate-y-1/2 z-10">
+            <div className="absolute -left-3 top-1/2 -translate-y-1/2 z-10">
               <Button
                 size="icon"
                 variant="secondary"
                 className="h-8 w-8 rounded-full shadow-lg"
-                onClick={() => setIsLeftPanelOpen(false)}
+                onClick={() => setIsRightPanelOpen(false)}
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-4 w-4 transform rotate-180" />
               </Button>
             </div>
-            <FolderList />
+            <DetailsPanel />
           </Card>
         ) : (
           <div className="m-4 pointer-events-auto">
@@ -829,7 +884,7 @@ export function CAMPOSFolderView() {
               size="icon"
               variant="secondary"
               className="shadow-lg bg-white hover:bg-gray-50"
-              onClick={() => setIsLeftPanelOpen(true)}
+              onClick={() => setIsRightPanelOpen(true)}
             >
               <Menu className="h-5 w-5" />
             </Button>

@@ -1,7 +1,6 @@
 import type React from "react"
 import { Header } from "@/components/layout/header"
 import { Footer } from "@/components/layout/footer"
-import { FloatingChatWidget } from "@/components/chat/floating-chat-widget"
 
 export default function MainLayout({
   children,
@@ -13,7 +12,6 @@ export default function MainLayout({
       <Header />
       <main className="flex-1">{children}</main>
       <Footer />
-      <FloatingChatWidget />
     </div>
   )
 }

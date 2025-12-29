@@ -184,22 +184,55 @@ const DocumentsManager = () => {
 
   const handleEditSave = async () => {
     if (editingDoc) {
-      console.log("[v0] Saving document:", { id: editingDoc.id, title: editingDoc.title, status: editingDoc.status })
+      console.log("[v0] Saving document:", {
+        id: editingDoc.id,
+        title: editingDoc.title,
+        status: editingDoc.status,
+        is_new: editingDoc.is_new,
+      })
 
-      const updateData = {
+      const documentData = {
         title: editingDoc.title,
         description: editingDoc.description || "",
         status: editingDoc.status?.toLowerCase() || "active",
       }
 
-      const { data, error } = await supabase.from("property_documents").update(updateData).eq("id", editingDoc.id)
+      let error
+
+      if (editingDoc.is_new) {
+        // Create new document
+        const { error: insertError } = await supabase.from("property_documents").insert([
+          {
+            title: editingDoc.title,
+            description: editingDoc.description || "",
+            status: editingDoc.status?.toLowerCase() || "active",
+            document_type: "otros", // Default document type for new documents
+          },
+        ])
+        error = insertError
+        if (!error) {
+          console.log("[v0] Document created successfully")
+          // Reload documents after creation
+          const { data: newDocs } = await supabase.from("property_documents").select("*").order("title")
+          if (newDocs) setDocs(newDocs)
+        }
+      } else {
+        // Update existing document
+        const { error: updateError } = await supabase
+          .from("property_documents")
+          .update(documentData)
+          .eq("id", editingDoc.id)
+        error = updateError
+        if (!error) {
+          console.log("[v0] Document updated successfully")
+          setDocs(docs.map((doc) => (doc.id === editingDoc.id ? { ...doc, ...documentData } : doc)))
+        }
+      }
 
       if (error) {
         console.log("[v0] Error saving document:", error.message)
         alert(`Error al guardar: ${error.message}`)
       } else {
-        console.log("[v0] Document saved successfully")
-        setDocs(docs.map((doc) => (doc.id === editingDoc.id ? { ...doc, ...updateData } : doc)))
         setEditingDoc(null)
       }
     }

@@ -63,18 +63,32 @@ export function GlobalCommandPalette() {
     const normalizedQuery = normalizeString(searchQuery)
 
     try {
-      // Search CLIENTES
       const { data: clients } = await supabase
         .from("clients")
         .select("id, first_name, last_name, email, phone, company_name, status, main_interest")
-        .limit(10)
+        .limit(100)
 
       if (clients) {
-        const filteredClients = clients.filter((c) =>
-          matchesQuery(`${c.first_name} ${c.last_name} ${c.email} ${c.company_name}`, searchQuery),
-        )
+        const filteredClients = clients.filter((c) => {
+          const searchString =
+            `${c.first_name || ""} ${c.last_name || ""} ${c.email || ""} ${c.company_name || ""} ${c.phone || ""} ${c.main_interest || ""}`.toLowerCase()
+          const normalizedQueryStr = searchQuery.toLowerCase()
+          return searchString.includes(normalizedQueryStr)
+        })
+
+        const sortedClients = filteredClients.sort((a, b) => {
+          const aName = `${a.first_name} ${a.last_name}`.toLowerCase()
+          const bName = `${b.first_name} ${b.last_name}`.toLowerCase()
+          const queryLower = searchQuery.toLowerCase()
+
+          const aStarts = aName.startsWith(queryLower) ? 0 : 1
+          const bStarts = bName.startsWith(queryLower) ? 0 : 1
+
+          return aStarts - bStarts
+        })
+
         allResults.push(
-          ...filteredClients.map((client) => ({
+          ...sortedClients.slice(0, 15).map((client) => ({
             id: client.id,
             type: "client" as const,
             title:
@@ -135,14 +149,13 @@ export function GlobalCommandPalette() {
         )
       }
 
-      // Search DOCUMENTS (Comunicaciones)
-      const { data: documents } = await supabase
-        .from("documents")
+      const { data: propertyDocuments } = await supabase
+        .from("property_documents")
         .select("id, title, description, document_type, status, file_name, created_at")
         .limit(10)
 
-      if (documents) {
-        const filteredDocuments = documents.filter((d) =>
+      if (propertyDocuments) {
+        const filteredDocuments = propertyDocuments.filter((d) =>
           matchesQuery(`${d.title} ${d.description} ${d.file_name}`, searchQuery),
         )
         allResults.push(
@@ -153,7 +166,25 @@ export function GlobalCommandPalette() {
             subtitle: doc.document_type || "Documento",
             description: doc.description || new Date(doc.created_at).toLocaleDateString(),
             metadata: { status: doc.status, type: doc.document_type },
-            url: `/comunicaciones?doc=${doc.id}`,
+            url: `/busqueda?doc=${doc.id}`,
+            icon: <FileText className="h-4 w-4" />,
+          })),
+        )
+      }
+
+      const { data: folders } = await supabase.from("folders").select("id, name, created_at").limit(10)
+
+      if (folders) {
+        const filteredFolders = folders.filter((f) => matchesQuery(`${f.name}`, searchQuery))
+        allResults.push(
+          ...filteredFolders.map((folder) => ({
+            id: folder.id,
+            type: "document" as const,
+            title: folder.name,
+            subtitle: "Carpeta",
+            description: new Date(folder.created_at).toLocaleDateString(),
+            metadata: { type: "folder" },
+            url: `/busqueda?folder=${folder.id}`,
             icon: <FileText className="h-4 w-4" />,
           })),
         )
