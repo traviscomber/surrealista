@@ -41,6 +41,20 @@ import {
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 
+const DOCUMENT_TYPES = [
+  { value: "orden_venta", label: "Orden de Venta" },
+  { value: "documento_comercial", label: "Documento Comercial" },
+  { value: "tasacion", label: "Tasación" },
+  { value: "info_campo", label: "Información de Campo" },
+  { value: "antecedentes_titulo", label: "Antecedentes de Título" },
+  { value: "escritura", label: "Escritura" },
+  { value: "certificado", label: "Certificado" },
+  { value: "informe_tecnico", label: "Informe Técnico" },
+  { value: "contrato", label: "Contrato" },
+  { value: "kmz", label: "KMZ" },
+  { value: "otro", label: "Otro" },
+]
+
 const DocumentsManager = () => {
   const [docs, setDocs] = useState([])
   const [folders, setFolders] = useState([])
@@ -54,6 +68,7 @@ const DocumentsManager = () => {
   const [showNewFolderDialog, setShowNewFolderDialog] = useState(false)
   const [newFolderName, setNewFolderName] = useState("")
   const [userId, setUserId] = useState(null)
+  const [uploading, setUploading] = useState(false)
   const supabase = createBrowserClient()
 
   useEffect(() => {
@@ -215,6 +230,9 @@ const DocumentsManager = () => {
             status: editingDoc.status?.toLowerCase() || "active",
             document_type: editingDoc.document_type,
             created_by: userId,
+            file_url: editingDoc.file_url || "",
+            file_type: editingDoc.file_type || "",
+            file_size: editingDoc.file_size || 0,
           },
         ])
         error = insertError
@@ -262,7 +280,7 @@ const DocumentsManager = () => {
       description: "",
       folder: folderName,
       status: "active",
-      document_type: "", // Default document type for new documents
+      document_type: "otros",
       file_url: "",
       is_new: true,
     })
@@ -334,6 +352,44 @@ const DocumentsManager = () => {
       console.log("[v0] Folder updated successfully")
     } catch (err) {
       console.error("[v0] Unexpected error updating folder:", err)
+    }
+  }
+
+  const handleFileUpload = async (file) => {
+    if (!file) return
+
+    try {
+      setUploading(true)
+      const fileName = `${editingDoc.title}-${Date.now()}`
+
+      // Upload to Vercel Blob (via public/upload bucket)
+      const formData = new FormData()
+      formData.append("file", file)
+      formData.append("filename", fileName)
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) throw new Error("Upload failed")
+
+      const { url } = await response.json()
+
+      // Update editing document with file URL
+      setEditingDoc((prev) => ({
+        ...prev,
+        file_url: url,
+        file_type: file.type,
+        file_size: file.size,
+      }))
+
+      console.log("[v0] File uploaded successfully:", url)
+    } catch (err) {
+      console.error("[v0] Upload error:", err)
+      alert("Error al cargar el archivo")
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -620,72 +676,110 @@ const DocumentsManager = () => {
       )}
 
       {editingDoc && (
-        <Dialog open={!!editingDoc} onOpenChange={() => setEditingDoc(null)}>
-          <DialogContent>
+        <Dialog open={!!editingDoc} onOpenChange={(open) => !open && setEditingDoc(null)}>
+          <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle>Editar Documento</DialogTitle>
-              <DialogDescription>Modifica los detalles del documento.</DialogDescription>
+              <DialogTitle>{editingDoc.is_new ? "Nuevo Documento" : "Editar Documento"}</DialogTitle>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
-                <Label htmlFor="doc-title">Título</Label>
+                <Label htmlFor="title">
+                  Título <span className="text-red-500">*</span>
+                </Label>
                 <Input
-                  id="doc-title"
+                  id="title"
                   value={editingDoc.title}
-                  onChange={(e) => setEditingDoc({ ...editingDoc, title: e.target.value })}
-                  placeholder="Título del documento"
+                  onChange={(e) =>
+                    setEditingDoc((prev) => ({
+                      ...prev,
+                      title: e.target.value,
+                    }))
+                  }
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="doc-type">
+                <Label htmlFor="type">
                   Tipo de Documento <span className="text-red-500">*</span>
                 </Label>
                 <Select
                   value={editingDoc.document_type || ""}
-                  onValueChange={(value) => setEditingDoc({ ...editingDoc, document_type: value })}
+                  onValueChange={(value) =>
+                    setEditingDoc((prev) => ({
+                      ...prev,
+                      document_type: value,
+                    }))
+                  }
                 >
-                  <SelectTrigger id="doc-type">
-                    <SelectValue placeholder="Selecciona un tipo de documento" />
+                  <SelectTrigger id="type" className={!editingDoc.document_type ? "border-red-500" : ""}>
+                    <SelectValue placeholder="Selecciona un tipo" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="orden_venta">Orden de Venta</SelectItem>
-                    <SelectItem value="documento_comercial">Documento Comercial</SelectItem>
-                    <SelectItem value="tasacion">Tasación</SelectItem>
-                    <SelectItem value="info_campo">Información de Campo</SelectItem>
-                    <SelectItem value="antecedentes_titulo">Antecedentes de Título</SelectItem>
-                    <SelectItem value="escritura">Escritura</SelectItem>
-                    <SelectItem value="certificado">Certificado</SelectItem>
-                    <SelectItem value="plano">Plano</SelectItem>
-                    <SelectItem value="informe_tecnico">Informe Técnico</SelectItem>
-                    <SelectItem value="contrato">Contrato</SelectItem>
-                    <SelectItem value="otro">Otro</SelectItem>
+                    {DOCUMENT_TYPES.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {type.label}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
+                {!editingDoc.document_type && (
+                  <p className="text-xs text-red-500">El tipo de documento es obligatorio</p>
+                )}
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="doc-description">Descripción</Label>
+                <Label htmlFor="description">Descripción</Label>
                 <Textarea
-                  id="doc-description"
+                  id="description"
                   value={editingDoc.description || ""}
-                  onChange={(e) => setEditingDoc({ ...editingDoc, description: e.target.value })}
-                  placeholder="Descripción del documento"
-                  rows={3}
+                  onChange={(e) =>
+                    setEditingDoc((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="doc-status">Estado</Label>
+                <Label htmlFor="status">Estado</Label>
                 <Select
                   value={editingDoc.status || "active"}
-                  onValueChange={(value) => setEditingDoc({ ...editingDoc, status: value })}
+                  onValueChange={(value) =>
+                    setEditingDoc((prev) => ({
+                      ...prev,
+                      status: value,
+                    }))
+                  }
                 >
-                  <SelectTrigger id="doc-status">
-                    <SelectValue placeholder="Selecciona un estado" />
+                  <SelectTrigger id="status">
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="active">Activo</SelectItem>
                     <SelectItem value="draft">Borrador</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="file">Archivo (opcional)</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="file"
+                    type="file"
+                    onChange={(e) => handleFileUpload(e.target.files?.[0])}
+                    disabled={uploading}
+                    className="flex-1"
+                  />
+                  {uploading && <span className="text-sm text-muted-foreground">Cargando...</span>}
+                </div>
+                {editingDoc.file_url && (
+                  <a
+                    href={editingDoc.file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-blue-600 hover:underline"
+                  >
+                    Ver archivo cargado
+                  </a>
+                )}
               </div>
             </div>
             <DialogFooter>
