@@ -335,6 +335,7 @@ export function KMZMapDisplay({
               }
 
               setLayerProgress(Math.round((endIndex / placemarks.length) * 100))
+              setLayers([...newLayers])
 
               if (endIndex < placemarks.length) {
                 processChunk(endIndex)

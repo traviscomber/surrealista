@@ -184,9 +184,15 @@ const DocumentsManager = () => {
 
   const handleEditSave = async () => {
     if (editingDoc) {
+      if (!editingDoc.document_type || editingDoc.document_type === "") {
+        alert("El tipo de documento es obligatorio")
+        return
+      }
+
       console.log("[v0] Saving document:", {
         id: editingDoc.id,
         title: editingDoc.title,
+        document_type: editingDoc.document_type,
         status: editingDoc.status,
         is_new: editingDoc.is_new,
       })
@@ -195,6 +201,7 @@ const DocumentsManager = () => {
         title: editingDoc.title,
         description: editingDoc.description || "",
         status: editingDoc.status?.toLowerCase() || "active",
+        document_type: editingDoc.document_type,
       }
 
       let error
@@ -206,7 +213,8 @@ const DocumentsManager = () => {
             title: editingDoc.title,
             description: editingDoc.description || "",
             status: editingDoc.status?.toLowerCase() || "active",
-            document_type: "otros", // Default document type for new documents
+            document_type: editingDoc.document_type,
+            created_by: userId,
           },
         ])
         error = insertError
@@ -254,6 +262,7 @@ const DocumentsManager = () => {
       description: "",
       folder: folderName,
       status: "active",
+      document_type: "", // Default document type for new documents
       file_url: "",
       is_new: true,
     })
@@ -612,34 +621,64 @@ const DocumentsManager = () => {
 
       {editingDoc && (
         <Dialog open={!!editingDoc} onOpenChange={() => setEditingDoc(null)}>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent>
             <DialogHeader>
               <DialogTitle>Editar Documento</DialogTitle>
               <DialogDescription>Modifica los detalles del documento.</DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
-                <Label htmlFor="name">Título</Label>
+                <Label htmlFor="doc-title">Título</Label>
                 <Input
-                  id="name"
+                  id="doc-title"
                   value={editingDoc.title}
                   onChange={(e) => setEditingDoc({ ...editingDoc, title: e.target.value })}
-                  className="col-span-4"
+                  placeholder="Título del documento"
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="description">Descripción</Label>
+                <Label htmlFor="doc-type">
+                  Tipo de Documento <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                  value={editingDoc.document_type || ""}
+                  onValueChange={(value) => setEditingDoc({ ...editingDoc, document_type: value })}
+                >
+                  <SelectTrigger id="doc-type">
+                    <SelectValue placeholder="Selecciona un tipo de documento" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="orden_venta">Orden de Venta</SelectItem>
+                    <SelectItem value="documento_comercial">Documento Comercial</SelectItem>
+                    <SelectItem value="tasacion">Tasación</SelectItem>
+                    <SelectItem value="info_campo">Información de Campo</SelectItem>
+                    <SelectItem value="antecedentes_titulo">Antecedentes de Título</SelectItem>
+                    <SelectItem value="escritura">Escritura</SelectItem>
+                    <SelectItem value="certificado">Certificado</SelectItem>
+                    <SelectItem value="plano">Plano</SelectItem>
+                    <SelectItem value="informe_tecnico">Informe Técnico</SelectItem>
+                    <SelectItem value="contrato">Contrato</SelectItem>
+                    <SelectItem value="otro">Otro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="doc-description">Descripción</Label>
                 <Textarea
-                  id="description"
+                  id="doc-description"
                   value={editingDoc.description || ""}
                   onChange={(e) => setEditingDoc({ ...editingDoc, description: e.target.value })}
-                  className="col-span-4"
+                  placeholder="Descripción del documento"
+                  rows={3}
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="status">Estado</Label>
-                <Select value={editingDoc.status} onValueChange={(status) => setEditingDoc({ ...editingDoc, status })}>
-                  <SelectTrigger className="col-span-4">
+                <Label htmlFor="doc-status">Estado</Label>
+                <Select
+                  value={editingDoc.status || "active"}
+                  onValueChange={(value) => setEditingDoc({ ...editingDoc, status: value })}
+                >
+                  <SelectTrigger id="doc-status">
                     <SelectValue placeholder="Selecciona un estado" />
                   </SelectTrigger>
                   <SelectContent>

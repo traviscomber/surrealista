@@ -296,6 +296,10 @@ export function CAMPOSFolderView() {
         setSelectedItemDocuments(docs)
         setDocumentCount(count)
         console.log("[v0] Loaded", count, "documents for KMZ:", item.name)
+
+        const selectedKMZ = kmzFiles.filter((kmz) => kmz.fileName === item.name)
+        setKmzFiles(selectedKMZ)
+        console.log("[v0] Filtered to show only:", item.name)
       } catch (error) {
         console.error("[v0] Error loading documents for KMZ:", error)
         setSelectedItemDocuments([])
