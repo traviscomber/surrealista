@@ -3,6 +3,8 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { REGIONS, COMMUNES_BY_REGION } from "@/lib/sii/chile-locations"
 
 type Role = { rol_manzana: string; rol_predio: string; direccion?: string }
 
@@ -15,6 +17,13 @@ export default function SiiRolExplorer() {
   const [status, setStatus] = useState<"idle" | "running" | "captcha" | "done" | "error">("idle")
   const [msg, setMsg] = useState("")
   const [roles, setRoles] = useState<Role[]>([])
+
+  const communesForRegion = region ? COMMUNES_BY_REGION[region] || [] : []
+
+  const handleRegionChange = (value: string) => {
+    setRegion(value)
+    setComuna("") // Reset comuna selection when region changes
+  }
 
   async function run() {
     setStatus("running")
@@ -61,8 +70,32 @@ export default function SiiRolExplorer() {
       </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        <Input placeholder="Región" value={region} onChange={(e) => setRegion(e.target.value)} className="bg-white" />
-        <Input placeholder="Comuna" value={comuna} onChange={(e) => setComuna(e.target.value)} className="bg-white" />
+        <Select value={region} onValueChange={handleRegionChange}>
+          <SelectTrigger className="bg-white">
+            <SelectValue placeholder="Selecciona Región" />
+          </SelectTrigger>
+          <SelectContent>
+            {REGIONS.map((r) => (
+              <SelectItem key={r.id} value={r.id}>
+                {r.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={comuna} onValueChange={setComuna} disabled={!region}>
+          <SelectTrigger className="bg-white">
+            <SelectValue placeholder="Selecciona Comuna" />
+          </SelectTrigger>
+          <SelectContent>
+            {communesForRegion.map((c) => (
+              <SelectItem key={c} value={c}>
+                {c}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         <Input placeholder="Calle" value={calle} onChange={(e) => setCalle(e.target.value)} className="bg-white" />
         <Input placeholder="Número" value={numero} onChange={(e) => setNumero(e.target.value)} className="bg-white" />
       </div>
