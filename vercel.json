@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm run build && npx playwright install --with-deps chromium",
+  "buildCommand": "next build",
   "functions": {
     "app/api/**/*.ts": {
       "memory": 3008,
