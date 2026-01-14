@@ -98,8 +98,20 @@ const DocumentsManager = () => {
   }, [])
 
   const extractFolderName = (title) => {
-    const match = title.match(/^(Campo\s+[^-]+?)(?:\s*-|$)/)
-    return match ? match[1].trim() : "Otros"
+    // Try to find "Campo" prefix pattern first
+    let match = title.match(/^Campo\s+([^-]+?)(?:\s*-|$)/)
+    if (match) return `Campo ${match[1].trim()}`
+
+    match = title.match(/^([^-]+?)(?:\s*-|$)/)
+    if (match) {
+      const name = match[1].trim()
+      // Don't treat common document types as folder names
+      if (!["KMZ", "PDF", "DOC", "DOCX", "XLS", "XLSX"].includes(name.toUpperCase())) {
+        return name
+      }
+    }
+
+    return "Otros"
   }
 
   const groupedDocs = docs.reduce((acc, doc) => {

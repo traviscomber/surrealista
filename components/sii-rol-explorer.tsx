@@ -14,7 +14,7 @@ export default function SiiRolExplorer() {
   const [calle, setCalle] = useState("")
   const [numero, setNumero] = useState("")
 
-  const [status, setStatus] = useState<"idle" | "running" | "captcha" | "done" | "error">("idle")
+  const [status, setStatus] = useState<"idle" | "running" | "done" | "error">("idle")
   const [msg, setMsg] = useState("")
   const [roles, setRoles] = useState<Role[]>([])
 
@@ -22,12 +22,12 @@ export default function SiiRolExplorer() {
 
   const handleRegionChange = (value: string) => {
     setRegion(value)
-    setComuna("") // Reset comuna selection when region changes
+    setComuna("")
   }
 
   async function run() {
     setStatus("running")
-    setMsg("Abriendo consulta oficial del SII…")
+    setMsg("Consultando…")
     setRoles([])
 
     try {
@@ -42,12 +42,6 @@ export default function SiiRolExplorer() {
       if (!r.ok) {
         setStatus("error")
         setMsg(data?.error ?? "Error al consultar.")
-        return
-      }
-
-      if (data?.state === "CAPTCHA_REQUIRED") {
-        setStatus("captcha")
-        setMsg("Verificación requerida (CAPTCHA) en la ventana del SII. Complétala para continuar.")
         return
       }
 
@@ -100,8 +94,12 @@ export default function SiiRolExplorer() {
         <Input placeholder="Número" value={numero} onChange={(e) => setNumero(e.target.value)} className="bg-white" />
       </div>
 
-      <Button onClick={run} disabled={status === "running"} className="mt-4 w-full bg-green-600 hover:bg-green-700">
-        {status === "running" ? "Consultando…" : "Explorar terreno (SII)"}
+      <Button
+        onClick={run}
+        disabled={status === "running" || !region || !comuna || !calle || !numero}
+        className="mt-4 w-full"
+      >
+        {status === "running" ? "Buscando…" : "Explorador terreno (SII)"}
       </Button>
 
       {msg && (
@@ -110,18 +108,15 @@ export default function SiiRolExplorer() {
         </Card>
       )}
 
-      {status === "done" && roles.length > 0 && (
+      {roles.length > 0 && (
         <div className="mt-4 space-y-2">
-          <h3 className="font-semibold text-slate-900">Roles encontrados</h3>
+          <h3 className="font-semibold text-slate-900">Resultados:</h3>
           {roles.map((role, i) => (
             <Card key={i} className="border-slate-200 bg-white p-3">
-              <div className="text-sm">
-                <span className="text-slate-600">ROL:</span>{" "}
-                <span className="font-semibold text-slate-900">
-                  {role.rol_manzana}-{role.rol_predio}
-                </span>
-              </div>
-              {role.direccion && <div className="mt-1 text-xs text-slate-500">{role.direccion}</div>}
+              <p className="text-sm font-mono text-slate-700">
+                <strong>Rol:</strong> {role.rol_manzana}-{role.rol_predio}
+              </p>
+              {role.direccion && <p className="text-xs text-slate-600">{role.direccion}</p>}
             </Card>
           ))}
         </div>
