@@ -375,6 +375,24 @@ const DocumentsManager = () => {
     }
   }
 
+  const getDocumentTypeByExtension = (fileName: string): string => {
+    const ext = fileName.split(".").pop()?.toLowerCase() || ""
+    const typeMap: { [key: string]: string } = {
+      kmz: "kmz",
+      kml: "kmz",
+      pdf: "documento_comercial",
+      doc: "documento_comercial",
+      docx: "documento_comercial",
+      xls: "documento_comercial",
+      xlsx: "documento_comercial",
+      txt: "documento_comercial",
+      jpg: "info_campo",
+      jpeg: "info_campo",
+      png: "info_campo",
+    }
+    return typeMap[ext] || "otro"
+  }
+
   const handleFileUpload = async (file) => {
     if (!file) return
 
@@ -396,12 +414,17 @@ const DocumentsManager = () => {
 
       const { url } = await response.json()
 
-      // Update editing document with file URL
+      // Auto-detect document type based on file extension
+      const detectedType = getDocumentTypeByExtension(file.name)
+      console.log("[v0] File:", file.name, "detected type:", detectedType)
+
+      // Update editing document with file URL and detected type
       setEditingDoc((prev) => ({
         ...prev,
         file_url: url,
         file_type: file.type,
         file_size: file.size,
+        document_type: detectedType, // Auto-assign based on extension
       }))
 
       console.log("[v0] File uploaded successfully:", url)

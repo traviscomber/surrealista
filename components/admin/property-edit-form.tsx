@@ -149,6 +149,11 @@ export function PropertyEditForm({ id }: PropertyEditFormProps) {
 
       if (error) throw error
 
+      console.log("[v0] Property saved successfully:", combinedData)
+
+      // Update the property state with the new data
+      setProperty((prev) => ({ ...prev, ...combinedData }))
+
       toast({
         title: "Propiedad actualizada",
         description: "Los cambios han sido guardados exitosamente.",
@@ -157,6 +162,7 @@ export function PropertyEditForm({ id }: PropertyEditFormProps) {
       // Refresh the page to show updated data
       router.refresh()
     } catch (error: any) {
+      console.log("[v0] Error saving property:", error.message)
       toast({
         title: "Error",
         description: "No se pudo actualizar la propiedad: " + error.message,
