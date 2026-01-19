@@ -51,6 +51,7 @@ const DOCUMENT_TYPES = [
   { value: "certificado", label: "Certificado" },
   { value: "informe_tecnico", label: "Informe Técnico" },
   { value: "contrato", label: "Contrato" },
+  { value: "presentacion", label: "Presentación" },
   { value: "kmz", label: "KMZ" },
   { value: "otro", label: "Otro" },
 ]
@@ -70,6 +71,14 @@ const DocumentsManager = () => {
   const [userId, setUserId] = useState(null)
   const [uploading, setUploading] = useState(false)
   const supabase = createBrowserClient()
+
+  const refreshDocuments = async () => {
+    const { data } = await supabase.from("property_documents").select("*").order("title")
+    if (data) {
+      console.log("[v0] Documents refreshed:", data.length, "items")
+      setDocs(data)
+    }
+  }
 
   useEffect(() => {
     const fetchUserAndDocuments = async () => {
@@ -251,8 +260,7 @@ const DocumentsManager = () => {
         if (!error) {
           console.log("[v0] Document created successfully")
           // Reload documents after creation
-          const { data: newDocs } = await supabase.from("property_documents").select("*").order("title")
-          if (newDocs) setDocs(newDocs)
+          await refreshDocuments()
         }
       } else {
         // Update existing document
@@ -263,7 +271,7 @@ const DocumentsManager = () => {
         error = updateError
         if (!error) {
           console.log("[v0] Document updated successfully")
-          setDocs(docs.map((doc) => (doc.id === editingDoc.id ? { ...doc, ...documentData } : doc)))
+          await refreshDocuments()
         }
       }
 
