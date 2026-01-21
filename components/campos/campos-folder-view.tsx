@@ -867,9 +867,26 @@ export function CAMPOSFolderView() {
 
   return (
     <div className="flex h-full w-full bg-slate-50">
-      {/* Left sidebar - hidden on mobile */}
-      <div className="hidden md:flex flex-col w-80 border-r bg-white overflow-hidden">
+      {/* Left sidebar - collapsible on desktop */}
+      <div
+        className={`hidden md:flex flex-col bg-white overflow-hidden transition-all duration-300 ${
+          isLeftPanelOpen ? "w-80 border-r" : "w-0"
+        }`}
+      >
         <FolderList />
+      </div>
+
+      {/* Left panel toggle button */}
+      <div className="hidden md:flex flex-col items-center pt-2 bg-white border-r">
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8"
+          onClick={() => setIsLeftPanelOpen(!isLeftPanelOpen)}
+          title={isLeftPanelOpen ? "Colapsar panel izquierdo" : "Expandir panel izquierdo"}
+        >
+          <ChevronRight className={`h-4 w-4 transition-transform ${isLeftPanelOpen ? "rotate-180" : ""}`} />
+        </Button>
       </div>
 
       {/* Main content area */}
@@ -942,34 +959,25 @@ export function CAMPOSFolderView() {
         </>
       </div>
 
-      {/* Right Panel - Details (Desktop) */}
-      <div className="hidden md:block fixed inset-y-0 right-0 z-[999] pointer-events-none">
-        {isRightPanelOpen ? (
-          <Card className="m-4 w-80 h-[calc(100%-2rem)] flex flex-col pointer-events-auto shadow-2xl bg-white/95 backdrop-blur-sm">
-            <div className="absolute -left-3 top-1/2 -translate-y-1/2 z-10">
-              <Button
-                size="icon"
-                variant="secondary"
-                className="h-8 w-8 rounded-full shadow-lg"
-                onClick={() => setIsRightPanelOpen(false)}
-              >
-                <ChevronRight className="h-4 w-4 transform rotate-180" />
-              </Button>
-            </div>
-            <DetailsPanel />
-          </Card>
-        ) : (
-          <div className="m-4 pointer-events-auto">
-            <Button
-              size="icon"
-              variant="secondary"
-              className="shadow-lg bg-white hover:bg-gray-50"
-              onClick={() => setIsRightPanelOpen(true)}
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-          </div>
-        )}
+      {/* Right Panel - Details (Desktop) - Collapsible */}
+      <div className="hidden md:flex flex-col items-center pt-2 bg-white border-l">
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8"
+          onClick={() => setIsRightPanelOpen(!isRightPanelOpen)}
+          title={isRightPanelOpen ? "Colapsar panel derecho" : "Expandir panel derecho"}
+        >
+          <ChevronRight className={`h-4 w-4 transition-transform ${!isRightPanelOpen ? "rotate-180" : ""}`} />
+        </Button>
+      </div>
+
+      <div
+        className={`hidden md:flex flex-col bg-white overflow-hidden transition-all duration-300 ${
+          isRightPanelOpen ? "w-80 border-l" : "w-0"
+        }`}
+      >
+        <DetailsPanel />
       </div>
     </div>
   )
