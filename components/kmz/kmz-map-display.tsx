@@ -10,7 +10,8 @@ interface KMZMapDisplayProps {
   kmzFiles?: KMZData[]
   height?: string
   centerCoordinates?: { lat: number; lng: number }
-  onPlacemarkSelect?: (placemark: LayerInfo | null) => void // add callback for placemark selection
+  onPlacemarkSelect?: (placemark: LayerInfo | null) => void
+  enableGeocoding?: boolean // Add option to disable geocoding for performance
 }
 
 interface LayerInfo {
@@ -28,7 +29,8 @@ export function KMZMapDisplay({
   kmzFiles = [],
   height = "600px",
   centerCoordinates,
-  onPlacemarkSelect, // receive callback
+  onPlacemarkSelect,
+  enableGeocoding = true, // Re-enabled by default for location details
 }: KMZMapDisplayProps) {
   const [mapInstance, setMapInstance] = useState<any>(null)
   const [leafletLoaded, setLeafletLoaded] = useState(false)
@@ -257,21 +259,24 @@ export function KMZMapDisplay({
                     visible: true,
                     color,
                     bounds: [[lat, lng]],
-                    isLoadingLocation: true,
+                    isLoadingLocation: enableGeocoding,
                   }
 
                   newLayers.push(layerInfo)
 
-                  geocodingQueueRef.current.push({
-                    lat,
-                    lng,
-                    callback: (details) => {
-                      layerInfo.locationDetails = details
-                      layerInfo.isLoadingLocation = false
-                      marker.setPopupContent(buildPopupContent(placemark, kmzData, color, lat, lng, details))
-                      setLayers([...newLayers])
-                    },
-                  })
+                  // Only geocode if enabled
+                  if (enableGeocoding) {
+                    geocodingQueueRef.current.push({
+                      lat,
+                      lng,
+                      callback: (details) => {
+                        layerInfo.locationDetails = details
+                        layerInfo.isLoadingLocation = false
+                        marker.setPopupContent(buildPopupContent(placemark, kmzData, color, lat, lng, details))
+                        setLayers([...newLayers])
+                      },
+                    })
+                  }
                 } else if (
                   (placemark.type === "LineString" || placemark.type === "Polygon") &&
                   placemark.coordinates.length > 1
@@ -313,24 +318,27 @@ export function KMZMapDisplay({
                     visible: true,
                     color,
                     bounds: leafletCoords,
-                    isLoadingLocation: true,
+                    isLoadingLocation: enableGeocoding,
                   }
 
                   newLayers.push(layerInfo)
 
-                  const centerLat = (leafletCoords[0][0] + leafletCoords[leafletCoords.length - 1][0]) / 2
-                  const centerLng = (leafletCoords[0][1] + leafletCoords[leafletCoords.length - 1][1]) / 2
+                  // Only geocode if enabled
+                  if (enableGeocoding) {
+                    const centerLat = (leafletCoords[0][0] + leafletCoords[leafletCoords.length - 1][0]) / 2
+                    const centerLng = (leafletCoords[0][1] + leafletCoords[leafletCoords.length - 1][1]) / 2
 
-                  geocodingQueueRef.current.push({
-                    lat: centerLat,
-                    lng: centerLng,
-                    callback: (details) => {
-                      layerInfo.locationDetails = details
-                      layerInfo.isLoadingLocation = false
-                      shape.setPopupContent(buildPopupContent(placemark, kmzData, color, centerLat, centerLng, details))
-                      setLayers([...newLayers])
-                    },
-                  })
+                    geocodingQueueRef.current.push({
+                      lat: centerLat,
+                      lng: centerLng,
+                      callback: (details) => {
+                        layerInfo.locationDetails = details
+                        layerInfo.isLoadingLocation = false
+                        shape.setPopupContent(buildPopupContent(placemark, kmzData, color, centerLat, centerLng, details))
+                        setLayers([...newLayers])
+                      },
+                    })
+                  }
                 }
               }
 
@@ -338,7 +346,7 @@ export function KMZMapDisplay({
               setLayers([...newLayers])
 
               if (endIndex < placemarks.length) {
-                processChunk(endIndex)
+                processChunk(endIndex).then(() => resolve())
               } else {
                 resolve()
               }
@@ -347,8 +355,8 @@ export function KMZMapDisplay({
           )
         } else {
           // Fallback for browsers without requestIdleCallback
-          setTimeout(() => {
-            processChunk(startIndex)
+          setTimeout(async () => {
+            await processChunk(startIndex)
           }, 10)
         }
       })
@@ -448,7 +456,9 @@ export function KMZMapDisplay({
 
     renderPlacemarksInChunks(allPlacemarks, allBounds, newLayers).then(() => {
       console.log("[v0] Placemark rendering complete, finalizing...")
-      processGeocodingQueue()
+      if (enableGeocoding) {
+        processGeocodingQueue()
+      }
 
       setLayers(newLayers)
       setIsLoadingLayers(false)

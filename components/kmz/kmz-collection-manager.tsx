@@ -53,6 +53,7 @@ export function KMZCollectionManager() {
   const [tableExists, setTableExists] = useState<boolean | null>(null)
   const [selectedKmzForAnalysis, setSelectedKmzForAnalysis] = useState<KMZRecord | null>(null)
   const [showAnalysisModal, setShowAnalysisModal] = useState(false)
+  const [sortBy, setSortBy] = useState<"date" | "placemarks">("date")
   const [stats, setStats] = useState({
     total: 0,
     active: 0,
@@ -267,6 +268,14 @@ export function KMZCollectionManager() {
     setShowAnalysisModal(true)
   }
 
+  const calculateFileHash = async (file: File): Promise<string> => {
+    const buffer = await file.arrayBuffer()
+    const hashBuffer = await crypto.subtle.digest("SHA-256", buffer)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    const hashHex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("")
+    return hashHex
+  }
+
   const handleOfflineKMZUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files
     if (!files || files.length === 0) return
@@ -280,10 +289,28 @@ export function KMZCollectionManager() {
 
       let successCount = 0
       let errorCount = 0
+      let skippedCount = 0
 
       for (const file of Array.from(files)) {
         try {
           console.log(`[v0] Processing offline KMZ file: ${file.name}`)
+
+          // Calculate file hash for deduplication
+          const fileHash = await calculateFileHash(file)
+          console.log(`[v0] File hash: ${fileHash}`)
+
+          // Check if this exact file already exists
+          const { data: existing } = await supabase
+            .from("kmz_collection")
+            .select("id")
+            .eq("file_hash", fileHash)
+            .single()
+
+          if (existing) {
+            console.log(`[v0] Skipping duplicate file: ${file.name} (hash: ${fileHash})`)
+            skippedCount++
+            continue
+          }
 
           // Parse KMZ file
           const kmzData = await kmzReader.readKMZFile(file)
@@ -293,6 +320,7 @@ export function KMZCollectionManager() {
           const { error } = await supabase.from("kmz_collection").insert({
             file_name: file.name,
             file_path: `offline/${file.name}`,
+            file_hash: fileHash,
             drive_file_id: null,
             description: kmzData.metadata?.description || null,
             metadata: kmzData.metadata,
@@ -323,12 +351,15 @@ export function KMZCollectionManager() {
       await loadKMZCollection()
 
       // Show result
-      if (successCount > 0) {
-        alert(
-          `✅ ${successCount} archivo(s) KMZ cargado(s) exitosamente!${errorCount > 0 ? `\n⚠️ ${errorCount} archivo(s) fallaron.` : ""}`,
-        )
+      const messages = []
+      if (successCount > 0) messages.push(`✅ ${successCount} archivo(s) KMZ cargado(s) exitosamente`)
+      if (skippedCount > 0) messages.push(`⏭️ ${skippedCount} archivo(s) duplicado(s) omitido(s)`)
+      if (errorCount > 0) messages.push(`⚠️ ${errorCount} archivo(s) fallaron`)
+
+      if (messages.length > 0) {
+        alert(messages.join("\n"))
       } else {
-        alert(`❌ Error al cargar archivos KMZ. Por favor, verifica los archivos e intenta nuevamente.`)
+        alert("❌ No se cargaron archivos. Por favor, verifica los archivos e intenta nuevamente.")
       }
     } catch (error) {
       console.error("[v0] Error uploading KMZ files:", error)
@@ -350,6 +381,17 @@ export function KMZCollectionManager() {
     const matchesCategory = selectedCategory === "all" || kmz.category === selectedCategory
 
     return matchesSearch && matchesCategory
+  })
+
+  // Sort based on selected sort method
+  const sortedKMZ = [...filteredKMZ].sort((a, b) => {
+    if (sortBy === "placemarks") {
+      // Sort by placemarks count (most first)
+      return b.placemarks_count - a.placemarks_count
+    } else {
+      // Sort by date (newest first) - default
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    }
   })
 
   const formatFileSize = (bytes?: number) => {
@@ -554,27 +596,50 @@ export function KMZCollectionManager() {
         {/* Search and Filters */}
         <Card className="border-0 shadow-xl bg-white/90 backdrop-blur-sm">
           <CardContent className="p-6">
-            <div className="flex gap-4">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <Input
-                  placeholder="Buscar campos..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
+            <div className="space-y-4">
+              <div className="flex gap-4">
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Input
+                    placeholder="Buscar campos..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
               </div>
+              <div className="flex gap-2 flex-wrap">
               <div className="flex gap-2">
-                {categories.map((category) => (
-                  <Button
-                    key={category}
-                    variant={selectedCategory === category ? "default" : "outline"}
-                    onClick={() => setSelectedCategory(category)}
-                    className="capitalize"
-                  >
-                    {category === "all" ? "Todos" : category}
-                  </Button>
-                ))}
+                <span className="text-sm font-medium text-slate-600 self-center">Ordenar por:</span>
+                <Button
+                  variant={sortBy === "date" ? "default" : "outline"}
+                  onClick={() => setSortBy("date")}
+                  size="sm"
+                >
+                  Fecha
+                </Button>
+                <Button
+                  variant={sortBy === "placemarks" ? "default" : "outline"}
+                  onClick={() => setSortBy("placemarks")}
+                  size="sm"
+                >
+                  Cantidad de Puntos
+                </Button>
+              </div>
+                <div className="flex-1"></div>
+                <div className="flex gap-2">
+                  {categories.map((category) => (
+                    <Button
+                      key={category}
+                      variant={selectedCategory === category ? "default" : "outline"}
+                      onClick={() => setSelectedCategory(category)}
+                      className="capitalize"
+                      size="sm"
+                    >
+                      {category === "all" ? "Todos" : category}
+                    </Button>
+                  ))}
+                </div>
               </div>
             </div>
           </CardContent>
@@ -590,7 +655,7 @@ export function KMZCollectionManager() {
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredKMZ.map((kmz) => (
+            {sortedKMZ.map((kmz) => (
               <Card
                 key={kmz.id}
                 className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-white"

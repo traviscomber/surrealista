@@ -1,5 +1,7 @@
 "use client"
 
+import { useEffect } from "react"
+
 import { useState, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -41,13 +43,39 @@ const KMZMapDisplay = dynamic(() => import("@/components/kmz/kmz-map-display").t
   ),
 })
 
-export function KMZNeighborhoodAnalyzer() {
+interface KMZRecord {
+  id: string
+  file_name: string
+  file_path: string
+  region?: string
+  [key: string]: unknown
+}
+
+interface KMZNeighborhoodAnalyzerProps {
+  selectedKmz?: KMZRecord | null
+  preloadedRegionFiles?: any[]
+  isLoadingRegionFiles?: boolean
+}
+
+export function KMZNeighborhoodAnalyzer({
+  selectedKmz,
+  preloadedRegionFiles = [],
+  isLoadingRegionFiles = false,
+}: KMZNeighborhoodAnalyzerProps) {
   const [kmzFiles, setKmzFiles] = useState<KMZData[]>([])
+  const [availableRegionKmzs, setAvailableRegionKmzs] = useState<any[]>(preloadedRegionFiles)
+  const [selectedRegionKmzIds, setSelectedRegionKmzIds] = useState<Set<string>>(new Set())
+  const [showAllRegionLayers, setShowAllRegionLayers] = useState(false)
   const [loading, setLoading] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
   const [analysis, setAnalysis] = useState<NeighborhoodAnalysis | null>(null)
   const [searchRadius, setSearchRadius] = useState(5) // km
   const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null)
+
+  // Update available region KMZs when preloaded files change
+  useEffect(() => {
+    setAvailableRegionKmzs(preloadedRegionFiles)
+  }, [preloadedRegionFiles])
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const kmzFiles = acceptedFiles.filter(

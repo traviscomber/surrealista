@@ -113,6 +113,26 @@ export function CAMPOSFolderView() {
     }
   }
 
+  const handleRefresh = async () => {
+    console.log("[v0] Refreshing view - clearing selection and reloading metadata")
+    
+    // Clear current selection
+    setSelectedItem(null)
+    setSelectedRegion(null)
+    setKmzFiles([])
+    setMapCenter(null)
+    setSelectedItemDocuments([])
+    setDocumentCount(0)
+    
+    // Reload metadata
+    await loadRegionMetadata()
+    
+    toast({
+      title: "Vista actualizada",
+      description: "Se han recargado todas las regiones. Selecciona una para continuar.",
+    })
+  }
+
   const calculateCenterFromBounds = (bounds: any): { lat: number; lng: number } => {
     if (!bounds || !bounds.south || !bounds.north || !bounds.west || !bounds.east) {
       return { lat: -39.8196, lng: -73.2452 } // Default Chile center
@@ -297,13 +317,69 @@ export function CAMPOSFolderView() {
         setDocumentCount(count)
         console.log("[v0] Loaded", count, "documents for KMZ:", item.name)
 
-        const selectedKMZ = kmzFiles.filter((kmz) => kmz.fileName === item.name)
-        setKmzFiles(selectedKMZ)
-        console.log("[v0] Filtered to show only:", item.name)
+        // IMPORTANT: Load the full KMZ data for this specific file first
+        try {
+          const { data, error } = await supabase
+            .from("kmz_collection")
+            .select("*")
+            .eq("is_active", true)
+            .eq("id", item.dbId)
+            .single()
+
+          if (error) {
+            console.error("[v0] Error loading KMZ data:", error)
+            setKmzFiles([])
+          } else if (data) {
+            console.log("[v0] Loaded full KMZ data for:", item.name)
+
+            // Transform the single KMZ file
+            const placemarks = (data.coordinates || []).map((coordArray: any, index: number) => {
+              let geometryType = "Point"
+              let coordinates = coordArray
+
+              if (Array.isArray(coordArray) && coordArray.length > 3) {
+                if (Array.isArray(coordArray[0]) && coordArray[0].length >= 2 && typeof coordArray[0][0] === "number") {
+                  geometryType = "Polygon"
+                  coordinates = coordArray
+                }
+              }
+
+              return {
+                name: `${data.file_name} - ${geometryType === "Polygon" ? "Polígono" : "Punto"} ${index + 1}`,
+                type: geometryType,
+                coordinates: coordinates,
+                description: data.description || "",
+                properties: {
+                  rol: data.rol_numbers?.[index] || "",
+                  category: data.category || "general",
+                },
+              }
+            })
+
+            const transformedKMZ = {
+              fileName: data.file_name,
+              placemarks: placemarks,
+              bounds: data.bounds,
+              metadata: {
+                id: data.id,
+                category: data.category,
+                rolNumbers: data.rol_numbers || [],
+                placemarks_count: data.placemarks_count,
+              },
+            }
+
+            console.log("[v0] Displaying only selected KMZ file:", item.name)
+            setKmzFiles([transformedKMZ]) // Show ONLY this file
+          }
+        } catch (kmzError) {
+          console.error("[v0] Error loading full KMZ data:", kmzError)
+          setKmzFiles([])
+        }
       } catch (error) {
         console.error("[v0] Error loading documents for KMZ:", error)
         setSelectedItemDocuments([])
         setDocumentCount(0)
+        setKmzFiles([])
       } finally {
         setLoadingDocuments(false)
       }
@@ -462,7 +538,7 @@ export function CAMPOSFolderView() {
       <div className="p-4 border-b space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Carpetas CAMPOS</h2>
-          <Button onClick={loadRegionMetadata} disabled={isLoadingMetadata || isRescanning} size="sm" variant="outline">
+          <Button onClick={handleRefresh} disabled={isLoadingMetadata || isRescanning} size="sm" variant="outline">
             <RefreshCw className={`h-4 w-4 ${isLoadingMetadata ? "animate-spin" : ""}`} />
           </Button>
         </div>
@@ -806,7 +882,7 @@ export function CAMPOSFolderView() {
           {/* Map Display */}
           <div className="flex-1 overflow-hidden relative w-full">
             {kmzFiles.length > 0 && mapCenter ? (
-              <KMZMapDisplay kmzFiles={kmzFiles} center={mapCenter} zoom={8} height="100%" />
+              <KMZMapDisplay kmzFiles={kmzFiles} centerCoordinates={mapCenter} height="100%" enableGeocoding={true} />
             ) : (
               <div className="h-full flex items-center justify-center bg-slate-100">
                 <div className="text-center">

@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card } from "@/components/ui/card"
@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast"
 import {
   getAllRegions,
   getProvinciasForRegion,
+  getComunasForProvincia,
   getAllComunasForRegion,
   type Region,
   type Provincia,
@@ -24,8 +25,8 @@ interface PropertyLocationFormProps {
     address: string
     city: string
     region: string
-    provincia?: string // Added provincia field
-    comuna?: string // Added comuna field
+    provincia?: string
+    comuna?: string
     postal_code: string
     latitude: string | number
     longitude: string | number
@@ -39,24 +40,32 @@ export function PropertyLocationForm({ data, onChange }: PropertyLocationFormPro
   const [isLookingUp, setIsLookingUp] = useState(false)
   const { toast } = useToast()
 
-  const [regions] = useState<Region[]>(getAllRegions())
+  const regions = useMemo(() => getAllRegions(), [])
   const [provincias, setProvincias] = useState<Provincia[]>([])
   const [comunas, setComunas] = useState<Comuna[]>([])
   const [selectedRegionCode, setSelectedRegionCode] = useState<string>("")
+  const [selectedProvinciaCode, setSelectedProvinciaCode] = useState<string>("")
 
+  // Load region and provincias on initial data load only
   useEffect(() => {
-    setFormData(data)
-    if (data.region) {
+    if (data.region && selectedRegionCode === "") {
       const region = regions.find((r) => r.name === data.region || r.shortName === data.region)
       if (region) {
         setSelectedRegionCode(region.code)
         const provs = getProvinciasForRegion(region.code)
         setProvincias(provs)
-        const coms = getAllComunasForRegion(region.code)
-        setComunas(coms)
+
+        // If there's a provincia, load only its comunas
+        if (data.provincia) {
+          const provincia = provs.find((p) => p.name === data.provincia)
+          if (provincia) {
+            setSelectedProvinciaCode(provincia.code)
+            setComunas(provincia.comunas)
+          }
+        }
       }
     }
-  }, [data, regions])
+  }, []) // Only run on mount
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
@@ -70,10 +79,10 @@ export function PropertyLocationForm({ data, onChange }: PropertyLocationFormPro
     if (!region) return
 
     setSelectedRegionCode(regionCode)
+    setSelectedProvinciaCode("")
     const provs = getProvinciasForRegion(regionCode)
     setProvincias(provs)
-    const coms = getAllComunasForRegion(regionCode)
-    setComunas(coms)
+    setComunas([]) // Reset comunas until provincia is selected
 
     const updatedData = {
       ...formData,
@@ -85,20 +94,29 @@ export function PropertyLocationForm({ data, onChange }: PropertyLocationFormPro
     onChange(updatedData)
   }
 
-  const handleProvinciaChange = (provinciaName: string) => {
-    const updatedData = {
-      ...formData,
-      provincia: provinciaName,
+  const handleProvinciaChange = (provinciaCode: string) => {
+    setSelectedProvinciaCode(provinciaCode)
+    
+    // Only load comunas for the selected provincia
+    const provincia = provincias.find((p) => p.code === provinciaCode)
+    if (provincia) {
+      setComunas(provincia.comunas)
+
+      const updatedData = {
+        ...formData,
+        provincia: provincia.name,
+        comuna: "",
+      }
+      setFormData(updatedData)
+      onChange(updatedData)
     }
-    setFormData(updatedData)
-    onChange(updatedData)
   }
 
   const handleComunaChange = (comunaName: string) => {
     const updatedData = {
       ...formData,
       comuna: comunaName,
-      city: comunaName, // Also set city to comuna name
+      city: comunaName,
     }
     setFormData(updatedData)
     onChange(updatedData)
@@ -264,9 +282,9 @@ export function PropertyLocationForm({ data, onChange }: PropertyLocationFormPro
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="space-y-2">
           <Label htmlFor="comuna">Comuna *</Label>
-          <Select value={formData.comuna || ""} onValueChange={handleComunaChange} disabled={!selectedRegionCode}>
+          <Select value={formData.comuna || ""} onValueChange={handleComunaChange} disabled={!selectedProvinciaCode}>
             <SelectTrigger id="comuna">
-              <SelectValue placeholder={selectedRegionCode ? "Seleccione comuna" : "Primero seleccione región"} />
+              <SelectValue placeholder={selectedProvinciaCode ? "Seleccione comuna" : "Primero seleccione provincia"} />
             </SelectTrigger>
             <SelectContent>
               {comunas.map((comuna) => (
