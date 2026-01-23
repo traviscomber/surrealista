@@ -22,23 +22,43 @@ interface Task {
 
 interface TasksManagerProps {
   tasks: Task[]
-  selectedTask: Task | null
-  onTaskClick: (task: Task) => void
-  onTaskCreated: () => void
-  onTaskUpdated: () => void
-  currentUser: any
+  refreshTrigger?: number
+  onTasksUpdate?: () => void
+  selectedTask?: Task | null
+  onTaskClick?: (task: Task) => void
+  onTaskCreated?: () => void
+  onTaskUpdated?: () => void
+  currentUser?: any
 }
 
 export function TasksManager({
   tasks,
-  selectedTask,
-  onTaskClick,
-  onTaskCreated,
-  onTaskUpdated,
+  refreshTrigger,
+  onTasksUpdate,
+  selectedTask: initialSelectedTask,
+  onTaskClick: onTaskClickProp,
+  onTaskCreated: onTaskCreatedProp,
+  onTaskUpdated: onTaskUpdatedProp,
   currentUser,
 }: TasksManagerProps) {
   const [taskDialogOpen, setTaskDialogOpen] = useState(false)
   const [quickTaskOpen, setQuickTaskOpen] = useState(false)
+  const [selectedTask, setSelectedTask] = useState<Task | null>(initialSelectedTask || null)
+
+  const handleTaskClick = (task: Task) => {
+    setSelectedTask(task)
+    onTaskClickProp?.(task)
+  }
+
+  const handleTaskCreated = () => {
+    onTaskCreatedProp?.()
+    onTasksUpdate?.()
+  }
+
+  const handleTaskUpdated = () => {
+    onTaskUpdatedProp?.()
+    onTasksUpdate?.()
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -93,7 +113,7 @@ export function TasksManager({
               {tasks.map((task) => (
                 <div
                   key={task.id}
-                  onClick={() => onTaskClick(task)}
+                  onClick={() => handleTaskClick(task)}
                   className={`p-4 border rounded-lg hover:bg-blue-50 cursor-pointer transition-colors ${
                     selectedTask?.id === task.id ? "bg-blue-100 border-blue-500" : ""
                   }`}
@@ -172,9 +192,10 @@ export function TasksManager({
         {selectedTask ? (
           <TaskActionsPanel
             task={selectedTask}
-            onTaskUpdated={onTaskUpdated}
+            onTaskUpdated={handleTaskUpdated}
             onTaskDeleted={() => {
-              onTaskUpdated()
+              handleTaskUpdated()
+              setSelectedTask(null)
             }}
           />
         ) : (
@@ -193,9 +214,9 @@ export function TasksManager({
       <QuickTaskCreation
         open={quickTaskOpen}
         onOpenChange={setQuickTaskOpen}
-        currentUser={currentUser}
+        currentUser={currentUser || { email: "system@sur-realista.com" }}
         onTaskCreated={() => {
-          onTaskCreated()
+          handleTaskCreated()
           setQuickTaskOpen(false)
         }}
         onOpenCompleteDialog={() => {
@@ -207,9 +228,19 @@ export function TasksManager({
       <TaskCreationDialog
         open={taskDialogOpen}
         onOpenChange={setTaskDialogOpen}
+        currentUser={currentUser || { email: "system@sur-realista.com" }}
+        onTaskCreated={() => {
+          handleTaskCreated()
+          setTaskDialogOpen(false)
+        }}
+      />
+
+      <TaskCreationDialog
+        open={taskDialogOpen}
+        onOpenChange={setTaskDialogOpen}
         currentUser={currentUser}
         onTaskCreated={() => {
-          onTaskCreated()
+          handleTaskCreated()
           setTaskDialogOpen(false)
         }}
       />

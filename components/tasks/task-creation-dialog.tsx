@@ -83,6 +83,8 @@ export function TaskCreationDialog({
   const [activeSTTField, setActiveSTTField] = useState<"title" | "description" | null>(null)
   const [titleSTTError, setTitleSTTError] = useState<string | null>(null)
   const [descriptionSTTError, setDescriptionSTTError] = useState<string | null>(null)
+  const [tags, setTags] = useState<string[]>([])
+  const [tagInput, setTagInput] = useState("")
 
   const titleSTT = useSpeechToText({
     continuous: false,
@@ -169,6 +171,24 @@ export function TaskCreationDialog({
     setSelectedUsers((prev) => (prev.includes(userId) ? prev.filter((id) => id !== userId) : [...prev, userId]))
   }
 
+  const handleAddTag = () => {
+    if (tagInput.trim() && !tags.includes(tagInput.trim().toLowerCase())) {
+      setTags([...tags, tagInput.trim().toLowerCase()])
+      setTagInput("")
+    }
+  }
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    setTags(tags.filter((tag) => tag !== tagToRemove))
+  }
+
+  const handleTagKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault()
+      handleAddTag()
+    }
+  }
+
   const toggleTitleSTT = () => {
     if (titleSTT.isListening) {
       titleSTT.stopListening()
@@ -221,7 +241,7 @@ export function TaskCreationDialog({
         updated_at: new Date().toISOString(),
         ...(isEditMode ? {} : { created_at: new Date().toISOString(), created_by: createdBy }),
         assigned_to: task?.assigned_to || null,
-        tags: [],
+        tags: tags.length > 0 ? tags : [],
       }
 
       let taskId: string
@@ -603,6 +623,47 @@ export function TaskCreationDialog({
                   {selectedUsers.length} usuario(s) seleccionado(s) - Recibirán notificaciones según sus preferencias
                 </p>
               )}
+            </div>
+
+            <div className="grid gap-2 border-t pt-4">
+              <Label htmlFor="tags">Tags / Etiquetas</Label>
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <Input
+                    id="tags"
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={handleTagKeyDown}
+                    placeholder="Ingresa un tag y presiona Enter"
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleAddTag}
+                    variant="outline"
+                    size="sm"
+                    className="px-3 bg-transparent"
+                  >
+                    +
+                  </Button>
+                </div>
+                {tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {tags.map((tag) => (
+                      <Badge
+                        key={tag}
+                        variant="secondary"
+                        className="gap-1 cursor-pointer hover:bg-gray-300"
+                        onClick={() => handleRemoveTag(tag)}
+                      >
+                        {tag}
+                        <span className="text-xs">×</span>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                <p className="text-xs text-muted-foreground">Haz clic en un tag para eliminarlo</p>
+              </div>
             </div>
           </div>
 

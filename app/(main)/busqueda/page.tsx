@@ -5,9 +5,10 @@ export const dynamic = "force-dynamic"
 
 import { useState, useEffect, useRef } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Folder, Users, MessageSquare, Loader2, HardDrive } from "lucide-react"
+import { Folder, Users, MessageSquare, Loader2, HardDrive, CheckSquare } from "lucide-react"
 import { createBrowserClient } from "@/lib/supabase/client"
 import { TaskCreationDialog } from "@/components/tasks/task-creation-dialog"
+import { TasksManager } from "@/components/tasks/tasks-manager"
 import { useGoogleDrive } from "@/lib/contexts/google-drive-context"
 import dynamicImport from "next/dynamic"
 import { CAMPOSFolderView } from "@/components/campos/campos-folder-view"
@@ -550,7 +551,7 @@ export default function UnifiedSearchPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-4 mb-6 h-auto">
+          <TabsList className="grid w-full grid-cols-5 mb-6 h-auto">
             <TabsTrigger
               value="campos"
               className="flex items-center gap-2 data-[state=active]:bg-sage data-[state=active]:text-white"
@@ -573,6 +574,13 @@ export default function UnifiedSearchPage() {
               Comunicaciones
             </TabsTrigger>
             <TabsTrigger
+              value="tareas"
+              className="flex items-center gap-2 cursor-pointer data-[state=active]:bg-sage data-[state=active]:text-white"
+            >
+              <CheckSquare className="h-4 w-4" />
+              Tareas
+            </TabsTrigger>
+            <TabsTrigger
               value="drive"
               className="flex items-center gap-2 cursor-pointer data-[state=active]:bg-sage data-[state=active]:text-white"
             >
@@ -591,6 +599,10 @@ export default function UnifiedSearchPage() {
 
           <TabsContent value="comunicaciones">
             <CommunicationsManagerDynamic />
+          </TabsContent>
+
+          <TabsContent value="tareas" className="h-[calc(100vh-20rem)] min-h-[600px]">
+            <TasksManager tasks={tasks} refreshTrigger={taskRefreshTrigger} onTasksUpdate={() => loadTasks()} />
           </TabsContent>
 
           <TabsContent value="drive" className="h-[calc(100vh-16rem)] min-h-[600px]">
