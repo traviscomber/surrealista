@@ -129,14 +129,45 @@ export default function UnifiedSearchPage() {
   const router = useRouter() // Added router instance
 
   useEffect(() => {
-    getCurrentUser()
-    loadTasks()
+    const controller = new AbortController()
+
+    const initializeData = async () => {
+      try {
+        await getCurrentUser()
+        await loadTasks()
+      } catch (error) {
+        if (error instanceof Error && error.name !== "AbortError") {
+          console.error("[v0] Error initializing data:", error)
+        }
+      }
+    }
+
+    initializeData()
+
+    return () => {
+      controller.abort()
+    }
   }, [])
 
   useEffect(() => {
     if (isConnected && driveService) {
-      console.log("[v0] Drive status changed, loading folders...")
-      loadDriveFolders()
+      const controller = new AbortController()
+
+      const loadDrive = async () => {
+        try {
+          await loadDriveFolders()
+        } catch (error) {
+          if (error instanceof Error && error.name !== "AbortError") {
+            console.error("[v0] Error loading drive:", error)
+          }
+        }
+      }
+
+      loadDrive()
+
+      return () => {
+        controller.abort()
+      }
     }
   }, [isConnected, driveService])
 
@@ -154,7 +185,9 @@ export default function UnifiedSearchPage() {
       setCurrentUser(user)
       console.log("[v0] Current user:", user?.email || "No user logged in")
     } catch (error) {
-      console.error("[v0] Error getting user:", error)
+      if (error instanceof Error && error.name !== "AbortError") {
+        console.error("[v0] Error getting user:", error)
+      }
     }
   }
 
@@ -170,7 +203,9 @@ export default function UnifiedSearchPage() {
       setTasks(data || [])
       setTaskRefreshTrigger((prev) => prev + 1)
     } catch (error) {
-      console.error("Error loading tasks:", error)
+      if (error instanceof Error && error.name !== "AbortError") {
+        console.error("[v0] Error loading tasks:", error)
+      }
     }
   }
 
@@ -186,10 +221,6 @@ export default function UnifiedSearchPage() {
 
       const kmzFiles = await driveService.searchKMZFiles()
       console.log("[v0] Found KMZ files:", kmzFiles.length)
-      console.log(
-        "[v0] KMZ file names from Drive:",
-        kmzFiles.map((f) => f.name),
-      )
 
       const folderMap = new Map<string, any[]>()
 
@@ -232,7 +263,9 @@ export default function UnifiedSearchPage() {
               location = "Drive raíz"
             }
           } catch (error) {
-            console.error("[v0] Error getting folder name:", error)
+            if (error instanceof Error && error.name !== "AbortError") {
+              console.error("[v0] Error getting folder name:", error)
+            }
             folderName = files[0]?.name?.split(".")[0] || `Carpeta ${index}`
           }
 
@@ -247,13 +280,12 @@ export default function UnifiedSearchPage() {
         }
       }
 
-      console.log(
-        "[v0] Created campos from Drive with exact names:",
-        camposFromDrive.map((c) => c.name),
-      )
+      console.log("[v0] Created campos from Drive:", camposFromDrive.map((c) => c.name))
       setCamposData(camposData.concat(camposFromDrive))
     } catch (error: any) {
-      console.error("[v0] Error loading Drive folders:", error)
+      if (!(error instanceof Error && error.name === "AbortError")) {
+        console.error("[v0] Error loading Drive folders:", error)
+      }
       setCamposData([])
     }
   }

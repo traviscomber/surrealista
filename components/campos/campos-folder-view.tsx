@@ -26,6 +26,8 @@ import {
   ExternalLink,
   X,
   Sparkles,
+  Maximize2,
+  Minimize2,
 } from "lucide-react"
 import { kmzReader } from "@/lib/kmz/kmz-reader"
 import { kmzStorageService } from "@/lib/kmz/kmz-storage-service"
@@ -70,6 +72,7 @@ export function CAMPOSFolderView() {
   const [isDetailsSheetOpen, setIsDetailsSheetOpen] = useState(false)
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(false)
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(false)
+  const [isMapFullscreen, setIsMapFullscreen] = useState(false)
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [showAIAgent, setShowAIAgent] = useState(false)
@@ -866,18 +869,26 @@ export function CAMPOSFolderView() {
   )
 
   return (
-    <div className="flex h-full w-full bg-slate-50">
-      {/* Left sidebar - collapsible on desktop */}
+    <div
+      className={`flex h-full w-full bg-slate-50 ${
+        isMapFullscreen ? "md:flex" : ""
+      }`}
+    >
+      {/* Left sidebar - collapsible on desktop, hidden on mobile when fullscreen */}
       <div
         className={`hidden md:flex flex-col bg-white overflow-hidden transition-all duration-300 ${
-          isLeftPanelOpen ? "w-80 border-r" : "w-0"
-        }`}
+          isMapFullscreen ? "md:hidden" : ""
+        } ${isLeftPanelOpen ? "w-80 border-r" : "w-0"}`}
       >
         <FolderList />
       </div>
 
       {/* Left panel toggle button */}
-      <div className="hidden md:flex flex-col items-center pt-2 bg-white border-r">
+      <div
+        className={`hidden md:flex flex-col items-center pt-2 bg-white border-r ${
+          isMapFullscreen ? "md:hidden" : ""
+        }`}
+      >
         <Button
           size="icon"
           variant="ghost"
@@ -890,9 +901,22 @@ export function CAMPOSFolderView() {
       </div>
 
       {/* Main content area */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-2 border-b bg-white flex-shrink-0">
+      <div className={`${isMapFullscreen ? "fixed inset-0 md:relative z-50" : "flex-1"} flex flex-col overflow-hidden`}>
+        <div
+          className={`${isMapFullscreen ? "md:flex" : "flex"} items-center justify-between px-4 py-2 border-b bg-white flex-shrink-0`}
+        >
           <h1 className="text-2xl font-bold text-gray-900">CAMPOS</h1>
+          {isMapFullscreen && (
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => setIsMapFullscreen(false)}
+              className="md:hidden"
+              title="Salir de pantalla completa"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          )}
         </div>
 
         <>
@@ -944,7 +968,7 @@ export function CAMPOSFolderView() {
           </div>
 
           {/* Bottom Sheets for Mobile */}
-          <div className="md:hidden absolute top-4 left-4 z-[999]">
+          <div className="md:hidden absolute top-4 left-4 z-[999] flex gap-2">
             <Sheet open={isFolderSheetOpen} onOpenChange={setIsFolderSheetOpen}>
               <SheetTrigger asChild>
                 <Button size="icon" className="shadow-lg bg-white hover:bg-gray-50">
@@ -955,12 +979,24 @@ export function CAMPOSFolderView() {
                 <FolderList />
               </SheetContent>
             </Sheet>
+            <Button
+              size="icon"
+              className="shadow-lg bg-white hover:bg-gray-50 md:hidden"
+              onClick={() => setIsMapFullscreen(!isMapFullscreen)}
+              title={isMapFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
+            >
+              {isMapFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
+            </Button>
           </div>
         </>
       </div>
 
       {/* Right Panel - Details (Desktop) - Collapsible */}
-      <div className="hidden md:flex flex-col items-center pt-2 bg-white border-l">
+      <div
+        className={`hidden md:flex flex-col items-center pt-2 bg-white border-l ${
+          isMapFullscreen ? "md:hidden" : ""
+        }`}
+      >
         <Button
           size="icon"
           variant="ghost"
@@ -974,8 +1010,8 @@ export function CAMPOSFolderView() {
 
       <div
         className={`hidden md:flex flex-col bg-white overflow-hidden transition-all duration-300 ${
-          isRightPanelOpen ? "w-80 border-l" : "w-0"
-        }`}
+          isMapFullscreen ? "md:hidden" : ""
+        } ${isRightPanelOpen ? "w-80 border-l" : "w-0"}`}
       >
         <DetailsPanel />
       </div>
