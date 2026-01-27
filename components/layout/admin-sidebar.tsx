@@ -275,6 +275,13 @@ export function AdminSidebar() {
         <h3 className="text-sm font-semibold text-gray-700 px-3">Acciones Rápidas</h3>
         <div className="space-y-2">
           <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
+            <Link href="/admin/tags">
+              <Database className="h-4 w-4" />
+              Gestión de Tags
+              <Badge className="ml-auto bg-green-500 text-white text-xs">NEW</Badge>
+            </Link>
+          </Button>
+          <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
             <Link href="/admin/google-drive-integration">
               <Database className="h-4 w-4" />
               Google Drive
@@ -282,52 +289,10 @@ export function AdminSidebar() {
             </Link>
           </Button>
           <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
-            <Link href="/mvp/seguimiento">
-              <Activity className="h-4 w-4" />
-              Seguimiento MVP
-              <Badge className="ml-auto bg-blue-500 text-white text-xs">85%</Badge>
-            </Link>
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
             <Link href="/admin/migracion-data-real">
               <Upload className="h-4 w-4" />
               Migración Data
               <Badge className="ml-auto bg-purple-500 text-white text-xs">Ready</Badge>
-            </Link>
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
-            <Link href="/admin/documentacion-para-method">
-              <HelpCircle className="h-4 w-4" />
-              Método PARA
-              <Badge className="ml-auto bg-indigo-500 text-white text-xs">Guía</Badge>
-            </Link>
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
-            <Link href="/admin/sii-extractor">
-              <Search className="h-4 w-4" />
-              Extractor SII
-              <Badge className="ml-auto bg-orange-500 text-white text-xs">Beta</Badge>
-            </Link>
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
-            <Link href="/admin/file-explorer">
-              <FolderOpen className="h-4 w-4" />
-              Explorador de Archivos
-              <Badge className="ml-auto bg-purple-500 text-white text-xs">New</Badge>
-            </Link>
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
-            <Link href="/admin/kmz-collection">
-              <MapPin className="h-4 w-4" />
-              Colección KMZ
-              <Badge className="ml-auto bg-blue-500 text-white text-xs">New</Badge>
-            </Link>
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
-            <Link href="/admin/kmz-vecindario">
-              <MapPin className="h-4 w-4" />
-              Análisis Vecindario KMZ
-              <Badge className="ml-auto bg-blue-500 text-white text-xs">New</Badge>
             </Link>
           </Button>
           <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
@@ -345,17 +310,16 @@ export function AdminSidebar() {
             </Link>
           </Button>
           <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
-            <Link href="/comunicaciones/email">
-              <Mail className="h-4 w-4" />
-              Comunicaciones
-              <Badge className="ml-auto bg-blue-500 text-white text-xs">Nuevo</Badge>
+            <Link href="/admin/kmz-collection">
+              <MapPin className="h-4 w-4" />
+              Colección KMZ
+              <Badge className="ml-auto bg-blue-500 text-white text-xs">New</Badge>
             </Link>
           </Button>
-          {/* Added email sending to quick actions */}
           <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
             <Link href="/comunicaciones/email">
               <Mail className="h-4 w-4" />
-              Enviar Emails
+              Comunicaciones
               <Badge className="ml-auto bg-blue-500 text-white text-xs">Nuevo</Badge>
             </Link>
           </Button>
