@@ -112,11 +112,16 @@ export function GlobalCommandPalette() {
         // Search CLIENT COMMUNICATIONS
         supabase
           .from("client_communications")
-          .select("id, subject, content, communication_type, communication_date, created_by, client_id")
+          .select(
+            `id, subject, content, communication_type, communication_date, created_by, client_id, 
+             clients(first_name, last_name, company_name)`,
+          )
           .ilike("subject", `%${searchQuery}%`)
-          .or(`content.ilike.%${searchQuery}%`)
+          .or(
+            `content.ilike.%${searchQuery}%,communication_type.ilike.%${searchQuery}%,created_by.ilike.%${searchQuery}%,clients.first_name.ilike.%${searchQuery}%,clients.last_name.ilike.%${searchQuery}%,clients.company_name.ilike.%${searchQuery}%`,
+          )
           .order("communication_date", { ascending: false })
-          .limit(8),
+          .limit(15),
 
         // Search TASKS
         supabase
@@ -218,17 +223,24 @@ export function GlobalCommandPalette() {
 
       // Process COMMUNICATIONS
       const communications = communicationsResult.data || []
-      communications.slice(0, 8).forEach((comm) => {
+      communications.slice(0, 15).forEach((comm: any) => {
         const id = `comm-${comm.id}`
         if (!seenIds.has(id)) {
           seenIds.add(id)
+          const clientName = comm.clients
+            ? `${comm.clients.first_name || ""} ${comm.clients.last_name || ""}`.trim() || comm.clients.company_name
+            : "Sin cliente"
           allResults.push({
             id: comm.id,
             type: "communication" as const,
             title: comm.subject || "Comunicación",
-            subtitle: `${comm.communication_type || "Comunicación"} • ${comm.created_by || "Sistema"}`,
-            description: comm.content?.substring(0, 70) || "",
-            metadata: { type: comm.communication_type, created_by: comm.created_by },
+            subtitle: `${clientName} • ${comm.communication_type || "Comunicación"}`,
+            description: comm.content?.substring(0, 70) || `Por: ${comm.created_by || "Sistema"}`,
+            metadata: {
+              type: comm.communication_type,
+              created_by: comm.created_by,
+              client_id: comm.client_id,
+            },
             url: `/comunicaciones?comm=${comm.id}`,
             icon: <Mail className="h-4 w-4" />,
           })
