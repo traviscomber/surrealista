@@ -61,381 +61,337 @@ export function GlobalCommandPalette() {
 
     setIsSearching(true)
     const allResults: SearchResult[] = []
-    const normalizedQuery = normalizeString(searchQuery)
+    const seenIds = new Set<string>() // Deduplication
 
     try {
-      const { data: clients } = await supabase
-        .from("clients")
-        .select("id, first_name, last_name, email, phone, company_name, status, main_interest")
-        .limit(100)
+      // Execute all searches in PARALLEL for better performance
+      const [
+        clientsResult,
+        camposResult,
+        docsResult,
+        messagesResult,
+        communicationsResult,
+        tasksResult,
+        tagsResult,
+      ] = await Promise.all([
+        // Search CLIENTS
+        supabase
+          .from("clients")
+          .select("id, first_name, last_name, email, phone, company_name, status, main_interest")
+          .or(`first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%,company_name.ilike.%${searchQuery}%,main_interest.ilike.%${searchQuery}%`)
+          .limit(15),
 
-      if (clients) {
-        const filteredClients = clients.filter((c) => {
-          const searchString =
-            `${c.first_name || ""} ${c.last_name || ""} ${c.email || ""} ${c.company_name || ""} ${c.phone || ""} ${c.main_interest || ""}`.toLowerCase()
-          const normalizedQueryStr = searchQuery.toLowerCase()
-          return searchString.includes(normalizedQueryStr)
-        })
+        // Search CAMPOS (KMZ files)
+        supabase
+          .from("kmz_collection")
+          .select("id, file_name, region, description, placemarks_count, category, tags")
+          .or(`file_name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,region.ilike.%${searchQuery}%,category.ilike.%${searchQuery}%`)
+          .limit(15),
 
-        const sortedClients = filteredClients.sort((a, b) => {
-          const aName = `${a.first_name} ${a.last_name}`.toLowerCase()
-          const bName = `${b.first_name} ${b.last_name}`.toLowerCase()
-          const queryLower = searchQuery.toLowerCase()
+        // Search DOCUMENTS linked to KMZ
+        supabase
+          .from("document_kmz_links")
+          .select(
+            `document_id, documents(id, title, description, document_type, status, file_name, created_at), kmz_collection(id, file_name, region)`,
+          )
+          .or(
+            `documents.title.ilike.%${searchQuery}%,documents.description.ilike.%${searchQuery}%,kmz_collection.file_name.ilike.%${searchQuery}%`,
+          )
+          .limit(8),
 
-          const aStarts = aName.startsWith(queryLower) ? 0 : 1
-          const bStarts = bName.startsWith(queryLower) ? 0 : 1
+        // Search MESSAGES
+        supabase
+          .from("messages")
+          .select("id, name, email, subject, message, status, created_at")
+          .ilike("subject", `%${searchQuery}%`)
+          .or(`message.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%`)
+          .limit(5),
 
-          return aStarts - bStarts
-        })
+        // Search CLIENT COMMUNICATIONS
+        supabase
+          .from("client_communications")
+          .select(
+            `id, subject, content, communication_type, communication_date, created_by, client_id, 
+             clients(first_name, last_name, company_name)`,
+          )
+          .ilike("subject", `%${searchQuery}%`)
+          .or(
+            `content.ilike.%${searchQuery}%,communication_type.ilike.%${searchQuery}%,created_by.ilike.%${searchQuery}%,clients.first_name.ilike.%${searchQuery}%,clients.last_name.ilike.%${searchQuery}%,clients.company_name.ilike.%${searchQuery}%`,
+          )
+          .order("communication_date", { ascending: false })
+          .limit(15),
 
-        allResults.push(
-          ...sortedClients.slice(0, 15).map((client) => ({
+        // Search TASKS
+        supabase
+          .from("tasks")
+          .select("id, title, description, status, priority, location, due_date")
+          .or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,location.ilike.%${searchQuery}%,status.ilike.%${searchQuery}%`)
+          .limit(15),
+
+        // Search TAGS
+        supabase
+          .from("tags")
+          .select("id, name")
+          .ilike("name", `%${searchQuery}%`)
+          .limit(5),
+      ])
+
+      // Process CLIENTS
+      const clients = clientsResult.data || []
+      clients.slice(0, 15).forEach((client) => {
+        const id = `client-${client.id}`
+        if (!seenIds.has(id)) {
+          seenIds.add(id)
+          allResults.push({
             id: client.id,
             type: "client" as const,
-            title:
-              `${client.first_name || ""} ${client.last_name || ""}`.trim() ||
-              client.company_name ||
-              "Cliente sin nombre",
+            title: `${client.first_name || ""} ${client.last_name || ""}`.trim() || client.company_name || "Cliente",
             subtitle: client.email || client.phone || "",
             description: client.main_interest || client.company_name || "",
             metadata: { status: client.status },
             url: `/gestion-clientes?client=${client.id}`,
             icon: <Users className="h-4 w-4" />,
-          })),
-        )
-      }
-
-      // Search CAMPOS (KMZ files)
-      const { data: campos } = await supabase
-        .from("kmz_collection")
-        .select("id, file_name, region, description, placemarks_count, category, tags, coordinates")
-        .limit(100)
-
-      if (campos) {
-        const filteredCampos = campos.filter((c) =>
-          matchesQuery(`${c.file_name} ${c.description} ${c.region}`, searchQuery),
-        )
-        const sortedCampos = filteredCampos.sort((a, b) => {
-          const aName = normalizeString(a.file_name)
-          const bName = normalizeString(b.file_name)
-          const normalizedQuery = normalizeString(searchQuery)
-
-          const aStartsWith = aName.startsWith(normalizedQuery) ? 0 : 1
-          const bStartsWith = bName.startsWith(normalizedQuery) ? 0 : 1
-
-          return aStartsWith - bStartsWith
-        })
-        allResults.push(
-          ...sortedCampos.slice(0, 10).map((campo) => {
-            const locationDisplay = campo.region || "Sin región"
-
-            if (campo.coordinates && Array.isArray(campo.coordinates) && campo.coordinates.length > 0) {
-              const centerCoord = campo.coordinates[Math.floor(campo.coordinates.length / 2)]
-              if (Array.isArray(centerCoord) && centerCoord.length >= 2) {
-                // In the future, we can use reverseGeocoder here to get comuna
-              }
-            }
-
-            return {
-              id: campo.id,
-              type: "campo" as const,
-              title: campo.file_name,
-              subtitle: locationDisplay,
-              description: campo.description || `${campo.placemarks_count || 0} puntos de interés`,
-              metadata: { category: campo.category, tags: campo.tags, coordinates: campo.coordinates },
-              url: `/campos?file=${campo.id}`,
-              icon: <MapPin className="h-4 w-4" />,
-            }
-          }),
-        )
-      }
-
-      // Search DOCUMENTS linked to KMZ files (via document_kmz_links)
-      const { data: linkedDocuments } = await supabase
-        .from("document_kmz_links")
-        .select(
-          `
-          document_id,
-          documents (
-            id,
-            title,
-            description,
-            document_type,
-            status,
-            file_name,
-            created_at
-          ),
-          kmz_collection (
-            id,
-            file_name,
-            region
-          )
-        `,
-        )
-        .limit(100)
-
-      if (linkedDocuments) {
-        const filteredLinkedDocs = linkedDocuments
-          .filter((link: any) => {
-            const doc = link.documents
-            const kmz = link.kmz_collection
-            if (!doc || !kmz) return false
-            const docSearchString = `${doc.title} ${doc.description} ${doc.file_name}`.toLowerCase()
-            const kmzSearchString = `${kmz.file_name} ${kmz.region}`.toLowerCase()
-            const queryLower = searchQuery.toLowerCase()
-            return docSearchString.includes(queryLower) || kmzSearchString.includes(queryLower)
           })
-          .map((link: any) => {
-            const doc = link.documents
-            const kmz = link.kmz_collection
-            const aName = normalizeString(doc.title || "")
-            const bQuery = normalizeString(searchQuery)
-            const priority = aName.startsWith(bQuery) ? 0 : 1
+        }
+      })
 
-            return {
-              link,
-              priority,
-              title: doc.title || doc.file_name || "Documento sin título",
-              subtitle: kmz.file_name || "Campo",
-              description: doc.description || new Date(doc.created_at).toLocaleDateString("es-CL"),
-            }
+      // Process CAMPOS
+      const campos = camposResult.data || []
+      campos.slice(0, 15).forEach((campo) => {
+        const id = `campo-${campo.id}`
+        if (!seenIds.has(id)) {
+          seenIds.add(id)
+          allResults.push({
+            id: campo.id,
+            type: "campo" as const,
+            title: campo.file_name,
+            subtitle: campo.region || "Sin región",
+            description: campo.description || `${campo.placemarks_count || 0} puntos de interés`,
+            metadata: { category: campo.category, tags: campo.tags },
+            url: `/campos?file=${campo.id}`,
+            icon: <MapPin className="h-4 w-4" />,
           })
-          .sort((a, b) => a.priority - b.priority)
-          .slice(0, 20)
+        }
+      })
 
-        allResults.push(
-          ...filteredLinkedDocs.map((item: any) => ({
-            id: item.link.document_id,
-            type: "document" as const,
-            title: item.title,
-            subtitle: `${item.subtitle} • Documento vinculado`,
-            description: item.description,
-            metadata: {
-              status: item.link.documents.status,
-              type: item.link.documents.document_type,
-              kmzId: item.link.kmz_id,
-              kmzName: item.subtitle,
-            },
-            url: `/busqueda?doc=${item.link.document_id}&kmz=${item.link.kmz_id}`,
-            icon: <FileText className="h-4 w-4" />,
-          })),
-        )
-      }
+      // Process DOCUMENTS
+      const docs = docsResult.data || []
+      docs.slice(0, 15).forEach((link: any) => {
+        if (link.documents && link.kmz_collection) {
+          const id = `doc-${link.document_id}`
+          if (!seenIds.has(id)) {
+            seenIds.add(id)
+            allResults.push({
+              id: link.document_id,
+              type: "document" as const,
+              title: link.documents.title || link.documents.file_name || "Documento",
+              subtitle: `${link.kmz_collection.file_name} • Documento`,
+              description: link.documents.description || new Date(link.documents.created_at).toLocaleDateString("es-CL"),
+              metadata: {
+                status: link.documents.status,
+                type: link.documents.document_type,
+                kmzId: link.kmz_collection.id,
+              },
+              url: `/busqueda?doc=${link.document_id}`,
+              icon: <FileText className="h-4 w-4" />,
+            })
+          }
+        }
+      })
 
-      // Search standalone DOCUMENTS (property_documents)
-
-      if (propertyDocuments) {
-        const filteredDocuments = propertyDocuments.filter((d) =>
-          matchesQuery(`${d.title} ${d.description} ${d.file_name}`, searchQuery),
-        )
-        allResults.push(
-          ...filteredDocuments.map((doc) => ({
-            id: doc.id,
-            type: "document" as const,
-            title: doc.title || doc.file_name || "Documento sin título",
-            subtitle: doc.document_type || "Documento",
-            description: doc.description || new Date(doc.created_at).toLocaleDateString(),
-            metadata: { status: doc.status, type: doc.document_type },
-            url: `/busqueda?doc=${doc.id}`,
-            icon: <FileText className="h-4 w-4" />,
-          })),
-        )
-      }
-
-      const { data: folders } = await supabase.from("folders").select("id, name, created_at").limit(10)
-
-      if (folders) {
-        const filteredFolders = folders.filter((f) => matchesQuery(`${f.name}`, searchQuery))
-        allResults.push(
-          ...filteredFolders.map((folder) => ({
-            id: folder.id,
-            type: "document" as const,
-            title: folder.name,
-            subtitle: "Carpeta",
-            description: new Date(folder.created_at).toLocaleDateString(),
-            metadata: { type: "folder" },
-            url: `/busqueda?folder=${folder.id}`,
-            icon: <FileText className="h-4 w-4" />,
-          })),
-        )
-      }
-
-      // Search MESSAGES
-      const { data: messages } = await supabase
-        .from("messages")
-        .select("id, name, email, subject, message, status, created_at")
-        .limit(10)
-
-      if (messages) {
-        const filteredMessages = messages.filter((m) =>
-          matchesQuery(`${m.name} ${m.email} ${m.subject} ${m.message}`, searchQuery),
-        )
-        allResults.push(
-          ...filteredMessages.map((msg) => ({
+      // Process MESSAGES
+      const messages = messagesResult.data || []
+      messages.slice(0, 5).forEach((msg) => {
+        const id = `msg-${msg.id}`
+        if (!seenIds.has(id)) {
+          seenIds.add(id)
+          allResults.push({
             id: msg.id.toString(),
             type: "message" as const,
-            title: msg.subject || msg.name || "Mensaje sin asunto",
+            title: msg.subject || msg.name || "Mensaje",
             subtitle: msg.email || msg.name || "",
-            description: msg.message?.substring(0, 80) || new Date(msg.created_at).toLocaleDateString(),
+            description: msg.message?.substring(0, 60) || "",
             metadata: { status: msg.status },
             url: `/comunicaciones?message=${msg.id}`,
             icon: <MessageSquare className="h-4 w-4" />,
-          })),
-        )
-      }
+          })
+        }
+      })
 
-      // Search CLIENT COMMUNICATIONS - Enhanced with more fields
-      const { data: communications } = await supabase
-        .from("client_communications")
-        .select("id, subject, content, communication_type, communication_date, created_by, client_id")
-        .order("communication_date", { ascending: false })
-        .limit(20)
-
-      if (communications) {
-        const filteredCommunications = communications.filter((c) =>
-          matchesQuery(`${c.subject} ${c.content} ${c.created_by} ${c.communication_type}`, searchQuery),
-        )
-        const sortedCommunications = filteredCommunications.sort((a, b) => {
-          const aSubject = normalizeString(a.subject || "")
-          const bSubject = normalizeString(b.subject || "")
-          const normalizedQuery = normalizeString(searchQuery)
-
-          const aStartsWith = aSubject.startsWith(normalizedQuery) ? 0 : 1
-          const bStartsWith = bSubject.startsWith(normalizedQuery) ? 0 : 1
-
-          return aStartsWith - bStartsWith || new Date(b.communication_date).getTime() - new Date(a.communication_date).getTime()
-        })
-        
-        allResults.push(
-          ...sortedCommunications.slice(0, 10).map((comm) => ({
+      // Process COMMUNICATIONS
+      const communications = communicationsResult.data || []
+      communications.slice(0, 15).forEach((comm: any) => {
+        const id = `comm-${comm.id}`
+        if (!seenIds.has(id)) {
+          seenIds.add(id)
+          const clientName = comm.clients
+            ? `${comm.clients.first_name || ""} ${comm.clients.last_name || ""}`.trim() || comm.clients.company_name
+            : "Sin cliente"
+          allResults.push({
             id: comm.id,
             type: "communication" as const,
-            title: comm.subject || "Comunicación sin asunto",
-            subtitle: `${comm.communication_type || "Comunicación"} • ${comm.created_by || "Sistema"}`,
-            description: comm.content?.substring(0, 100) || new Date(comm.communication_date).toLocaleDateString("es-CL"),
-            metadata: { 
-              type: comm.communication_type, 
+            title: comm.subject || "Comunicación",
+            subtitle: `${clientName} • ${comm.communication_type || "Comunicación"}`,
+            description: comm.content?.substring(0, 70) || `Por: ${comm.created_by || "Sistema"}`,
+            metadata: {
+              type: comm.communication_type,
               created_by: comm.created_by,
-              communication_date: comm.communication_date,
-              client_id: comm.client_id
+              client_id: comm.client_id,
             },
             url: `/comunicaciones?comm=${comm.id}`,
             icon: <Mail className="h-4 w-4" />,
-          })),
-        )
-      }
+          })
+        }
+      })
 
-      // Search TASKS
-      const { data: tasks } = await supabase
-        .from("tasks")
-        .select("id, title, description, status, priority, location, due_date")
-        .limit(10)
-
-      if (tasks) {
-        const filteredTasks = tasks.filter((t) =>
-          matchesQuery(`${t.title} ${t.description} ${t.location}`, searchQuery),
-        )
-        allResults.push(
-          ...filteredTasks.map((task) => ({
+      // Process TASKS
+      const tasksList = tasksResult.data || []
+      tasksList.slice(0, 15).forEach((task) => {
+        const id = `task-${task.id}`
+        if (!seenIds.has(id)) {
+          seenIds.add(id)
+          allResults.push({
             id: task.id,
             type: "task" as const,
-            title: task.title || "Tarea sin título",
+            title: task.title || "Tarea",
             subtitle: task.location || task.status || "Tarea",
-            description:
-              task.description || (task.due_date ? `Vence: ${new Date(task.due_date).toLocaleDateString()}` : ""),
+            description: task.description || (task.due_date ? `Vence: ${new Date(task.due_date).toLocaleDateString()}` : ""),
             metadata: { status: task.status, priority: task.priority },
             url: `/tareas?task=${task.id}`,
             icon: <CheckSquare className="h-4 w-4" />,
-          })),
-        )
-      }
+          })
+        }
+      })
 
-      // Search by TAGS across all entities
-      const { data: allTags } = await supabase
-        .from("tags")
-        .select("id, name")
-        .ilike("name", `%${searchQuery}%`)
-        .limit(10)
-
-      if (allTags && allTags.length > 0) {
-        for (const tag of allTags) {
+      // Process TAGS - Search entities with matching tags
+      const tags = tagsResult.data || []
+      if (tags.length > 0) {
+        for (const tag of tags) {
           // Search KMZ files with this tag
           const { data: kmzWithTag } = await supabase
             .from("kmz_tags")
             .select("kmz_id, kmz_collection(id, file_name, region, placemarks_count)")
             .eq("tag_id", tag.id)
-            .limit(5)
+            .limit(10)
 
           if (kmzWithTag) {
-            allResults.push(
-              ...kmzWithTag
-                .filter((item: any) => item.kmz_collection)
-                .map((item: any) => ({
-                  id: `tag-kmz-${item.kmz_id}`,
-                  type: "campo" as const,
-                  title: item.kmz_collection.file_name,
-                  subtitle: `${item.kmz_collection.region || "Sin región"} • Tag: ${tag.name}`,
-                  description: `${item.kmz_collection.placemarks_count || 0} puntos de interés`,
-                  metadata: { region: item.kmz_collection.region, tag: tag.name },
-                  url: `/campos?file=${item.kmz_id}`,
-                  icon: <MapPin className="h-4 w-4" />,
-                })),
-            )
+            kmzWithTag
+              .filter((item: any) => item.kmz_collection)
+              .slice(0, 5)
+              .forEach((item: any) => {
+                const id = `tag-kmz-${item.kmz_id}`
+                if (!seenIds.has(id)) {
+                  seenIds.add(id)
+                  allResults.push({
+                    id: item.kmz_id,
+                    type: "campo" as const,
+                    title: item.kmz_collection.file_name,
+                    subtitle: `${item.kmz_collection.region || "Sin región"} • Tag: ${tag.name}`,
+                    description: `${item.kmz_collection.placemarks_count || 0} puntos de interés`,
+                    metadata: { region: item.kmz_collection.region, tag: tag.name },
+                    url: `/campos?file=${item.kmz_id}`,
+                    icon: <MapPin className="h-4 w-4" />,
+                  })
+                }
+              })
           }
 
           // Search clients with this tag
           const { data: clientsWithTag } = await supabase
             .from("client_tags")
-            .select("client_id, clients(id, first_name, last_name, email, phone)")
+            .select("client_id, clients(id, first_name, last_name, email, phone, company_name)")
             .eq("tag_id", tag.id)
-            .limit(5)
+            .limit(10)
 
           if (clientsWithTag) {
-            allResults.push(
-              ...clientsWithTag
-                .filter((item: any) => item.clients)
-                .map((item: any) => ({
-                  id: `tag-client-${item.client_id}`,
-                  type: "client" as const,
-                  title: `${item.clients.first_name || ""} ${item.clients.last_name || ""}`.trim() || item.clients.email,
-                  subtitle: `${item.clients.email || "Sin email"} • Tag: ${tag.name}`,
-                  description: item.clients.phone || "Sin teléfono",
-                  metadata: { email: item.clients.email, phone: item.clients.phone, tag: tag.name },
-                  url: `/gestion-clientes?client=${item.client_id}`,
-                  icon: <Users className="h-4 w-4" />,
-                })),
-            )
+            clientsWithTag
+              .filter((item: any) => item.clients)
+              .slice(0, 5)
+              .forEach((item: any) => {
+                const id = `tag-client-${item.client_id}`
+                if (!seenIds.has(id)) {
+                  seenIds.add(id)
+                  allResults.push({
+                    id: item.client_id,
+                    type: "client" as const,
+                    title: `${item.clients.first_name || ""} ${item.clients.last_name || ""}`.trim() || item.clients.company_name || item.clients.email,
+                    subtitle: `${item.clients.email || ""} • Tag: ${tag.name}`,
+                    description: item.clients.phone || item.clients.company_name || "",
+                    metadata: { email: item.clients.email, tag: tag.name },
+                    url: `/gestion-clientes?client=${item.client_id}`,
+                    icon: <Users className="h-4 w-4" />,
+                  })
+                }
+              })
           }
 
           // Search communications with this tag
           const { data: commsWithTag } = await supabase
             .from("communication_tags")
-            .select("communication_id, client_communications(id, subject, communication_type, created_by)")
+            .select(
+              "communication_id, client_communications(id, subject, communication_type, created_by, clients(first_name, last_name))",
+            )
             .eq("tag_id", tag.id)
-            .limit(5)
+            .limit(10)
 
           if (commsWithTag) {
-            allResults.push(
-              ...commsWithTag
-                .filter((item: any) => item.client_communications)
-                .map((item: any) => ({
-                  id: `tag-comm-${item.communication_id}`,
-                  type: "communication" as const,
-                  title: item.client_communications.subject,
-                  subtitle: `${item.client_communications.communication_type || "Comunicación"} • Tag: ${tag.name}`,
-                  description: item.client_communications.created_by || "Sistema",
-                  metadata: { type: item.client_communications.communication_type, tag: tag.name },
-                  url: `/comunicaciones?comm=${item.communication_id}`,
-                  icon: <Mail className="h-4 w-4" />,
-                })),
-            )
+            commsWithTag
+              .filter((item: any) => item.client_communications)
+              .slice(0, 5)
+              .forEach((item: any) => {
+                const id = `tag-comm-${item.communication_id}`
+                if (!seenIds.has(id)) {
+                  seenIds.add(id)
+                  const comm = item.client_communications
+                  allResults.push({
+                    id: item.communication_id,
+                    type: "communication" as const,
+                    title: comm.subject || "Comunicación",
+                    subtitle: `${comm.communication_type || "Comunicación"} • Tag: ${tag.name}`,
+                    description: `Por: ${comm.created_by || "Sistema"}`,
+                    metadata: { type: comm.communication_type, tag: tag.name },
+                    url: `/comunicaciones?comm=${item.communication_id}`,
+                    icon: <Mail className="h-4 w-4" />,
+                  })
+                }
+              })
+          }
+
+          // Search tasks with this tag
+          const { data: tasksWithTag } = await supabase
+            .from("task_tags")
+            .select("task_id, tasks(id, title, status, priority, due_date)")
+            .eq("tag_id", tag.id)
+            .limit(10)
+
+          if (tasksWithTag) {
+            tasksWithTag
+              .filter((item: any) => item.tasks)
+              .slice(0, 5)
+              .forEach((item: any) => {
+                const id = `tag-task-${item.task_id}`
+                if (!seenIds.has(id)) {
+                  seenIds.add(id)
+                  const task = item.tasks
+                  allResults.push({
+                    id: item.task_id,
+                    type: "task" as const,
+                    title: task.title || "Tarea",
+                    subtitle: `${task.status || "Tarea"} • Tag: ${tag.name}`,
+                    description: task.due_date ? `Vence: ${new Date(task.due_date).toLocaleDateString()}` : "",
+                    metadata: { status: task.status, priority: task.priority, tag: tag.name },
+                    url: `/tareas?task=${item.task_id}`,
+                    icon: <CheckSquare className="h-4 w-4" />,
+                  })
+                }
+              })
           }
         }
       }
 
-      setResults(allResults)
+      setResults(allResults.slice(0, 100)) // Increase total limit to 100 for more comprehensive results
     } catch (error) {
-      console.error("[v0] Global search error:", error)
+      console.error("[v0] Search error:", error)
       setResults([])
     } finally {
       setIsSearching(false)
