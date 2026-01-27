@@ -263,6 +263,132 @@ export function GlobalCommandPalette() {
         }
       })
 
+      // Process TAGS - Search entities with matching tags
+      const tags = tagsResult.data || []
+      if (tags.length > 0) {
+        for (const tag of tags) {
+          // Search KMZ files with this tag
+          const { data: kmzWithTag } = await supabase
+            .from("kmz_tags")
+            .select("kmz_id, kmz_collection(id, file_name, region, placemarks_count)")
+            .eq("tag_id", tag.id)
+            .limit(10)
+
+          if (kmzWithTag) {
+            kmzWithTag
+              .filter((item: any) => item.kmz_collection)
+              .slice(0, 5)
+              .forEach((item: any) => {
+                const id = `tag-kmz-${item.kmz_id}`
+                if (!seenIds.has(id)) {
+                  seenIds.add(id)
+                  allResults.push({
+                    id: item.kmz_id,
+                    type: "campo" as const,
+                    title: item.kmz_collection.file_name,
+                    subtitle: `${item.kmz_collection.region || "Sin región"} • Tag: ${tag.name}`,
+                    description: `${item.kmz_collection.placemarks_count || 0} puntos de interés`,
+                    metadata: { region: item.kmz_collection.region, tag: tag.name },
+                    url: `/campos?file=${item.kmz_id}`,
+                    icon: <MapPin className="h-4 w-4" />,
+                  })
+                }
+              })
+          }
+
+          // Search clients with this tag
+          const { data: clientsWithTag } = await supabase
+            .from("client_tags")
+            .select("client_id, clients(id, first_name, last_name, email, phone, company_name)")
+            .eq("tag_id", tag.id)
+            .limit(10)
+
+          if (clientsWithTag) {
+            clientsWithTag
+              .filter((item: any) => item.clients)
+              .slice(0, 5)
+              .forEach((item: any) => {
+                const id = `tag-client-${item.client_id}`
+                if (!seenIds.has(id)) {
+                  seenIds.add(id)
+                  allResults.push({
+                    id: item.client_id,
+                    type: "client" as const,
+                    title: `${item.clients.first_name || ""} ${item.clients.last_name || ""}`.trim() || item.clients.company_name || item.clients.email,
+                    subtitle: `${item.clients.email || ""} • Tag: ${tag.name}`,
+                    description: item.clients.phone || item.clients.company_name || "",
+                    metadata: { email: item.clients.email, tag: tag.name },
+                    url: `/gestion-clientes?client=${item.client_id}`,
+                    icon: <Users className="h-4 w-4" />,
+                  })
+                }
+              })
+          }
+
+          // Search communications with this tag
+          const { data: commsWithTag } = await supabase
+            .from("communication_tags")
+            .select(
+              "communication_id, client_communications(id, subject, communication_type, created_by, clients(first_name, last_name))",
+            )
+            .eq("tag_id", tag.id)
+            .limit(10)
+
+          if (commsWithTag) {
+            commsWithTag
+              .filter((item: any) => item.client_communications)
+              .slice(0, 5)
+              .forEach((item: any) => {
+                const id = `tag-comm-${item.communication_id}`
+                if (!seenIds.has(id)) {
+                  seenIds.add(id)
+                  const comm = item.client_communications
+                  allResults.push({
+                    id: item.communication_id,
+                    type: "communication" as const,
+                    title: comm.subject || "Comunicación",
+                    subtitle: `${comm.communication_type || "Comunicación"} • Tag: ${tag.name}`,
+                    description: `Por: ${comm.created_by || "Sistema"}`,
+                    metadata: { type: comm.communication_type, tag: tag.name },
+                    url: `/comunicaciones?comm=${item.communication_id}`,
+                    icon: <Mail className="h-4 w-4" />,
+                  })
+                }
+              })
+          }
+
+          // Search tasks with this tag
+          const { data: tasksWithTag } = await supabase
+            .from("task_tags")
+            .select("task_id, tasks(id, title, status, priority, due_date)")
+            .eq("tag_id", tag.id)
+            .limit(10)
+
+          if (tasksWithTag) {
+            tasksWithTag
+              .filter((item: any) => item.tasks)
+              .slice(0, 5)
+              .forEach((item: any) => {
+                const id = `tag-task-${item.task_id}`
+                if (!seenIds.has(id)) {
+                  seenIds.add(id)
+                  const task = item.tasks
+                  allResults.push({
+                    id: item.task_id,
+                    type: "task" as const,
+                    title: task.title || "Tarea",
+                    subtitle: `${task.status || "Tarea"} • Tag: ${tag.name}`,
+                    description: task.due_date ? `Vence: ${new Date(task.due_date).toLocaleDateString()}` : "",
+                    metadata: { status: task.status, priority: task.priority, tag: tag.name },
+                    url: `/tareas?task=${item.task_id}`,
+                    icon: <CheckSquare className="h-4 w-4" />,
+                  })
+                }
+              })
+          }
+        }
+      }
+
       setResults(allResults.slice(0, 100)) // Increase total limit to 100 for more comprehensive results
     } catch (error) {
       console.error("[v0] Search error:", error)
