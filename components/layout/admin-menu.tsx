@@ -8,7 +8,6 @@ import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import {
   LayoutDashboard,
-  Building2,
   Users,
   MessageSquare,
   BarChart3,
@@ -25,6 +24,8 @@ import {
   Plus,
   Upload,
   Eye,
+  Tag,
+  Building2, // Import Building2 icon
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -53,33 +54,6 @@ const menuItems: MenuItem[] = [
     icon: LayoutDashboard,
   },
   {
-    title: "Propiedades",
-    icon: Building2,
-    badge: "12",
-    children: [
-      {
-        title: "Lista de Propiedades",
-        href: "/admin/propiedades",
-        icon: Eye,
-      },
-      {
-        title: "Nueva Propiedad",
-        href: "/admin/propiedades/nueva",
-        icon: Plus,
-      },
-      {
-        title: "Importar Propiedades",
-        href: "/admin/importar-propiedades",
-        icon: Upload,
-      },
-      {
-        title: "Verificar Destacadas",
-        href: "/admin/verificar-destacadas",
-        icon: Shield,
-      },
-    ],
-  },
-  {
     title: "Usuarios",
     href: "/admin/usuarios",
     icon: Users,
@@ -95,6 +69,23 @@ const menuItems: MenuItem[] = [
     title: "Analytics",
     href: "/admin/analytics",
     icon: BarChart3,
+  },
+  {
+    title: "Tags Transversales",
+    icon: Tag,
+    badge: "NEW",
+    children: [
+      {
+        title: "Gestión de Tags",
+        href: "/admin/tags",
+        icon: Tag,
+      },
+      {
+        title: "Vincular Tags",
+        href: "/admin/tags/vincular",
+        icon: Plus,
+      },
+    ],
   },
   {
     title: "Gestión Documentos",
@@ -272,15 +263,9 @@ export function AdminMenu() {
         <h3 className="text-sm font-medium text-gray-700 mb-3">Acciones Rápidas</h3>
         <div className="space-y-2">
           <Button variant="outline" size="sm" className="w-full justify-start gap-2 bg-transparent" asChild>
-            <Link href="/admin/propiedades/nueva">
-              <Plus className="h-4 w-4" />
-              Nueva Propiedad
-            </Link>
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start gap-2 bg-transparent" asChild>
-            <Link href="/admin/importar-propiedades">
-              <Upload className="h-4 w-4" />
-              Importar Datos
+            <Link href="/admin/tags">
+              <Tag className="h-4 w-4" />
+              Gestión Tags
             </Link>
           </Button>
           <Button variant="outline" size="sm" className="w-full justify-start gap-2 bg-transparent" asChild>
@@ -310,9 +295,9 @@ export function AdminMenu() {
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link href="/admin/propiedades" className="flex items-center">
-              <Shield className="mr-2 h-4 w-4" />
-              <span>Propiedades</span>
+            <Link href="/admin/tags" className="flex items-center">
+              <Tag className="mr-2 h-4 w-4" />
+              <span>Tags</span>
             </Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
