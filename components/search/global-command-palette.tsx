@@ -78,17 +78,15 @@ export function GlobalCommandPalette() {
         supabase
           .from("clients")
           .select("id, first_name, last_name, email, phone, company_name, status, main_interest")
-          .ilike("first_name", `%${searchQuery}%`)
-          .or(`last_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,company_name.ilike.%${searchQuery}%`)
-          .limit(8),
+          .or(`first_name.ilike.%${searchQuery}%,last_name.ilike.%${searchQuery}%,email.ilike.%${searchQuery}%,phone.ilike.%${searchQuery}%,company_name.ilike.%${searchQuery}%,main_interest.ilike.%${searchQuery}%`)
+          .limit(15),
 
         // Search CAMPOS (KMZ files)
         supabase
           .from("kmz_collection")
           .select("id, file_name, region, description, placemarks_count, category, tags")
-          .ilike("file_name", `%${searchQuery}%`)
-          .or(`description.ilike.%${searchQuery}%,region.ilike.%${searchQuery}%`)
-          .limit(8),
+          .or(`file_name.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,region.ilike.%${searchQuery}%,category.ilike.%${searchQuery}%`)
+          .limit(15),
 
         // Search DOCUMENTS linked to KMZ
         supabase
@@ -127,9 +125,8 @@ export function GlobalCommandPalette() {
         supabase
           .from("tasks")
           .select("id, title, description, status, priority, location, due_date")
-          .ilike("title", `%${searchQuery}%`)
-          .or(`description.ilike.%${searchQuery}%,location.ilike.%${searchQuery}%`)
-          .limit(8),
+          .or(`title.ilike.%${searchQuery}%,description.ilike.%${searchQuery}%,location.ilike.%${searchQuery}%,status.ilike.%${searchQuery}%`)
+          .limit(15),
 
         // Search TAGS
         supabase
@@ -141,7 +138,7 @@ export function GlobalCommandPalette() {
 
       // Process CLIENTS
       const clients = clientsResult.data || []
-      clients.slice(0, 8).forEach((client) => {
+      clients.slice(0, 15).forEach((client) => {
         const id = `client-${client.id}`
         if (!seenIds.has(id)) {
           seenIds.add(id)
@@ -160,7 +157,7 @@ export function GlobalCommandPalette() {
 
       // Process CAMPOS
       const campos = camposResult.data || []
-      campos.slice(0, 8).forEach((campo) => {
+      campos.slice(0, 15).forEach((campo) => {
         const id = `campo-${campo.id}`
         if (!seenIds.has(id)) {
           seenIds.add(id)
@@ -179,7 +176,7 @@ export function GlobalCommandPalette() {
 
       // Process DOCUMENTS
       const docs = docsResult.data || []
-      docs.slice(0, 8).forEach((link: any) => {
+      docs.slice(0, 15).forEach((link: any) => {
         if (link.documents && link.kmz_collection) {
           const id = `doc-${link.document_id}`
           if (!seenIds.has(id)) {
@@ -249,7 +246,7 @@ export function GlobalCommandPalette() {
 
       // Process TASKS
       const tasksList = tasksResult.data || []
-      tasksList.slice(0, 8).forEach((task) => {
+      tasksList.slice(0, 15).forEach((task) => {
         const id = `task-${task.id}`
         if (!seenIds.has(id)) {
           seenIds.add(id)
@@ -266,14 +263,7 @@ export function GlobalCommandPalette() {
         }
       })
 
-      // Process TAGS - search entities with matching tags
-      const tags = tagsResult.data || []
-      if (tags.length > 0) {
-        // We would need additional queries here to get tag relationships
-        // For now, tags help with discoverability
-      }
-
-      setResults(allResults.slice(0, 50)) // Limit total results to 50
+      setResults(allResults.slice(0, 100)) // Increase total limit to 100 for more comprehensive results
     } catch (error) {
       console.error("[v0] Search error:", error)
       setResults([])
