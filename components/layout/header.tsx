@@ -41,6 +41,7 @@ import {
   FolderOpen,
   Map,
   Search,
+  Tag,
 } from "lucide-react"
 import { GlobalCommandPalette } from "@/components/search/global-command-palette"
 // import { DriveStatusIndicator } from "@/components/google-drive/drive-status-indicator"
@@ -328,51 +329,18 @@ export function Header() {
                   <Badge className="ml-auto bg-green-500 text-white text-xs">New</Badge>
                 </Link>
               </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href="/admin/tags" className="flex items-center">
+                  <Tag className="mr-2 h-4 w-4" />
+                  <span>Tags</span>
+                  <Badge className="ml-auto bg-green-500 text-white text-xs">NEW</Badge>
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/admin" className="flex items-center">
-                  <BarChart3 className="mr-2 h-4 w-4" />
-                  <span>Dashboard</span>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/admin/propiedades" className="flex items-center">
-                  <Building2 className="mr-2 h-4 w-4" />
-                  <span>Propiedades</span>
-                </Link>
-              </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link href="/admin/ia-workspace" className="flex items-center">
                   <Brain className="mr-2 h-4 w-4" />
                   <span>IA Workspace</span>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/mvp/seguimiento" className="flex items-center">
-                  <Activity className="mr-2 h-4 w-4" />
-                  <span>Seguimiento MVP</span>
-                  <Badge className="ml-auto bg-blue-500 text-white text-xs">85%</Badge>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/admin/fase-1-mvp" className="flex items-center">
-                  <Rocket className="mr-2 h-4 w-4" />
-                  <span>Fase 1 - MVP</span>
-                  <Badge className="ml-auto bg-green-500 text-white text-xs">Fase 1</Badge>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/admin/fase-2-mvp" className="flex items-center">
-                  <TrendingUp className="mr-2 h-4 w-4" />
-                  <span>Fase 2 - MVP</span>
-                  <Badge className="ml-auto bg-orange-500 text-white text-xs">Fase 2</Badge>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/admin/fase-3-mvp" className="flex items-center">
-                  <BarChart3 className="mr-2 h-4 w-4" />
-                  <span>Fase 3 - MVP</span>
-                  <Badge className="ml-auto bg-purple-500 text-white text-xs">Fase 3</Badge>
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
@@ -472,12 +440,21 @@ export function Header() {
                 {/* Mobile Admin */}
                 <div className="space-y-2 pt-4 border-t">
                   <Link
-                    href="/admin"
+                    href="/admin/tags"
                     className="flex items-center space-x-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
                     onClick={() => setIsOpen(false)}
                   >
-                    <Shield className="h-4 w-4" />
-                    <span>Panel Admin</span>
+                    <Tag className="h-4 w-4" />
+                    <span>Tags</span>
+                    <Badge className="ml-auto bg-green-500 text-white text-xs">NEW</Badge>
+                  </Link>
+                  <Link
+                    href="/admin/ia-workspace"
+                    className="flex items-center space-x-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <Brain className="h-4 w-4" />
+                    <span>IA Workspace</span>
                   </Link>
                   <Link
                     href="/admin/agentes"
