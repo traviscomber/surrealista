@@ -340,6 +340,43 @@ const DocumentsManager = () => {
     }
   }
 
+  const uploadFile = async (file: File, zoneId: string) => {
+    try {
+      setUploading(true)
+      console.log("[v0] Starting file upload:", { file: file.name, zoneId })
+
+      const formData = new FormData()
+      formData.append("file", file)
+
+      console.log("[v0] Uploading to /api/upload...")
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      })
+
+      console.log("[v0] Upload response status:", response.status)
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error("[v0] Upload failed:", errorData)
+        throw new Error(errorData.error || `Upload failed with status ${response.status}`)
+      }
+
+      const data = await response.json()
+      console.log("[v0] Upload successful, response:", data)
+
+      alert("Archivo cargado exitosamente: " + file.name)
+    } catch (err: any) {
+      console.error("[v0] Upload error details:", {
+        message: err.message,
+        stack: err.stack,
+      })
+      alert(`Error al cargar el archivo: ${err.message || "Error desconocido"}`)
+    } finally {
+      setUploading(false)
+    }
+  }
+
   const handleAddDocumentToFolder = (folderName) => {
     setEditingDoc({
       title: `${folderName} - `,
@@ -712,12 +749,6 @@ const DocumentsManager = () => {
           )
         })}
       </div>
-    </div>
-  )
-        })}
-        </div>
-        </>
-      )}
 
       {showNewFolderDialog && (
         <Dialog open={showNewFolderDialog} onOpenChange={setShowNewFolderDialog}>
