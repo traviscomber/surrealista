@@ -99,31 +99,39 @@ export function FolderDragDrop({ folderName, folderId, isAdmin = false, onFilesU
   const uploadFile = async (file: File, zoneId: string) => {
     try {
       setUploading(true)
+      console.log("[v0] Starting file upload:", { file: file.name, zoneId })
 
-      const fileName = `${folderId}/${zoneId}/${Date.now()}-${file.name}`
-
-      // Upload to Vercel Blob (via public/upload bucket)
+      // Upload to Supabase Storage via API
       const formData = new FormData()
       formData.append("file", file)
-      formData.append("filename", fileName)
 
+      console.log("[v0] Uploading to /api/upload...")
       const response = await fetch("/api/upload", {
         method: "POST",
         body: formData,
       })
 
-      if (!response.ok) throw new Error("Upload failed")
+      console.log("[v0] Upload response status:", response.status)
 
-      const { url } = await response.json()
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error("[v0] Upload failed:", errorData)
+        throw new Error(errorData.error || `Upload failed with status ${response.status}`)
+      }
+
+      const data = await response.json()
+      console.log("[v0] Upload successful, response:", data)
 
       const newFile: DragDropFile = {
         id: `${Date.now()}-${Math.random()}`,
         name: file.name,
         size: file.size,
         type: file.type,
-        url,
+        url: data.url,
         uploadedAt: new Date().toISOString(),
       }
+
+      console.log("[v0] Adding file to zone:", { zoneId, fileId: newFile.id })
 
       setZones((prevZones) =>
         prevZones.map((zone) =>
@@ -132,15 +140,16 @@ export function FolderDragDrop({ folderName, folderId, isAdmin = false, onFilesU
       )
 
       // Notify parent component
-      const updatedZone = zones.find((z) => z.id === zoneId)
-      if (updatedZone && onFilesUpdated) {
-        onFilesUpdated(zoneId, [...updatedZone.files, newFile])
-      }
+      onFilesUpdated?.(zoneId, [...(zones.find((z) => z.id === zoneId)?.files || []), newFile])
 
-      console.log("[v0] File uploaded successfully:", fileName)
-    } catch (err) {
-      console.error("[v0] Upload error:", err)
-      alert("Error al cargar el archivo")
+      console.log("[v0] File uploaded successfully:", newFile.name)
+    } catch (err: any) {
+      console.error("[v0] Upload error details:", {
+        message: err.message,
+        stack: err.stack,
+        type: err.constructor?.name,
+      })
+      alert(`Error al cargar el archivo: ${err.message || "Error desconocido"}`)
     } finally {
       setUploading(false)
     }
@@ -225,46 +234,9 @@ export function FolderDragDrop({ folderName, folderId, isAdmin = false, onFilesU
             </CardHeader>
 
             <CardContent className="space-y-3">
-              {/* Drag and Drop Area */}
-              <div
-                onDragOver={(e) => handleDragOver(e, zone.id)}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => handleDrop(e, zone.id)}
-                className={`border-2 border-dashed rounded-lg p-6 text-center transition-all cursor-pointer ${
-                  dragOverZone === zone.id
-                    ? "border-emerald-500 bg-emerald-50"
-                    : "border-gray-300 bg-gray-50 hover:bg-gray-100"
-                }`}
-              >
-                <input
-                  type="file"
-                  multiple
-                  ref={(el) => {
-                    if (el) fileInputRefs.current[zone.id] = el
-                  }}
-                  onChange={(e) => handleFileInputChange(e, zone.id)}
-                  className="hidden"
-                  disabled={uploading}
-                />
-
-                <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
-                <p className="text-sm font-medium text-gray-700">Arrastra archivos aquí</p>
-                <p className="text-xs text-gray-500 mt-1">o</p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="mt-2"
-                  onClick={() => fileInputRefs.current[zone.id]?.click()}
-                  disabled={uploading}
-                >
-                  Seleccionar archivo
-                </Button>
-              </div>
-
-              {/* Files List */}
+              {/* Files List - Always show if there are files */}
               {zone.files.length > 0 && (
-                <div className="space-y-2 mt-4">
+                <div className="space-y-2 border-b pb-3">
                   <p className="text-xs font-semibold text-gray-600">Archivos cargados:</p>
                   <div className="space-y-1">
                     {zone.files.map((file) => (
@@ -297,8 +269,50 @@ export function FolderDragDrop({ folderName, folderId, isAdmin = false, onFilesU
                 </div>
               )}
 
+              {/* Drag and Drop Area - Always visible */}
+              <div>
+                <p className="text-xs font-semibold text-gray-600 mb-2">
+                  {zone.files.length > 0 ? "Agregar más archivos" : "Cargar archivo"}
+                </p>
+                <div
+                  onDragOver={(e) => handleDragOver(e, zone.id)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, zone.id)}
+                  className={`border-2 border-dashed rounded-lg p-4 text-center transition-all cursor-pointer ${
+                    dragOverZone === zone.id
+                      ? "border-emerald-500 bg-emerald-50"
+                      : "border-gray-300 bg-gray-50 hover:bg-gray-100"
+                  }`}
+                >
+                  <input
+                    type="file"
+                    multiple
+                    ref={(el) => {
+                      if (el) fileInputRefs.current[zone.id] = el
+                    }}
+                    onChange={(e) => handleFileInputChange(e, zone.id)}
+                    className="hidden"
+                    disabled={uploading}
+                  />
+
+                  <Upload className="h-6 w-6 text-gray-400 mx-auto mb-1" />
+                  <p className="text-xs font-medium text-gray-700">Arrastra archivos aquí</p>
+                  <p className="text-xs text-gray-500 mt-1">o</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                    onClick={() => fileInputRefs.current[zone.id]?.click()}
+                    disabled={uploading}
+                  >
+                    Seleccionar archivo
+                  </Button>
+                </div>
+              </div>
+
               {zone.files.length === 0 && (
-                <p className="text-xs text-gray-400 text-center mt-4">Sin archivos</p>
+                <p className="text-xs text-gray-400 text-center">Sin archivos aún</p>
               )}
             </CardContent>
           </Card>
