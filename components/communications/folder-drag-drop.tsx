@@ -1,10 +1,11 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Upload, X, FileText, Trash2 } from "lucide-react"
+import { Upload, X, FileText, Trash2, Settings } from "lucide-react"
 import { createBrowserClient } from "@/lib/supabase/client"
+import { FolderPlaceholdersEditor } from "./folder-placeholders-editor"
 
 interface DragDropFile {
   id: string
@@ -18,12 +19,14 @@ interface DragDropFile {
 interface FolderDropZone {
   id: string
   name: string
+  label: string
   files: DragDropFile[]
 }
 
 interface FolderDragDropProps {
   folderName: string
   folderId: string
+  isAdmin?: boolean
   onFilesUpdated?: (zone: string, files: DragDropFile[]) => void
 }
 
@@ -33,17 +36,56 @@ const DEFAULT_ZONES = [
   { id: "kmz", name: "KMZ" },
 ]
 
-export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderDragDropProps) {
+export function FolderDragDrop({ folderName, folderId, isAdmin = false, onFilesUpdated }: FolderDragDropProps) {
   const [zones, setZones] = useState<FolderDropZone[]>(
     DEFAULT_ZONES.map((zone) => ({
       ...zone,
+      label: zone.name,
       files: [],
     }))
   )
   const [dragOverZone, setDragOverZone] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [loadingPlaceholders, setLoadingPlaceholders] = useState(true)
+  const [showPlaceholdersEditor, setShowPlaceholdersEditor] = useState(false)
   const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({})
   const supabase = createBrowserClient()
+
+  // Load custom placeholders from database
+  useEffect(() => {
+    loadPlaceholders()
+  }, [folderId])
+
+  const loadPlaceholders = async () => {
+    try {
+      setLoadingPlaceholders(true)
+      const { data, error } = await supabase
+        .from("folder_placeholders")
+        .select("*")
+        .eq("folder_id", folderId)
+        .order("sort_order", { ascending: true })
+
+      if (error) {
+        console.log("[v0] No custom placeholders found, using defaults:", error.message)
+        return
+      }
+
+      if (data && data.length > 0) {
+        console.log("[v0] Loaded custom placeholders:", data)
+        const customZones: FolderDropZone[] = data.map((p) => ({
+          id: p.placeholder_name,
+          name: p.placeholder_name,
+          label: p.placeholder_label,
+          files: [],
+        }))
+        setZones(customZones)
+      }
+    } catch (err) {
+      console.error("[v0] Error loading placeholders:", err)
+    } finally {
+      setLoadingPlaceholders(false)
+    }
+  }
 
   const handleDragOver = (e: React.DragEvent, zoneId: string) => {
     e.preventDefault()
@@ -149,7 +191,24 @@ export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderD
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-gray-900">{folderName}</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-gray-900">{folderName}</h3>
+        {isAdmin && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowPlaceholdersEditor(true)}
+            className="gap-2"
+          >
+            <Settings className="h-4 w-4" />
+            Editar Placeholders
+          </Button>
+        )}
+      </div>
+
+      {loadingPlaceholders && (
+        <div className="text-center text-sm text-muted-foreground">Cargando placeholders...</div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {zones.map((zone) => (
@@ -162,7 +221,7 @@ export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderD
             }`}
           >
             <CardHeader className="pb-3">
-              <CardTitle className="text-base">{zone.name}</CardTitle>
+              <CardTitle className="text-base">{zone.label}</CardTitle>
             </CardHeader>
 
             <CardContent className="space-y-3">
@@ -245,6 +304,20 @@ export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderD
           </Card>
         ))}
       </div>
+
+      {/* Placeholders Editor - Only show for admins */}
+      {isAdmin && (
+        <FolderPlaceholdersEditor
+          folderId={folderId}
+          folderName={folderName}
+          isOpen={showPlaceholdersEditor}
+          onClose={() => {
+            setShowPlaceholdersEditor(false)
+            // Reload placeholders after editing
+            loadPlaceholders()
+          }}
+        />
+      )}
     </div>
   )
 }

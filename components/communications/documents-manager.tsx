@@ -74,6 +74,7 @@ const DocumentsManager = () => {
   const [uploading, setUploading] = useState(false)
   const [viewingFolderId, setViewingFolderId] = useState<string | null>(null)
   const [viewingFolderName, setViewingFolderName] = useState<string | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
   const supabase = createBrowserClient()
 
   const refreshDocuments = async () => {
@@ -92,6 +93,18 @@ const DocumentsManager = () => {
       if (user) {
         setUserId(user.id)
         console.log("[v0] User authenticated:", user.id)
+
+        // Fetch user role
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single()
+
+        if (profile && profile.role === "admin") {
+          setIsAdmin(true)
+          console.log("[v0] User is admin")
+        }
       } else {
         setUserId("00000000-0000-0000-0000-000000000000")
         console.log("[v0] No user authenticated, using system UUID")
@@ -474,7 +487,7 @@ const DocumentsManager = () => {
               Volver
             </Button>
           </div>
-          <FolderDragDrop folderId={viewingFolderId} folderName={viewingFolderName || ""} />
+          <FolderDragDrop folderId={viewingFolderId} folderName={viewingFolderName || ""} isAdmin={isAdmin} />
         </div>
       )}
 
