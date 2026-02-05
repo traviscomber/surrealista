@@ -202,9 +202,34 @@ const DocumentsManager = () => {
       console.log("[v0] Folder created in database:", data)
 
       if (data && data.length > 0) {
+        const folderId = data[0].id
         setFolders((prev) => [...prev, data[0]])
+
+        // Automatically create default placeholders
+        const defaultPlaceholders = [
+          { placeholder_name: "propuesta-comercial", placeholder_label: "Propuesta Comercial", sort_order: 0 },
+          { placeholder_name: "presentacion", placeholder_label: "Presentacion", sort_order: 1 },
+          { placeholder_name: "kmz", placeholder_label: "KMZ", sort_order: 2 },
+        ]
+
+        const placeholdersToInsert = defaultPlaceholders.map((ph) => ({
+          ...ph,
+          folder_id: folderId,
+          created_by: userId,
+        }))
+
+        const { error: placeholderError } = await supabase
+          .from("folder_placeholders")
+          .insert(placeholdersToInsert)
+
+        if (placeholderError) {
+          console.error("[v0] Error creating default placeholders:", placeholderError)
+        } else {
+          console.log("[v0] Default placeholders created for folder:", folderId)
+        }
+
         // Automatically view the new folder in drag-drop mode
-        setViewingFolderId(data[0].id)
+        setViewingFolderId(folderId)
         setViewingFolderName(folderKey)
       }
 
