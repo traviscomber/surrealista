@@ -37,9 +37,11 @@ import {
   ChevronRight,
   Folder,
   MoreVertical,
+  ArrowLeft,
 } from "lucide-react"
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { FolderDragDrop } from "./folder-drag-drop"
 
 const DOCUMENT_TYPES = [
   { value: "orden_venta", label: "Orden de Venta" },
@@ -70,6 +72,8 @@ const DocumentsManager = () => {
   const [newFolderName, setNewFolderName] = useState("")
   const [userId, setUserId] = useState(null)
   const [uploading, setUploading] = useState(false)
+  const [viewingFolderId, setViewingFolderId] = useState<string | null>(null)
+  const [viewingFolderName, setViewingFolderName] = useState<string | null>(null)
   const supabase = createBrowserClient()
 
   const refreshDocuments = async () => {
@@ -186,6 +190,9 @@ const DocumentsManager = () => {
 
       if (data && data.length > 0) {
         setFolders((prev) => [...prev, data[0]])
+        // Automatically view the new folder in drag-drop mode
+        setViewingFolderId(data[0].id)
+        setViewingFolderName(folderKey)
       }
 
       // Clear form and close dialog
@@ -450,138 +457,175 @@ const DocumentsManager = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2 mb-4 flex-wrap">
-        <Input
-          type="text"
-          placeholder="Buscar documentos..."
-          value={searchQuery}
-          onChange={handleSearchChange}
-          className="flex-1 min-w-[200px]"
-        />
-        <Select value={filterStatus} onValueChange={handleFilterChange}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Todos los tipos" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos los tipos</SelectItem>
-            <SelectItem value="active">Activo</SelectItem>
-            <SelectItem value="draft">Borrador</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button onClick={() => setShowNewFolderDialog(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white">
-          <FolderPlus className="h-4 w-4 mr-2" />
-          Nueva Carpeta
-        </Button>
-      </div>
+      {/* Show Folder Drag-Drop View */}
+      {viewingFolderId && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 mb-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setViewingFolderId(null)
+                setViewingFolderName(null)
+              }}
+              className="gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Volver
+            </Button>
+          </div>
+          <FolderDragDrop folderId={viewingFolderId} folderName={viewingFolderName || ""} />
+        </div>
+      )}
 
-      <div className="space-y-2">
-        {Object.entries(filteredFolders).map(([folderName, folderDocs]) => {
-          const folderObj = folders.find((f) => f.name === folderName)
+      {/* Show Folder List View */}
+      {!viewingFolderId && (
+        <>
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
+            <Input
+              type="text"
+              placeholder="Buscar documentos..."
+              value={searchQuery}
+              onChange={handleSearchChange}
+              className="flex-1 min-w-[200px]"
+            />
+            <Select value={filterStatus} onValueChange={handleFilterChange}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Todos los tipos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los tipos</SelectItem>
+                <SelectItem value="active">Activo</SelectItem>
+                <SelectItem value="draft">Borrador</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button onClick={() => setShowNewFolderDialog(true)} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+              <FolderPlus className="h-4 w-4 mr-2" />
+              Nueva Carpeta
+            </Button>
+          </div>
 
-          return (
-            <div key={folderName} className="border rounded-lg">
-              <div className="w-full flex items-center gap-2 p-3 hover:bg-muted/50 transition-colors group">
-                <button onClick={() => handleToggleFolder(folderName)} className="flex items-center gap-2 flex-1">
-                  {expandedFolders[folderName] ? (
-                    <ChevronDown className="h-4 w-4" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4" />
-                  )}
-                  <Folder className="h-4 w-4 text-emerald-600" />
-                  <span className="font-medium">{folderName}</span>
-                  <span className="text-xs text-muted-foreground ml-auto">{folderDocs.length} documento(s)</span>
-                </button>
+          <div className="space-y-2">
+            {Object.entries(filteredFolders).map(([folderName, folderDocs]) => {
+              const folderObj = folders.find((f) => f.name === folderName)
 
-                {folderObj && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                        title="Opciones de carpeta"
-                      >
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setEditingFolder(folderObj)} className="cursor-pointer">
-                        <Edit className="h-4 w-4 mr-2" />
-                        Renombrar
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => setDeletingFolder(folderObj)}
-                        className="text-red-600 cursor-pointer"
-                      >
-                        <Trash2 className="h-4 w-4 mr-2" />
-                        Eliminar
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-                {!folderObj && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                        title="Opciones de carpeta"
-                      >
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={() => setEditingFolder({ name: folderName, oldName: folderName })}
-                        className="cursor-pointer"
-                      >
-                        <Edit className="h-4 w-4 mr-2" />
-                        Renombrar
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-              </div>
+              return (
+                <div key={folderName} className="border rounded-lg">
+                  <div className="w-full flex items-center gap-2 p-3 hover:bg-muted/50 transition-colors group">
+                    <button onClick={() => handleToggleFolder(folderName)} className="flex items-center gap-2 flex-1">
+                      {expandedFolders[folderName] ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
+                      <Folder className="h-4 w-4 text-emerald-600" />
+                      <span className="font-medium">{folderName}</span>
+                      <span className="text-xs text-muted-foreground ml-auto">{folderDocs.length} documento(s)</span>
+                    </button>
 
-              {expandedFolders[folderName] && (
-                <div className="border-t divide-y bg-muted/20 p-2 space-y-1">
-                  {folderDocs.length === 0 ? (
-                    <div className="text-xs text-muted-foreground p-2">No hay documentos en esta carpeta</div>
-                  ) : (
-                    folderDocs.map((doc) => (
-                      <div key={doc.id} className="flex items-center gap-2 p-2 hover:bg-muted/30 rounded">
-                        <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                        <div className="flex-grow min-w-0">
-                          <div className="text-sm font-medium truncate">{doc.title}</div>
-                          <div className="text-xs text-muted-foreground">{doc.description || ""}</div>
-                        </div>
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          <Badge variant={doc.status === "active" ? "default" : "secondary"} className="text-xs">
-                            {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
-                          </Badge>
-                          {doc.file_url && !doc.is_folder && (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  window.open(doc.file_url, "_blank")
-                                }}
-                                className="h-7 w-7 p-0"
-                                title="Ver archivo"
-                              >
-                                <ExternalLink className="h-3 w-3" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  const link = document.createElement("a")
-                                  link.href = doc.file_url
-                                  link.download = doc.title || "document"
+                    {folderObj && (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setViewingFolderId(folderObj.id)
+                            setViewingFolderName(folderName)
+                          }}
+                          className="text-xs"
+                        >
+                          Agregar archivos
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                              title="Opciones de carpeta"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setEditingFolder(folderObj)} className="cursor-pointer">
+                              <Edit className="h-4 w-4 mr-2" />
+                              Renombrar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => setDeletingFolder(folderObj)}
+                              className="text-red-600 cursor-pointer"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Eliminar
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </>
+                    )}
+                    {!folderObj && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 w-7 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Opciones de carpeta"
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => setEditingFolder({ name: folderName, oldName: folderName })}
+                            className="cursor-pointer"
+                          >
+                            <Edit className="h-4 w-4 mr-2" />
+                            Renombrar
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </div>
+
+                  {expandedFolders[folderName] && (
+                    <div className="border-t divide-y bg-muted/20 p-2 space-y-1">
+                      {folderDocs.length === 0 ? (
+                        <div className="text-xs text-muted-foreground p-2">No hay documentos en esta carpeta</div>
+                      ) : (
+                        folderDocs.map((doc) => (
+                          <div key={doc.id} className="flex items-center gap-2 p-2 hover:bg-muted/30 rounded">
+                            <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            <div className="flex-grow min-w-0">
+                              <div className="text-sm font-medium truncate">{doc.title}</div>
+                              <div className="text-xs text-muted-foreground">{doc.description || ""}</div>
+                            </div>
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <Badge variant={doc.status === "active" ? "default" : "secondary"} className="text-xs">
+                                {doc.status.charAt(0).toUpperCase() + doc.status.slice(1)}
+                              </Badge>
+                              {doc.file_url && !doc.is_folder && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      window.open(doc.file_url, "_blank")
+                                    }}
+                                    className="h-7 w-7 p-0"
+                                    title="Ver archivo"
+                                  >
+                                    <ExternalLink className="h-3 w-3" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      const link = document.createElement("a")
+                                      link.href = doc.file_url
+                                      link.download = doc.title || "document"
                                   document.body.appendChild(link)
                                   link.click()
                                   document.body.removeChild(link)
@@ -634,7 +678,9 @@ const DocumentsManager = () => {
             </div>
           )
         })}
-      </div>
+        </div>
+        </>
+      )}
 
       {showNewFolderDialog && (
         <Dialog open={showNewFolderDialog} onOpenChange={setShowNewFolderDialog}>
