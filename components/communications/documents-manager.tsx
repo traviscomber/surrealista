@@ -481,7 +481,54 @@ const DocumentsManager = () => {
               Volver
             </Button>
           </div>
-          <FolderDragDrop folderId={viewingFolderId} folderName={viewingFolderName || ""} />
+          <FolderDragDrop
+            folderId={viewingFolderId}
+            folderName={viewingFolderName || ""}
+            onFilesUpdated={async (zone, files) => {
+              console.log("[v0] Files updated for zone:", zone, "Files count:", files.length)
+              // Save each file to the database
+              for (const file of files) {
+                try {
+                  const existingDoc = docs.find((d) => d.file_url === file.url)
+                  if (existingDoc) {
+                    console.log("[v0] File already in database:", file.name)
+                    continue
+                  }
+
+                  const documentType = zone.toLowerCase().replace(/\s+/g, "_")
+
+                  const { data: insertedDoc, error } = await supabase
+                    .from("property_documents")
+                    .insert([
+                      {
+                        title: file.name,
+                        description: `Uploaded to ${viewingFolderName} - ${zone}`,
+                        file_url: file.url,
+                        file_type: file.type,
+                        file_size: file.size,
+                        status: "active",
+                        document_type: documentType,
+                        is_folder: false,
+                        created_by: userId,
+                      },
+                    ])
+                    .select()
+
+                  if (error) {
+                    console.error("[v0] Error saving file to database:", file.name, error)
+                  } else {
+                    console.log("[v0] File saved to database:", file.name)
+                    // Update the docs list immediately
+                    if (insertedDoc && insertedDoc.length > 0) {
+                      setDocs((prev) => [...prev, insertedDoc[0]])
+                    }
+                  }
+                } catch (err) {
+                  console.error("[v0] Exception saving file:", file.name, err)
+                }
+              }
+            }}
+          />
         </div>
       )}
 
