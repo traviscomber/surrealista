@@ -2,7 +2,6 @@
   "buildCommand": "next build",
   "functions": {
     "app/api/**/*.ts": {
-      "memory": 3008,
       "maxDuration": 60
     }
   }
