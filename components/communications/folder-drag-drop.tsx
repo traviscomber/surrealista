@@ -63,22 +63,43 @@ export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderD
       const formData = new FormData()
       formData.append("file", file)
 
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      })
+      let response
+      try {
+        console.log("[v0] Sending fetch request to /api/upload")
+        response = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        })
+        console.log("[v0] Fetch request completed with status:", response.status)
+      } catch (fetchError: any) {
+        console.error("[v0] Fetch error (network/connection issue):", {
+          message: fetchError?.message,
+          error: fetchError,
+        })
+        throw new Error(
+          `Error de conexión: ${fetchError?.message || "No se pudo contactar al servidor. Verifica tu conexión a internet."}`,
+        )
+      }
 
       console.log("[v0] Upload response status:", response.status)
-      
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        console.error("[v0] Upload failed with status:", response.status, "error:", errorData)
-        throw new Error(errorData.error || `Upload failed with status ${response.status}`)
+        let errorMessage = `Error ${response.status}`
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorMessage
+          console.error("[v0] Upload failed with status:", response.status, "error:", errorData)
+        } catch (parseError) {
+          const errorText = await response.text()
+          console.error("[v0] Upload failed - could not parse response:", response.status, errorText)
+          errorMessage = errorText || errorMessage
+        }
+        throw new Error(errorMessage)
       }
 
       const data = await response.json()
       console.log("[v0] Upload response data:", data)
-      
+
       if (!data.url) {
         throw new Error("No URL returned from upload API")
       }
@@ -106,8 +127,9 @@ export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderD
 
       console.log("[v0] File uploaded successfully:", file.name, "URL:", data.url)
     } catch (err) {
-      console.error("[v0] Upload error:", err instanceof Error ? err.message : String(err))
-      alert(`Error al cargar el archivo: ${err instanceof Error ? err.message : "Error desconocido"}`)
+      const errorMessage = err instanceof Error ? err.message : String(err)
+      console.error("[v0] Upload error:", errorMessage)
+      alert(`Error al cargar el archivo:\n\n${errorMessage}`)
     } finally {
       setUploading(false)
     }
