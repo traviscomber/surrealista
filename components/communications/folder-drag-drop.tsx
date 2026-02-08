@@ -57,29 +57,38 @@ export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderD
   const uploadFile = async (file: File, zoneId: string) => {
     try {
       setUploading(true)
+      console.log("[v0] Starting upload for file:", file.name, "to zone:", zoneId)
 
-      const fileName = `${folderId}/${zoneId}/${Date.now()}-${file.name}`
-
-      // Upload to Vercel Blob (via public/upload bucket)
+      // Upload to Supabase Storage via API
       const formData = new FormData()
       formData.append("file", file)
-      formData.append("filename", fileName)
 
       const response = await fetch("/api/upload", {
         method: "POST",
         body: formData,
       })
 
-      if (!response.ok) throw new Error("Upload failed")
+      console.log("[v0] Upload response status:", response.status)
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        console.error("[v0] Upload failed with status:", response.status, "error:", errorData)
+        throw new Error(errorData.error || `Upload failed with status ${response.status}`)
+      }
 
-      const { url } = await response.json()
+      const data = await response.json()
+      console.log("[v0] Upload response data:", data)
+      
+      if (!data.url) {
+        throw new Error("No URL returned from upload API")
+      }
 
       const newFile: DragDropFile = {
         id: `${Date.now()}-${Math.random()}`,
         name: file.name,
         size: file.size,
         type: file.type,
-        url,
+        url: data.url,
         uploadedAt: new Date().toISOString(),
       }
 
@@ -95,10 +104,10 @@ export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderD
         onFilesUpdated(zoneId, [...updatedZone.files, newFile])
       }
 
-      console.log("[v0] File uploaded successfully:", fileName)
+      console.log("[v0] File uploaded successfully:", file.name, "URL:", data.url)
     } catch (err) {
-      console.error("[v0] Upload error:", err)
-      alert("Error al cargar el archivo")
+      console.error("[v0] Upload error:", err instanceof Error ? err.message : String(err))
+      alert(`Error al cargar el archivo: ${err instanceof Error ? err.message : "Error desconocido"}`)
     } finally {
       setUploading(false)
     }

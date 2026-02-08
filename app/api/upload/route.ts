@@ -3,7 +3,7 @@ import { type NextRequest, NextResponse } from "next/server"
 
 export async function POST(request: NextRequest) {
   try {
-    console.log("[v0] Upload API called (Supabase Storage)")
+    console.log("[v0] Upload API called")
 
     const formData = await request.formData()
     const file = formData.get("file") as File
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Archivo demasiado grande. Máximo 50MB" }, { status: 400 })
     }
 
-    const allowedExtensions = [".pdf", ".doc", ".docx", ".kmz", ".kml"]
+    const allowedExtensions = [".pdf", ".doc", ".docx", ".kmz", ".kml", ".pptx", ".ppt", ".xlsx", ".xls", ".jpg", ".jpeg", ".png"]
     const fileExtension = "." + file.name.split(".").pop()?.toLowerCase()
 
     if (!allowedExtensions.includes(fileExtension)) {
@@ -35,7 +35,9 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    console.log("[v0] Creating Supabase client...")
     const supabase = await createClient()
+    console.log("[v0] Supabase client created successfully")
 
     const sanitizeFileName = (name: string): string => {
       const normalized = name
@@ -70,6 +72,7 @@ export async function POST(request: NextRequest) {
       console.log("[v0] Using standard upload for small file")
 
       try {
+        console.log("[v0] Attempting storage upload to 'documents' bucket...")
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from("documents")
           .upload(filePath, buffer, {
@@ -78,8 +81,12 @@ export async function POST(request: NextRequest) {
           })
 
         if (uploadError) {
-          console.error("[v0] Supabase upload error:", uploadError.message)
-          return NextResponse.json({ error: uploadError.message }, { status: 500 })
+          console.error("[v0] Supabase upload error:", {
+            message: uploadError.message,
+            status: uploadError.status,
+            error: uploadError,
+          })
+          return NextResponse.json({ error: `Upload failed: ${uploadError.message}` }, { status: 500 })
         }
 
         console.log("[v0] Upload successful, getting public URL...")
@@ -96,7 +103,7 @@ export async function POST(request: NextRequest) {
       } catch (uploadException: any) {
         console.error("[v0] Upload exception:", uploadException?.message || String(uploadException))
         return NextResponse.json(
-          { error: "Error al subir archivo. Intenta con un archivo más pequeño." },
+          { error: `Upload error: ${uploadException?.message || "Unknown error"}` },
           { status: 500 },
         )
       }
