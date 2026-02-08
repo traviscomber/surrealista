@@ -149,7 +149,13 @@ export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderD
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-gray-900">{folderName}</h3>
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">{folderName}</h3>
+        <p className="text-sm text-blue-700">
+          📁 <span className="font-medium">Arrastra archivos directamente a las carpetas de abajo</span>
+        </p>
+        <p className="text-xs text-blue-600 mt-1">Los archivos se organizarán automáticamente en cada sección</p>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {zones.map((zone) => (
@@ -171,7 +177,7 @@ export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderD
                 onDragOver={(e) => handleDragOver(e, zone.id)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, zone.id)}
-                className={`border-2 border-dashed rounded-lg p-6 text-center transition-all cursor-pointer ${
+                className={`border-2 border-dashed rounded-lg p-6 text-center transition-all cursor-pointer min-h-[200px] flex flex-col items-center justify-center ${
                   dragOverZone === zone.id
                     ? "border-emerald-500 bg-emerald-50"
                     : "border-gray-300 bg-gray-50 hover:bg-gray-100"
@@ -239,7 +245,15 @@ export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderD
               )}
 
               {zone.files.length === 0 && (
-                <p className="text-xs text-gray-400 text-center mt-4">Sin archivos</p>
+                <div className="space-y-2 text-center py-4">
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Placeholder</div>
+                  <p className="text-xs text-gray-400 italic">Listo para recibir archivos</p>
+                  <div className="flex justify-center gap-1 mt-2">
+                    <div className="h-1 w-1 rounded-full bg-gray-300"></div>
+                    <div className="h-1 w-1 rounded-full bg-gray-300"></div>
+                    <div className="h-1 w-1 rounded-full bg-gray-300"></div>
+                  </div>
+                </div>
               )}
             </CardContent>
           </Card>

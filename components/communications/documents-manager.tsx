@@ -460,7 +460,14 @@ const DocumentsManager = () => {
       {/* Show Folder Drag-Drop View */}
       {viewingFolderId && (
         <div className="space-y-4">
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center justify-between mb-4 bg-emerald-50 p-3 rounded-lg border border-emerald-200">
+            <div className="flex items-center gap-2">
+              <Folder className="h-5 w-5 text-emerald-600" />
+              <div>
+                <p className="text-sm font-semibold text-gray-900">{viewingFolderName}</p>
+                <p className="text-xs text-gray-600">Arrastra archivos a las carpetas para organizarlos</p>
+              </div>
+            </div>
             <Button
               variant="outline"
               size="sm"
@@ -527,13 +534,14 @@ const DocumentsManager = () => {
                       <>
                         <Button
                           size="sm"
-                          variant="outline"
+                          variant="default"
                           onClick={() => {
                             setViewingFolderId(folderObj.id)
                             setViewingFolderName(folderName)
                           }}
-                          className="text-xs"
+                          className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
                         >
+                          <FolderPlus className="h-3 w-3" />
                           Agregar archivos
                         </Button>
                         <DropdownMenu>
