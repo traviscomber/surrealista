@@ -1,9 +1,28 @@
 import { createClient } from "@/lib/supabase/server"
 import { type NextRequest, NextResponse } from "next/server"
 
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: "50mb",
+    },
+  },
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+    },
+  })
+}
+
 export async function POST(request: NextRequest) {
   try {
-    console.log("[v0] Upload API called (Supabase Storage)")
+    console.log("[v0] Upload API called")
 
     const formData = await request.formData()
     const file = formData.get("file") as File
@@ -25,7 +44,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Archivo demasiado grande. Máximo 50MB" }, { status: 400 })
     }
 
-    const allowedExtensions = [".pdf", ".doc", ".docx", ".kmz", ".kml"]
+    const allowedExtensions = [".pdf", ".doc", ".docx", ".kmz", ".kml", ".pptx", ".ppt", ".xlsx", ".xls", ".jpg", ".jpeg", ".png"]
     const fileExtension = "." + file.name.split(".").pop()?.toLowerCase()
 
     if (!allowedExtensions.includes(fileExtension)) {
@@ -35,7 +54,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = await createClient()
+    let supabase
+    try {
+      console.log("[v0] Creating Supabase client...")
+      supabase = await createClient()
+      console.log("[v0] Supabase client created successfully")
+    } catch (clientError: any) {
+      console.error("[v0] Error creating Supabase client:", {
+        message: clientError?.message,
+        error: clientError,
+      })
+      return NextResponse.json(
+        { error: "No se pudo conectar al servicio de almacenamiento" },
+        { status: 503 },
+      )
+    }
 
     const sanitizeFileName = (name: string): string => {
       const normalized = name
@@ -66,10 +99,10 @@ export async function POST(request: NextRequest) {
 
     const USE_SIGNED_UPLOAD_THRESHOLD = 4 * 1024 * 1024 // 4MB
 
-    if (file.size < USE_SIGNED_UPLOAD_THRESHOLD) {
-      console.log("[v0] Using standard upload for small file")
+    try {
+      if (file.size < USE_SIGNED_UPLOAD_THRESHOLD) {
+        console.log("[v0] Using standard upload for small file")
 
-      try {
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from("documents")
           .upload(filePath, buffer, {
@@ -78,8 +111,12 @@ export async function POST(request: NextRequest) {
           })
 
         if (uploadError) {
-          console.error("[v0] Supabase upload error:", uploadError.message)
-          return NextResponse.json({ error: uploadError.message }, { status: 500 })
+          console.error("[v0] Supabase upload error:", {
+            message: uploadError.message,
+            status: uploadError.status,
+            error: uploadError,
+          })
+          return NextResponse.json({ error: `Upload failed: ${uploadError.message}` }, { status: 500 })
         }
 
         console.log("[v0] Upload successful, getting public URL...")
@@ -93,18 +130,10 @@ export async function POST(request: NextRequest) {
           fileSize: file.size,
           fileType: fileExtension.replace(".", ""),
         })
-      } catch (uploadException: any) {
-        console.error("[v0] Upload exception:", uploadException?.message || String(uploadException))
-        return NextResponse.json(
-          { error: "Error al subir archivo. Intenta con un archivo más pequeño." },
-          { status: 500 },
-        )
-      }
-    } else {
-      // For larger files, create a signed upload URL and use fetch directly
-      console.log("[v0] Using signed URL for large file upload")
+      } else {
+        // For larger files, create a signed upload URL and use fetch directly
+        console.log("[v0] Using signed URL for large file upload")
 
-      try {
         // Create a signed upload URL (valid for 60 seconds)
         const { data: signedUrlData, error: signedError } = await supabase.storage
           .from("documents")
@@ -147,16 +176,26 @@ export async function POST(request: NextRequest) {
           fileSize: file.size,
           fileType: fileExtension.replace(".", ""),
         })
-      } catch (signedException: any) {
-        console.error("[v0] Signed upload exception:", signedException?.message || String(signedException))
-        return NextResponse.json(
-          { error: "Error al subir archivo grande. Verifica la configuración de Storage." },
-          { status: 500 },
-        )
       }
+    } catch (uploadException: any) {
+      console.error("[v0] Upload exception:", {
+        message: uploadException?.message || String(uploadException),
+        error: uploadException,
+      })
+      return NextResponse.json(
+        { error: `Error al subir archivo. Verifica la configuración de Storage: ${uploadException?.message || "Unknown error"}` },
+        { status: 500 },
+      )
     }
   } catch (error: any) {
-    console.error("[v0] Error in upload API:", error?.message || String(error))
-    return NextResponse.json({ error: "Error del servidor al procesar la solicitud" }, { status: 500 })
+    console.error("[v0] Error in upload API:", {
+      message: error?.message || String(error),
+      error: error,
+      stack: error?.stack,
+    })
+    return NextResponse.json(
+      { error: "Error del servidor al procesar la solicitud" },
+      { status: 500 },
+    )
   }
 }

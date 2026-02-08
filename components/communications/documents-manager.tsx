@@ -460,7 +460,14 @@ const DocumentsManager = () => {
       {/* Show Folder Drag-Drop View */}
       {viewingFolderId && (
         <div className="space-y-4">
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center justify-between mb-4 bg-emerald-50 p-3 rounded-lg border border-emerald-200">
+            <div className="flex items-center gap-2">
+              <Folder className="h-5 w-5 text-emerald-600" />
+              <div>
+                <p className="text-sm font-semibold text-gray-900">{viewingFolderName}</p>
+                <p className="text-xs text-gray-600">Arrastra archivos a las carpetas para organizarlos</p>
+              </div>
+            </div>
             <Button
               variant="outline"
               size="sm"
@@ -474,7 +481,54 @@ const DocumentsManager = () => {
               Volver
             </Button>
           </div>
-          <FolderDragDrop folderId={viewingFolderId} folderName={viewingFolderName || ""} />
+          <FolderDragDrop
+            folderId={viewingFolderId}
+            folderName={viewingFolderName || ""}
+            onFilesUpdated={async (zone, files) => {
+              console.log("[v0] Files updated for zone:", zone, "Files count:", files.length)
+              // Save each file to the database
+              for (const file of files) {
+                try {
+                  const existingDoc = docs.find((d) => d.file_url === file.url)
+                  if (existingDoc) {
+                    console.log("[v0] File already in database:", file.name)
+                    continue
+                  }
+
+                  const documentType = zone.toLowerCase().replace(/\s+/g, "_")
+
+                  const { data: insertedDoc, error } = await supabase
+                    .from("property_documents")
+                    .insert([
+                      {
+                        title: file.name,
+                        description: `Uploaded to ${viewingFolderName} - ${zone}`,
+                        file_url: file.url,
+                        file_type: file.type,
+                        file_size: file.size,
+                        status: "active",
+                        document_type: documentType,
+                        is_folder: false,
+                        created_by: userId,
+                      },
+                    ])
+                    .select()
+
+                  if (error) {
+                    console.error("[v0] Error saving file to database:", file.name, error)
+                  } else {
+                    console.log("[v0] File saved to database:", file.name)
+                    // Update the docs list immediately
+                    if (insertedDoc && insertedDoc.length > 0) {
+                      setDocs((prev) => [...prev, insertedDoc[0]])
+                    }
+                  }
+                } catch (err) {
+                  console.error("[v0] Exception saving file:", file.name, err)
+                }
+              }
+            }}
+          />
         </div>
       )}
 
@@ -527,13 +581,14 @@ const DocumentsManager = () => {
                       <>
                         <Button
                           size="sm"
-                          variant="outline"
+                          variant="default"
                           onClick={() => {
                             setViewingFolderId(folderObj.id)
                             setViewingFolderName(folderName)
                           }}
-                          className="text-xs"
+                          className="text-xs bg-emerald-600 hover:bg-emerald-700 text-white gap-1"
                         >
+                          <FolderPlus className="h-3 w-3" />
                           Agregar archivos
                         </Button>
                         <DropdownMenu>

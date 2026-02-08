@@ -57,29 +57,59 @@ export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderD
   const uploadFile = async (file: File, zoneId: string) => {
     try {
       setUploading(true)
+      console.log("[v0] Starting upload for file:", file.name, "to zone:", zoneId)
 
-      const fileName = `${folderId}/${zoneId}/${Date.now()}-${file.name}`
-
-      // Upload to Vercel Blob (via public/upload bucket)
+      // Upload to Supabase Storage via API
       const formData = new FormData()
       formData.append("file", file)
-      formData.append("filename", fileName)
 
-      const response = await fetch("/api/upload", {
-        method: "POST",
-        body: formData,
-      })
+      let response
+      try {
+        console.log("[v0] Sending fetch request to /api/upload")
+        response = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        })
+        console.log("[v0] Fetch request completed with status:", response.status)
+      } catch (fetchError: any) {
+        console.error("[v0] Fetch error (network/connection issue):", {
+          message: fetchError?.message,
+          error: fetchError,
+        })
+        throw new Error(
+          `Error de conexión: ${fetchError?.message || "No se pudo contactar al servidor. Verifica tu conexión a internet."}`,
+        )
+      }
 
-      if (!response.ok) throw new Error("Upload failed")
+      console.log("[v0] Upload response status:", response.status)
 
-      const { url } = await response.json()
+      if (!response.ok) {
+        let errorMessage = `Error ${response.status}`
+        try {
+          const errorData = await response.json()
+          errorMessage = errorData.error || errorMessage
+          console.error("[v0] Upload failed with status:", response.status, "error:", errorData)
+        } catch (parseError) {
+          const errorText = await response.text()
+          console.error("[v0] Upload failed - could not parse response:", response.status, errorText)
+          errorMessage = errorText || errorMessage
+        }
+        throw new Error(errorMessage)
+      }
+
+      const data = await response.json()
+      console.log("[v0] Upload response data:", data)
+
+      if (!data.url) {
+        throw new Error("No URL returned from upload API")
+      }
 
       const newFile: DragDropFile = {
         id: `${Date.now()}-${Math.random()}`,
         name: file.name,
         size: file.size,
         type: file.type,
-        url,
+        url: data.url,
         uploadedAt: new Date().toISOString(),
       }
 
@@ -95,10 +125,11 @@ export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderD
         onFilesUpdated(zoneId, [...updatedZone.files, newFile])
       }
 
-      console.log("[v0] File uploaded successfully:", fileName)
+      console.log("[v0] File uploaded successfully:", file.name, "URL:", data.url)
     } catch (err) {
-      console.error("[v0] Upload error:", err)
-      alert("Error al cargar el archivo")
+      const errorMessage = err instanceof Error ? err.message : String(err)
+      console.error("[v0] Upload error:", errorMessage)
+      alert(`Error al cargar el archivo:\n\n${errorMessage}`)
     } finally {
       setUploading(false)
     }
@@ -149,7 +180,13 @@ export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderD
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-gray-900">{folderName}</h3>
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">{folderName}</h3>
+        <p className="text-sm text-blue-700">
+          📁 <span className="font-medium">Arrastra archivos directamente a las carpetas de abajo</span>
+        </p>
+        <p className="text-xs text-blue-600 mt-1">Los archivos se organizarán automáticamente en cada sección</p>
+      </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {zones.map((zone) => (
@@ -171,7 +208,7 @@ export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderD
                 onDragOver={(e) => handleDragOver(e, zone.id)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, zone.id)}
-                className={`border-2 border-dashed rounded-lg p-6 text-center transition-all cursor-pointer ${
+                className={`border-2 border-dashed rounded-lg p-6 text-center transition-all cursor-pointer min-h-[200px] flex flex-col items-center justify-center ${
                   dragOverZone === zone.id
                     ? "border-emerald-500 bg-emerald-50"
                     : "border-gray-300 bg-gray-50 hover:bg-gray-100"
@@ -239,7 +276,15 @@ export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderD
               )}
 
               {zone.files.length === 0 && (
-                <p className="text-xs text-gray-400 text-center mt-4">Sin archivos</p>
+                <div className="space-y-2 text-center py-4">
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Placeholder</div>
+                  <p className="text-xs text-gray-400 italic">Listo para recibir archivos</p>
+                  <div className="flex justify-center gap-1 mt-2">
+                    <div className="h-1 w-1 rounded-full bg-gray-300"></div>
+                    <div className="h-1 w-1 rounded-full bg-gray-300"></div>
+                    <div className="h-1 w-1 rounded-full bg-gray-300"></div>
+                  </div>
+                </div>
               )}
             </CardContent>
           </Card>
