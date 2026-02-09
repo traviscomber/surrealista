@@ -503,7 +503,13 @@ const DocumentsManager = () => {
                     continue
                   }
 
-                  const documentType = zone.toLowerCase().replace(/\s+/g, "_")
+                  // Map zone names to valid document_type values
+                  const zoneToDocTypeMap = {
+                    "propuesta comercial": "documento_comercial",
+                    "presentacion": "presentacion",
+                    "kmz": "kmz",
+                  }
+                  const documentType = zoneToDocTypeMap[zone.toLowerCase()] || "otro"
 
                   console.log("[v0] Saving file to database:", {
                     name: file.name,
@@ -522,6 +528,7 @@ const DocumentsManager = () => {
                         file_type: file.type || "application/octet-stream",
                         file_size: file.size,
                         status: "active",
+                        category: zone,
                         document_type: documentType,
                         created_by: userId,
                       },
