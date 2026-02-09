@@ -59,12 +59,22 @@ export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderD
     try {
       // Mark this file as uploading
       setUploadingFiles((prev) => new Set(prev).add(fileId))
-      console.log("[v0] Starting upload for file:", file.name, "to zone:", zoneId)
+      console.log("[v0] Starting upload for file:", file.name, "to zone:", zoneId, "fileId:", fileId)
 
       // Validate file before uploading
       if (!file || !file.name) {
-        throw new Error("Archivo inválido")
+        throw new Error("Archivo inválido o corrupto")
       }
+
+      if (file.size === 0) {
+        throw new Error("El archivo está vacío")
+      }
+
+      console.log("[v0] File validation passed:", {
+        name: file.name,
+        size: file.size,
+        sizeMB: (file.size / 1024 / 1024).toFixed(2),
+      })
 
       // Upload to Supabase Storage via API
       const formData = new FormData()
@@ -72,43 +82,60 @@ export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderD
 
       let response
       try {
-        console.log("[v0] Sending fetch request to /api/upload")
+        console.log("[v0] Sending fetch request to /api/upload for file:", file.name)
         response = await fetch("/api/upload", {
           method: "POST",
           body: formData,
         })
-        console.log("[v0] Fetch request completed with status:", response.status)
+        console.log("[v0] Fetch request completed with status:", response.status, "for file:", file.name)
       } catch (fetchError: any) {
-        console.error("[v0] Fetch error (network/connection issue):", {
+        console.error("[v0] Fetch error (network/connection issue) for file:", file.name, {
           message: fetchError?.message,
-          error: fetchError,
+          code: fetchError?.code,
         })
         throw new Error(
-          `Error de conexión: ${fetchError?.message || "No se pudo contactar al servidor. Verifica tu conexión a internet."}`,
+          `Problema de conexión: ${fetchError?.message || "No se pudo contactar al servidor. Verifica que tengas conexión a internet."}`,
         )
       }
 
-      console.log("[v0] Upload response status:", response.status)
+      console.log("[v0] Upload response status:", response.status, "Content-Type:", response.headers.get("content-type"))
 
       if (!response.ok) {
         let errorMessage = `Error ${response.status}`
+        let errorData = null
         try {
-          const errorData = await response.json()
-          errorMessage = errorData.error || errorMessage
-          console.error("[v0] Upload failed with status:", response.status, "error:", errorData)
+          const contentType = response.headers.get("content-type")
+          if (contentType?.includes("application/json")) {
+            errorData = await response.json()
+            errorMessage = errorData.error || errorMessage
+            console.error("[v0] Upload failed (JSON response):", response.status, errorData)
+          } else {
+            const errorText = await response.text()
+            console.error("[v0] Upload failed (text response):", response.status, errorText)
+            errorMessage = errorText || `Error ${response.status}: ${response.statusText}`
+          }
         } catch (parseError) {
-          const errorText = await response.text()
-          console.error("[v0] Upload failed - could not parse response:", response.status, errorText)
-          errorMessage = errorText || errorMessage
+          console.error("[v0] Could not parse error response:", parseError)
         }
         throw new Error(errorMessage)
       }
 
-      const data = await response.json()
-      console.log("[v0] Upload response data:", data)
+      let data
+      try {
+        data = await response.json()
+        console.log("[v0] Upload response parsed successfully:", {
+          url: data.url ? "✓" : "✗",
+          fileName: data.fileName,
+          message: data.message,
+        })
+      } catch (parseError: any) {
+        console.error("[v0] Error parsing upload response:", parseError?.message)
+        throw new Error("Respuesta inválida del servidor. Intenta nuevamente.")
+      }
 
       if (!data.url) {
-        throw new Error("No URL returned from upload API")
+        console.error("[v0] No URL in response:", data)
+        throw new Error("El servidor no devolvió una URL válida")
       }
 
       const newFile: DragDropFile = {
@@ -120,7 +147,7 @@ export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderD
         uploadedAt: new Date().toISOString(),
       }
 
-      console.log("[v0] Creating new file object:", { id: newFile.id, name: newFile.name, size: newFile.size })
+      console.log("[v0] File object created:", { id: newFile.id, name: newFile.name, size: newFile.size })
 
       // Update the zones state and call callback with updated data
       setZones((prevZones) => {
@@ -138,16 +165,20 @@ export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderD
         return updatedZones
       })
 
-      console.log("[v0] File uploaded successfully:", file.name, "URL:", data.url)
+      console.log("[v0] ✓ File uploaded successfully:", file.name, "URL:", data.url)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err)
-      console.error("[v0] Upload error:", errorMessage)
-      alert(`Error al cargar "${file.name}":\n\n${errorMessage}`)
+      console.error("[v0] ✗ Upload error for file:", file.name, "Error:", errorMessage)
+      
+      // Show detailed error to user
+      const userMessage = `Error al cargar "${file.name}":\n\n${errorMessage}\n\nIntenta:\n• Revisar que el archivo sea válido\n• Comprobar tu conexión a internet\n• Usar un archivo más pequeño`
+      alert(userMessage)
     } finally {
       // Mark this file as done uploading
       setUploadingFiles((prev) => {
         const next = new Set(prev)
         next.delete(fileId)
+        console.log("[v0] Upload complete for file:", file.name, "remaining uploads:", next.size)
         return next
       })
     }
