@@ -59,6 +59,11 @@ export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderD
       setUploading(true)
       console.log("[v0] Starting upload for file:", file.name, "to zone:", zoneId)
 
+      // Validate file before uploading
+      if (!file || !file.name) {
+        throw new Error("Archivo inválido")
+      }
+
       // Upload to Supabase Storage via API
       const formData = new FormData()
       formData.append("file", file)
@@ -113,19 +118,21 @@ export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderD
         uploadedAt: new Date().toISOString(),
       }
 
-      // Update the zones state
+      console.log("[v0] Creating new file object:", { id: newFile.id, name: newFile.name, size: newFile.size })
+
+      // Update the zones state and call callback with updated data
       setZones((prevZones) => {
         const updatedZones = prevZones.map((zone) =>
           zone.id === zoneId ? { ...zone, files: [...zone.files, newFile] } : zone
         )
-        
+
         // Find the updated zone and notify parent with new files list
         const updatedZone = updatedZones.find((z) => z.id === zoneId)
         if (updatedZone && onFilesUpdated) {
           console.log("[v0] Calling onFilesUpdated with zone:", zoneId, "files count:", updatedZone.files.length)
           onFilesUpdated(zoneId, updatedZone.files)
         }
-        
+
         return updatedZones
       })
 
@@ -133,7 +140,7 @@ export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderD
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : String(err)
       console.error("[v0] Upload error:", errorMessage)
-      alert(`Error al cargar el archivo:\n\n${errorMessage}`)
+      alert(`Error al cargar "${file.name}":\n\n${errorMessage}`)
     } finally {
       setUploading(false)
     }
@@ -144,15 +151,27 @@ export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderD
     setDragOverZone(null)
 
     const files = Array.from(e.dataTransfer.files)
-    files.forEach((file) => {
-      uploadFile(file, zoneId)
+    console.log("[v0] Files dropped:", files.length, "Zone:", zoneId)
+    
+    // Upload files sequentially to avoid race conditions
+    files.forEach((file, index) => {
+      setTimeout(() => {
+        console.log("[v0] Uploading file", index + 1, "of", files.length)
+        uploadFile(file, zoneId)
+      }, index * 500) // Stagger uploads by 500ms each
     })
   }
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>, zoneId: string) => {
     const files = Array.from(e.target.files || [])
-    files.forEach((file) => {
-      uploadFile(file, zoneId)
+    console.log("[v0] Files selected:", files.length, "Zone:", zoneId)
+    
+    // Upload files sequentially
+    files.forEach((file, index) => {
+      setTimeout(() => {
+        console.log("[v0] Uploading file", index + 1, "of", files.length)
+        uploadFile(file, zoneId)
+      }, index * 500) // Stagger uploads by 500ms each
     })
   }
 
