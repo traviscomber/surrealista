@@ -113,17 +113,21 @@ export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderD
         uploadedAt: new Date().toISOString(),
       }
 
-      setZones((prevZones) =>
-        prevZones.map((zone) =>
+      // Update the zones state
+      setZones((prevZones) => {
+        const updatedZones = prevZones.map((zone) =>
           zone.id === zoneId ? { ...zone, files: [...zone.files, newFile] } : zone
         )
-      )
-
-      // Notify parent component
-      const updatedZone = zones.find((z) => z.id === zoneId)
-      if (updatedZone && onFilesUpdated) {
-        onFilesUpdated(zoneId, [...updatedZone.files, newFile])
-      }
+        
+        // Find the updated zone and notify parent with new files list
+        const updatedZone = updatedZones.find((z) => z.id === zoneId)
+        if (updatedZone && onFilesUpdated) {
+          console.log("[v0] Calling onFilesUpdated with zone:", zoneId, "files count:", updatedZone.files.length)
+          onFilesUpdated(zoneId, updatedZone.files)
+        }
+        
+        return updatedZones
+      })
 
       console.log("[v0] File uploaded successfully:", file.name, "URL:", data.url)
     } catch (err) {
