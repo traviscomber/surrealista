@@ -489,13 +489,28 @@ const DocumentsManager = () => {
               // Save each file to the database
               for (const file of files) {
                 try {
+                  // Check if this file URL already exists in the database to avoid duplicates
                   const existingDoc = docs.find((d) => d.file_url === file.url)
                   if (existingDoc) {
                     console.log("[v0] File already in database:", file.name)
                     continue
                   }
 
+                  // Also check if this specific file was just added (by ID)
+                  const alreadyProcessed = docs.some((d) => d.file_url === file.url && d.title === file.name)
+                  if (alreadyProcessed) {
+                    console.log("[v0] File already processed:", file.name)
+                    continue
+                  }
+
                   const documentType = zone.toLowerCase().replace(/\s+/g, "_")
+
+                  console.log("[v0] Saving file to database:", {
+                    name: file.name,
+                    url: file.url,
+                    zone: zone,
+                    documentType: documentType,
+                  })
 
                   const { data: insertedDoc, error } = await supabase
                     .from("property_documents")
@@ -504,7 +519,7 @@ const DocumentsManager = () => {
                         title: file.name,
                         description: `Uploaded to ${viewingFolderName} - ${zone}`,
                         file_url: file.url,
-                        file_type: file.type,
+                        file_type: file.type || "application/octet-stream",
                         file_size: file.size,
                         status: "active",
                         document_type: documentType,
@@ -516,15 +531,18 @@ const DocumentsManager = () => {
 
                   if (error) {
                     console.error("[v0] Error saving file to database:", file.name, error)
+                    alert(`Error al guardar "${file.name}": ${error.message}`)
                   } else {
-                    console.log("[v0] File saved to database:", file.name)
+                    console.log("[v0] File saved to database successfully:", file.name)
                     // Update the docs list immediately
                     if (insertedDoc && insertedDoc.length > 0) {
+                      console.log("[v0] Adding document to list:", insertedDoc[0].id)
                       setDocs((prev) => [...prev, insertedDoc[0]])
                     }
                   }
                 } catch (err) {
                   console.error("[v0] Exception saving file:", file.name, err)
+                  alert(`Error inesperado al guardar "${file.name}"`)
                 }
               }
             }}

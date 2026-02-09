@@ -157,21 +157,22 @@ export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderD
   }
 
   const handleRemoveFile = (zoneId: string, fileId: string) => {
-    setZones((prevZones) =>
-      prevZones.map((zone) =>
+    setZones((prevZones) => {
+      const updatedZones = prevZones.map((zone) =>
         zone.id === zoneId ? { ...zone, files: zone.files.filter((f) => f.id !== fileId) } : zone
       )
-    )
 
-    if (onFilesUpdated) {
-      const updatedZone = zones.find((z) => z.id === zoneId)
-      if (updatedZone) {
-        onFilesUpdated(
-          zoneId,
-          updatedZone.files.filter((f) => f.id !== fileId)
-        )
+      // Call callback with updated state
+      if (onFilesUpdated) {
+        const updatedZone = updatedZones.find((z) => z.id === zoneId)
+        if (updatedZone) {
+          console.log("[v0] File removed, notifying parent with zone:", zoneId, "files count:", updatedZone.files.length)
+          onFilesUpdated(zoneId, updatedZone.files)
+        }
       }
-    }
+
+      return updatedZones
+    })
   }
 
   const formatFileSize = (bytes: number) => {
