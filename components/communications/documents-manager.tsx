@@ -523,7 +523,6 @@ const DocumentsManager = () => {
                         file_size: file.size,
                         status: "active",
                         document_type: documentType,
-                        is_folder: false,
                         created_by: userId,
                       },
                     ])
