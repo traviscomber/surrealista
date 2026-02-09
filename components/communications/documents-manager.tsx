@@ -522,7 +522,7 @@ const DocumentsManager = () => {
                     .from("property_documents")
                     .insert([
                       {
-                        title: file.name,
+                        title: `${viewingFolderName} - ${file.name}`,
                         description: `Uploaded to ${viewingFolderName} - ${zone}`,
                         file_url: file.url,
                         file_type: file.type || "application/octet-stream",
