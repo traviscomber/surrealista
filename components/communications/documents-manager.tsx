@@ -489,26 +489,42 @@ const DocumentsManager = () => {
               // Save each file to the database
               for (const file of files) {
                 try {
-                  const existingDoc = docs.find((d) => d.file_url === file.url)
+                  const fullTitle = `${viewingFolderName} - ${file.name}`
+                  
+                  // Check if this exact file already exists in the database to avoid duplicates
+                  const existingDoc = docs.find((d) => d.file_url === file.url && d.title === fullTitle)
                   if (existingDoc) {
-                    console.log("[v0] File already in database:", file.name)
+                    console.log("[v0] File already in database:", file.name, "ID:", existingDoc.id)
                     continue
                   }
 
-                  const documentType = zone.toLowerCase().replace(/\s+/g, "_")
+                  // Map zone names to valid document_type values
+                  const zoneToDocTypeMap = {
+                    "propuesta comercial": "documento_comercial",
+                    "presentacion": "presentacion",
+                    "kmz": "kmz",
+                  }
+                  const documentType = zoneToDocTypeMap[zone.toLowerCase()] || "otro"
+
+                  console.log("[v0] Saving file to database:", {
+                    name: file.name,
+                    url: file.url,
+                    zone: zone,
+                    documentType: documentType,
+                  })
 
                   const { data: insertedDoc, error } = await supabase
                     .from("property_documents")
                     .insert([
                       {
-                        title: file.name,
+                        title: fullTitle,
                         description: `Uploaded to ${viewingFolderName} - ${zone}`,
                         file_url: file.url,
-                        file_type: file.type,
+                        file_type: file.type || "application/octet-stream",
                         file_size: file.size,
                         status: "active",
+                        category: zone,
                         document_type: documentType,
-                        is_folder: false,
                         created_by: userId,
                       },
                     ])
@@ -516,15 +532,26 @@ const DocumentsManager = () => {
 
                   if (error) {
                     console.error("[v0] Error saving file to database:", file.name, error)
+                    alert(`Error al guardar "${file.name}": ${error.message}`)
                   } else {
-                    console.log("[v0] File saved to database:", file.name)
+                    console.log("[v0] File saved to database successfully:", file.name)
                     // Update the docs list immediately
                     if (insertedDoc && insertedDoc.length > 0) {
-                      setDocs((prev) => [...prev, insertedDoc[0]])
+                      console.log("[v0] Adding document to list:", insertedDoc[0].id)
+                      setDocs((prev) => {
+                        // Check again before adding to avoid duplicates from concurrent uploads
+                        const alreadyExists = prev.some((d) => d.id === insertedDoc[0].id || (d.file_url === insertedDoc[0].file_url && d.title === insertedDoc[0].title))
+                        if (alreadyExists) {
+                          console.log("[v0] Document already exists in state, skipping:", insertedDoc[0].id)
+                          return prev
+                        }
+                        return [...prev, insertedDoc[0]]
+                      })
                     }
                   }
                 } catch (err) {
                   console.error("[v0] Exception saving file:", file.name, err)
+                  alert(`Error inesperado al guardar "${file.name}"`)
                 }
               }
             }}
