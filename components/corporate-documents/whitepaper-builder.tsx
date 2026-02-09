@@ -20,6 +20,7 @@ import { FileText, Sparkles, Download, Eye, MapPin, Zap, Droplets, BoldIcon as R
 import { createBrowserClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ImageUploadDragDrop } from "@/components/ui/image-upload-drag-drop"
 import {
   CHILEAN_REGIONS,
   type Region,
@@ -1088,32 +1089,13 @@ ${citiesText}`
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
                   {WHITEPAPER_VARIABLES.filter((v) => v.type === "image").map((variable) => (
-                    <div key={variable.key} className="space-y-2">
-                      <Label>
-                        {variable.label}
-                        {variable.required && <span className="text-red-500 ml-1">*</span>}
-                      </Label>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0]
-                            if (file) handleImageUpload(variable.key, file)
-                          }}
-                          className="flex-1"
-                        />
-                        {formData[variable.key] && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => window.open(formData[variable.key], "_blank")}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
+                    <ImageUploadDragDrop
+                      key={variable.key}
+                      label={variable.label}
+                      value={formData[variable.key]}
+                      required={variable.required}
+                      onUpload={(file) => handleImageUpload(variable.key, file)}
+                    />
                   ))}
                 </div>
               </div>
