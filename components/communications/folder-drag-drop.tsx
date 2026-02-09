@@ -41,7 +41,7 @@ export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderD
     }))
   )
   const [dragOverZone, setDragOverZone] = useState<string | null>(null)
-  const [uploading, setUploading] = useState(false)
+  const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set())
   const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({})
   const supabase = createBrowserClient()
 
@@ -55,8 +55,10 @@ export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderD
   }
 
   const uploadFile = async (file: File, zoneId: string) => {
+    const fileId = `${Date.now()}-${Math.random()}`
     try {
-      setUploading(true)
+      // Mark this file as uploading
+      setUploadingFiles((prev) => new Set(prev).add(fileId))
       console.log("[v0] Starting upload for file:", file.name, "to zone:", zoneId)
 
       // Validate file before uploading
@@ -110,7 +112,7 @@ export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderD
       }
 
       const newFile: DragDropFile = {
-        id: `${Date.now()}-${Math.random()}`,
+        id: fileId,
         name: file.name,
         size: file.size,
         type: file.type,
@@ -142,17 +144,23 @@ export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderD
       console.error("[v0] Upload error:", errorMessage)
       alert(`Error al cargar "${file.name}":\n\n${errorMessage}`)
     } finally {
-      setUploading(false)
+      // Mark this file as done uploading
+      setUploadingFiles((prev) => {
+        const next = new Set(prev)
+        next.delete(fileId)
+        return next
+      })
     }
   }
 
   const handleDrop = (e: React.DragEvent, zoneId: string) => {
     e.preventDefault()
+    e.stopPropagation()
     setDragOverZone(null)
 
     const files = Array.from(e.dataTransfer.files)
     console.log("[v0] Files dropped:", files.length, "Zone:", zoneId)
-    
+
     // Upload files sequentially to avoid race conditions
     files.forEach((file, index) => {
       setTimeout(() => {
@@ -165,7 +173,7 @@ export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderD
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>, zoneId: string) => {
     const files = Array.from(e.target.files || [])
     console.log("[v0] Files selected:", files.length, "Zone:", zoneId)
-    
+
     // Upload files sequentially
     files.forEach((file, index) => {
       setTimeout(() => {
@@ -173,6 +181,11 @@ export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderD
         uploadFile(file, zoneId)
       }, index * 500) // Stagger uploads by 500ms each
     })
+
+    // Reset input so the same file can be selected again if needed
+    if (e.target) {
+      e.target.value = ""
+    }
   }
 
   const handleRemoveFile = (zoneId: string, fileId: string) => {
@@ -246,7 +259,6 @@ export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderD
                   }}
                   onChange={(e) => handleFileInputChange(e, zone.id)}
                   className="hidden"
-                  disabled={uploading}
                 />
 
                 <Upload className="h-8 w-8 text-gray-400 mx-auto mb-2" />
@@ -258,7 +270,6 @@ export function FolderDragDrop({ folderName, folderId, onFilesUpdated }: FolderD
                   size="sm"
                   className="mt-2"
                   onClick={() => fileInputRefs.current[zone.id]?.click()}
-                  disabled={uploading}
                 >
                   Seleccionar archivo
                 </Button>
