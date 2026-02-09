@@ -489,17 +489,12 @@ const DocumentsManager = () => {
               // Save each file to the database
               for (const file of files) {
                 try {
-                  // Check if this file URL already exists in the database to avoid duplicates
-                  const existingDoc = docs.find((d) => d.file_url === file.url)
+                  const fullTitle = `${viewingFolderName} - ${file.name}`
+                  
+                  // Check if this exact file already exists in the database to avoid duplicates
+                  const existingDoc = docs.find((d) => d.file_url === file.url && d.title === fullTitle)
                   if (existingDoc) {
-                    console.log("[v0] File already in database:", file.name)
-                    continue
-                  }
-
-                  // Also check if this specific file was just added (by ID)
-                  const alreadyProcessed = docs.some((d) => d.file_url === file.url && d.title === file.name)
-                  if (alreadyProcessed) {
-                    console.log("[v0] File already processed:", file.name)
+                    console.log("[v0] File already in database:", file.name, "ID:", existingDoc.id)
                     continue
                   }
 
@@ -522,7 +517,7 @@ const DocumentsManager = () => {
                     .from("property_documents")
                     .insert([
                       {
-                        title: `${viewingFolderName} - ${file.name}`,
+                        title: fullTitle,
                         description: `Uploaded to ${viewingFolderName} - ${zone}`,
                         file_url: file.url,
                         file_type: file.type || "application/octet-stream",
@@ -543,7 +538,15 @@ const DocumentsManager = () => {
                     // Update the docs list immediately
                     if (insertedDoc && insertedDoc.length > 0) {
                       console.log("[v0] Adding document to list:", insertedDoc[0].id)
-                      setDocs((prev) => [...prev, insertedDoc[0]])
+                      setDocs((prev) => {
+                        // Check again before adding to avoid duplicates from concurrent uploads
+                        const alreadyExists = prev.some((d) => d.id === insertedDoc[0].id || (d.file_url === insertedDoc[0].file_url && d.title === insertedDoc[0].title))
+                        if (alreadyExists) {
+                          console.log("[v0] Document already exists in state, skipping:", insertedDoc[0].id)
+                          return prev
+                        }
+                        return [...prev, insertedDoc[0]]
+                      })
                     }
                   }
                 } catch (err) {
