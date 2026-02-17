@@ -27,7 +27,7 @@ export default function KmzAdminDashboard() {
 
   const fetchStatus = async () => {
     try {
-      const response = await fetch("/api/admin/kmz/batch-index?action=status")
+      const response = await fetch("/api/admin/kmz/mass-index?action=status")
       const data = await response.json()
       setIndexingStatus(data)
     } catch (error) {
@@ -39,10 +39,10 @@ export default function KmzAdminDashboard() {
   const startIndexing = async () => {
     setIsLoading(true)
     try {
-      console.log("[v0] Starting KMZ batch indexing...")
-      toast.loading("Iniciando indexación de KMZ...")
+      console.log("[v0] Starting KMZ mass indexing...")
+      toast.loading("Iniciando indexación de todos los KMZ...")
 
-      const response = await fetch("/api/admin/kmz/batch-index", {
+      const response = await fetch("/api/admin/kmz/mass-index", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -62,7 +62,7 @@ export default function KmzAdminDashboard() {
 
       // Poll for updates every 2 seconds
       const pollInterval = setInterval(async () => {
-        const statusResponse = await fetch("/api/admin/kmz/batch-index?action=status")
+        const statusResponse = await fetch("/api/admin/kmz/mass-index?action=status")
         const statusData = await statusResponse.json()
         setIndexingStatus(statusData)
 
