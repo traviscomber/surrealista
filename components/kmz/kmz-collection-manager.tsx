@@ -368,6 +368,18 @@ export function KMZCollectionManager() {
           } else {
             console.log(`[v0] Successfully saved ${file.name} to database`)
             successCount++
+
+            // Trigger background indexing for this KMZ file
+            try {
+              console.log(`[v0] Triggering location indexing for: ${file.name}`)
+              fetch("/api/cron/index-kmz", {
+                headers: {
+                  Authorization: "Bearer " + (process.env.NEXT_PUBLIC_CRON_SECRET || ""),
+                },
+              }).catch((err) => console.warn("[v0] Auto-indexing trigger failed:", err))
+            } catch (indexError) {
+              console.warn("[v0] Could not trigger indexing:", indexError)
+            }
           }
         } catch (error) {
           console.error(`[v0] Error processing ${file.name}:`, error)
