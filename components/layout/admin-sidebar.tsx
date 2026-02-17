@@ -71,6 +71,13 @@ const menuItems: MenuItem[] = [
     badgeColor: "bg-blue-500",
     children: [
       {
+        title: "Guía de Búsqueda",
+        href: "/kmz-guide",
+        icon: HelpCircle,
+        badge: "Start",
+        badgeColor: "bg-yellow-500",
+      },
+      {
         title: "Gestionar Colección",
         href: "/admin/kmz-collection",
         icon: Database,
@@ -158,6 +165,7 @@ const getPageTitle = (pathname: string): string => {
     "/admin/kmz-collection": "Colección KMZ",
     "/admin/kmz": "Panel de Indexación KMZ",
     "/kmz-search": "Búsqueda de Ubicaciones KMZ",
+    "/kmz-guide": "Guía de Búsqueda KMZ",
     "/admin/sii-extractor": "Extractor de Coordenadas SII",
     "/admin/file-explorer": "Explorador de Archivos",
     "/admin/kmz-vecindario": "Análisis de Vecindario KMZ",
