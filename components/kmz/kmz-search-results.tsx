@@ -50,7 +50,29 @@ export default function KMZSearchResults() {
       toast.error("Ingresa un término de búsqueda")
       return
     }
+    console.log("[v0] Search initiated:", { term: searchTerm, type: searchType })
     setHasSearched(true)
+  }
+
+  const handleStartIndexing = async () => {
+    try {
+      console.log("[v0] Starting KMZ indexing from search page...")
+      const response = await fetch("/api/admin/kmz/mass-index", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "start" }),
+      })
+
+      if (response.ok) {
+        toast.success("Indexación iniciada. Vuelve aquí en unos minutos para buscar.")
+      } else {
+        const error = await response.json()
+        toast.error(error.error || "Error al iniciar indexación")
+      }
+    } catch (error) {
+      console.error("[v0] Error:", error)
+      toast.error("Error al iniciar indexación")
+    }
   }
 
   const groupByKMZ = (locations: LocationResult[]) => {
@@ -206,11 +228,23 @@ export default function KMZSearchResults() {
                 ))}
               </div>
             ) : (
-              <Card>
-                <CardContent className="pt-6 text-center text-slate-500">
-                  <MapPin className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                  <p>No se encontraron ubicaciones con "{searchTerm}"</p>
-                  <p className="text-sm mt-2">Intenta con otro término de búsqueda</p>
+              <Card className="bg-amber-50 border-amber-200">
+                <CardContent className="pt-6 text-center">
+                  <MapPin className="h-12 w-12 mx-auto mb-4 opacity-50 text-amber-600" />
+                  <p className="text-slate-900 font-semibold">No se encontraron ubicaciones</p>
+                  <p className="text-sm text-slate-600 mt-2">
+                    Esto puede significar que las ubicaciones aún no han sido indexadas. 
+                  </p>
+                  <p className="text-sm text-slate-600 mb-4">
+                    Intenta otro término o inicia el proceso de indexación.
+                  </p>
+                  <Button 
+                    onClick={handleStartIndexing}
+                    className="mt-4"
+                  >
+                    <MapPin className="h-4 w-4 mr-2" />
+                    Indexar Ubicaciones KMZ
+                  </Button>
                 </CardContent>
               </Card>
             )}
@@ -219,12 +253,43 @@ export default function KMZSearchResults() {
 
         {/* Initial State */}
         {!hasSearched && (
-          <Card>
-            <CardContent className="pt-6 text-center text-slate-500">
-              <MapPin className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Ingresa un término de búsqueda para comenzar</p>
-            </CardContent>
-          </Card>
+          <div className="space-y-4">
+            <Card>
+              <CardContent className="pt-6 text-center">
+                <MapPin className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p className="font-semibold text-slate-900">Busca en tus archivos KMZ</p>
+                <p className="text-sm text-slate-600 mt-2">
+                  Ingresa un término de búsqueda para encontrar ubicaciones en tus archivos indexados
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-blue-50 border-blue-200">
+              <CardHeader>
+                <CardTitle className="text-blue-900 flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5" />
+                  Primer Uso
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-sm text-blue-900">
+                  Para empezar a buscar ubicaciones, primero necesitas indexar tus archivos KMZ:
+                </p>
+                <ol className="text-sm text-blue-900 space-y-2 list-decimal list-inside">
+                  <li>Haz clic en el botón de abajo para indexar todos tus archivos KMZ</li>
+                  <li>El proceso se ejecuta en background (puede tardar unos minutos)</li>
+                  <li>Vuelve aquí cuando esté listo para comenzar a buscar</li>
+                </ol>
+                <Button 
+                  onClick={handleStartIndexing}
+                  className="w-full mt-4 bg-blue-600 hover:bg-blue-700"
+                >
+                  <MapPin className="h-4 w-4 mr-2" />
+                  Iniciar Indexación Ahora
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
         )}
       </div>
     </div>

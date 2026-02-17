@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
     console.log(requestId, "[v0] KMZ search API called:", { q, type })
 
     if (!q || q.length < 2) {
+      console.log(requestId, "[v0] Invalid search term length:", q?.length)
       return NextResponse.json(
         { error: "Search term must be at least 2 characters" },
         { status: 400 }
@@ -19,6 +20,14 @@ export async function GET(request: NextRequest) {
     }
 
     const supabase = await createClient()
+
+    // First, check if table has any data
+    const { data: allLocations, count: totalCount } = await supabase
+      .from("kmz_location_index")
+      .select("*", { count: "exact", head: true })
+      .limit(1)
+
+    console.log(requestId, "[v0] Total locations in index:", totalCount)
 
     let query = supabase.from("kmz_location_index").select("*")
 
@@ -38,7 +47,7 @@ export async function GET(request: NextRequest) {
       throw error
     }
 
-    console.log(requestId, "[v0] Found", locations?.length || 0, "locations")
+    console.log(requestId, "[v0] Found", locations?.length || 0, "locations with query type:", type)
 
     // Get KMZ file info for the results
     if (locations && locations.length > 0) {
