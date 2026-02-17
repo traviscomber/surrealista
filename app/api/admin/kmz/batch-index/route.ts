@@ -68,16 +68,17 @@ export async function POST(request: NextRequest) {
     const { data: kmzDocs, error: fetchError } = await supabase
       .from("property_documents")
       .select("id, title, file_url, category, created_at")
-      .or(`category.eq.KMZ,category.eq.kmz,file_type.eq.kmz,file_type.eq.kml`)
+      .ilike("category", "%kmz%")
 
     if (fetchError) {
       console.error(requestId, "[v0] Error fetching KMZ documents:", fetchError)
       indexingState.status = "error"
-      indexingState.errorMessage = "Error al obtener documentos KMZ"
+      indexingState.errorMessage = `Error al obtener documentos KMZ: ${fetchError.message}`
       return NextResponse.json(indexingState, { status: 500 })
     }
 
-    console.log(requestId, "[v0] Found", kmzDocs?.length || 0, "KMZ documents")
+    console.log(requestId, "[v0] Query completed. Found", kmzDocs?.length || 0, "KMZ documents")
+    console.log(requestId, "[v0] Sample docs:", kmzDocs?.slice(0, 3)?.map(d => ({ title: d.title, category: d.category })))
 
     indexingState.totalKmzFiles = kmzDocs?.length || 0
 
