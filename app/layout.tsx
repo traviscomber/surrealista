@@ -5,6 +5,7 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { GoogleDriveProvider } from "@/lib/contexts/google-drive-context"
 import { PasswordGate } from "@/components/auth/password-gate"
+import { Toaster } from "sonner"
 
 const lora = Lora({
   subsets: ["latin"],
@@ -39,6 +40,7 @@ export default function RootLayout({
             <PasswordGate>{children}</PasswordGate>
           </GoogleDriveProvider>
         </ThemeProvider>
+        <Toaster />
       </body>
     </html>
   )
