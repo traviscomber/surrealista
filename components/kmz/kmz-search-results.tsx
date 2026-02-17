@@ -36,6 +36,7 @@ export default function KMZSearchResults() {
   const [searchTerm, setSearchTerm] = useState("")
   const [searchType, setSearchType] = useState<"location" | "region" | "file">("location")
   const [hasSearched, setHasSearched] = useState(false)
+  const [indexing, setIndexing] = useState(false)
 
   const { data: results, isLoading, error } = useSWR(
     hasSearched && searchTerm
@@ -56,7 +57,7 @@ export default function KMZSearchResults() {
 
   const handleStartIndexing = async () => {
     try {
-      setIsLoading(true)
+      setIndexing(true)
       console.log("[v0] Starting KMZ indexing from search page...")
       
       const response = await fetch("/api/admin/kmz/mass-index", {
@@ -80,7 +81,7 @@ export default function KMZSearchResults() {
       console.error("[v0] Error starting indexation:", error?.message || error)
       toast.error("Error al iniciar indexación: " + (error?.message || "Error desconocido"))
     } finally {
-      setIsLoading(false)
+      setIndexing(false)
     }
   }
 
@@ -247,23 +248,23 @@ export default function KMZSearchResults() {
                   <p className="text-sm text-slate-600 mb-4">
                     Intenta otro término o inicia el proceso de indexación.
                   </p>
-                  <Button 
-                    onClick={handleStartIndexing}
-                    disabled={isLoading}
-                    className="mt-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isLoading ? (
-                      <>
-                        <Search className="h-4 w-4 mr-2 animate-spin" />
-                        Indexando...
-                      </>
-                    ) : (
-                      <>
-                        <MapPin className="h-4 w-4 mr-2" />
-                        Indexar Ubicaciones KMZ
-                      </>
-                    )}
-                  </Button>
+                <Button 
+                  onClick={handleStartIndexing}
+                  disabled={indexing}
+                  className="mt-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {indexing ? (
+                    <>
+                      <Search className="h-4 w-4 mr-2 animate-spin" />
+                      Indexando...
+                    </>
+                  ) : (
+                    <>
+                      <MapPin className="h-4 w-4 mr-2" />
+                      Indexar Ubicaciones KMZ
+                    </>
+                  )}
+                </Button>
                 </CardContent>
               </Card>
             )}
@@ -301,10 +302,10 @@ export default function KMZSearchResults() {
                 </ol>
                 <Button 
                   onClick={handleStartIndexing}
-                  disabled={isLoading}
+                  disabled={indexing}
                   className="w-full mt-4 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isLoading ? (
+                  {indexing ? (
                     <>
                       <Search className="h-4 w-4 mr-2 animate-spin" />
                       Indexando...
