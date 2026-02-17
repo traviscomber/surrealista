@@ -66,10 +66,28 @@ const menuItems: MenuItem[] = [
   },
   {
     title: "Colección KMZ",
-    href: "/admin/kmz-collection",
     icon: MapPin,
     badge: "New",
     badgeColor: "bg-blue-500",
+    children: [
+      {
+        title: "Gestionar Colección",
+        href: "/admin/kmz-collection",
+        icon: Database,
+      },
+      {
+        title: "Indexar Ubicaciones",
+        href: "/admin/kmz",
+        icon: MapPin,
+        badge: "Fast",
+        badgeColor: "bg-green-500",
+      },
+      {
+        title: "Buscar por Ubicación",
+        href: "/kmz-search",
+        icon: Search,
+      },
+    ],
   },
   {
     title: "Comunicaciones",
@@ -138,6 +156,8 @@ const getPageTitle = (pathname: string): string => {
     "/busqueda": "Búsqueda Unificada",
     "/campos": "Vista CAMPOS",
     "/admin/kmz-collection": "Colección KMZ",
+    "/admin/kmz": "Panel de Indexación KMZ",
+    "/kmz-search": "Búsqueda de Ubicaciones KMZ",
     "/admin/sii-extractor": "Extractor de Coordenadas SII",
     "/admin/file-explorer": "Explorador de Archivos",
     "/admin/kmz-vecindario": "Análisis de Vecindario KMZ",

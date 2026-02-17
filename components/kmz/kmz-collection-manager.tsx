@@ -62,6 +62,7 @@ export function KMZCollectionManager() {
   })
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
+  const [indexing, setIndexing] = useState(false)
 
   useEffect(() => {
     loadKMZCollection()
@@ -256,6 +257,33 @@ export function KMZCollectionManager() {
       await loadKMZCollection()
     } catch (error) {
       console.error("Error deleting KMZ:", error)
+    }
+  }
+
+  const indexAllKMZLocations = async () => {
+    setIndexing(true)
+    try {
+      console.log("[v0] Starting mass indexing of KMZ locations...")
+
+      const response = await fetch("/api/admin/kmz/mass-index", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action: "start" }),
+      })
+
+      if (response.ok) {
+        alert("Indexación iniciada en background. Revisa /admin/kmz para ver el progreso.")
+      } else {
+        const error = await response.json()
+        alert(`Error: ${error.error}`)
+      }
+    } catch (error) {
+      console.error("[v0] Error starting indexation:", error)
+      alert("Error al iniciar la indexación")
+    } finally {
+      setIndexing(false)
     }
   }
 
@@ -487,6 +515,23 @@ export function KMZCollectionManager() {
                   <>
                     <RefreshCw className="h-4 w-4 mr-2" />
                     Escanear Drive
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={indexAllKMZLocations}
+                disabled={indexing || tableExists === false}
+                className="bg-blue-500 hover:bg-blue-600 text-white"
+              >
+                {indexing ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Indexando...
+                  </>
+                ) : (
+                  <>
+                    <MapPin className="h-4 w-4 mr-2" />
+                    Indexar Ubicaciones
                   </>
                 )}
               </Button>
