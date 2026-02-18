@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     // Build location search query
     let locationQuery = supabase
       .from("kmz_location_index")
-      .select("id, name, description, latitude, longitude, region, city, created_at")
+      .select("id, name, latitude, longitude, region, city, created_at, type, address")
 
     if (searchTerm) {
       locationQuery = locationQuery.or(`searchable_text.ilike.%${searchTerm}%,name.ilike.%${searchTerm}%`)
@@ -74,9 +74,9 @@ export async function GET(request: NextRequest) {
         id: loc.id,
         name: loc.name || "Ubicación sin nombre",
         type: "location" as const,
-        description: loc.description,
         region: loc.region,
         city: loc.city,
+        address: loc.address,
         createdAt: loc.created_at,
       })),
       ...(kmzFiles || []).map((kmz: any) => ({

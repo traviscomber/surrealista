@@ -193,7 +193,7 @@ export default function KMZMapPage() {
             <h4 style="margin: 0 0 8px 0; font-weight: bold; color: ${colors[region]};">${loc.name}</h4>
             <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Región:</strong> ${loc.region || 'N/A'}</p>
             <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Coordenadas:</strong> ${loc.latitude.toFixed(4)}, ${loc.longitude.toFixed(4)}</p>
-            ${loc.description ? `<p style="margin: 0 0 4px 0; font-size: 11px; color: #666;">${loc.description}</p>` : ''}
+            ${loc.address ? `<p style="margin: 0 0 4px 0; font-size: 11px; color: #666;"><strong>Dirección:</strong> ${loc.address}</p>` : ''}
           </div>
         `)
       })

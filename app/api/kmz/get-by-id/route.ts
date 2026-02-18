@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
     // Get all locations for this KMZ
     const { data: locations, error: locError } = await supabase
       .from("kmz_location_index")
-      .select("id, name, description, latitude, longitude, region, city, type")
+      .select("id, name, latitude, longitude, region, city, type, address, location_data")
       .eq("kmz_id", kmzId)
       .order("name", { ascending: true })
 
