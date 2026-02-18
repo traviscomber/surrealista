@@ -1,4 +1,4 @@
-import KMZSearchResults from "@/components/kmz/kmz-search-results"
+import KMZSearchSimple from "@/components/kmz/kmz-search-simple"
 
 export const metadata = {
   title: "Búsqueda de Ubicaciones KMZ",
@@ -6,5 +6,5 @@ export const metadata = {
 }
 
 export default function KMZSearchPage() {
-  return <KMZSearchResults />
+  return <KMZSearchSimple />
 }
