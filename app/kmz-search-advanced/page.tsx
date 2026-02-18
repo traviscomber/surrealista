@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Search, Filter, MapPin, FileText, Calendar } from 'lucide-react'
+import { Search, Filter, MapPin, FileText, Calendar, Map } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface SearchResult {
@@ -28,6 +29,7 @@ interface Filters {
 }
 
 export default function KMZSearchAdvanced() {
+  const router = useRouter()
   const [filters, setFilters] = useState<Filters>({
     searchTerm: '',
     region: '',
@@ -245,7 +247,7 @@ export default function KMZSearchAdvanced() {
               }`}
             >
               <CardContent className="pt-6">
-                <div className="flex items-start justify-between">
+                <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       {result.type === 'location' ? (
@@ -291,6 +293,17 @@ export default function KMZSearchAdvanced() {
                       )}
                     </div>
                   </div>
+                  
+                  {/* Action buttons */}
+                  {result.type === 'kmz' && (
+                    <Button
+                      onClick={() => router.push(`/kmz-map?kmzId=${result.id}`)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white flex-shrink-0"
+                    >
+                      <Map className="h-4 w-4 mr-2" />
+                      Ver en Mapa
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>

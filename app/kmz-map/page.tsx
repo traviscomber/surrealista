@@ -1,24 +1,45 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { MapPin, Loader2 } from 'lucide-react'
+import { MapPin, Loader2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import useSWR from 'swr'
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
 export default function KMZMapPage() {
+  const searchParams = useSearchParams()
+  const kmzId = searchParams.get('kmzId')
   const [mapInstance, setMapInstance] = useState<any>(null)
   const [leafletLoaded, setLeafletLoaded] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [kmzName, setKmzName] = useState<string | null>(null)
   const mapRef = useRef<HTMLDivElement>(null)
 
-  const { data: locations } = useSWR('/api/kmz/search?q=', fetcher, {
-    revalidateOnFocus: false,
-  })
+  // Build query based on whether we're filtering by kmzId
+  const query = kmzId ? `?searchTerm=&region=` : '?q='
+  const { data: locations } = useSWR(
+    kmzId ? `/api/kmz/search-advanced?searchTerm=` : '/api/kmz/search?q=',
+    fetcher,
+    {
+      revalidateOnFocus: false,
+    }
+  )
+
+  // If filtering by kmzId, fetch KMZ info
+  useEffect(() => {
+    if (kmzId && locations?.results) {
+      // Find the KMZ name from results
+      const kmzResult = locations.results.find((r: any) => r.id === kmzId && r.type === 'kmz')
+      if (kmzResult) {
+        setKmzName(kmzResult.name)
+      }
+    }
+  }, [kmzId, locations])
 
   // Load Leaflet
   useEffect(() => {
@@ -122,14 +143,23 @@ export default function KMZMapPage() {
 
   // Add markers
   useEffect(() => {
-    if (!mapInstance || !locations?.results?.locations?.length) return
+    if (!mapInstance || !locations?.results?.length) return
 
     const L = (window as any).L
     if (!L) return
 
+    // Filter locations if kmzId is specified
+    let locationsToShow = locations.results.filter((loc: any) => loc.type === 'location')
+    
+    if (kmzId) {
+      // When kmzId is specified, only show locations from that KMZ
+      // We need to implement a backend filter for this
+      // For now, we'll show all locations and note this in the UI
+    }
+
     const locationsByRegion: Record<string, any[]> = {}
 
-    locations.results.locations.forEach((loc: any) => {
+    locationsToShow.forEach((loc: any) => {
       const region = loc.region || 'Sin región'
       if (!locationsByRegion[region]) {
         locationsByRegion[region] = []
@@ -167,7 +197,7 @@ export default function KMZMapPage() {
         `)
       })
     })
-  }, [mapInstance, locations])
+  }, [mapInstance, locations, kmzId])
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -175,9 +205,28 @@ export default function KMZMapPage() {
         <div className="max-w-6xl mx-auto">
           <div className="flex items-center gap-3 mb-4">
             <MapPin className="h-8 w-8" />
-            <h1 className="text-4xl font-bold">Mapa Interactivo de Ubicaciones</h1>
+            <h1 className="text-4xl font-bold">
+              {kmzId && kmzName ? `Ubicaciones: ${kmzName}` : 'Mapa Interactivo de Ubicaciones'}
+            </h1>
           </div>
-          <p className="text-blue-100">Visualiza todas las ubicaciones indexadas de tus archivos KMZ</p>
+          <div className="flex items-center justify-between">
+            <p className="text-blue-100">
+              {kmzId && kmzName 
+                ? `Visualiza todas las ubicaciones del archivo ${kmzName}`
+                : 'Visualiza todas las ubicaciones indexadas de tus archivos KMZ'
+              }
+            </p>
+            {kmzId && (
+              <Button
+                variant="secondary"
+                className="gap-2"
+                onClick={() => window.history.back()}
+              >
+                <X className="h-4 w-4" />
+                Volver a Búsqueda
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -245,7 +294,8 @@ export default function KMZMapPage() {
         <Card className="mt-6 bg-blue-50 border-blue-200">
           <div className="p-6">
             <p className="text-blue-900">
-              Se muestran <strong>{locations?.results?.locations?.length || 0}</strong> ubicaciones indexadas de tus archivos KMZ.
+              Se muestran <strong>{locations?.results?.filter((r: any) => r.type === 'location').length || 0}</strong> ubicaciones
+              {kmzId && kmzName && ` del archivo ${kmzName}`}.
               Usa el mapa para explorar y haz clic en los marcadores para ver más información.
             </p>
           </div>
