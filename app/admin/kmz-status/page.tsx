@@ -31,6 +31,7 @@ export default function KMZStatusPage() {
       const data = await response.json()
       setDiagnostic(data)
       console.log('[v0] Diagnostic data:', data)
+      toast.success('Diagnóstico actualizado')
     } catch (error) {
       console.error('[v0] Error fetching diagnostic:', error)
       toast.error('Error al obtener diagnóstico')
@@ -42,7 +43,7 @@ export default function KMZStatusPage() {
   const handleIndexNow = async () => {
     setLoading(true)
     try {
-      console.log('[v0] Starting immediate indexing...')
+      console.log('[v0] Starting immediate indexing of ALL KMZ sources...')
       const response = await fetch('/api/admin/index-kmz-now', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -52,8 +53,7 @@ export default function KMZStatusPage() {
       console.log('[v0] Indexing response:', data)
       
       if (response.ok) {
-        toast.success(`Indexadas ${data.totalLocationsIndexed} ubicaciones en ${data.filesSuccessful} archivos`)
-        // Refresh diagnostic
+        toast.success(`Indexadas ${data.totalLocationsIndexed} ubicaciones de ${data.sourcesProcessed} fuentes`)
         await fetchDiagnostic()
       } else {
         toast.error(data.error || 'Error en indexación')
