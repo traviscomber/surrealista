@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { AlertCircle, CheckCircle, XCircle, RefreshCw, Database, MapPin } from 'lucide-react'
+import { AlertCircle, CheckCircle, XCircle, RefreshCw, Database } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface DiagnosticData {
@@ -40,32 +40,6 @@ export default function KMZStatusPage() {
     }
   }
 
-  const handleIndexNow = async () => {
-    setLoading(true)
-    try {
-      console.log('[v0] Starting immediate indexing of ALL KMZ sources...')
-      const response = await fetch('/api/admin/index-kmz-now', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      })
-      
-      const data = await response.json()
-      console.log('[v0] Indexing response:', data)
-      
-      if (response.ok) {
-        toast.success(`Indexadas ${data.totalLocationsIndexed} ubicaciones de ${data.sourcesProcessed} fuentes`)
-        await fetchDiagnostic()
-      } else {
-        toast.error(data.error || 'Error en indexación')
-      }
-    } catch (error: any) {
-      console.error('[v0] Error:', error)
-      toast.error('Error al indexar: ' + error.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   useEffect(() => {
     fetchDiagnostic()
   }, [])
@@ -95,22 +69,12 @@ export default function KMZStatusPage() {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-4xl font-bold text-slate-900">Estado del Sistema KMZ</h1>
-            <p className="text-slate-600 mt-2">Monitoreo de indexación y estado de búsqueda</p>
+            <p className="text-slate-600 mt-2">Las ubicaciones se indexan automáticamente cuando cargas KMZ</p>
           </div>
-          <div className="flex gap-2">
-            <Button 
-              onClick={handleIndexNow} 
-              disabled={loading}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              <MapPin className="h-4 w-4 mr-2" />
-              Indexar Ahora
-            </Button>
-            <Button onClick={fetchDiagnostic} disabled={loading}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Actualizar
-            </Button>
-          </div>
+          <Button onClick={fetchDiagnostic} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            Actualizar
+          </Button>
         </div>
 
         {/* Status Overview */}

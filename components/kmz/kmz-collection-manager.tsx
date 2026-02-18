@@ -216,13 +216,24 @@ export function KMZCollectionManager() {
 
           processed++
           console.log(`Processed ${processed}/${allFiles.length}: ${file.name}`)
+          
+          // Trigger immediate indexing for this KMZ file
+          try {
+            console.log(`[v0] Indexing locations for: ${file.name}`)
+            await fetch("/api/admin/index-kmz-now", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+            }).catch((err) => console.warn("[v0] Auto-indexing warning:", err))
+          } catch (indexError) {
+            console.warn("[v0] Could not trigger indexing:", indexError)
+          }
         } catch (error) {
           console.error(`Error processing ${file.name}:`, error)
         }
       }
 
       await loadKMZCollection()
-      alert(`Escaneo completado! ${processed} archivos KMZ agregados a la colección.`)
+      alert(`Escaneo completado! ${processed} archivos KMZ agregados a la colección.\n✅ Ubicaciones indexadas automáticamente.`)
     } catch (error) {
       console.error("Error scanning Google Drive:", error)
       alert("Error al escanear Google Drive")
@@ -388,7 +399,7 @@ export function KMZCollectionManager() {
         }
       }
 
-      // Reload collection
+              // Reload collection
       await loadKMZCollection()
 
       // Show result
@@ -396,6 +407,7 @@ export function KMZCollectionManager() {
       if (successCount > 0) messages.push(`✅ ${successCount} archivo(s) KMZ cargado(s) exitosamente`)
       if (skippedCount > 0) messages.push(`⏭️ ${skippedCount} archivo(s) duplicado(s) omitido(s)`)
       if (errorCount > 0) messages.push(`⚠️ ${errorCount} archivo(s) fallaron`)
+      messages.push(`📍 Ubicaciones indexadas automáticamente`)
 
       if (messages.length > 0) {
         alert(messages.join("\n"))
@@ -528,23 +540,6 @@ export function KMZCollectionManager() {
                   <>
                     <RefreshCw className="h-4 w-4 mr-2" />
                     Escanear Drive
-                  </>
-                )}
-              </Button>
-              <Button
-                onClick={indexAllKMZLocations}
-                disabled={indexing || tableExists === false}
-                className="bg-blue-500 hover:bg-blue-600 text-white"
-              >
-                {indexing ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Indexando...
-                  </>
-                ) : (
-                  <>
-                    <MapPin className="h-4 w-4 mr-2" />
-                    Indexar Ubicaciones
                   </>
                 )}
               </Button>
