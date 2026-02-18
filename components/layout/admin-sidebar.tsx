@@ -25,6 +25,7 @@ import {
   FolderOpen,
   MapPin,
   Mail,
+  AlertCircle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -70,6 +71,13 @@ const menuItems: MenuItem[] = [
     badge: "New",
     badgeColor: "bg-blue-500",
     children: [
+      {
+        title: "Estado del Sistema",
+        href: "/admin/kmz-status",
+        icon: AlertCircle,
+        badge: "Check",
+        badgeColor: "bg-purple-500",
+      },
       {
         title: "Guía de Búsqueda",
         href: "/kmz-guide",
@@ -162,6 +170,7 @@ const getPageTitle = (pathname: string): string => {
     "/admin": "Dashboard",
     "/busqueda": "Búsqueda Unificada",
     "/campos": "Vista CAMPOS",
+    "/admin/kmz-status": "Estado del Sistema KMZ",
     "/admin/kmz-collection": "Colección KMZ",
     "/admin/kmz": "Panel de Indexación KMZ",
     "/kmz-search": "Búsqueda de Ubicaciones KMZ",
