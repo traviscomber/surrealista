@@ -134,7 +134,7 @@ export default function KMZAutoIndexingInfo() {
         </div>
 
         <div className="text-center p-6 bg-gradient-to-r from-blue-100 to-indigo-100 rounded-lg">
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">✨ Todo es automático</✨></h2>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Todo es automático</h2>
           <p className="text-slate-700">
             Simplemente carga tus KMZ y empieza a buscar. No hay nada más que hacer.
           </p>
