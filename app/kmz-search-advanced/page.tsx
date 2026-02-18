@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -38,17 +38,28 @@ export default function KMZSearchAdvanced() {
   const [results, setResults] = useState<SearchResult[]>([])
   const [loading, setLoading] = useState(false)
   const [stats, setStats] = useState({ total: 0, locations: 0, kmzFiles: 0 })
+  const [autoSearchTimeout, setAutoSearchTimeout] = useState<NodeJS.Timeout | null>(null)
 
-  const handleSearch = async () => {
-    if (!filters.searchTerm.trim()) {
-      toast.error('Por favor ingresa un término de búsqueda')
-      return
-    }
+  // Auto-search cuando cambian los filtros (con debounce de 500ms)
+  useEffect(() => {
+    if (autoSearchTimeout) clearTimeout(autoSearchTimeout)
 
+    const timeout = setTimeout(() => {
+      if (filters.searchTerm.trim() || filters.region.trim() || filters.category || filters.dateFrom || filters.dateTo) {
+        performSearch(filters)
+      }
+    }, 500)
+
+    setAutoSearchTimeout(timeout)
+
+    return () => clearTimeout(timeout)
+  }, [filters])
+
+  const performSearch = async (searchFilters: Filters) => {
     setLoading(true)
     try {
       const params = new URLSearchParams()
-      Object.entries(filters).forEach(([key, value]) => {
+      Object.entries(searchFilters).forEach(([key, value]) => {
         if (value) params.append(key, value)
       })
 
@@ -58,16 +69,27 @@ export default function KMZSearchAdvanced() {
       if (response.ok) {
         setResults(data.results || [])
         setStats(data.stats || { total: 0, locations: 0, kmzFiles: 0 })
-        toast.success(`Encontrados ${data.stats?.total || 0} resultados`)
       } else {
-        toast.error(data.error || 'Error en la búsqueda')
+        console.error('[v0] Search error:', data.error)
       }
     } catch (error) {
       console.error('[v0] Search error:', error)
-      toast.error('Error al realizar la búsqueda')
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleSearch = async () => {
+    // Check if at least one filter is provided
+    const hasFilters = filters.searchTerm.trim() || filters.region.trim() || filters.category || filters.dateFrom || filters.dateTo
+    
+    if (!hasFilters) {
+      toast.error('Por favor ingresa al menos un criterio de búsqueda')
+      return
+    }
+
+    await performSearch(filters)
+    toast.success(`Encontrados ${stats.total} resultados`)
   }
 
   return (
@@ -89,7 +111,7 @@ export default function KMZSearchAdvanced() {
               {/* Main Search */}
               <div className="md:col-span-2">
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Término de búsqueda *
+                  Término de búsqueda
                 </label>
                 <div className="flex gap-2">
                   <Input
