@@ -1,9 +1,8 @@
 import { createClient } from "@/lib/supabase/server"
-import { KMZReader } from "@/lib/kmz/kmz-reader"
 import { type NextRequest, NextResponse } from "next/server"
 
 /**
- * Simple indexing endpoint
+ * Immediate indexing endpoint - indexes KMZ locations from already stored metadata
  * POST /api/admin/index-kmz-now to start indexing immediately
  */
 export async function POST(request: NextRequest) {
@@ -14,12 +13,13 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient()
 
-    // Get all active KMZ files from kmz_collection
-    console.log(requestId, "[v0] Fetching KMZ collection...")
+    // Get all active KMZ files from kmz_collection that haven't been indexed yet
+    console.log(requestId, "[v0] Fetching unindexed KMZ files...")
     const { data: kmzFiles, error: fetchError } = await supabase
       .from("kmz_collection")
-      .select("id, file_name, url, is_active")
+      .select("id, file_name, placemarks_count, coordinates, metadata, region")
       .eq("is_active", true)
+      .gt("placemarks_count", 0)
       .order("created_at", { ascending: false })
       .limit(50)
 
@@ -28,17 +28,18 @@ export async function POST(request: NextRequest) {
       throw new Error(`Failed to fetch KMZ: ${fetchError.message}`)
     }
 
-    console.log(requestId, `[v0] Found ${kmzFiles?.length || 0} KMZ files`)
+    console.log(requestId, `[v0] Found ${kmzFiles?.length || 0} KMZ files to index`)
 
     if (!kmzFiles || kmzFiles.length === 0) {
       return NextResponse.json({
         success: true,
         message: "No KMZ files to index",
         indexed: 0,
+        totalLocationsIndexed: 0,
+        filesSuccessful: 0,
       })
     }
 
-    const kmzReader = new KMZReader()
     let totalIndexed = 0
     let successCount = 0
     const results = []
@@ -50,28 +51,29 @@ export async function POST(request: NextRequest) {
 
       try {
         // Check if already indexed
-        const { data: existing } = await supabase
+        const { data: existing, count: existingCount } = await supabase
           .from("kmz_location_index")
           .select("id", { count: "exact", head: true })
           .eq("kmz_id", kmz.id)
 
-        if (existing && existing.length > 0) {
-          console.log(requestId, `[v0]   Already indexed (${existing.length} locations)`)
+        if (existingCount && existingCount > 0) {
+          console.log(requestId, `[v0]   Already indexed (${existingCount} locations)`)
           results.push({
             file_name: kmz.file_name,
             status: "skipped",
             reason: "Already indexed",
+            locations: existingCount,
           })
-          totalIndexed += existing.length
+          totalIndexed += existingCount
           continue
         }
 
-        // Extract placemarks from KMZ
-        console.log(requestId, `[v0]   Reading KMZ file: ${kmz.url}`)
-        const placemarks = await kmzReader.extractPlacemarks(kmz.url)
-        console.log(requestId, `[v0]   Found ${placemarks.length} placemarks`)
+        // Extract coordinates from metadata
+        const coordinates = kmz.coordinates || []
+        const metadata = kmz.metadata || {}
 
-        if (placemarks.length === 0) {
+        if (!Array.isArray(coordinates) || coordinates.length === 0) {
+          console.log(requestId, `[v0]   No coordinates found in metadata`)
           results.push({
             file_name: kmz.file_name,
             status: "no_placemarks",
@@ -80,24 +82,34 @@ export async function POST(request: NextRequest) {
           continue
         }
 
-        // Create index records
-        const locationsToInsert = placemarks.map((p: any) => ({
-          kmz_id: kmz.id,
-          kmz_file_url: kmz.url,
-          name: p.name || "Unnamed Location",
-          description: p.description || "",
-          latitude: p.latitude || 0,
-          longitude: p.longitude || 0,
-          type: p.type || "Point",
-          searchable_text: `${p.name} ${p.description} ${kmz.file_name}`.toLowerCase(),
-          region: null,
-          city: null,
-          address: null,
-          created_at: new Date().toISOString(),
-        }))
+        // Create index records from stored placemark data
+        const locationsToInsert = coordinates.map((coord: any, index: number) => {
+          const lng = Array.isArray(coord) ? coord[0] : coord.longitude || 0
+          const lat = Array.isArray(coord) ? coord[1] : coord.latitude || 0
+          const name = metadata.name || `Location ${index + 1}`
+
+          return {
+            kmz_id: kmz.id,
+            name: name,
+            description: metadata.description || "",
+            latitude: parseFloat(lat),
+            longitude: parseFloat(lng),
+            type: "Point",
+            searchable_text: `${name} ${metadata.description || ""} ${kmz.file_name}`.toLowerCase(),
+            region: kmz.region || null,
+            city: null,
+            address: null,
+            created_at: new Date().toISOString(),
+          }
+        })
+
+        console.log(requestId, `[v0]   Inserting ${locationsToInsert.length} locations...`)
 
         // Insert into database
-        const { error: insertError } = await supabase.from("kmz_location_index").insert(locationsToInsert)
+        const { error: insertError, data: insertedData } = await supabase
+          .from("kmz_location_index")
+          .insert(locationsToInsert)
+          .select()
 
         if (insertError) {
           console.error(requestId, `[v0]   Insert error: ${insertError.message}`)
@@ -109,13 +121,14 @@ export async function POST(request: NextRequest) {
           continue
         }
 
-        console.log(requestId, `[v0]   ✓ Indexed ${placemarks.length} locations`)
+        const insertedCount = insertedData?.length || locationsToInsert.length
+        console.log(requestId, `[v0]   ✓ Indexed ${insertedCount} locations`)
         results.push({
           file_name: kmz.file_name,
           status: "success",
-          indexed: placemarks.length,
+          indexed: insertedCount,
         })
-        totalIndexed += placemarks.length
+        totalIndexed += insertedCount
         successCount++
       } catch (error: any) {
         console.error(requestId, `[v0]   Error processing ${kmz.file_name}:`, error.message)
@@ -152,3 +165,4 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+

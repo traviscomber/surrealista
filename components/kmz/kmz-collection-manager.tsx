@@ -369,14 +369,15 @@ export function KMZCollectionManager() {
             console.log(`[v0] Successfully saved ${file.name} to database`)
             successCount++
 
-            // Trigger background indexing for this KMZ file
+            // Trigger immediate indexing for this KMZ file
             try {
-              console.log(`[v0] Triggering location indexing for: ${file.name}`)
-              fetch("/api/cron/index-kmz", {
-                headers: {
-                  Authorization: "Bearer " + (process.env.NEXT_PUBLIC_CRON_SECRET || ""),
-                },
-              }).catch((err) => console.warn("[v0] Auto-indexing trigger failed:", err))
+              console.log(`[v0] Triggering immediate location indexing for: ${file.name}`)
+              const indexResponse = await fetch("/api/admin/index-kmz-now", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+              })
+              const indexData = await indexResponse.json()
+              console.log(`[v0] Indexing result:`, indexData)
             } catch (indexError) {
               console.warn("[v0] Could not trigger indexing:", indexError)
             }
