@@ -196,37 +196,60 @@ export function KMZCollectionManager() {
 
           const rolNumbers = kmzReader.extractPropertyRoles(kmzData)
 
-          const { error } = await supabase.from("kmz_collection").insert({
-            file_name: file.name,
-            file_path: file.path,
-            drive_file_id: file.id,
-            description: kmzData.metadata?.description || null,
-            metadata: kmzData.metadata,
-            placemarks_count: kmzData.placemarks.length,
-            rol_numbers: rolNumbers,
-            bounds: kmzData.bounds,
-            coordinates: kmzData.placemarks.map((p) => p.coordinates),
-            tags: [],
-            category: detectCategory(file.path),
-            is_active: true,
-            file_size: fileBlob.size,
-          })
+          // Insert KMZ into collection
+          const { data: insertedKMZ, error: kmzError } = await supabase
+            .from("kmz_collection")
+            .insert({
+              file_name: file.name,
+              file_path: file.path,
+              drive_file_id: file.id,
+              description: kmzData.metadata?.description || null,
+              metadata: kmzData.metadata,
+              placemarks_count: kmzData.placemarks.length,
+              rol_numbers: rolNumbers,
+              bounds: kmzData.bounds,
+              coordinates: kmzData.placemarks.map((p) => p.coordinates),
+              tags: [],
+              category: detectCategory(file.path),
+              is_active: true,
+              file_size: fileBlob.size,
+            })
+            .select()
 
-          if (error) throw error
+          if (kmzError) throw kmzError
+
+          const kmzId = insertedKMZ?.[0]?.id
+          if (!kmzId) throw new Error("KMZ insertion failed - no ID returned")
+
+          // Immediately insert locations into kmz_location_index
+          if (kmzData.placemarks && kmzData.placemarks.length > 0) {
+            const locationsToInsert = kmzData.placemarks.map((placemark: any) => ({
+              kmz_id: kmzId,
+              name: placemark.name || "Unnamed Location",
+              description: placemark.description || "",
+              latitude: placemark.coordinates?.[1] || 0,
+              longitude: placemark.coordinates?.[0] || 0,
+              type: placemark.type || "Point",
+              searchable_text: `${placemark.name || ""} ${placemark.description || ""} ${file.name}`.toLowerCase(),
+              region: null,
+              city: null,
+              address: null,
+              created_at: new Date().toISOString(),
+            }))
+
+            const { error: locError } = await supabase
+              .from("kmz_location_index")
+              .insert(locationsToInsert)
+
+            if (locError) {
+              console.error(`[v0] Error inserting locations for ${file.name}:`, locError)
+            } else {
+              console.log(`[v0] ✓ Inserted ${locationsToInsert.length} locations for ${file.name}`)
+            }
+          }
 
           processed++
           console.log(`Processed ${processed}/${allFiles.length}: ${file.name}`)
-          
-          // Trigger immediate indexing for this KMZ file
-          try {
-            console.log(`[v0] Indexing locations for: ${file.name}`)
-            await fetch("/api/admin/index-kmz-now", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-            }).catch((err) => console.warn("[v0] Auto-indexing warning:", err))
-          } catch (indexError) {
-            console.warn("[v0] Could not trigger indexing:", indexError)
-          }
         } catch (error) {
           console.error(`Error processing ${file.name}:`, error)
         }
@@ -356,22 +379,25 @@ export function KMZCollectionManager() {
           const rolNumbers = kmzReader.extractPropertyRoles(kmzData)
 
           // Save to database
-          const { error } = await supabase.from("kmz_collection").insert({
-            file_name: file.name,
-            file_path: `offline/${file.name}`,
-            file_hash: fileHash,
-            drive_file_id: null,
-            description: kmzData.metadata?.description || null,
-            metadata: kmzData.metadata,
-            placemarks_count: kmzData.placemarks.length,
-            rol_numbers: rolNumbers,
-            bounds: kmzData.bounds,
-            coordinates: kmzData.placemarks.map((p) => p.coordinates),
-            tags: ["offline"],
-            category: "offline",
-            is_active: true,
-            file_size: file.size,
-          })
+          const { data: insertedKMZ, error } = await supabase
+            .from("kmz_collection")
+            .insert({
+              file_name: file.name,
+              file_path: `offline/${file.name}`,
+              file_hash: fileHash,
+              drive_file_id: null,
+              description: kmzData.metadata?.description || null,
+              metadata: kmzData.metadata,
+              placemarks_count: kmzData.placemarks.length,
+              rol_numbers: rolNumbers,
+              bounds: kmzData.bounds,
+              coordinates: kmzData.placemarks.map((p) => p.coordinates),
+              tags: ["offline"],
+              category: "offline",
+              is_active: true,
+              file_size: file.size,
+            })
+            .select()
 
           if (error) {
             console.error(`[v0] Error saving ${file.name}:`, error)
@@ -380,17 +406,36 @@ export function KMZCollectionManager() {
             console.log(`[v0] Successfully saved ${file.name} to database`)
             successCount++
 
-            // Trigger immediate indexing for this KMZ file
-            try {
-              console.log(`[v0] Triggering immediate location indexing for: ${file.name}`)
-              const indexResponse = await fetch("/api/admin/index-kmz-now", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-              })
-              const indexData = await indexResponse.json()
-              console.log(`[v0] Indexing result:`, indexData)
-            } catch (indexError) {
-              console.warn("[v0] Could not trigger indexing:", indexError)
+            // Immediately insert locations into kmz_location_index
+            const kmzId = insertedKMZ?.[0]?.id
+            if (kmzId && kmzData.placemarks && kmzData.placemarks.length > 0) {
+              const locationsToInsert = kmzData.placemarks.map((placemark: any) => ({
+                kmz_id: kmzId,
+                name: placemark.name || "Unnamed Location",
+                description: placemark.description || "",
+                latitude: placemark.coordinates?.[1] || 0,
+                longitude: placemark.coordinates?.[0] || 0,
+                type: placemark.type || "Point",
+                searchable_text: `${placemark.name || ""} ${placemark.description || ""} ${file.name}`.toLowerCase(),
+                region: null,
+                city: null,
+                address: null,
+                created_at: new Date().toISOString(),
+              }))
+
+              try {
+                const { error: locError } = await supabase
+                  .from("kmz_location_index")
+                  .insert(locationsToInsert)
+
+                if (locError) {
+                  console.error(`[v0] Error inserting locations for ${file.name}:`, locError)
+                } else {
+                  console.log(`[v0] ✓ Inserted ${locationsToInsert.length} locations for ${file.name}`)
+                }
+              } catch (locError) {
+                console.error(`[v0] Error inserting locations:`, locError)
+              }
             }
           }
         } catch (error) {
