@@ -72,6 +72,7 @@ export function CAMPOSFolderView() {
   const [loadingDocuments, setLoadingDocuments] = useState(false)
   const [isLoadingFromURL, setIsLoadingFromURL] = useState(false)
   const [viewingIndividualFile, setViewingIndividualFile] = useState(false) // Track if viewing single file
+  const [isMapFullscreen, setIsMapFullscreen] = useState(false) // Track fullscreen map state
 
   const searchParams = useSearchParams()
   const kmzIdFromURL = searchParams?.get("kmz")
