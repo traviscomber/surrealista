@@ -23,16 +23,20 @@ SELECT
   gen_random_uuid(),
   kc.id as kmz_id,
   kc.file_name as name,
-  (
-    SELECT AVG((elem->1)::numeric)
-    FROM jsonb_array_elements(kc.coordinates) as poly,
-         jsonb_array_elements(poly) as elem
-  )::float as latitude,
-  (
-    SELECT AVG((elem->0)::numeric)
-    FROM jsonb_array_elements(kc.coordinates) as poly,
-         jsonb_array_elements(poly) as elem
-  )::float as longitude,
+  CASE 
+    WHEN jsonb_typeof(kc.coordinates) = 'array' THEN
+      (SELECT AVG((elem->1)::numeric)
+       FROM jsonb_array_elements(kc.coordinates) as poly,
+            jsonb_array_elements(poly) as elem)::float
+    ELSE NULL
+  END as latitude,
+  CASE 
+    WHEN jsonb_typeof(kc.coordinates) = 'array' THEN
+      (SELECT AVG((elem->0)::numeric)
+       FROM jsonb_array_elements(kc.coordinates) as poly,
+            jsonb_array_elements(poly) as elem)::float
+    ELSE NULL
+  END as longitude,
   kc.region,
   kc.region as city,
   kc.description as address,
@@ -42,11 +46,22 @@ SELECT
   NOW()
 FROM kmz_collection kc
 WHERE kc.is_active = true
-  AND kc.coordinates IS NOT NULL
-  AND jsonb_array_length(kc.coordinates) > 0;
+  AND kc.coordinates IS NOT NULL;
 
 -- Enable RLS
 ALTER TABLE kmz_search_index ENABLE ROW LEVEL SECURITY;
+
+-- Create search indexes
+CREATE INDEX IF NOT EXISTS idx_kmz_search_index_region ON kmz_search_index(region);
+CREATE INDEX IF NOT EXISTS idx_kmz_search_index_searchable_text ON kmz_search_index USING GIN(to_tsvector('spanish', searchable_text));
+
+-- Verify results
+SELECT 
+  COUNT(*) as total_locations,
+  COUNT(DISTINCT kmz_id) as kmz_files,
+  COUNT(DISTINCT region) as regions,
+  STRING_AGG(DISTINCT region, ', ') as all_regions
+FROM kmz_search_index;
 
 -- Create RLS policy for public read access
 CREATE POLICY "allow_public_read" ON kmz_search_index

@@ -22,10 +22,10 @@ export async function GET(request: NextRequest) {
 
     console.log(requestId, "[v0] Searching across all KMZ sources with term:", q)
 
-    // Search 1: KMZ Location Index (locations within KMZ files from kmz_collection)
+    // Search 1: KMZ Search Index (primary search table with all indexed locations)
     const { data: locations, error: locError } = await supabase
-      .from("kmz_location_index")
-      .select("id, name, latitude, longitude, region, city, type, address, kmz_id, created_at")
+      .from("kmz_search_index")
+      .select("id, name, latitude, longitude, region, city, address, kmz_id, created_at")
       .or(`searchable_text.ilike.%${q}%,name.ilike.%${q}%,region.ilike.%${q}%,city.ilike.%${q}%`)
       .limit(500)
 
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
       console.error(requestId, "[v0] Location search error:", locError)
     }
 
-    console.log(requestId, "[v0] Found", locations?.length || 0, "locations in kmz_location_index")
+    console.log(requestId, "[v0] Found", locations?.length || 0, "locations in kmz_search_index")
 
     // Search 2: KMZ Collection (from kmz_collection table)
     const { data: kmzCollectionResults, error: collError } = await supabase
@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
         locations: locations?.map((loc: any) => ({
           ...loc,
           kmz_file: kmzFileMap[loc.kmz_id] || null,
-          source: "kmz_location_index",
+          source: "kmz_search_index",
         })) || [],
         kmzCollection: kmzCollectionResults || [],
         propertyDocuments: propertyDocs || [],
