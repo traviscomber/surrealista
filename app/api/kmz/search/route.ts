@@ -52,9 +52,9 @@ export async function GET(request: NextRequest) {
     // Search 3: Property Documents (KMZ files uploaded in communications/documentation)
     const { data: propertyDocs, error: docError } = await supabase
       .from("property_documents")
-      .select("id, title, file_name, file_url, category, created_at")
-      .or(`title.ilike.%${q}%,file_name.ilike.%${q}%,category.ilike.%${q}%`)
-      .in("category", ["KMZ", "kmz", "kml"])
+      .select("id, title, file_url, file_type, category, created_at")
+      .or(`title.ilike.%${q}%,description.ilike.%${q}%,category.ilike.%${q}%`)
+      .in("document_type", ["KMZ", "kmz", "kml"])
       .limit(100)
 
     if (docError) {
