@@ -853,8 +853,6 @@ export function CAMPOSFolderView() {
       </div>
     </>
   )
-    </>
-  )
 
   const DetailsPanel = () => (
     <>
