@@ -8,11 +8,11 @@ INSERT INTO kmz_location_index (
   name,
   latitude,
   longitude,
-  type,
   region,
   city,
   address,
   searchable_text,
+  type,
   placemark_count,
   created_at,
   updated_at
@@ -32,11 +32,11 @@ SELECT
     FROM jsonb_array_elements(kc.coordinates) as poly,
          jsonb_array_elements(poly) as elem
   )::float as longitude,
-  'Polygon' as type,
   kc.region,
   kc.region as city,
   CONCAT('Polígono en ', kc.region) as address,
   LOWER(CONCAT(kc.file_name, ' ', kc.region)) as searchable_text,
+  '' as type,
   kc.placemarks_count as placemark_count,
   NOW(),
   NOW()
