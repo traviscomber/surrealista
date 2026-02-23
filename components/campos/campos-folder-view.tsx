@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect, useRef } from "react"
+import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -86,9 +87,20 @@ export function CAMPOSFolderView() {
   const [documentCount, setDocumentCount] = useState<number>(0)
   const [loadingDocuments, setLoadingDocuments] = useState(false)
 
+  const searchParams = useSearchParams()
+  const kmzIdFromURL = searchParams?.get("kmz")
+
   useEffect(() => {
     loadRegionMetadata()
   }, [])
+
+  // Load KMZ file from URL parameter if provided
+  useEffect(() => {
+    if (kmzIdFromURL && folders.length > 0) {
+      console.log("[v0] Loading KMZ from URL parameter:", kmzIdFromURL)
+      handleLoadKmzFromId(kmzIdFromURL)
+    }
+  }, [kmzIdFromURL, folders])
 
   const loadRegionMetadata = async () => {
     console.log("[v0] Loading region metadata from database...")
@@ -134,6 +146,121 @@ export function CAMPOSFolderView() {
       title: "Vista actualizada",
       description: "Se han recargado todas las regiones. Selecciona una para continuar.",
     })
+  }
+
+  const handleLoadKmzFromId = async (kmzId: string) => {
+    console.log("[v0] Loading KMZ by ID from URL parameter:", kmzId)
+    setIsLoadingKMZ(true)
+
+    try {
+      const { data, error } = await supabase
+        .from("kmz_collection")
+        .select("*")
+        .eq("is_active", true)
+        .eq("id", kmzId)
+        .single()
+
+      if (error) {
+        console.error("[v0] Error loading KMZ data:", error)
+        toast({
+          title: "Error",
+          description: "No se pudo cargar el archivo KMZ",
+          variant: "destructive",
+        })
+        setKmzFiles([])
+        return
+      }
+
+      if (data) {
+        console.log("[v0] Loaded full KMZ data for:", data.file_name)
+
+        // Set the region
+        setSelectedRegion(data.region)
+
+        // Calculate map center
+        const center = calculateCenterFromBounds(data.bounds)
+        setMapCenter(center)
+
+        // Transform the KMZ file
+        const placemarks = (data.coordinates || []).map((coordArray: any, index: number) => {
+          let geometryType = "Point"
+          let coordinates = coordArray
+
+          if (Array.isArray(coordArray) && coordArray.length > 3) {
+            if (Array.isArray(coordArray[0]) && coordArray[0].length >= 2 && typeof coordArray[0][0] === "number") {
+              geometryType = "Polygon"
+              coordinates = coordArray
+            }
+          }
+
+          return {
+            name: `${data.file_name} - ${geometryType === "Polygon" ? "Polígono" : "Punto"} ${index + 1}`,
+            type: geometryType,
+            coordinates: coordinates,
+            description: data.description || "",
+            properties: {
+              rol: data.rol_numbers?.[index] || "",
+              category: data.category || "general",
+            },
+          }
+        })
+
+        const transformedKMZ = {
+          fileName: data.file_name,
+          placemarks: placemarks,
+          bounds: data.bounds,
+          metadata: {
+            id: data.id,
+            category: data.category,
+            rolNumbers: data.rol_numbers || [],
+            placemarks_count: data.placemarks_count,
+          },
+        }
+
+        console.log("[v0] Displaying KMZ file loaded from URL:", data.file_name)
+        setKmzFiles([transformedKMZ])
+
+        // Load documents for this KMZ
+        try {
+          const docs = await documentKMZLinker.getDocumentsForKMZ(data.id, data.file_name)
+          const count = await documentKMZLinker.getDocumentCountForKMZ(data.id, data.file_name)
+          setSelectedItemDocuments(docs)
+          setDocumentCount(count)
+          console.log("[v0] Loaded", count, "documents for KMZ:", data.file_name)
+        } catch (docError) {
+          console.error("[v0] Error loading documents:", docError)
+          setSelectedItemDocuments([])
+          setDocumentCount(0)
+        }
+
+        // Create and select a virtual item
+        const virtualItem: FolderItem = {
+          id: `file-${data.id}`,
+          name: data.file_name,
+          type: "file",
+          dbId: data.id,
+          location: center,
+          area: `${data.placemarks_count || 0} puntos`,
+        }
+        setSelectedItem(virtualItem)
+        setIsDetailsSheetOpen(false)
+
+        toast({
+          title: "KMZ Cargado",
+          description: `Se cargó ${data.file_name} desde la búsqueda`,
+        })
+      }
+    } catch (err) {
+      console.error("[v0] Error loading KMZ:", err)
+      toast({
+        title: "Error",
+        description: "Error al cargar el archivo KMZ",
+        variant: "destructive",
+      })
+      setKmzFiles([])
+    } finally {
+      setIsLoadingKMZ(false)
+    }
   }
 
   const calculateCenterFromBounds = (bounds: any): { lat: number; lng: number } => {
