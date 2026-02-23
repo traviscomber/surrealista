@@ -1,11 +1,8 @@
--- Index coordinates from kmz_collection into kmz_location_index
--- This populates the search index with all extracted locations
+-- Index KMZ coordinates into kmz_location_index
+-- Extracts polygon centroids and creates searchable locations
 
--- Clear existing index
 TRUNCATE TABLE kmz_location_index;
 
--- Insert all coordinates from kmz_collection into kmz_location_index
--- The coordinates field is JSONB, we need to handle its structure properly
 INSERT INTO kmz_location_index (
   kmz_id,
   name,
@@ -16,40 +13,42 @@ INSERT INTO kmz_location_index (
   city,
   address,
   searchable_text,
-  location_data,
   placemark_count,
-  bounds,
   created_at,
   updated_at
 )
-SELECT
+SELECT 
   kc.id as kmz_id,
-  COALESCE(kc.file_name, 'Location') as name,
-  (kc.coordinates->>'latitude')::NUMERIC as latitude,
-  (kc.coordinates->>'longitude')::NUMERIC as longitude,
-  COALESCE(kc.coordinates->>'type', 'Point') as type,
-  COALESCE(kc.region, 'Unknown') as region,
-  COALESCE(kc.coordinates->>'city', '') as city,
-  COALESCE(kc.coordinates->>'description', '') as address,
-  LOWER(CONCAT(COALESCE(kc.file_name, ''), ' ', COALESCE(kc.region, ''))) as searchable_text,
-  kc.coordinates as location_data,
-  COALESCE(kc.placemarks_count, 1) as placemark_count,
-  kc.bounds,
-  NOW() as created_at,
-  NOW() as updated_at
+  kc.file_name as name,
+  -- Calculate centroid latitude from all coordinate points
+  (
+    SELECT AVG((elem->1)::numeric)
+    FROM jsonb_array_elements(kc.coordinates) as poly,
+         jsonb_array_elements(poly) as elem
+  )::float as latitude,
+  -- Calculate centroid longitude from all coordinate points
+  (
+    SELECT AVG((elem->0)::numeric)
+    FROM jsonb_array_elements(kc.coordinates) as poly,
+         jsonb_array_elements(poly) as elem
+  )::float as longitude,
+  'Polygon' as type,
+  kc.region,
+  kc.region as city,
+  CONCAT('Polígono en ', kc.region) as address,
+  LOWER(CONCAT(kc.file_name, ' ', kc.region)) as searchable_text,
+  kc.placemarks_count as placemark_count,
+  NOW(),
+  NOW()
 FROM kmz_collection kc
-WHERE kc.coordinates IS NOT NULL 
-  AND (kc.coordinates->>'latitude') IS NOT NULL
-  AND (kc.coordinates->>'longitude') IS NOT NULL;
+WHERE kc.is_active = true
+  AND kc.coordinates IS NOT NULL
+  AND jsonb_array_length(kc.coordinates) > 0;
 
 -- Verify results
 SELECT 
   COUNT(*) as total_locations,
-  COUNT(DISTINCT kmz_id) as kmz_with_locations,
-  COUNT(DISTINCT region) as unique_regions,
-  STRING_AGG(DISTINCT region, ', ') as regions,
-  MIN(latitude) as min_lat,
-  MAX(latitude) as max_lat,
-  MIN(longitude) as min_lng,
-  MAX(longitude) as max_lng
+  COUNT(DISTINCT kmz_id) as kmz_files,
+  COUNT(DISTINCT region) as regions,
+  STRING_AGG(DISTINCT region, ', ') as all_regions
 FROM kmz_location_index;
