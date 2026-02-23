@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
     const { data: propertyDocs, error: docError } = await supabase
       .from("property_documents")
       .select("id, title, file_url, file_type, category, created_at")
-      .or(`title.ilike.%${q}%,description.ilike.%${q}%,category.ilike.%${q}%`)
+      .or(`title.ilike.%${q}%,category.ilike.%${q}%`)
       .in("document_type", ["KMZ", "kmz", "kml"])
       .limit(100)
 
