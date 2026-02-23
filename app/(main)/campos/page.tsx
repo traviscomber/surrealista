@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { CAMPOSFolderView } from "@/components/campos/campos-folder-view"
+import { ErrorBoundary } from "@/components/error-boundary"
 
 export const metadata: Metadata = {
   title: "CAMPOS - Gestión de Carpetas | Sur-Realista",
@@ -7,5 +8,9 @@ export const metadata: Metadata = {
 }
 
 export default function CAMPOSPage() {
-  return <CAMPOSFolderView />
+  return (
+    <ErrorBoundary>
+      <CAMPOSFolderView />
+    </ErrorBoundary>
+  )
 }

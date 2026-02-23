@@ -97,21 +97,31 @@ export function CAMPOSFolderView() {
     setIsLoadingMetadata(true)
 
     try {
+      // Try to fetch only essential columns to avoid schema mismatches
       const { data, error } = await supabase
         .from("kmz_collection")
         .select("id, file_name, region, placemarks_count, bounds, tags, file_path")
         .eq("is_active", true)
         .order("region", { ascending: true })
+        .catch((err) => {
+          console.error("[v0] Query error, returning empty result:", err)
+          return { data: [], error: err }
+        })
 
       if (error) {
         console.error("[v0] Error loading metadata:", error)
+        console.log("[v0] Continuing with empty folders due to query error")
         setFolders([])
+      } else if (data && data.length > 0) {
+        console.log("[v0] Loaded metadata for", data.length, "KMZ files")
+        buildRegionFolders(data)
       } else {
-        console.log("[v0] Loaded metadata for", data?.length || 0, "KMZ files")
-        buildRegionFolders(data || [])
+        console.log("[v0] No KMZ files found in database")
+        setFolders([])
       }
     } catch (err) {
       console.error("[v0] Error fetching metadata:", err)
+      console.log("[v0] Continuing with empty folders")
       setFolders([])
     } finally {
       setIsLoadingMetadata(false)
@@ -143,12 +153,17 @@ export function CAMPOSFolderView() {
     setIsLoadingKMZ(true)
 
     try {
+      // Select only specific columns to avoid schema issues
       const { data, error } = await supabase
         .from("kmz_collection")
-        .select("*")
+        .select("id, file_name, region, placemarks_count, bounds, coordinates, description, rol_numbers, category")
         .eq("is_active", true)
         .eq("id", kmzId)
         .single()
+        .catch((err) => {
+          console.error("[v0] Query error loading KMZ:", err)
+          return { data: null, error: err }
+        })
 
       if (error) {
         console.error("[v0] Error loading KMZ data:", error)

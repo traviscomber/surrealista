@@ -12,6 +12,7 @@ import { TasksManager } from "@/components/tasks/tasks-manager"
 import { useGoogleDrive } from "@/lib/contexts/google-drive-context"
 import dynamicImport from "next/dynamic"
 import { CAMPOSFolderView } from "@/components/campos/campos-folder-view"
+import { ErrorBoundary } from "@/components/error-boundary"
 import { kmzReader } from "@/lib/kmz/kmz-reader"
 import { kmzStorageService } from "@/lib/kmz/kmz-storage-service"
 import { useRouter } from "next/navigation" // Added router for navigation
@@ -599,7 +600,9 @@ export default function UnifiedSearchPage() {
           </TabsList>
 
           <TabsContent value="campos" className="h-[calc(100vh-20rem)] min-h-[600px]">
-            <CAMPOSFolderView />
+            <ErrorBoundary>
+              <CAMPOSFolderView />
+            </ErrorBoundary>
           </TabsContent>
 
           <TabsContent value="clientes">
