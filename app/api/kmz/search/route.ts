@@ -29,53 +29,125 @@ export async function GET(request: NextRequest) {
 
     const supabase = await createClient()
 
-    // City to region mapping for Chile - includes both versions with and without accents
+    // City to region mapping for Chile - Complete mapping with all accents variations
+    // Maps cities and region variations to their official Región names from database
     const cityToRegionMap: { [key: string]: string } = {
-      // Without accents
-      temuco: "La Araucanía",
-      araucania: "La Araucanía",
-      osorno: "Los Lagos",
-      "puerto montt": "Los Lagos",
-      "puertomontt": "Los Lagos",
-      valdivia: "Los Rios",
-      santiago: "Metropolitana",
-      valparaiso: "Valparaiso",
-      concepcion: "Biobio",
-      chillan: "Nuble",
-      talca: "Maule",
-      rancagua: "O'Higgins",
-      coyhaique: "Aysen",
-      aysen: "Aysén",
-      "punta arenas": "Magallanes",
-      "la serena": "Coquimbo",
-      iquique: "Tarapaca",
-      antofagasta: "Antofagasta",
-      calama: "Antofagasta",
-      copiapo: "Atacama",
-      "puerto varas": "Los Lagos",
-      lanco: "La Araucanía",
-      "los lagos": "Los Lagos",
-      "los rios": "Los Ríos",
-      "la araucania": "La Araucanía",
-      
-      // With accents (fallback)
-      "aysén": "Aysén",
-      "los ríos": "Los Ríos",
-      "la araucanía": "La Araucanía",
-      "ñuble": "Ñuble",
-      "biobío": "Biobío",
-      "valparaíso": "Valparaíso",
-      "tarapacá": "Tarapacá",
-      "atacama": "Atacama",
-      "coquimbo": "Coquimbo",
+      // AYSÉN (105 files)
+      aysen: "Región de Aysén",
+      aysén: "Región de Aysén",
+      "aysen del general carlos ibañez": "Región de Aysén",
+      "aysén del general carlos ibáñez": "Región de Aysén",
+      coyhaique: "Región de Aysén",
+      "puerto aysén": "Región de Aysén",
+      "puerto aysen": "Región de Aysén",
+
+      // LOS LAGOS (88 files)
+      "los lagos": "Región de Los Lagos",
+      osorno: "Región de Los Lagos",
+      "puerto montt": "Región de Los Lagos",
+      "puerto mont": "Región de Los Lagos",
+      "puertomontt": "Región de Los Lagos",
+      "puertomont": "Región de Los Lagos",
+      "puerto varas": "Región de Los Lagos",
+      "puerto vara": "Región de Los Lagos",
+      "llanquihue": "Región de Los Lagos",
+      "chiloé": "Región de Los Lagos",
+      chiloe: "Región de Los Lagos",
+
+      // LOS RÍOS (44 files)
+      "los rios": "Región de Los Ríos",
+      "los ríos": "Región de Los Ríos",
+      valdivia: "Región de Los Ríos",
+      "la unión": "Región de Los Ríos",
+      "la union": "Región de Los Ríos",
+      lanco: "Región de Los Ríos",
+
+      // LA ARAUCANÍA (24 files)
+      araucania: "Región de La Araucanía",
+      araucanía: "Región de La Araucanía",
+      "la araucania": "Región de La Araucanía",
+      "la araucanía": "Región de La Araucanía",
+      temuco: "Región de La Araucanía",
+      pucón: "Región de La Araucanía",
+      pucon: "Región de La Araucanía",
+      villarrica: "Región de La Araucanía",
+
+      // O'HIGGINS (26 files)
+      "o'higgins": "Región de O'Higgins",
+      "o higgins": "Región de O'Higgins",
+      "o.higgins": "Región de O'Higgins",
+      rancagua: "Región de O'Higgins",
+
+      // MAULE (12 files)
+      maule: "Región del Maule",
+      talca: "Región del Maule",
+      linares: "Región del Maule",
+
+      // ÑUBLE (7 files)
+      ñuble: "Región de Ñuble",
+      nuble: "Región de Ñuble",
+      chillán: "Región de Ñuble",
+      chillan: "Región de Ñuble",
+      "san carlos": "Región de Ñuble",
+
+      // BIOBÍO (6 files)
+      "biobio": "Región del Biobío",
+      "biobío": "Región del Biobío",
+      "bio bio": "Región del Biobío",
+      "bio bío": "Región del Biobío",
+      concepción: "Región del Biobío",
+      concepcion: "Región del Biobío",
+      "los ángeles": "Región del Biobío",
+      "los angeles": "Región del Biobío",
+
+      // VALPARAÍSO (6 files)
+      valparaiso: "Región de Valparaíso",
+      valparaíso: "Región de Valparaíso",
+      "la caleta": "Región de Valparaíso",
+      "viña del mar": "Región de Valparaíso",
+      "vina del mar": "Región de Valparaíso",
+
+      // COQUIMBO (4 files)
+      coquimbo: "Región de Coquimbo",
+      "la serena": "Región de Coquimbo",
+      "la serena": "Región de Coquimbo",
+
+      // ATACAMA (2 files)
+      atacama: "Región de Atacama",
+      copiapó: "Región de Atacama",
+      copiapo: "Región de Atacama",
+
+      // MAGALLANES (2 files)
+      magallanes: "Región de Magallanes",
+      "punta arenas": "Región de Magallanes",
+      "punta arena": "Región de Magallanes",
+      "puerto natales": "Región de Magallanes",
+
+      // METROPOLITANA (3 files)
+      metropolitana: "Región Metropolitana",
+      santiago: "Región Metropolitana",
+      "región metropolitana": "Región Metropolitana",
     }
 
     console.log(requestId, "[v0] Searching with term:", q, "normalized:", qNormalized)
 
     // Check if the search term is a known city and map to region
+    // Try both original and normalized versions
     const mappedRegion = cityToRegionMap[q] || cityToRegionMap[qNormalized]
-    if (mappedRegion) {
-      console.log(requestId, "[v0] Mapped city/term", q, "to region:", mappedRegion)
+    
+    // Also try normalizing keys to match normalized search terms
+    let directMappedRegion = mappedRegion
+    if (!directMappedRegion) {
+      for (const [key, region] of Object.entries(cityToRegionMap)) {
+        if (normalizeAccents(key) === qNormalized || key === qNormalized || key === q) {
+          directMappedRegion = region
+          break
+        }
+      }
+    }
+
+    if (directMappedRegion) {
+      console.log(requestId, "[v0] Mapped city/term", q, "to region:", directMappedRegion)
     }
 
     // Search 1: KMZ Search Index (primary search table with all indexed locations)
@@ -84,9 +156,9 @@ export async function GET(request: NextRequest) {
       .select("id, name, latitude, longitude, region, city, address, kmz_id, created_at")
 
     // If we found a city mapping, search by region. Otherwise search by text content
-    if (mappedRegion) {
+    if (directMappedRegion) {
       // Search for the region directly
-      locationsQuery = locationsQuery.ilike("region", `%${mappedRegion}%`)
+      locationsQuery = locationsQuery.ilike("region", `%${directMappedRegion}%`)
     } else {
       // Search in searchable_text and region fields with both original and normalized versions
       locationsQuery = locationsQuery
