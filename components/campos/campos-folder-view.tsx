@@ -345,7 +345,9 @@ export function CAMPOSFolderView() {
   }
 
   const loadRegionKMZFiles = async (region: string) => {
-    console.log("[v0] Loading full KMZ data for region:", region)
+    console.log("[v0] ===== loadRegionKMZFiles CALLED with region:", region)
+    console.log("[v0] Current state - kmzFiles.length:", kmzFiles.length, "selectedRegion:", selectedRegion)
+    console.log("[v0] Stack trace:", new Error().stack)
     setIsLoadingKMZ(true)
     setSelectedRegion(region)
 
@@ -506,8 +508,9 @@ export function CAMPOSFolderView() {
               },
             }
 
-            console.log("[v0] Displaying only selected KMZ file:", item.name)
+            console.log("[v0] About to call setKmzFiles with single file:", data.file_name)
             setKmzFiles([transformedKMZ]) // Show ONLY this file
+            console.log("[v0] setKmzFiles called with single file, current kmzFiles:", kmzFiles.length)
           }
         } catch (kmzError) {
           console.error("[v0] Error loading full KMZ data:", kmzError)
@@ -528,12 +531,18 @@ export function CAMPOSFolderView() {
     }
 
     if (item.type === "folder") {
+      console.log("[v0] Item is a folder, will toggle and load region:", item.category)
       toggleFolder(item.id)
 
       // Only load region KMZ files if we're clicking on a folder, not a file
       if (item.category && item.category !== selectedRegion) {
+        console.log("[v0] Loading region KMZ files for:", item.category, "current selectedRegion:", selectedRegion)
         await loadRegionKMZFiles(item.category)
+      } else {
+        console.log("[v0] NOT loading region because category===selectedRegion or no category")
       }
+    } else {
+      console.log("[v0] Item is NOT a folder, type:", item.type, "- will NOT toggle folder or load region")
     }
     // If it's a file, we've already set kmzFiles to show only this file
     // Don't load the entire region, keep showing just this file
