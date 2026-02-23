@@ -345,9 +345,11 @@ export function CAMPOSFolderView() {
   }
 
   const loadRegionKMZFiles = async (region: string) => {
-    console.log("[v0] ===== loadRegionKMZFiles CALLED with region:", region)
-    console.log("[v0] Current state - kmzFiles.length:", kmzFiles.length, "selectedRegion:", selectedRegion)
-    console.log("[v0] Stack trace:", new Error().stack)
+    console.log("\n[v0] ===== loadRegionKMZFiles CALLED =====")
+    console.log("[v0] Loading full KMZ data for region:", region)
+    console.log("[v0] Current state - kmzFiles.length BEFORE:", kmzFiles.length, "selectedRegion:", selectedRegion)
+    console.log("[v0] Stack trace to see who called this:")
+    console.trace()
     setIsLoadingKMZ(true)
     setSelectedRegion(region)
 
@@ -439,6 +441,10 @@ export function CAMPOSFolderView() {
   }
 
   const handleItemClick = async (item: FolderItem) => {
+    console.log("[v0] ===== handleItemClick CALLED =====")
+    console.log("[v0] Item type:", item.type, "name:", item.name, "id:", item.id, "dbId:", item.dbId)
+    console.log("[v0] Current kmzFiles.length BEFORE processing:", kmzFiles.length)
+    console.log("[v0] Current selectedRegion:", selectedRegion)
     console.log("[v0] Item clicked:", item.name, "type:", item.type)
     setSelectedItem(item)
     setIsDetailsSheetOpen(true)
@@ -510,7 +516,9 @@ export function CAMPOSFolderView() {
 
             console.log("[v0] About to call setKmzFiles with single file:", data.file_name)
             setKmzFiles([transformedKMZ]) // Show ONLY this file
-            console.log("[v0] setKmzFiles called with single file, current kmzFiles:", kmzFiles.length)
+            console.log("[v0] ===== AFTER setKmzFiles call - BEFORE loadRegionKMZFiles check =====")
+            console.log("[v0] Checking: item.type===", item.type, " (should be 'file')")
+            console.log("[v0] kmzFiles was set, now checking if folder logic will trigger...")
           }
         } catch (kmzError) {
           console.error("[v0] Error loading full KMZ data:", kmzError)
@@ -531,6 +539,7 @@ export function CAMPOSFolderView() {
     }
 
     if (item.type === "folder") {
+      console.log("[v0] ✅ ENTERING FOLDER BLOCK - will load region")
       console.log("[v0] Item is a folder, will toggle and load region:", item.category)
       toggleFolder(item.id)
 
