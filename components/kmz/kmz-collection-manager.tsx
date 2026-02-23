@@ -516,6 +516,31 @@ export function KMZCollectionManager() {
     }
   }
 
+  const reindexAllKMZ = async () => {
+    if (!confirm("¿Re-indexar todos los 338 KMZ? Esto puede tomar algunos minutos.")) return
+    
+    setIndexing(true)
+    try {
+      const response = await fetch("/api/admin/kmz/reindex-all", {
+        method: "POST",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to re-index KMZ")
+      }
+
+      const data = await response.json()
+      console.log("[v0] Re-index complete:", data)
+      alert(`Re-indexación completa: ${data.totalLocations} ubicaciones indexadas en ${data.success} archivos`)
+      loadKMZCollection()
+    } catch (error) {
+      console.error("[v0] Error re-indexing:", error)
+      alert("Error al re-indexar KMZ")
+    } finally {
+      setIndexing(false)
+    }
+  }
+
   const categories = ["all", ...new Set(kmzFiles.map((kmz) => kmz.category).filter(Boolean))]
 
   return (
@@ -613,6 +638,24 @@ export function KMZCollectionManager() {
               >
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Actualizar
+              </Button>
+              <Button
+                onClick={reindexAllKMZ}
+                disabled={indexing}
+                variant="secondary"
+                className="bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm"
+              >
+                {indexing ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Re-indexando...
+                  </>
+                ) : (
+                  <>
+                    <MapPin className="h-4 w-4 mr-2" />
+                    Re-indexar Todo
+                  </>
+                )}
               </Button>
               <Button
                 onClick={fixRegions}
