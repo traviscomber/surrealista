@@ -220,29 +220,19 @@ export function KMZCollectionManager() {
           const kmzId = insertedKMZ?.[0]?.id
           if (!kmzId) throw new Error("KMZ insertion failed - no ID returned")
 
-          // Immediately insert locations into kmz_location_index
+          // Index locations using kmzLocationIndexer
           if (kmzData.placemarks && kmzData.placemarks.length > 0) {
-            const locationsToInsert = kmzData.placemarks.map((placemark: any) => ({
-              kmz_id: kmzId,
-              name: placemark.name || "Unnamed Location",
-              latitude: placemark.coordinates?.[1] || 0,
-              longitude: placemark.coordinates?.[0] || 0,
-              type: placemark.type || "Point",
-              searchable_text: `${placemark.name || ""} ${placemark.description || ""} ${file.name}`.toLowerCase(),
-              address: placemark.description || null,
-              region: null,
-              city: null,
-              created_at: new Date().toISOString(),
-            }))
-
-            const { error: locError } = await supabase
-              .from("kmz_location_index")
-              .insert(locationsToInsert)
-
-            if (locError) {
-              console.error(`[v0] Error inserting locations for ${file.name}:`, locError)
-            } else {
-              console.log(`[v0] ✓ Inserted ${locationsToInsert.length} locations for ${file.name}`)
+            try {
+              await kmzLocationIndexer.initialize()
+              const indexResult = await kmzLocationIndexer.indexKMZLocations(
+                kmzId,
+                file.name,
+                kmzData.placemarks,
+                kmzData.bounds ? detectRegionFromBounds(kmzData.bounds) : undefined,
+              )
+              console.log(`[v0] Indexed ${indexResult.indexCount} locations for ${file.name}`)
+            } catch (indexError) {
+              console.error(`[v0] Error indexing locations for ${file.name}:`, indexError)
             }
           }
 
@@ -403,34 +393,20 @@ export function KMZCollectionManager() {
             console.log(`[v0] Successfully saved ${file.name} to database`)
             successCount++
 
-            // Immediately insert locations into kmz_location_index
+            // Index locations using kmzLocationIndexer
             const kmzId = insertedKMZ?.[0]?.id
             if (kmzId && kmzData.placemarks && kmzData.placemarks.length > 0) {
-              const locationsToInsert = kmzData.placemarks.map((placemark: any) => ({
-                kmz_id: kmzId,
-                name: placemark.name || "Unnamed Location",
-                latitude: placemark.coordinates?.[1] || 0,
-                longitude: placemark.coordinates?.[0] || 0,
-                type: placemark.type || "Point",
-                searchable_text: `${placemark.name || ""} ${placemark.description || ""} ${file.name}`.toLowerCase(),
-                address: placemark.description || null,
-                region: null,
-                city: null,
-                created_at: new Date().toISOString(),
-              }))
-
               try {
-                const { error: locError } = await supabase
-                  .from("kmz_location_index")
-                  .insert(locationsToInsert)
-
-                if (locError) {
-                  console.error(`[v0] Error inserting locations for ${file.name}:`, locError)
-                } else {
-                  console.log(`[v0] ✓ Inserted ${locationsToInsert.length} locations for ${file.name}`)
-                }
-              } catch (locError) {
-                console.error(`[v0] Error inserting locations:`, locError)
+                await kmzLocationIndexer.initialize()
+                const indexResult = await kmzLocationIndexer.indexKMZLocations(
+                  kmzId,
+                  file.name,
+                  kmzData.placemarks,
+                  kmzData.bounds ? detectRegionFromBounds(kmzData.bounds) : undefined,
+                )
+                console.log(`[v0] Indexed ${indexResult.indexCount} locations for ${file.name}`)
+              } catch (indexError) {
+                console.error(`[v0] Error indexing locations for ${file.name}:`, indexError)
               }
             }
           }
@@ -448,7 +424,7 @@ export function KMZCollectionManager() {
       if (successCount > 0) messages.push(`✅ ${successCount} archivo(s) KMZ cargado(s) exitosamente`)
       if (skippedCount > 0) messages.push(`⏭️ ${skippedCount} archivo(s) duplicado(s) omitido(s)`)
       if (errorCount > 0) messages.push(`⚠️ ${errorCount} archivo(s) fallaron`)
-      messages.push(`📍 Ubicaciones indexadas automáticamente`)
+      messages.push(`�� Ubicaciones indexadas automáticamente`)
 
       if (messages.length > 0) {
         alert(messages.join("\n"))
@@ -492,6 +468,29 @@ export function KMZCollectionManager() {
     if (!bytes) return "N/A"
     const mb = bytes / (1024 * 1024)
     return `${mb.toFixed(2)} MB`
+  }
+
+  const detectRegionFromBounds = (bounds: any): string => {
+    const centerLat = (bounds.north + bounds.south) / 2
+    const centerLng = (bounds.east + bounds.west) / 2
+    
+    // Simple region detection based on coordinates
+    // Chile ranges roughly: -17° to -56° latitude, -66° to -75° longitude
+    if (centerLat > -27) return "Arica y Parinacota"
+    if (centerLat > -26) return "Tarapacá"
+    if (centerLat > -25) return "Antofagasta"
+    if (centerLat > -20) return "Atacama"
+    if (centerLat > -19) return "Coquimbo"
+    if (centerLat > -17) return "Valparaíso"
+    if (centerLat > -15) return "Metropolitana"
+    if (centerLat > -19) return "Libertador Bernardo O'Higgins"
+    if (centerLat > -24) return "Maule"
+    if (centerLat > -29) return "Ñuble"
+    if (centerLat > -31) return "La Araucanía"
+    if (centerLat > -38) return "Los Ríos"
+    if (centerLat > -41) return "Los Lagos"
+    if (centerLat > -44) return "Aysén"
+    return "Magallanes"
   }
 
   const fixRegions = async () => {
