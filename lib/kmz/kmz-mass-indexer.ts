@@ -41,17 +41,14 @@ export async function indexAllKMZLocations() {
           `[v0] Processing KMZ ${i + 1}/${kmzFiles.length}: ${kmz.file_name}`
         )
 
-        // Check if already indexed
-        const { data: existingIndex } = await supabase
+        // First, delete any existing index entries for this KMZ to re-index
+        const { error: deleteError } = await supabase
           .from("kmz_location_index")
-          .select("id")
+          .delete()
           .eq("kmz_id", kmz.id)
-          .limit(1)
 
-        if (existingIndex && existingIndex.length > 0) {
-          console.log(requestId, `[v0] KMZ already indexed: ${kmz.file_name}`)
-          results.push({ file: kmz.file_name, status: "skipped", reason: "Already indexed" })
-          continue
+        if (deleteError) {
+          console.warn(requestId, `[v0] Warning: Could not delete old index: ${deleteError.message}`)
         }
 
         // Get placemarks for this KMZ from kmz_placemarks table
