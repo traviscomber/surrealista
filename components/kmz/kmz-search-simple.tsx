@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -155,16 +156,28 @@ export default function KMZSearchSimple() {
                           )}
                           {location.latitude && location.longitude && (
                             <p className="text-xs text-slate-500 mt-1">
-                              {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
+                              📍 {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
                             </p>
                           )}
                         </div>
-                        {location.kmz_file && (
-                          <div className="text-right">
-                            <p className="text-xs text-slate-600 mb-2">En archivo:</p>
-                            <p className="text-sm font-medium text-slate-700">{location.kmz_file.file_name}</p>
+                        <div className="text-right space-y-2">
+                          {location.kmz_file && (
+                            <div>
+                              <p className="text-xs text-slate-600 mb-2">En archivo:</p>
+                              <p className="text-sm font-medium text-slate-700">{location.kmz_file.file_name}</p>
+                            </div>
+                          )}
+                          <div className="flex gap-2 justify-end">
+                            {location.kmz_id && (
+                              <Link href={`/campos?kmz=${location.kmz_id}`}>
+                                <Button size="sm" variant="outline" className="gap-2">
+                                  <MapPin className="h-4 w-4" />
+                                  Ver en Mapa
+                                </Button>
+                              </Link>
+                            )}
                           </div>
-                        )}
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -193,6 +206,14 @@ export default function KMZSearchSimple() {
                             <p className="text-xs text-slate-500 mt-2">
                               Creado: {new Date(kmz.created_at).toLocaleDateString('es-CL')}
                             </p>
+                          </div>
+                          <div className="flex gap-2 justify-end">
+                            <Link href={`/campos?kmz=${kmz.id}`}>
+                              <Button size="sm" variant="outline" className="gap-2">
+                                <MapPin className="h-4 w-4" />
+                                Ver en Mapa
+                              </Button>
+                            </Link>
                           </div>
                         </div>
                       </CardContent>
