@@ -63,30 +63,15 @@ const getCleanRegionName = (fullName: string): string => {
 export function CAMPOSFolderView() {
   const [folders, setFolders] = useState<FolderItem[]>([])
   const [selectedItem, setSelectedItem] = useState<FolderItem | null>(null)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [kmzFiles, setKmzFiles] = useState<any[]>([])
-  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null)
-  const [isLoadingMetadata, setIsLoadingMetadata] = useState(false)
-  const [isLoadingKMZ, setIsLoadingKMZ] = useState(false)
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
-  const [isFolderSheetOpen, setIsFolderSheetOpen] = useState(false)
-  const [isDetailsSheetOpen, setIsDetailsSheetOpen] = useState(false)
-  const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(false)
-  const [isRightPanelOpen, setIsRightPanelOpen] = useState(false)
-  const [isMapFullscreen, setIsMapFullscreen] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [showAIAgent, setShowAIAgent] = useState(false)
-
-  const supabase = createBrowserClient()
-  const { toast } = useToast()
-  const [isRescanning, setIsRescanning] = useState(false)
-  const [rescanProgress, setRescanProgress] = useState<RescanProgress | null>(null)
-
+  const [isLoadingKMZ, setIsLoadingKMZ] = useState(false)
+  const [isLoadingMetadata, setIsLoadingMetadata] = useState(false)
+  const [kmzFiles, setKmzFiles] = useState<any[]>([])
   const [selectedItemDocuments, setSelectedItemDocuments] = useState<KMZDocumentLink[]>([])
   const [documentCount, setDocumentCount] = useState<number>(0)
   const [loadingDocuments, setLoadingDocuments] = useState(false)
   const [isLoadingFromURL, setIsLoadingFromURL] = useState(false)
+  const [viewingIndividualFile, setViewingIndividualFile] = useState(false) // Track if viewing single file
 
   const searchParams = useSearchParams()
   const kmzIdFromURL = searchParams?.get("kmz")
@@ -345,11 +330,6 @@ export function CAMPOSFolderView() {
   }
 
   const loadRegionKMZFiles = async (region: string) => {
-    console.log("\n[v0] ===== loadRegionKMZFiles CALLED =====")
-    console.log("[v0] Loading full KMZ data for region:", region)
-    console.log("[v0] Current state - kmzFiles.length BEFORE:", kmzFiles.length, "selectedRegion:", selectedRegion)
-    console.log("[v0] Stack trace to see who called this:")
-    console.trace()
     setIsLoadingKMZ(true)
     setSelectedRegion(region)
 
@@ -441,10 +421,6 @@ export function CAMPOSFolderView() {
   }
 
   const handleItemClick = async (item: FolderItem) => {
-    console.log("[v0] ===== handleItemClick CALLED =====")
-    console.log("[v0] Item type:", item.type, "name:", item.name, "id:", item.id, "dbId:", item.dbId)
-    console.log("[v0] Current kmzFiles.length BEFORE processing:", kmzFiles.length)
-    console.log("[v0] Current selectedRegion:", selectedRegion)
     console.log("[v0] Item clicked:", item.name, "type:", item.type)
     setSelectedItem(item)
     setIsDetailsSheetOpen(true)
@@ -514,11 +490,8 @@ export function CAMPOSFolderView() {
               },
             }
 
-            console.log("[v0] About to call setKmzFiles with single file:", data.file_name)
             setKmzFiles([transformedKMZ]) // Show ONLY this file
-            console.log("[v0] ===== AFTER setKmzFiles call - BEFORE loadRegionKMZFiles check =====")
-            console.log("[v0] Checking: item.type===", item.type, " (should be 'file')")
-            console.log("[v0] kmzFiles was set, now checking if folder logic will trigger...")
+            setViewingIndividualFile(true) // Flag: viewing individual file, not entire region
           }
         } catch (kmzError) {
           console.error("[v0] Error loading full KMZ data:", kmzError)
@@ -539,19 +512,13 @@ export function CAMPOSFolderView() {
     }
 
     if (item.type === "folder") {
-      console.log("[v0] ✅ ENTERING FOLDER BLOCK - will load region")
-      console.log("[v0] Item is a folder, will toggle and load region:", item.category)
       toggleFolder(item.id)
-
+      setViewingIndividualFile(false) // Viewing a folder, not individual file
+      
       // Only load region KMZ files if we're clicking on a folder, not a file
       if (item.category && item.category !== selectedRegion) {
-        console.log("[v0] Loading region KMZ files for:", item.category, "current selectedRegion:", selectedRegion)
         await loadRegionKMZFiles(item.category)
-      } else {
-        console.log("[v0] NOT loading region because category===selectedRegion or no category")
       }
-    } else {
-      console.log("[v0] Item is NOT a folder, type:", item.type, "- will NOT toggle folder or load region")
     }
     // If it's a file, we've already set kmzFiles to show only this file
     // Don't load the entire region, keep showing just this file
