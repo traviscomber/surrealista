@@ -224,14 +224,13 @@ export function KMZCollectionManager() {
             const locationsToInsert = kmzData.placemarks.map((placemark: any) => ({
               kmz_id: kmzId,
               name: placemark.name || "Unnamed Location",
-              description: placemark.description || "",
               latitude: placemark.coordinates?.[1] || 0,
               longitude: placemark.coordinates?.[0] || 0,
               type: placemark.type || "Point",
               searchable_text: `${placemark.name || ""} ${placemark.description || ""} ${file.name}`.toLowerCase(),
+              address: placemark.description || null,
               region: null,
               city: null,
-              address: null,
               created_at: new Date().toISOString(),
             }))
 
@@ -409,14 +408,13 @@ export function KMZCollectionManager() {
               const locationsToInsert = kmzData.placemarks.map((placemark: any) => ({
                 kmz_id: kmzId,
                 name: placemark.name || "Unnamed Location",
-                description: placemark.description || "",
                 latitude: placemark.coordinates?.[1] || 0,
                 longitude: placemark.coordinates?.[0] || 0,
                 type: placemark.type || "Point",
                 searchable_text: `${placemark.name || ""} ${placemark.description || ""} ${file.name}`.toLowerCase(),
+                address: placemark.description || null,
                 region: null,
                 city: null,
-                address: null,
                 created_at: new Date().toISOString(),
               }))
 
