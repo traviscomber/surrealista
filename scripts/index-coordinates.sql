@@ -1,32 +1,18 @@
 -- Index KMZ coordinates into kmz_location_index
--- Extracts polygon centroids and creates searchable locations
+-- Delete existing index first
+DELETE FROM kmz_location_index;
 
-TRUNCATE TABLE kmz_location_index;
-
-INSERT INTO kmz_location_index (
-  kmz_id,
-  name,
-  latitude,
-  longitude,
-  region,
-  city,
-  address,
-  searchable_text,
-  type,
-  placemark_count,
-  created_at,
-  updated_at
-)
+-- Insert coordinates calculated from KMZ collection polygons
+INSERT INTO kmz_location_index (id, kmz_id, name, latitude, longitude, region, city, address, searchable_text, placemark_count, created_at, updated_at, bounds, location_data)
 SELECT 
+  gen_random_uuid(),
   kc.id as kmz_id,
   kc.file_name as name,
-  -- Calculate centroid latitude from all coordinate points
   (
     SELECT AVG((elem->1)::numeric)
     FROM jsonb_array_elements(kc.coordinates) as poly,
          jsonb_array_elements(poly) as elem
   )::float as latitude,
-  -- Calculate centroid longitude from all coordinate points
   (
     SELECT AVG((elem->0)::numeric)
     FROM jsonb_array_elements(kc.coordinates) as poly,
@@ -34,12 +20,13 @@ SELECT
   )::float as longitude,
   kc.region,
   kc.region as city,
-  CONCAT('Polígono en ', kc.region) as address,
+  kc.description as address,
   LOWER(CONCAT(kc.file_name, ' ', kc.region)) as searchable_text,
-  'KMZ' as type,
   kc.placemarks_count as placemark_count,
   NOW(),
-  NOW()
+  NOW(),
+  kc.bounds as bounds,
+  jsonb_build_object('source', 'kmz_collection', 'file_name', kc.file_name) as location_data
 FROM kmz_collection kc
 WHERE kc.is_active = true
   AND kc.coordinates IS NOT NULL
