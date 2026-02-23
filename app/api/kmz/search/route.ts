@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const { searchParams } = new URL(request.url)
-    const q = searchParams.get("q")
+    const q = searchParams.get("q")?.trim().toLowerCase() || ""
 
     console.log(requestId, "[v0] KMZ search API called:", { q })
 
@@ -20,14 +20,59 @@ export async function GET(request: NextRequest) {
 
     const supabase = await createClient()
 
-    console.log(requestId, "[v0] Searching across all KMZ sources with term:", q)
+    // City to region mapping for Chile
+    const cityToRegionMap: { [key: string]: string } = {
+      temuco: "La Araucanía",
+      osorno: "Los Lagos",
+      "puerto montt": "Los Lagos",
+      "puertomontt": "Los Lagos",
+      valdivia: "Los Ríos",
+      santiago: "Metropolitana",
+      valparaiso: "Valparaíso",
+      concepción: "Biobío",
+      chillan: "Ñuble",
+      talca: "Maule",
+      rancagua: "O'Higgins",
+      coyhaique: "Aysén",
+      "punta arenas": "Magallanes",
+      "la serena": "Coquimbo",
+      iquique: "Tarapacá",
+      antofagasta: "Antofagasta",
+      calama: "Antofagasta",
+      copiapó: "Atacama",
+      "puerto varas": "Los Lagos",
+      lanco: "La Araucanía",
+      aysén: "Aysén",
+      "los lagos": "Los Lagos",
+      "los ríos": "Los Ríos",
+      "la araucanía": "La Araucanía",
+      araucanía: "La Araucanía",
+    }
+
+    console.log(requestId, "[v0] Searching with term:", q)
+
+    // Check if the search term is a known city and map to region
+    const mappedRegion = cityToRegionMap[q]
+    if (mappedRegion) {
+      console.log(requestId, "[v0] Mapped city", q, "to region:", mappedRegion)
+    }
 
     // Search 1: KMZ Search Index (primary search table with all indexed locations)
-    const { data: locations, error: locError } = await supabase
+    let locationsQuery = supabase
       .from("kmz_search_index")
       .select("id, name, latitude, longitude, region, city, address, kmz_id, created_at")
-      .or(`searchable_text.ilike.%${q}%,name.ilike.%${q}%,region.ilike.%${q}%,city.ilike.%${q}%`)
-      .limit(500)
+
+    // If we found a city mapping, search by region. Otherwise search by text content
+    if (mappedRegion) {
+      locationsQuery = locationsQuery.ilike("region", `%${mappedRegion}%`)
+    } else {
+      // Search in searchable_text and region fields
+      locationsQuery = locationsQuery
+        .ilike("searchable_text", `%${q}%`)
+        .or(`region.ilike.%${q}%`)
+    }
+
+    const { data: locations, error: locError } = await locationsQuery.limit(500)
 
     if (locError) {
       console.error(requestId, "[v0] Location search error:", locError)
