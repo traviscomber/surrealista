@@ -34,7 +34,6 @@ interface KMZRecord {
   placemarks_count: number
   rol_numbers: string[]
   bounds: any
-  coordinates: any
   tags: string[]
   category: string | null
   is_active: boolean
@@ -208,7 +207,6 @@ export function KMZCollectionManager() {
               placemarks_count: kmzData.placemarks.length,
               rol_numbers: rolNumbers,
               bounds: kmzData.bounds,
-              coordinates: kmzData.placemarks.map((p) => p.coordinates),
               tags: [],
               category: detectCategory(file.path),
               is_active: true,
@@ -391,7 +389,6 @@ export function KMZCollectionManager() {
               placemarks_count: kmzData.placemarks.length,
               rol_numbers: rolNumbers,
               bounds: kmzData.bounds,
-              coordinates: kmzData.placemarks.map((p) => p.coordinates),
               tags: ["offline"],
               category: "offline",
               is_active: true,
