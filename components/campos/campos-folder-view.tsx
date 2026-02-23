@@ -63,20 +63,30 @@ const getCleanRegionName = (fullName: string): string => {
 export function CAMPOSFolderView() {
   const [folders, setFolders] = useState<FolderItem[]>([])
   const [selectedItem, setSelectedItem] = useState<FolderItem | null>(null)
-  const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
-  const [isLoadingKMZ, setIsLoadingKMZ] = useState(false)
-  const [isLoadingMetadata, setIsLoadingMetadata] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
   const [kmzFiles, setKmzFiles] = useState<any[]>([])
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null)
+  const [isLoadingMetadata, setIsLoadingMetadata] = useState(false)
+  const [isLoadingKMZ, setIsLoadingKMZ] = useState(false)
+  const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
+  const [isFolderSheetOpen, setIsFolderSheetOpen] = useState(false)
+  const [isDetailsSheetOpen, setIsDetailsSheetOpen] = useState(false)
+  const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(false)
+  const [isRightPanelOpen, setIsRightPanelOpen] = useState(false)
+  const [isMapFullscreen, setIsMapFullscreen] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [showAIAgent, setShowAIAgent] = useState(false)
+
+  const supabase = createBrowserClient()
+  const { toast } = useToast()
+  const [isRescanning, setIsRescanning] = useState(false)
+  const [rescanProgress, setRescanProgress] = useState<RescanProgress | null>(null)
+
   const [selectedItemDocuments, setSelectedItemDocuments] = useState<KMZDocumentLink[]>([])
   const [documentCount, setDocumentCount] = useState<number>(0)
   const [loadingDocuments, setLoadingDocuments] = useState(false)
   const [isLoadingFromURL, setIsLoadingFromURL] = useState(false)
-  const [viewingIndividualFile, setViewingIndividualFile] = useState(false) // Track if viewing single file
-  const [isMapFullscreen, setIsMapFullscreen] = useState(false) // Track fullscreen map state
-  const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(false) // Track left panel visibility - starts collapsed to show map
-  const [showAIAgent, setShowAIAgent] = useState(false) // Track AI agent visibility
-  const [isFolderSheetOpen, setIsFolderSheetOpen] = useState(false) // Track folder details sheet
-  const [isDetailsSheetOpen, setIsDetailsSheetOpen] = useState(false) // Track item details sheet
 
   const searchParams = useSearchParams()
   const kmzIdFromURL = searchParams?.get("kmz")
@@ -102,31 +112,21 @@ export function CAMPOSFolderView() {
     setIsLoadingMetadata(true)
 
     try {
-      // Try to fetch only essential columns to avoid schema mismatches
       const { data, error } = await supabase
         .from("kmz_collection")
         .select("id, file_name, region, placemarks_count, bounds, tags, file_path")
         .eq("is_active", true)
         .order("region", { ascending: true })
-        .catch((err) => {
-          console.error("[v0] Query error, returning empty result:", err)
-          return { data: [], error: err }
-        })
 
       if (error) {
         console.error("[v0] Error loading metadata:", error)
-        console.log("[v0] Continuing with empty folders due to query error")
         setFolders([])
-      } else if (data && data.length > 0) {
-        console.log("[v0] Loaded metadata for", data.length, "KMZ files")
-        buildRegionFolders(data)
       } else {
-        console.log("[v0] No KMZ files found in database")
-        setFolders([])
+        console.log("[v0] Loaded metadata for", data?.length || 0, "KMZ files")
+        buildRegionFolders(data || [])
       }
     } catch (err) {
       console.error("[v0] Error fetching metadata:", err)
-      console.log("[v0] Continuing with empty folders")
       setFolders([])
     } finally {
       setIsLoadingMetadata(false)
@@ -158,17 +158,12 @@ export function CAMPOSFolderView() {
     setIsLoadingKMZ(true)
 
     try {
-      // Select only specific columns to avoid schema issues
       const { data, error } = await supabase
         .from("kmz_collection")
-        .select("id, file_name, region, placemarks_count, bounds, coordinates, description, rol_numbers, category")
+        .select("*")
         .eq("is_active", true)
         .eq("id", kmzId)
         .single()
-        .catch((err) => {
-          console.error("[v0] Query error loading KMZ:", err)
-          return { data: null, error: err }
-        })
 
       if (error) {
         console.error("[v0] Error loading KMZ data:", error)
@@ -350,6 +345,7 @@ export function CAMPOSFolderView() {
   }
 
   const loadRegionKMZFiles = async (region: string) => {
+    console.log("[v0] Loading full KMZ data for region:", region)
     setIsLoadingKMZ(true)
     setSelectedRegion(region)
 
@@ -510,8 +506,8 @@ export function CAMPOSFolderView() {
               },
             }
 
+            console.log("[v0] Displaying only selected KMZ file:", item.name)
             setKmzFiles([transformedKMZ]) // Show ONLY this file
-            setViewingIndividualFile(true) // Flag: viewing individual file, not entire region
           }
         } catch (kmzError) {
           console.error("[v0] Error loading full KMZ data:", kmzError)
@@ -533,15 +529,11 @@ export function CAMPOSFolderView() {
 
     if (item.type === "folder") {
       toggleFolder(item.id)
-      setViewingIndividualFile(false) // Viewing a folder, not individual file
-      
-      // Only load region KMZ files if we're clicking on a folder, not a file
+
       if (item.category && item.category !== selectedRegion) {
         await loadRegionKMZFiles(item.category)
       }
     }
-    // If it's a file, we've already set kmzFiles to show only this file
-    // Don't load the entire region, keep showing just this file
   }
 
   const handleOfflineKMZUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {

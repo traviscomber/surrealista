@@ -191,20 +191,18 @@ export async function GET(request: NextRequest) {
     console.log(requestId, "[v0] Found", kmzCollectionResults?.length || 0, "KMZ in kmz_collection")
 
     // Search 3: Property Documents (KMZ files uploaded in communications/documentation)
-    // NOTE: Temporarily disabled due to schema mismatch - property_documents doesn't have file_name column
-    const propertyDocs = []
-    // const { data: propertyDocs, error: docError } = await supabase
-    //   .from("property_documents")
-    //   .select("id, title, file_url, file_type, category, created_at")
-    //   .or(`title.ilike.%${q}%,title.ilike.%${qNormalized}%,category.ilike.%${q}%,category.ilike.%${qNormalized}%`)
-    //   .in("document_type", ["KMZ", "kmz", "kml"])
-    //   .limit(100)
-    //
-    // if (docError) {
-    //   console.error(requestId, "[v0] Property documents search error:", docError)
-    // }
+    const { data: propertyDocs, error: docError } = await supabase
+      .from("property_documents")
+      .select("id, title, file_url, file_type, category, created_at")
+      .or(`title.ilike.%${q}%,title.ilike.%${qNormalized}%,category.ilike.%${q}%,category.ilike.%${qNormalized}%`)
+      .in("document_type", ["KMZ", "kmz", "kml"])
+      .limit(100)
 
-    console.log(requestId, "[v0] Property documents search skipped (0 results)")
+    if (docError) {
+      console.error(requestId, "[v0] Property documents search error:", docError)
+    }
+
+    console.log(requestId, "[v0] Found", propertyDocs?.length || 0, "KMZ in property_documents")
 
     // Get KMZ file details for locations
     let kmzFileMap: Record<string, any> = {}
@@ -236,8 +234,8 @@ export async function GET(request: NextRequest) {
       summary: {
         locationsFound: locations?.length || 0,
         kmzCollectionFound: kmzCollectionResults?.length || 0,
-        propertyDocsFound: 0,
-        totalKmzFiles: (kmzCollectionResults?.length || 0),
+        propertyDocsFound: propertyDocs?.length || 0,
+        totalKmzFiles: (kmzCollectionResults?.length || 0) + (propertyDocs?.length || 0),
       },
     }
 

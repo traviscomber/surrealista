@@ -52,10 +52,6 @@ export function KMZMapDisplay({
 
   const safeKmzFiles = Array.isArray(kmzFiles) ? kmzFiles : []
 
-  // Cache for processed layers to avoid re-rendering all 132 layers
-  const layersCacheRef = useRef<Map<string, LayerInfo>>(new Map())
-  const visibleLayersRef = useRef<Set<string>>(new Set())
-
   console.log("[v0] KMZMapDisplay received", safeKmzFiles.length, "KMZ files")
 
   useEffect(() => {
@@ -457,15 +453,6 @@ export function KMZMapDisplay({
     })
 
     console.log("[v0] Total placemarks to render:", allPlacemarks.length)
-    
-    // Only render if we have placemarks - avoid rendering empty/all regions
-    if (allPlacemarks.length === 0) {
-      console.log("[v0] No placemarks to render")
-      setLayers([])
-      setIsLoadingLayers(false)
-      isProcessingRef.current = false
-      return
-    }
 
     renderPlacemarksInChunks(allPlacemarks, allBounds, newLayers).then(() => {
       console.log("[v0] Placemark rendering complete, finalizing...")
@@ -728,7 +715,7 @@ export function KMZMapDisplay({
                 <p className="text-xs text-gray-500">No hay capas cargadas</p>
               ) : (
                 <div className="space-y-1.5">
-                  {layers.slice(0, 100).map((layer, index) => (
+                  {layers.map((layer, index) => (
                     <div
                       key={index}
                       onClick={() => {
@@ -794,11 +781,6 @@ export function KMZMapDisplay({
                       </div>
                     </div>
                   ))}
-                  {layers.length > 100 && (
-                    <div className="p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-700 mt-2">
-                      Mostrando 100 de {layers.length} capas. Las capas están en caché para acceso rápido.
-                    </div>
-                  )}
                 </div>
               )}
             </div>
