@@ -541,6 +541,31 @@ export function KMZCollectionManager() {
     }
   }
 
+  const processAllKMZ = async () => {
+    if (!confirm("¿Procesar todos los 338 KMZ? Esto extraerá ubicaciones y creará el índice de búsqueda. Puede tomar varios minutos.")) return
+    
+    setIndexing(true)
+    try {
+      const response = await fetch("/api/admin/kmz/process-all", {
+        method: "POST",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to process KMZ")
+      }
+
+      const data = await response.json()
+      console.log("[v0] Process complete:", data)
+      alert(`${data.message}. Errores: ${data.errors.length}`)
+      loadKMZCollection()
+    } catch (error) {
+      console.error("[v0] Error processing KMZ:", error)
+      alert("Error al procesar KMZ")
+    } finally {
+      setIndexing(false)
+    }
+  }
+
   const categories = ["all", ...new Set(kmzFiles.map((kmz) => kmz.category).filter(Boolean))]
 
   return (
@@ -638,6 +663,24 @@ export function KMZCollectionManager() {
               >
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Actualizar
+              </Button>
+              <Button
+                onClick={processAllKMZ}
+                disabled={indexing}
+                variant="secondary"
+                className="bg-green-500/20 hover:bg-green-500/30 text-green-700 border-green-300 backdrop-blur-sm"
+              >
+                {indexing ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Procesando...
+                  </>
+                ) : (
+                  <>
+                    <Database className="h-4 w-4 mr-2" />
+                    Procesar Todo
+                  </>
+                )}
               </Button>
               <Button
                 onClick={reindexAllKMZ}
