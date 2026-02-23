@@ -849,9 +849,10 @@ export function CAMPOSFolderView() {
             </div>
           ))}
             </div>
-          )}
-        </div>
+        )}
       </div>
+    </>
+  )
     </>
   )
 
