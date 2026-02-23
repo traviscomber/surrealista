@@ -530,10 +530,13 @@ export function CAMPOSFolderView() {
     if (item.type === "folder") {
       toggleFolder(item.id)
 
+      // Only load region KMZ files if we're clicking on a folder, not a file
       if (item.category && item.category !== selectedRegion) {
         await loadRegionKMZFiles(item.category)
       }
     }
+    // If it's a file, we've already set kmzFiles to show only this file
+    // Don't load the entire region, keep showing just this file
   }
 
   const handleOfflineKMZUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
