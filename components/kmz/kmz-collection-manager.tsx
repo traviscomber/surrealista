@@ -62,6 +62,7 @@ export function KMZCollectionManager() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [indexing, setIndexing] = useState(false)
+  const [fixingRegions, setFixingRegions] = useState(false)
 
   useEffect(() => {
     loadKMZCollection()
@@ -493,6 +494,29 @@ export function KMZCollectionManager() {
     return `${mb.toFixed(2)} MB`
   }
 
+  const fixRegions = async () => {
+    setFixingRegions(true)
+    try {
+      const response = await fetch("/api/admin/kmz/fix-regions", {
+        method: "POST",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to fix regions")
+      }
+
+      const data = await response.json()
+      console.log("[v0] Regions fixed:", data)
+      alert(`Regiones actualizadas: ${data.updated} ubicaciones`)
+      loadKMZCollection()
+    } catch (error) {
+      console.error("[v0] Error fixing regions:", error)
+      alert("Error al actualizar regiones")
+    } finally {
+      setFixingRegions(false)
+    }
+  }
+
   const categories = ["all", ...new Set(kmzFiles.map((kmz) => kmz.category).filter(Boolean))]
 
   return (
@@ -590,6 +614,24 @@ export function KMZCollectionManager() {
               >
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Actualizar
+              </Button>
+              <Button
+                onClick={fixRegions}
+                disabled={fixingRegions}
+                variant="secondary"
+                className="bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm"
+              >
+                {fixingRegions ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Corrigiendo Regiones...
+                  </>
+                ) : (
+                  <>
+                    <MapPin className="h-4 w-4 mr-2" />
+                    Corregir Regiones
+                  </>
+                )}
               </Button>
             </div>
           </div>
