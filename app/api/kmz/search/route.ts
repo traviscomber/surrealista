@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     // Search 1: KMZ Location Index (locations within KMZ files from kmz_collection)
     const { data: locations, error: locError } = await supabase
       .from("kmz_location_index")
-      .select("*, kmz_id")
+      .select("id, name, latitude, longitude, region, city, type, address, kmz_id, created_at")
       .or(`searchable_text.ilike.${searchTerm},name.ilike.${searchTerm},region.ilike.${searchTerm},city.ilike.${searchTerm}`)
       .limit(500)
 
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     const { data: kmzCollectionResults, error: collError } = await supabase
       .from("kmz_collection")
       .select("id, file_name, region, category, created_at, is_active")
-      .or(`file_name.ilike.${searchTerm},region.ilike.${searchTerm},category.ilike.${searchTerm},description.ilike.${searchTerm}`)
+      .or(`file_name.ilike.${searchTerm},region.ilike.${searchTerm},category.ilike.${searchTerm}`)
       .eq("is_active", true)
       .limit(100)
 
