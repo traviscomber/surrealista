@@ -3,7 +3,7 @@
 DELETE FROM kmz_location_index;
 
 -- Insert coordinates calculated from KMZ collection polygons
-INSERT INTO kmz_location_index (id, kmz_id, name, latitude, longitude, region, city, address, searchable_text, placemark_count, created_at, updated_at, bounds, location_data)
+INSERT INTO kmz_location_index (id, kmz_id, name, latitude, longitude, region, city, address, searchable_text, type, placemark_count, created_at, updated_at, bounds, location_data)
 SELECT 
   gen_random_uuid(),
   kc.id as kmz_id,
@@ -22,6 +22,7 @@ SELECT
   kc.region as city,
   kc.description as address,
   LOWER(CONCAT(kc.file_name, ' ', kc.region)) as searchable_text,
+  'Location'::text as type,
   kc.placemarks_count as placemark_count,
   NOW(),
   NOW(),
