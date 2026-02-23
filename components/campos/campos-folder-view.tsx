@@ -86,6 +86,7 @@ export function CAMPOSFolderView() {
   const [selectedItemDocuments, setSelectedItemDocuments] = useState<KMZDocumentLink[]>([])
   const [documentCount, setDocumentCount] = useState<number>(0)
   const [loadingDocuments, setLoadingDocuments] = useState(false)
+  const [isLoadingFromURL, setIsLoadingFromURL] = useState(false)
 
   const searchParams = useSearchParams()
   const kmzIdFromURL = searchParams?.get("kmz")
@@ -96,11 +97,15 @@ export function CAMPOSFolderView() {
 
   // Load KMZ file from URL parameter if provided
   useEffect(() => {
-    if (kmzIdFromURL && folders.length > 0) {
-      console.log("[v0] Loading KMZ from URL parameter:", kmzIdFromURL)
-      handleLoadKmzFromId(kmzIdFromURL)
+    if (kmzIdFromURL) {
+      console.log("[v0] KMZ ID detected in URL, will load directly:", kmzIdFromURL)
+      setIsLoadingFromURL(true)
+      // Load metadata first, then KMZ
+      loadRegionMetadata().then(() => {
+        handleLoadKmzFromId(kmzIdFromURL)
+      })
     }
-  }, [kmzIdFromURL, folders])
+  }, [kmzIdFromURL])
 
   const loadRegionMetadata = async () => {
     console.log("[v0] Loading region metadata from database...")
@@ -168,6 +173,7 @@ export function CAMPOSFolderView() {
           variant: "destructive",
         })
         setKmzFiles([])
+        setIsLoadingFromURL(false)
         return
       }
 
@@ -244,6 +250,7 @@ export function CAMPOSFolderView() {
         }
         setSelectedItem(virtualItem)
         setIsDetailsSheetOpen(false)
+        setIsLoadingFromURL(false)
 
         toast({
           title: "KMZ Cargado",
@@ -258,6 +265,7 @@ export function CAMPOSFolderView() {
         variant: "destructive",
       })
       setKmzFiles([])
+      setIsLoadingFromURL(false)
     } finally {
       setIsLoadingKMZ(false)
     }
@@ -772,17 +780,27 @@ export function CAMPOSFolderView() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
+            disabled={isLoadingFromURL}
           />
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto min-h-0">
-        <div className="p-4 space-y-2">
-          {filteredFolders.length === 0 && !isLoadingMetadata && (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              No hay regiones disponibles. Haz clic en actualizar para cargar.
-            </p>
-          )}
+        {isLoadingFromURL ? (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center space-y-4">
+              <RefreshCw className="h-12 w-12 animate-spin mx-auto text-muted-foreground" />
+              <p className="text-sm font-medium">Cargando archivo KMZ...</p>
+              <p className="text-xs text-muted-foreground">Por favor espera mientras se carga el mapa</p>
+            </div>
+          </div>
+        ) : (
+          <div className="p-4 space-y-2">
+            {filteredFolders.length === 0 && !isLoadingMetadata && (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No hay regiones disponibles. Haz clic en actualizar para cargar.
+              </p>
+            )}
           {filteredFolders.map((folder) => (
             <div key={folder.id}>
               <Button
@@ -830,6 +848,8 @@ export function CAMPOSFolderView() {
               )}
             </div>
           ))}
+            </div>
+          )}
         </div>
       </div>
     </>
