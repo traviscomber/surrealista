@@ -19,7 +19,6 @@ export async function GET(request: NextRequest) {
     }
 
     const supabase = await createClient()
-    const searchTerm = `%${q}%`
 
     console.log(requestId, "[v0] Searching across all KMZ sources with term:", q)
 
@@ -27,7 +26,7 @@ export async function GET(request: NextRequest) {
     const { data: locations, error: locError } = await supabase
       .from("kmz_location_index")
       .select("id, name, latitude, longitude, region, city, type, address, kmz_id, created_at")
-      .or(`searchable_text.ilike.${searchTerm},name.ilike.${searchTerm},region.ilike.${searchTerm},city.ilike.${searchTerm}`)
+      .or(`searchable_text.ilike.%${q}%,name.ilike.%${q}%,region.ilike.%${q}%,city.ilike.%${q}%`)
       .limit(500)
 
     if (locError) {
@@ -40,7 +39,7 @@ export async function GET(request: NextRequest) {
     const { data: kmzCollectionResults, error: collError } = await supabase
       .from("kmz_collection")
       .select("id, file_name, region, category, created_at, is_active")
-      .or(`file_name.ilike.${searchTerm},region.ilike.${searchTerm},category.ilike.${searchTerm}`)
+      .or(`file_name.ilike.%${q}%,region.ilike.%${q}%,category.ilike.%${q}%`)
       .eq("is_active", true)
       .limit(100)
 
@@ -54,7 +53,7 @@ export async function GET(request: NextRequest) {
     const { data: propertyDocs, error: docError } = await supabase
       .from("property_documents")
       .select("id, title, file_name, file_url, category, created_at")
-      .or(`title.ilike.${searchTerm},file_name.ilike.${searchTerm},category.ilike.${searchTerm}`)
+      .or(`title.ilike.%${q}%,file_name.ilike.%${q}%,category.ilike.%${q}%`)
       .in("category", ["KMZ", "kmz", "kml"])
       .limit(100)
 

@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
       .eq("is_active", true)
 
     if (searchTerm) {
-      kmzQuery = kmzQuery.or(`file_name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`)
+      kmzQuery = kmzQuery.or(`file_name.ilike.%${searchTerm}%`)
     }
     if (region) {
       kmzQuery = kmzQuery.ilike("region", `%${region}%`)
