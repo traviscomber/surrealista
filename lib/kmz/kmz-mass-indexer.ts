@@ -54,14 +54,6 @@ export async function indexAllKMZLocations() {
           continue
         }
 
-        // Download and parse KMZ file from the stored coordinates
-        // The coordinates are already parsed in kmz_collection, we just need to create location index entries
-        if (!kmz.coordinates || kmz.coordinates.length === 0) {
-          console.warn(requestId, `[v0] No coordinates found for: ${kmz.file_name}`)
-          results.push({ file: kmz.file_name, status: "skipped", reason: "No coordinates" })
-          continue
-        }
-
         // Get placemarks for this KMZ from kmz_placemarks table
         const { data: placemarks, error: placemarksError } = await supabase
           .from("kmz_placemarks")
@@ -70,6 +62,13 @@ export async function indexAllKMZLocations() {
 
         if (placemarksError) {
           throw placemarksError
+        }
+
+        // If no placemarks, skip
+        if (!placemarks || placemarks.length === 0) {
+          console.warn(requestId, `[v0] No placemarks found for: ${kmz.file_name}`)
+          results.push({ file: kmz.file_name, status: "skipped", reason: "No placemarks" })
+          continue
         }
 
         // Create location index entries from placemarks
@@ -81,7 +80,7 @@ export async function indexAllKMZLocations() {
           longitude: placemark.center_lng,
           address: placemark.description || "",
           region: placemark.region || kmz.region || "Unknown",
-          city: kmz.file_name.split("-")[0]?.trim() || "Unknown",
+          city: placemark.city || "",
           bounds: placemark.bounds,
           placemark_count: 1,
           searchable_text: `${placemark.name} ${placemark.description || ""} ${kmz.file_name}`.toLowerCase(),
