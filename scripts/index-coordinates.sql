@@ -36,7 +36,7 @@ SELECT
   kc.region as city,
   CONCAT('Polígono en ', kc.region) as address,
   LOWER(CONCAT(kc.file_name, ' ', kc.region)) as searchable_text,
-  '' as type,
+  'KMZ' as type,
   kc.placemarks_count as placemark_count,
   NOW(),
   NOW()
