@@ -73,8 +73,10 @@ export function CAMPOSFolderView() {
   const [isLoadingFromURL, setIsLoadingFromURL] = useState(false)
   const [viewingIndividualFile, setViewingIndividualFile] = useState(false) // Track if viewing single file
   const [isMapFullscreen, setIsMapFullscreen] = useState(false) // Track fullscreen map state
-  const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true) // Track left panel visibility
+  const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(false) // Track left panel visibility - starts collapsed to show map
   const [showAIAgent, setShowAIAgent] = useState(false) // Track AI agent visibility
+  const [isFolderSheetOpen, setIsFolderSheetOpen] = useState(false) // Track folder details sheet
+  const [isDetailsSheetOpen, setIsDetailsSheetOpen] = useState(false) // Track item details sheet
 
   const searchParams = useSearchParams()
   const kmzIdFromURL = searchParams?.get("kmz")
