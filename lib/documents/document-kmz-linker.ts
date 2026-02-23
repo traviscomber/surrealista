@@ -27,7 +27,11 @@ export class DocumentKMZLinker {
    */
   async getDocumentsForKMZ(kmzId: string, kmzFileName?: string): Promise<KMZDocumentLink[]> {
     try {
-      const query = this.supabase.from("property_documents").select("*").order("created_at", { ascending: false })
+      // Only select columns that exist in property_documents table
+      const query = this.supabase
+        .from("property_documents")
+        .select("id, title, file_url, file_type, file_size, category, tags, created_at, linked_kmz_ids")
+        .order("created_at", { ascending: false })
 
       // Search by linked KMZ IDs
       const { data: dataById, error: errorById } = await query.contains("linked_kmz_ids", [kmzId])
@@ -40,7 +44,7 @@ export class DocumentKMZLinker {
         const campoName = this.extractCampoName(kmzFileName)
         const { data: dataByName, error: errorByName } = await this.supabase
           .from("property_documents")
-          .select("*")
+          .select("id, title, file_url, file_type, file_size, category, tags, created_at, linked_kmz_ids")
           .ilike("title", `%${campoName}%`)
           .order("created_at", { ascending: false })
 
@@ -55,7 +59,7 @@ export class DocumentKMZLinker {
       return results.map((doc) => ({
         documentId: doc.id,
         documentTitle: doc.title || "Sin título",
-        documentType: doc.document_type || "Otro",
+        documentType: doc.file_type || "Otro",
         fileUrl: doc.file_url || "",
         category: doc.category || "general",
         tags: doc.tags || [],
