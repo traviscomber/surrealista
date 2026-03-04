@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { MapPin, DollarSign, Home, Bookmark, BookmarkOff, Eye } from 'lucide-react'
+import { MapPin, DollarSign, Home, Bookmark, BookmarkX, Eye } from 'lucide-react'
 import { getOpportunities, saveOpportunity, getSavedOpportunities } from '@/lib/supabase/opportunities'
 import { Opportunity, PaginatedResponse } from '@/lib/types/opportunities'
 import { OpportunitiesFiltersBar } from './opportunities-filters-bar'
@@ -118,7 +118,7 @@ export function OpportunitiesFeed() {
                   {savedOpportunitiesIds.has(opp.id) ? (
                     <Bookmark className="h-5 w-5 fill-current" />
                   ) : (
-                    <BookmarkOff className="h-5 w-5" />
+                    <BookmarkX className="h-5 w-5" />
                   )}
                 </Button>
               </div>
