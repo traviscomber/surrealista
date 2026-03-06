@@ -29,7 +29,7 @@ async function getOpportunitiesWithScores() {
     title: kmz.file_name || `Oportunidad ${index + 1}`,
     location: `${kmz.region || 'Por determinar'}`,
     price: Math.floor(Math.random() * 5000000) + 500000, // Simulated price
-    uf_score: (Math.random() * 100).toFixed(1), // Random UF score for demo
+    uf_score: Math.random() * 100, // Keep as number, format in JSX
     bedrooms: Math.floor(Math.random() * 5) + 1,
     area_sqm: Math.floor(Math.random() * 500) + 100,
     profit_margin: Math.floor(Math.random() * 40) + 5,
