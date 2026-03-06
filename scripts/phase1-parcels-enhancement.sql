@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS parcels (
   city TEXT,
   state TEXT,
   zip_code TEXT,
-  location GEOMETRY(POINT, 4326),
+  coordinates JSONB,
   area_sqft DECIMAL(12,2),
   lot_size DECIMAL(12,2),
   zoning TEXT,
@@ -39,7 +39,6 @@ ADD COLUMN IF NOT EXISTS last_analyzed_at TIMESTAMP WITH TIME ZONE;
 
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_parcels_kmz_id ON parcels(kmz_id);
-CREATE INDEX IF NOT EXISTS idx_parcels_location ON parcels USING GIST(location);
 CREATE INDEX IF NOT EXISTS idx_parcels_address ON parcels(address, city, state);
 CREATE INDEX IF NOT EXISTS idx_opportunities_uf_score ON opportunities(uf_score DESC);
 CREATE INDEX IF NOT EXISTS idx_opportunities_investment_potential ON opportunities(investment_potential);
@@ -48,24 +47,26 @@ CREATE INDEX IF NOT EXISTS idx_opportunities_investment_potential ON opportuniti
 ALTER TABLE parcels ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policy: Everyone can read parcels (public portal)
+DROP POLICY IF EXISTS "Parcels are viewable by everyone" ON parcels;
 CREATE POLICY "Parcels are viewable by everyone" 
 ON parcels FOR SELECT USING (true);
 
--- Update opportunities RLS for new fields
+-- Ensure opportunities RLS is enabled
 ALTER TABLE opportunities ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policy: Everyone can read opportunities
-CREATE POLICY IF NOT EXISTS "Opportunities are viewable by everyone" 
+DROP POLICY IF EXISTS "Opportunities are viewable by everyone" ON opportunities;
+CREATE POLICY "Opportunities are viewable by everyone" 
 ON opportunities FOR SELECT USING (true);
 
 -- Create activity view for opportunities
-CREATE OR REPLACE VIEW opportunity_activity_feed AS
+DROP VIEW IF EXISTS opportunity_activity_feed;
+CREATE VIEW opportunity_activity_feed AS
 SELECT 
   oa.id,
   oa.opportunity_id,
-  oa.user_id,
-  oa.activity_type,
-  oa.description,
+  oa.changed_by,
+  oa.action,
   oa.created_at,
   o.title as opportunity_title,
   o.status
