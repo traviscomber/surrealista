@@ -1,5 +1,10 @@
 import { Suspense } from 'react'
-import { HomeSpotterFeed } from '@/components/portal/home-spotter-feed'
+import dynamic from 'next/dynamic'
+
+const HomeSpotterFeed = dynamic(
+  () => import('@/components/portal/home-spotter-feed').then(mod => ({ default: mod.HomeSpotterFeed })),
+  { ssr: true, loading: () => <div className="text-center py-8">Cargando oportunidades...</div> }
+)
 
 export const metadata = {
   title: 'Home Spotter - Oportunidades de Inversión',
