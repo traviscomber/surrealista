@@ -77,6 +77,7 @@ export function CAMPOSFolderView() {
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [showAIAgent, setShowAIAgent] = useState(false)
+  const [totalFileCount, setTotalFileCount] = useState(0)
 
   const supabase = createBrowserClient()
   const { toast } = useToast()
