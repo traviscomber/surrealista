@@ -9,6 +9,10 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  experimental: {
+    // Only include valid experimental features to avoid warnings
+    // transitionIndicator and browserDebugInfoInTerminal removed as they're not valid in this Next.js version
+  },
   webpack: (config, { isServer, dev }) => {
     // Disable webpack cache for filesystem to prevent large string serialization issues
     // This resolves: "Serializing big strings (131kiB) impacts deserialization performance"
