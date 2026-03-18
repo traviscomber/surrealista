@@ -327,6 +327,34 @@ export function KMZMapDisplay({
                   const centerLat = leafletCoords.reduce((sum, coord) => sum + coord[0], 0) / leafletCoords.length
                   const centerLng = leafletCoords.reduce((sum, coord) => sum + coord[1], 0) / leafletCoords.length
 
+                  // Add a pin/marker at the center of the polygon for easy identification
+                  if (placemark.type === "Polygon") {
+                    const pinIcon = L.divIcon({
+                      html: `<div style="
+                        background-color: ${color};
+                        width: 12px;
+                        height: 12px;
+                        border-radius: 50%;
+                        border: 2px solid white;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                        cursor: pointer;
+                      "></div>`,
+                      iconSize: [16, 16],
+                      className: "kmz-polygon-pin",
+                    })
+
+                    const pinMarker = L.marker([centerLat, centerLng], {
+                      icon: pinIcon,
+                      title: placemark.name,
+                      zIndexOffset: 1000,
+                    }).addTo(mapInstance)
+
+                    // Clicking the pin also opens the polygon popup
+                    pinMarker.on("click", () => {
+                      shape.openPopup()
+                    })
+                  }
+
                   // Bind popup to shape
                   const popupContent = `
                     <div style="min-width: 250px;">
