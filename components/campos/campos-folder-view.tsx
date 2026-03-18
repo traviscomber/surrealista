@@ -113,19 +113,30 @@ export function CAMPOSFolderView() {
     setIsLoadingMetadata(true)
 
     try {
-      const { data, error, count } = await supabase
+      // First, get the exact count
+      const { count } = await supabase
+        .from("kmz_collection")
+        .select("id", { count: 'exact', head: true })
+        .eq("is_active", true)
+
+      console.log("[v0] Total KMZ files in database:", count)
+
+      // Now fetch ALL metadata (up to 10000 to ensure we get all regions)
+      const { data, error } = await supabase
         .from("kmz_collection")
         .select("id, file_name, region, placemarks_count, bounds, tags, file_path", { count: 'exact' })
         .eq("is_active", true)
         .order("region", { ascending: true })
-        .range(0, 4999) // Fetch up to 5000 rows to ensure all regions are loaded
+        .range(0, Math.min((count || 2366) + 100, 9999)) // Fetch all records or up to 10000
 
       if (error) {
         console.error("[v0] Error loading metadata:", error)
         setFolders([])
         setTotalFileCount(0)
       } else {
-        console.log("[v0] Loaded metadata for", data?.length || 0, "KMZ files, total in database:", count, "unique regions expected:", new Set(data?.map(d => d.region)).size)
+        const uniqueRegions = new Set(data?.map(d => d.region).filter(r => r)).size
+        console.log("[v0] Loaded metadata for", data?.length || 0, "KMZ files, total in database:", count, "unique regions found:", uniqueRegions)
+        console.log("[v0] Regions present:", [...new Set(data?.map(d => d.region))].sort().join(", "))
         setTotalFileCount(count || 0) // Use exact count from database
         buildRegionFolders(data || [])
       }
