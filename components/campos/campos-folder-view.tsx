@@ -118,14 +118,14 @@ export function CAMPOSFolderView() {
         .select("id, file_name, region, placemarks_count, bounds, tags, file_path", { count: 'exact' })
         .eq("is_active", true)
         .order("region", { ascending: true })
-        .range(0, 9999) // Override Supabase's default 1000-row limit
+        .range(0, 4999) // Fetch up to 5000 rows to ensure all regions are loaded
 
       if (error) {
         console.error("[v0] Error loading metadata:", error)
         setFolders([])
         setTotalFileCount(0)
       } else {
-        console.log("[v0] Loaded metadata for", data?.length || 0, "KMZ files, total in database:", count)
+        console.log("[v0] Loaded metadata for", data?.length || 0, "KMZ files, total in database:", count, "unique regions expected:", new Set(data?.map(d => d.region)).size)
         setTotalFileCount(count || 0) // Use exact count from database
         buildRegionFolders(data || [])
       }
@@ -298,7 +298,12 @@ export function CAMPOSFolderView() {
       regionMap.get(region)?.push(record)
     })
 
-    console.log("[v0] Grouped files into", regionMap.size, "regions")
+    console.log("[v0] Grouped files into", regionMap.size, "regions:")
+    const regionDetails: string[] = []
+    regionMap.forEach((files, region) => {
+      regionDetails.push(`${region}: ${files.length} files`)
+    })
+    console.log("[v0] Region breakdown:", regionDetails.join(", "))
 
     const folderItems: FolderItem[] = []
     let folderId = 1
