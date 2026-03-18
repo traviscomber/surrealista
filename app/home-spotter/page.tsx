@@ -1,3 +1,5 @@
+'use client'
+
 import { Suspense } from 'react'
 import dynamic from 'next/dynamic'
 
@@ -5,11 +7,6 @@ const HomeSpotterFeed = dynamic(
   () => import('@/components/portal/home-spotter-feed').then(mod => ({ default: mod.HomeSpotterFeed })),
   { ssr: false, loading: () => <div className="text-center py-8">Cargando oportunidades...</div> }
 )
-
-export const metadata = {
-  title: 'Home Spotter - Oportunidades de Inversión',
-  description: 'Descubre las mejores oportunidades inmobiliarias clasificadas por potencial de inversión',
-}
 
 export default function HomeSpotterFeedPage() {
   return (
