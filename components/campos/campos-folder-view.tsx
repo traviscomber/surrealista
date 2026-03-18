@@ -112,7 +112,7 @@ export function CAMPOSFolderView() {
     setIsLoadingMetadata(true)
 
     try {
-      const { data, error } = await supabase
+      const { data, error, count } = await supabase
         .from("kmz_collection")
         .select("id, file_name, region, placemarks_count, bounds, tags, file_path", { count: 'exact' })
         .eq("is_active", true)
@@ -122,13 +122,16 @@ export function CAMPOSFolderView() {
       if (error) {
         console.error("[v0] Error loading metadata:", error)
         setFolders([])
+        setTotalFileCount(0)
       } else {
-        console.log("[v0] Loaded metadata for", data?.length || 0, "KMZ files")
+        console.log("[v0] Loaded metadata for", data?.length || 0, "KMZ files, total in database:", count)
+        setTotalFileCount(count || 0) // Use exact count from database
         buildRegionFolders(data || [])
       }
     } catch (err) {
       console.error("[v0] Error fetching metadata:", err)
       setFolders([])
+      setTotalFileCount(0)
     } finally {
       setIsLoadingMetadata(false)
     }
@@ -670,7 +673,8 @@ export function CAMPOSFolderView() {
 
   const filteredFolders = folders.filter((folder) => folder.name.toLowerCase().includes(searchQuery.toLowerCase()))
 
-  const totalFiles = folders.reduce((sum, folder) => sum + (folder.fileCount || 0), 0)
+  // Use exact count from database instead of summing folder counts
+  const totalFiles = totalFileCount > 0 ? totalFileCount : folders.reduce((sum, folder) => sum + (folder.fileCount || 0), 0)
 
   const FolderList = () => (
     <>
