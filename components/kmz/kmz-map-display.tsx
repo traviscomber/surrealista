@@ -747,11 +747,11 @@ export function KMZMapDisplay({
           {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
         </Button>
 
-        <div ref={mapRef} className="flex-1 h-full rounded-lg overflow-hidden border" />
+        <div ref={mapRef} className="flex-1 h-full rounded-lg overflow-hidden border pointer-events-auto" />
 
-        <div className="absolute inset-y-0 right-0 w-96 flex flex-col pointer-events-auto bg-white border-l shadow-lg z-[200]">
+        <div className="absolute inset-y-0 right-0 w-96 flex flex-col pointer-events-none bg-white border-l shadow-lg z-[200]">
           {/* Capas del Mapa section */}
-          <div className="flex-1 border-b overflow-y-auto">
+          <div className="flex-1 border-b overflow-y-auto pointer-events-auto">
             <div className="p-4">
               <h3 className="font-semibold flex items-center gap-2 text-sm mb-3">
                 <MapPin className="h-4 w-4" />
