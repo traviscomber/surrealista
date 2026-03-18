@@ -480,6 +480,14 @@ export function CAMPOSFolderView() {
     setSelectedItem(item)
     setIsDetailsSheetOpen(true)
 
+    // If this is a FOLDER/REGION, load all KMZ files for that region
+    if (item.type === "folder") {
+      console.log("[v0] Folder/Region clicked, loading all KMZ files for region:", item.name)
+      await loadRegionKMZFiles(item.name)
+      return
+    }
+
+    // Otherwise, it's a file - load individual file data
     if (item.location) {
       console.log("[v0] Centering map on coordinates:", item.location)
       setMapCenter(item.location)
