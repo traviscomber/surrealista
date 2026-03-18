@@ -5,11 +5,11 @@ export async function GET() {
   try {
     const supabase = await createClient()
 
-    // Count KMZ files that don't have a region assigned
+    // Count KMZ files that don't have a region assigned (NULL or empty string)
     const { data: unassigned, error: unassignedError, count: unassignedCount } = await supabase
       .from("kmz_collection")
-      .select("id, file_name", { count: "exact" })
-      .is("region", null)
+      .select("id, file_name, region", { count: "exact" })
+      .or("region.is.null,region.eq.")  // Check for both NULL and empty string
 
     if (unassignedError) {
       console.error("[v0] Error fetching unassigned KMZ:", unassignedError)
@@ -32,6 +32,9 @@ export async function GET() {
     const percentageUnassigned = totalFiles > 0 ? Math.round((unassignedFiles / totalFiles) * 100) : 0
 
     console.log(`[v0] KMZ Status: ${unassignedFiles}/${totalFiles} unassigned (${percentageUnassigned}%)`)
+    if (unassignedFiles > 0 && unassignedFiles <= 50) {
+      console.log("[v0] Unassigned files:", unassigned?.map(f => ({ id: f.id, name: f.file_name, region: f.region })))
+    }
 
     return NextResponse.json({
       success: true,
