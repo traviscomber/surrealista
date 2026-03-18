@@ -83,79 +83,128 @@ export async function POST(request: NextRequest) {
   const requestId = `[${new Date().toISOString()}]`
 
   try {
-    console.log(requestId, "[v0] Starting region mapping update")
+    console.log(requestId, "[v0] Starting KMZ region mapping update")
 
     const supabase = await createClient()
 
-    // Get all locations
-    const { data: allLocations, error: getError } = await supabase
-      .from("kmz_location_index")
-      .select("id, name, city, region")
+    // IMPORTANT: Update KMZ_COLLECTION table (the actual KMZ files), not just locations
+    // Get all KMZ files without region assignment
+    const { data: unassignedKMZ, error: getKMZError } = await supabase
+      .from("kmz_collection")
+      .select("id, file_name, region")
       .is("region", null)
-      .limit(5000) // Increased from 1000 to process larger KMZ batches
+      .limit(5000)
 
-    if (getError) {
-      console.error(requestId, "[v0] Error fetching locations:", getError)
-      return NextResponse.json({ error: getError.message }, { status: 500 })
+    if (getKMZError) {
+      console.error(requestId, "[v0] Error fetching unassigned KMZ files:", getKMZError)
+      return NextResponse.json({ error: getKMZError.message }, { status: 500 })
     }
 
-    if (!allLocations || allLocations.length === 0) {
-      console.log(requestId, "[v0] No locations to update")
-      return NextResponse.json({ message: "No locations to update", updated: 0 })
+    if (!unassignedKMZ || unassignedKMZ.length === 0) {
+      console.log(requestId, "[v0] No KMZ files to update")
+      return NextResponse.json({ message: "No KMZ files to update", updated: 0, kmzUpdated: 0 })
     }
 
-    console.log(requestId, "[v0] Found", allLocations.length, "locations to update")
+    console.log(requestId, "[v0] Found", unassignedKMZ.length, "unassigned KMZ files to process")
 
-    // Process each location and update region
-    const updates: Array<{ id: string; region: string }> = []
+    // Process each KMZ file and assign region based on file name
+    const kmzUpdates: Array<{ id: string; region: string }> = []
 
-    allLocations.forEach((loc: any) => {
-      let region = loc.region
+    unassignedKMZ.forEach((kmz: any) => {
+      let region: string | null = null
+      const fileNameLower = (kmz.file_name || "").toLowerCase()
 
-      // Try to find region from city
-      if (!region && loc.city) {
-        const cityLower = (loc.city || "").toLowerCase()
-        region = CITY_REGION_MAP[cityLower]
-      }
-
-      // Try to find region from name
-      if (!region && loc.name) {
-        const nameLower = (loc.name || "").toLowerCase()
-        for (const [city, foundRegion] of Object.entries(CITY_REGION_MAP)) {
-          if (nameLower.includes(city)) {
-            region = foundRegion
-            break
-          }
+      // Try to find region from file name
+      for (const [city, foundRegion] of Object.entries(CITY_REGION_MAP)) {
+        if (fileNameLower.includes(city)) {
+          region = foundRegion as string
+          break
         }
       }
 
-      // Default to Los Lagos if still no region (since most data seems to be from there)
+      // If still no region found, default to Los Lagos (largest dataset)
       if (!region) {
         region = "Los Lagos"
       }
 
-      updates.push({ id: loc.id, region })
+      kmzUpdates.push({ id: kmz.id, region })
     })
 
-    // Batch update all locations
-    let updateCount = 0
-    for (const update of updates) {
+    // Batch update all KMZ files with assigned regions
+    let kmzUpdateCount = 0
+    for (const update of kmzUpdates) {
       const { error: updateError } = await supabase
-        .from("kmz_location_index")
+        .from("kmz_collection")
         .update({ region: update.region })
         .eq("id", update.id)
 
       if (!updateError) {
-        updateCount++
+        kmzUpdateCount++
+      } else {
+        console.error(requestId, "[v0] Error updating KMZ", update.id, ":", updateError)
       }
     }
 
-    console.log(requestId, "[v0] Updated", updateCount, "location regions")
+    console.log(requestId, "[v0] Updated", kmzUpdateCount, "KMZ files with regions")
+
+    // ALSO update kmz_location_index for consistency
+    const { data: allLocations, error: getLocError } = await supabase
+      .from("kmz_location_index")
+      .select("id, name, city, region")
+      .is("region", null)
+      .limit(5000)
+
+    if (getLocError) {
+      console.warn(requestId, "[v0] Warning: Could not fetch locations for update:", getLocError)
+    } else if (allLocations && allLocations.length > 0) {
+      console.log(requestId, "[v0] Found", allLocations.length, "locations to update")
+
+      const locUpdates: Array<{ id: string; region: string }> = []
+      allLocations.forEach((loc: any) => {
+        let region = loc.region
+
+        if (!region && loc.city) {
+          const cityLower = (loc.city || "").toLowerCase()
+          region = CITY_REGION_MAP[cityLower] as string | undefined || "Los Lagos"
+        }
+
+        if (!region && loc.name) {
+          const nameLower = (loc.name || "").toLowerCase()
+          for (const [city, foundRegion] of Object.entries(CITY_REGION_MAP)) {
+            if (nameLower.includes(city)) {
+              region = foundRegion as string
+              break
+            }
+          }
+        }
+
+        if (!region) {
+          region = "Los Lagos"
+        }
+
+        locUpdates.push({ id: loc.id, region })
+      })
+
+      let locUpdateCount = 0
+      for (const update of locUpdates) {
+        const { error: updateError } = await supabase
+          .from("kmz_location_index")
+          .update({ region: update.region })
+          .eq("id", update.id)
+
+        if (!updateError) {
+          locUpdateCount++
+        }
+      }
+
+      console.log(requestId, "[v0] Updated", locUpdateCount, "location regions")
+    }
 
     return NextResponse.json({
       success: true,
-      updated: updateCount,
-      total: allLocations.length,
+      kmzUpdated: kmzUpdateCount,
+      kmzTotal: unassignedKMZ.length,
+      message: `Updated ${kmzUpdateCount} KMZ files with region assignments`,
     })
   } catch (error: any) {
     console.error(requestId, "[v0] Error:", error.message)
