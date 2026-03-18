@@ -1,5 +1,6 @@
 -- Simple KMZ region assignment using bounds center latitude
 -- Calculates average latitude from north/south bounds
+-- Corrected latitude ranges for Chilean regions (north to south)
 BEGIN;
 
 -- Assign regions based on bounds center latitude
@@ -16,14 +17,14 @@ SET region = CASE
   WHEN ((bounds->>'north')::numeric + (bounds->>'south')::numeric) / 2 >= -36 AND ((bounds->>'north')::numeric + (bounds->>'south')::numeric) / 2 < -34.5 THEN 'Libertador General Bernardo O''Higgins'
   WHEN ((bounds->>'north')::numeric + (bounds->>'south')::numeric) / 2 >= -37 AND ((bounds->>'north')::numeric + (bounds->>'south')::numeric) / 2 < -36 THEN 'Región del Maule'
   WHEN ((bounds->>'north')::numeric + (bounds->>'south')::numeric) / 2 >= -38 AND ((bounds->>'north')::numeric + (bounds->>'south')::numeric) / 2 < -37 THEN 'Ñuble'
-  WHEN ((bounds->>'north')::numeric + (bounds->>'south')::numeric) / 2 >= -40.5 AND ((bounds->>'north')::numeric + (bounds->>'south')::numeric) / 2 < -38 THEN 'Biobío'
-  WHEN ((bounds->>'north')::numeric + (bounds->>'south')::numeric) / 2 >= -40.5 AND ((bounds->>'north')::numeric + (bounds->>'south')::numeric) / 2 < -39 THEN 'Los Ríos'
-  WHEN ((bounds->>'north')::numeric + (bounds->>'south')::numeric) / 2 >= -43.5 AND ((bounds->>'north')::numeric + (bounds->>'south')::numeric) / 2 < -38 THEN 'Los Lagos'
+  WHEN ((bounds->>'north')::numeric + (bounds->>'south')::numeric) / 2 >= -38.8 AND ((bounds->>'north')::numeric + (bounds->>'south')::numeric) / 2 < -38 THEN 'Biobío'
+  WHEN ((bounds->>'north')::numeric + (bounds->>'south')::numeric) / 2 >= -40.4 AND ((bounds->>'north')::numeric + (bounds->>'south')::numeric) / 2 < -38.8 THEN 'Los Ríos'
+  WHEN ((bounds->>'north')::numeric + (bounds->>'south')::numeric) / 2 >= -43.5 AND ((bounds->>'north')::numeric + (bounds->>'south')::numeric) / 2 < -40.4 THEN 'Los Lagos'
   WHEN ((bounds->>'north')::numeric + (bounds->>'south')::numeric) / 2 >= -48 AND ((bounds->>'north')::numeric + (bounds->>'south')::numeric) / 2 < -43.5 THEN 'Región de Aysén del General Carlos Ibáñez del Campo'
   WHEN ((bounds->>'north')::numeric + (bounds->>'south')::numeric) / 2 < -48 THEN 'Magallanes y de la Antártica Chilena'
   ELSE region  -- Keep existing region if bounds are null or invalid
 END
-WHERE bounds IS NOT NULL AND region IS NULL;
+WHERE bounds IS NOT NULL;
 
 COMMIT;
 
@@ -34,3 +35,12 @@ SELECT
   COUNT(CASE WHEN region IS NULL THEN 1 END) as unassigned,
   ROUND(100.0 * COUNT(CASE WHEN region IS NOT NULL THEN 1 END) / COUNT(*), 2) as assignment_percentage
 FROM kmz_collection;
+
+-- Show region distribution
+SELECT 
+  region,
+  COUNT(*) as count
+FROM kmz_collection
+WHERE is_active = true AND region IS NOT NULL
+GROUP BY region
+ORDER BY region;
