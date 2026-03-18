@@ -76,12 +76,14 @@ export function KMZCollectionManager() {
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       )
 
-      // Fetch ALL active KMZ files without limit to show complete stats
-      const { data: results, error } = await supabase
+      // Fetch ALL KMZ files WITHOUT the default 1000-row limit
+      // Use range query to bypass Supabase's default row limit
+      const { data: results, error, count } = await supabase
         .from("kmz_collection")
         .select("*", { count: 'exact' })
         .eq("is_active", true)
         .order("created_at", { ascending: false })
+        .range(0, 9999) // Override 1000-row default limit by requesting 0-9999 (supports up to 10,000 rows)
 
       if (error) {
         if (error.message.includes("does not exist") || error.code === "42P01") {
@@ -106,10 +108,10 @@ export function KMZCollectionManager() {
       const totalPlacemarks = results.reduce((sum: number, kmz: any) => sum + (kmz.placemarks_count || 0), 0)
       const allRoles = new Set(results.flatMap((kmz: any) => kmz.rol_numbers || []))
 
-      console.log(`[v0] Loaded KMZ collection: ${results.length} total files, ${totalPlacemarks} total placemarks`)
+      console.log(`[v0] Loaded KMZ collection: ${results.length} returned, ${count} total in database, ${totalPlacemarks} total placemarks`)
 
       setStats({
-        total: results.length,
+        total: count || results.length, // Use exact count from database
         active: results.filter((kmz: any) => kmz.is_active).length,
         totalPlacemarks,
         totalRoles: allRoles.size,
