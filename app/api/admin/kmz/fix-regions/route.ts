@@ -109,6 +109,7 @@ export async function POST(request: NextRequest) {
 
     // Process each KMZ file and assign region based on file name
     const kmzUpdates: Array<{ id: string; region: string }> = []
+    let skippedCount = 0
 
     unassignedKMZ.forEach((kmz: any) => {
       let region: string | null = null
@@ -122,9 +123,11 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // If still no region found, default to Los Lagos (largest dataset)
+      // If NO region found, SKIP this file (don't assign default)
       if (!region) {
-        region = "Los Lagos"
+        console.log(requestId, "[v0] Skipping KMZ without identifiable location:", kmz.file_name)
+        skippedCount++
+        return // Skip this file
       }
 
       kmzUpdates.push({ id: kmz.id, region })
@@ -145,7 +148,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log(requestId, "[v0] Updated", kmzUpdateCount, "KMZ files with regions")
+    console.log(requestId, "[v0] Updated", kmzUpdateCount, "KMZ files with regions. Skipped", skippedCount, "files with no identifiable location")
 
     // ALSO update kmz_location_index for consistency
     const { data: allLocations, error: getLocError } = await supabase
@@ -203,8 +206,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       kmzUpdated: kmzUpdateCount,
+      kmzSkipped: skippedCount,
       kmzTotal: unassignedKMZ.length,
-      message: `Updated ${kmzUpdateCount} KMZ files with region assignments`,
+      message: `Updated ${kmzUpdateCount} KMZ files with region assignments. Skipped ${skippedCount} files with no identifiable location.`,
     })
   } catch (error: any) {
     console.error(requestId, "[v0] Error:", error.message)
