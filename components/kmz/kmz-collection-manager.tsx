@@ -76,9 +76,10 @@ export function KMZCollectionManager() {
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       )
 
+      // Fetch ALL active KMZ files without limit to show complete stats
       const { data: results, error } = await supabase
         .from("kmz_collection")
-        .select("*")
+        .select("*", { count: 'exact' })
         .eq("is_active", true)
         .order("created_at", { ascending: false })
 
@@ -104,6 +105,8 @@ export function KMZCollectionManager() {
 
       const totalPlacemarks = results.reduce((sum: number, kmz: any) => sum + (kmz.placemarks_count || 0), 0)
       const allRoles = new Set(results.flatMap((kmz: any) => kmz.rol_numbers || []))
+
+      console.log(`[v0] Loaded KMZ collection: ${results.length} total files, ${totalPlacemarks} total placemarks`)
 
       setStats({
         total: results.length,
@@ -517,7 +520,7 @@ export function KMZCollectionManager() {
   }
 
   const reindexAllKMZ = async () => {
-    if (!confirm("¿Re-indexar todos los 338 KMZ? Esto puede tomar algunos minutos.")) return
+    if (!confirm(`¿Re-indexar todos los ${kmzFiles.length} KMZ? Esto puede tomar algunos minutos.`)) return
     
     setIndexing(true)
     try {
@@ -542,7 +545,7 @@ export function KMZCollectionManager() {
   }
 
   const processAllKMZ = async () => {
-    if (!confirm("¿Procesar todos los 338 KMZ? Esto extraerá ubicaciones y creará el índice de búsqueda. Puede tomar varios minutos.")) return
+    if (!confirm(`¿Procesar todos los ${kmzFiles.length} KMZ? Esto extraerá ubicaciones y creará el índice de búsqueda. Puede tomar varios minutos.`)) return
     
     setIndexing(true)
     try {

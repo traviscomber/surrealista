@@ -9,6 +9,8 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // Explicitly define experimental as empty object to prevent invalid keys from being recognized
+  experimental: {},
   webpack: (config, { isServer, dev }) => {
     // Completely disable webpack cache to prevent large string serialization issues
     // This resolves: "Serializing big strings (131kiB) impacts deserialization performance"
