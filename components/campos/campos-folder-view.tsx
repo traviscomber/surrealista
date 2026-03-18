@@ -114,9 +114,10 @@ export function CAMPOSFolderView() {
     try {
       const { data, error } = await supabase
         .from("kmz_collection")
-        .select("id, file_name, region, placemarks_count, bounds, tags, file_path")
+        .select("id, file_name, region, placemarks_count, bounds, tags, file_path", { count: 'exact' })
         .eq("is_active", true)
         .order("region", { ascending: true })
+        .range(0, 9999) // Override Supabase's default 1000-row limit
 
       if (error) {
         console.error("[v0] Error loading metadata:", error)
