@@ -323,11 +323,36 @@ export function KMZMapDisplay({
 
                   newLayers.push(layerInfo)
 
+                  // Calculate center of polygon/polyline for popup and geocoding
+                  const centerLat = leafletCoords.reduce((sum, coord) => sum + coord[0], 0) / leafletCoords.length
+                  const centerLng = leafletCoords.reduce((sum, coord) => sum + coord[1], 0) / leafletCoords.length
+
+                  // Bind popup to shape
+                  const popupContent = `
+                    <div style="min-width: 250px;">
+                      <h4 style="margin: 0 0 8px 0; color: ${color}; font-weight: bold;">${placemark.name}</h4>
+                      <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Archivo:</strong> ${kmzData.fileName}</p>
+                      <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Tipo:</strong> ${placemark.type}</p>
+                      <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Coordenadas (centro):</strong> ${centerLat.toFixed(6)}, ${centerLng.toFixed(6)}</p>
+                      <div id="location-details-${placemark.name}" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
+                        <p style="margin: 0; font-size: 11px; color: #666;">Cargando información de ubicación...</p>
+                      </div>
+                      <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
+                        <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>📁 Documentación:</strong></p>
+                        <a href="/documentacion/campos/${encodeURIComponent(kmzData.fileName.replace(".kmz", "").replace(".kml", ""))}" 
+                           target="_blank"
+                           style="color: #6B8E7A; text-decoration: none; font-size: 11px; display: inline-block; padding: 4px 8px; background: #f0f4f0; border-radius: 4px; margin-top: 4px;">
+                          Ver carpeta de documentos →
+                        </a>
+                      </div>
+                      ${placemark.description ? `<p style="margin: 8px 0 0 0; font-size: 11px; color: #666;">${placemark.description.substring(0, 100)}...</p>` : ""}
+                    </div>
+                  `
+
+                  shape.bindPopup(popupContent)
+
                   // Only geocode if enabled
                   if (enableGeocoding) {
-                    const centerLat = (leafletCoords[0][0] + leafletCoords[leafletCoords.length - 1][0]) / 2
-                    const centerLng = (leafletCoords[0][1] + leafletCoords[leafletCoords.length - 1][1]) / 2
-
                     geocodingQueueRef.current.push({
                       lat: centerLat,
                       lng: centerLng,
