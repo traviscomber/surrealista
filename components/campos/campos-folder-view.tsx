@@ -480,10 +480,17 @@ export function CAMPOSFolderView() {
     setSelectedItem(item)
     setIsDetailsSheetOpen(true)
 
-    // If this is a FOLDER/REGION, load all KMZ files for that region
+    // If this is a FOLDER/REGION, load all KMZ files for that region AND toggle folder open/closed
     if (item.type === "folder") {
       console.log("[v0] Folder/Region clicked, loading all KMZ files for region:", item.name)
       await loadRegionKMZFiles(item.name)
+      
+      // Toggle folder open/closed
+      setFolders((prevFolders) =>
+        prevFolders.map((folder) =>
+          folder.id === item.id ? { ...folder, isOpen: !folder.isOpen } : folder,
+        ),
+      )
       return
     }
 
