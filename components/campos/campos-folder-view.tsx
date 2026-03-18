@@ -109,36 +109,54 @@ export function CAMPOSFolderView() {
   }, [kmzIdFromURL])
 
   const loadRegionMetadata = async () => {
-    console.log("[v0] Loading region metadata from database...")
+    console.log("[v0] Loading region metadata from database with pagination...")
     setIsLoadingMetadata(true)
 
     try {
-      // First, get the exact count
-      const { count } = await supabase
-        .from("kmz_collection")
-        .select("id", { count: 'exact', head: true })
-        .eq("is_active", true)
+      const allData: any[] = []
+      const pageSize = 1000
+      let page = 0
+      let hasMore = true
 
-      console.log("[v0] Total KMZ files in database:", count)
+      // Fetch all metadata with pagination
+      while (hasMore) {
+        const start = page * pageSize
+        const end = start + pageSize - 1
+        
+        console.log("[v0] Fetching page", page, `(rows ${start}-${end})`)
+        
+        const { data, error, count } = await supabase
+          .from("kmz_collection")
+          .select("id, file_name, region, placemarks_count, bounds, tags, file_path", { count: 'exact' })
+          .eq("is_active", true)
+          .order("region", { ascending: true })
+          .range(start, end)
 
-      // Now fetch ALL metadata (up to 10000 to ensure we get all regions)
-      const { data, error } = await supabase
-        .from("kmz_collection")
-        .select("id, file_name, region, placemarks_count, bounds, tags, file_path", { count: 'exact' })
-        .eq("is_active", true)
-        .order("region", { ascending: true })
-        .range(0, Math.min((count || 2366) + 100, 9999)) // Fetch all records or up to 10000
+        if (error) {
+          console.error("[v0] Error loading metadata:", error)
+          break
+        }
 
-      if (error) {
-        console.error("[v0] Error loading metadata:", error)
+        if (!data || data.length === 0) {
+          hasMore = false
+          console.log("[v0] Reached end of data")
+        } else {
+          allData.push(...data)
+          console.log("[v0] Fetched", data.length, "rows, total so far:", allData.length)
+          page++
+        }
+      }
+
+      if (allData.length > 0) {
+        const uniqueRegions = new Set(allData.map(d => d.region).filter(r => r)).size
+        console.log("[v0] Loaded metadata for", allData.length, "KMZ files with", uniqueRegions, "unique regions")
+        console.log("[v0] Regions present:", [...new Set(allData.map(d => d.region))].filter(r => r).sort().join(", "))
+        setTotalFileCount(allData.length)
+        buildRegionFolders(allData)
+      } else {
+        console.log("[v0] No metadata loaded")
         setFolders([])
         setTotalFileCount(0)
-      } else {
-        const uniqueRegions = new Set(data?.map(d => d.region).filter(r => r)).size
-        console.log("[v0] Loaded metadata for", data?.length || 0, "KMZ files, total in database:", count, "unique regions found:", uniqueRegions)
-        console.log("[v0] Regions present:", [...new Set(data?.map(d => d.region))].sort().join(", "))
-        setTotalFileCount(count || 0) // Use exact count from database
-        buildRegionFolders(data || [])
       }
     } catch (err) {
       console.error("[v0] Error fetching metadata:", err)
