@@ -112,7 +112,7 @@ export function KMZCollectionManager() {
 
       setStats({
         total: count || results.length, // Use exact count from database
-        active: results.filter((kmz: any) => kmz.is_active).length,
+        active: count || results.length, // Since query filters by is_active: true, count is the active count
         totalPlacemarks,
         totalRoles: allRoles.size,
       })
