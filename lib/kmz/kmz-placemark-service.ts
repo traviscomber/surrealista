@@ -78,7 +78,7 @@ class KMZPlacemarkService {
    */
   async loadPlacemarksByRegion(region: string): Promise<StoredPlacemark[]> {
     try {
-      const { data, error } = await supabase.from("kmz_placemarks").select("*").eq("region", region).limit(1000) // Limit for initial load
+      const { data, error } = await supabase.from("kmz_placemarks").select("*").eq("region", region).limit(5000) // Increased limit to support larger datasets
 
       if (error) throw error
       return (data || []) as StoredPlacemark[]

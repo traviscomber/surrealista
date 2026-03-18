@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
       locationQuery = locationQuery.lte("created_at", new Date(dateTo).toISOString())
     }
 
-    const { data: locations, error: locError } = await locationQuery.limit(500)
+    const { data: locations, error: locError } = await locationQuery.limit(5000) // Increased from 500 to support larger searches
 
     if (locError) {
       console.error(requestId, "[v0] Location search error:", locError)
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
       kmzQuery = kmzQuery.lte("created_at", new Date(dateTo).toISOString())
     }
 
-    const { data: kmzFiles, error: kmzError } = await kmzQuery.limit(100)
+    const { data: kmzFiles, error: kmzError } = await kmzQuery.limit(500) // Increased from 100 to return more KMZ files
 
     if (kmzError) {
       console.error(requestId, "[v0] KMZ search error:", kmzError)

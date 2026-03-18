@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
       .from("kmz_location_index")
       .select("id, name, city, region")
       .is("region", null)
-      .limit(1000)
+      .limit(5000) // Increased from 1000 to process larger KMZ batches
 
     if (getError) {
       console.error(requestId, "[v0] Error fetching locations:", getError)

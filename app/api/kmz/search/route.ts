@@ -168,7 +168,7 @@ export async function GET(request: NextRequest) {
         .or(`region.ilike.%${qNormalized}%`)
     }
 
-    const { data: locations, error: locError } = await locationsQuery.limit(500)
+    const { data: locations, error: locError } = await locationsQuery.limit(5000) // Increased from 500 to support larger location searches
 
     if (locError) {
       console.error(requestId, "[v0] Location search error:", locError)

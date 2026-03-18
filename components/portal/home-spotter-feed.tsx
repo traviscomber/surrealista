@@ -38,7 +38,7 @@ export function HomeSpotterFeed() {
           .select('id, file_name, region, placemarks_count, category, tags')
           .eq('is_active', true)
           .order('created_at', { ascending: false })
-          .limit(20)
+          .limit(100) // Increased from 20 to 100 to support larger opportunity datasets
 
         if (error) {
           console.error('[v0] Error fetching KMZ opportunities:', error)
