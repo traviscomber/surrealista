@@ -63,6 +63,8 @@ export function KMZCollectionManager() {
   const [uploading, setUploading] = useState(false)
   const [indexing, setIndexing] = useState(false)
   const [fixingRegions, setFixingRegions] = useState(false)
+  const [unassignedKMZCount, setUnassignedKMZCount] = useState(0)
+  const [showUnassignedAlert, setShowUnassignedAlert] = useState(false)
 
   useEffect(() => {
     loadKMZCollection()
@@ -116,10 +118,30 @@ export function KMZCollectionManager() {
         totalPlacemarks,
         totalRoles: allRoles.size,
       })
+
+      // Check for unassigned KMZ files
+      checkUnassignedKMZ()
     } catch (error) {
       console.error("[v0] Error loading KMZ collection:", error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const checkUnassignedKMZ = async () => {
+    try {
+      const response = await fetch("/api/admin/kmz/check-unassigned")
+      if (!response.ok) throw new Error("Failed to check unassigned KMZ")
+      
+      const data = await response.json()
+      console.log("[v0] Unassigned KMZ check:", data)
+      
+      if (data.unassigned > 0) {
+        setUnassignedKMZCount(data.unassigned)
+        setShowUnassignedAlert(true)
+      }
+    } catch (error) {
+      console.error("[v0] Error checking unassigned KMZ:", error)
     }
   }
 
@@ -581,6 +603,39 @@ export function KMZCollectionManager() {
         kmz={selectedKmzForAnalysis}
       />
       <div className="container mx-auto p-6 space-y-8">
+        {/* Unassigned KMZ Alert */}
+        {showUnassignedAlert && unassignedKMZCount > 0 && (
+          <div className="flex items-start gap-4 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-lg shadow-sm">
+            <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <h3 className="font-semibold text-yellow-800">⚠️ {unassignedKMZCount} Archivos KMZ sin Región Asignada</h3>
+              <p className="text-sm text-yellow-700 mt-1">
+                Estos archivos no tienen una región geográfica asignada. Haz clic en "Actualizar Regiones" para asignarlas automáticamente.
+              </p>
+            </div>
+            <Button
+              onClick={fixRegions}
+              disabled={fixingRegions}
+              className="ml-2 bg-yellow-600 hover:bg-yellow-700 text-white whitespace-nowrap"
+              size="sm"
+            >
+              {fixingRegions ? (
+                <>
+                  <RefreshCw className="h-3 w-3 mr-2 animate-spin" />
+                  Procesando...
+                </>
+              ) : (
+                "Actualizar Regiones"
+              )}
+            </Button>
+            <button
+              onClick={() => setShowUnassignedAlert(false)}
+              className="text-yellow-600 hover:text-yellow-800 font-bold"
+            >
+              ✕
+            </button>
+          </div>
+        )}
         {/* Header */}
         <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-700 p-8 text-white">
           <div className="absolute inset-0 bg-black/10"></div>
