@@ -64,7 +64,7 @@ SET region = CASE
     SELECT 1 FROM kmz_placemarks kp 
     WHERE kp.kmz_id = kc.id 
     AND kp.center_lat >= -36 AND kp.center_lat < -34.5
-  ) THEN 'Libertador General Bernardo O\'Higgins'
+  ) THEN 'Libertador General Bernardo O''Higgins'
   WHEN EXISTS (
     SELECT 1 FROM kmz_placemarks kp 
     WHERE kp.kmz_id = kc.id 
@@ -113,7 +113,7 @@ SET region = CASE
   WHEN (kc.bounds -> 'center' ->> 'lat')::numeric >= -32 AND (kc.bounds -> 'center' ->> 'lat')::numeric < -28 THEN 'Coquimbo'
   WHEN (kc.bounds -> 'center' ->> 'lat')::numeric >= -33.5 AND (kc.bounds -> 'center' ->> 'lat')::numeric < -32 THEN 'Valparaíso'
   WHEN (kc.bounds -> 'center' ->> 'lat')::numeric >= -34.5 AND (kc.bounds -> 'center' ->> 'lat')::numeric < -33.5 THEN 'Metropolitana'
-  WHEN (kc.bounds -> 'center' ->> 'lat')::numeric >= -36 AND (kc.bounds -> 'center' ->> 'lat')::numeric < -34.5 THEN 'Libertador General Bernardo O\'Higgins'
+  WHEN (kc.bounds -> 'center' ->> 'lat')::numeric >= -36 AND (kc.bounds -> 'center' ->> 'lat')::numeric < -34.5 THEN 'Libertador General Bernardo O''Higgins'
   WHEN (kc.bounds -> 'center' ->> 'lat')::numeric >= -37 AND (kc.bounds -> 'center' ->> 'lat')::numeric < -36 THEN 'Región del Maule'
   WHEN (kc.bounds -> 'center' ->> 'lat')::numeric >= -38 AND (kc.bounds -> 'center' ->> 'lat')::numeric < -37 THEN 'Ñuble'
   WHEN (kc.bounds -> 'center' ->> 'lat')::numeric >= -40.5 AND (kc.bounds -> 'center' ->> 'lat')::numeric < -38 THEN 'Biobío'
