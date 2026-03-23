@@ -140,9 +140,11 @@ export function HomeSpotterFeed() {
 
     // Sort
     if (sortBy === 'recent') {
-      filtered = [...filtered].sort((a, b) => 
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      )
+      filtered = [...filtered].sort((a, b) => {
+        const dateA = a.created_at ? new Date(a.created_at).getTime() : 0
+        const dateB = b.created_at ? new Date(b.created_at).getTime() : 0
+        return dateB - dateA
+      })
     } else if (sortBy === 'highest_potential') {
       filtered = [...filtered].sort((a, b) => {
         const potentialOrder = { high: 3, medium: 2, low: 1 }
