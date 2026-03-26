@@ -384,6 +384,18 @@ export function KMZMapDisplay({
 
                   shape.bindPopup(popupContent)
 
+                  // Add click handler to shape to open detail panel
+                  shape.on("click", () => {
+                    console.log("[v0] Shape clicked:", placemark.name)
+                    setSelectedLayer({
+                      ...layerInfo,
+                      kmzId: kmzData.id,
+                      owner: kmzData.owner || undefined,
+                      placemarks_count: kmzData.placemarks?.length || 0,
+                      locationDetails: layerInfo.locationDetails,
+                    })
+                  })
+
                   // Only geocode if enabled
                   if (enableGeocoding) {
                     geocodingQueueRef.current.push({
