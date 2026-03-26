@@ -1,7 +1,11 @@
 'use client'
 
 import dynamic from 'next/dynamic'
-import { useMemo } from 'react'
+
+const KmzMapViewer = dynamic(() => import('./kmz-map-viewer'), {
+  ssr: false,
+  loading: () => <div className="w-full h-full bg-gray-100 flex items-center justify-center">Cargando mapa...</div>,
+})
 
 interface KMZFile {
   id?: string
@@ -19,33 +23,20 @@ interface KMZMapDisplayProps {
   selectedKmzId?: string | null
 }
 
-// Lazy load the viewer to avoid SSR issues
-const KmzMapViewer = dynamic(() => import('./kmz-map-viewer'), { ssr: false })
-
-export function KMZMapDisplay({
+export default function KMZMapDisplay({
   kmzFiles,
-  centerCoordinates,
+  centerCoordinates = [-30.6, -71.5],
   height = '100%',
   enableGeocoding = true,
   selectedKmzId = null,
 }: KMZMapDisplayProps) {
-  // Filter KMZ files based on selectedKmzId
-  const filteredKmzFiles = useMemo(() => {
-    if (!selectedKmzId) {
-      return kmzFiles
-    }
-    return kmzFiles.filter((file) => {
-      const fileId = (file.dbId || file.id)?.toString()
-      return fileId === selectedKmzId.toString()
-    })
-  }, [kmzFiles, selectedKmzId])
-
   return (
-    <div style={{ height, width: '100%' }}>
+    <div style={{ height }}>
       <KmzMapViewer
-        kmzFiles={filteredKmzFiles}
+        kmzFiles={kmzFiles}
         centerCoordinates={centerCoordinates}
         enableGeocoding={enableGeocoding}
+        selectedKmzId={selectedKmzId}
       />
     </div>
   )
