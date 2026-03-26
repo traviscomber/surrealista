@@ -1157,7 +1157,7 @@ export function CAMPOSFolderView() {
           <div className="flex-1 overflow-hidden relative w-full">
             {kmzFiles.length > 0 && mapCenter ? (
               <KMZMapDisplay 
-                kmzFiles={kmzFiles} 
+                kmzFiles={selectedKmzId ? kmzFiles.filter(f => (f.dbId || f.id)?.toString() === selectedKmzId.toString()) : kmzFiles}
                 centerCoordinates={mapCenter} 
                 height="100%" 
                 enableGeocoding={true}
