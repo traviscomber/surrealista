@@ -721,33 +721,35 @@ export function CAMPOSFolderView() {
     }
   }
 
-  const filteredFolders = folders.map((folder) => {
-    const searchLower = searchQuery.toLowerCase()
-    
-    // Check if region name matches search
-    const regionMatches = folder.name.toLowerCase().includes(searchLower)
-    
-    // Filter children (KMZ files) based on search
-    const filteredChildren = folder.children?.filter((child) => {
-      const childNameMatches = child.name.toLowerCase().includes(searchLower)
-      const areaMatches = child.area?.toLowerCase().includes(searchLower) || false
-      return childNameMatches || areaMatches
-    }) || []
-    
-    // If search query is empty, show all; otherwise only show if region or children match
-    if (!searchQuery.trim()) {
-      return folder
-    }
-    
-    if (regionMatches || filteredChildren.length > 0) {
-      return {
-        ...folder,
-        children: regionMatches ? folder.children : filteredChildren, // If region matches, show all children; otherwise show only matching children
+  const filteredFolders = useMemo(() => {
+    return folders.map((folder) => {
+      const searchLower = searchQuery.toLowerCase()
+      
+      // Check if region name matches search
+      const regionMatches = folder.name.toLowerCase().includes(searchLower)
+      
+      // Filter children (KMZ files) based on search
+      const filteredChildren = folder.children?.filter((child) => {
+        const childNameMatches = child.name.toLowerCase().includes(searchLower)
+        const areaMatches = child.area?.toLowerCase().includes(searchLower) || false
+        return childNameMatches || areaMatches
+      }) || []
+      
+      // If search query is empty, show all; otherwise only show if region or children match
+      if (!searchQuery.trim()) {
+        return folder
       }
-    }
-    
-    return null
-  }).filter(Boolean) as FolderItem[]
+      
+      if (regionMatches || filteredChildren.length > 0) {
+        return {
+          ...folder,
+          children: regionMatches ? folder.children : filteredChildren, // If region matches, show all children; otherwise show only matching children
+        }
+      }
+      
+      return null
+    }).filter(Boolean) as FolderItem[]
+  }, [folders, searchQuery])
 
   // Use exact count from database instead of summing folder counts
   const totalFiles = totalFileCount > 0 ? totalFileCount : folders.reduce((sum, folder) => sum + (folder.fileCount || 0), 0)
