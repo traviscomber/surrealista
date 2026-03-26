@@ -54,7 +54,15 @@ export function KMZMapDisplay({
 
   const safeKmzFiles = Array.isArray(kmzFiles) ? kmzFiles : []
 
-  console.log("[v0] KMZMapDisplay received", safeKmzFiles.length, "KMZ files")
+  // Filter KMZ files if a specific one is selected
+  const displayKmzFiles = selectedKmzId 
+    ? safeKmzFiles.filter(file => 
+        file.fileName.includes(selectedKmzId) || 
+        file.id?.toString() === selectedKmzId.toString()
+      )
+    : safeKmzFiles
+
+  console.log("[v0] KMZMapDisplay received", safeKmzFiles.length, "KMZ files, displaying", displayKmzFiles.length)
 
   useEffect(() => {
     const loadLeaflet = async () => {
@@ -473,13 +481,13 @@ export function KMZMapDisplay({
   }
 
   useEffect(() => {
-    if (!mapInstance || !safeKmzFiles || safeKmzFiles.length === 0) {
+    if (!mapInstance || !displayKmzFiles || displayKmzFiles.length === 0) {
       console.log("[v0] Map not ready or no KMZ files")
       return
     }
 
     const kmzDataHash = JSON.stringify(
-      safeKmzFiles.map((f) => ({
+      displayKmzFiles.map((f) => ({
         fileName: f.fileName,
         placemarkCount: f.placemarks?.length || 0,
       })),
@@ -514,7 +522,7 @@ export function KMZMapDisplay({
     const newLayers: LayerInfo[] = []
 
     // Process each KMZ file
-    const allPlacemarks = safeKmzFiles.flatMap((kmzData) => {
+    const allPlacemarks = displayKmzFiles.flatMap((kmzData) => {
       if (!kmzData.placemarks || !Array.isArray(kmzData.placemarks)) {
         return []
       }
@@ -543,7 +551,7 @@ export function KMZMapDisplay({
         }
       }
     })
-  }, [mapInstance, safeKmzFiles])
+    }, [mapInstance, displayKmzFiles])
 
   useEffect(() => {
     if (!mapInstance || !centerCoordinates) return
