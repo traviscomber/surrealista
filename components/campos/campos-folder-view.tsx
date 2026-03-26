@@ -88,6 +88,8 @@ export function CAMPOSFolderView() {
   const [documentCount, setDocumentCount] = useState<number>(0)
   const [loadingDocuments, setLoadingDocuments] = useState(false)
   const [isLoadingFromURL, setIsLoadingFromURL] = useState(false)
+  const [selectedKmzId, setSelectedKmzId] = useState<string | null>(null)
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState("")
 
   const searchParams = useSearchParams()
   const kmzIdFromURL = searchParams?.get("kmz")
@@ -95,6 +97,15 @@ export function CAMPOSFolderView() {
   useEffect(() => {
     loadRegionMetadata()
   }, [])
+
+  // Debounce search query - wait 500ms after user stops typing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery)
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
   // Load KMZ file from URL parameter if provided
   useEffect(() => {
@@ -483,6 +494,7 @@ export function CAMPOSFolderView() {
     // If this is a FOLDER/REGION, load all KMZ files for that region AND toggle folder open/closed
     if (item.type === "folder") {
       console.log("[v0] Folder/Region clicked, loading all KMZ files for region:", item.name)
+      setSelectedKmzId(null) // Clear selected KMZ when clicking a region to show all
       await loadRegionKMZFiles(item.name)
       
       // Toggle folder open/closed
@@ -494,10 +506,10 @@ export function CAMPOSFolderView() {
       return
     }
 
-    // Otherwise, it's a file - load individual file data
-    if (item.location) {
-      console.log("[v0] Centering map on coordinates:", item.location)
-      setMapCenter(item.location)
+    // Otherwise, it's a file - load individual file data and select it for map display
+    if (item.type === "file") {
+      console.log("[v0] File clicked, selecting KMZ for map display:", item.id)
+      setSelectedKmzId(item.id) // Show only this KMZ on the map
     }
 
     if (item.type === "file" && item.dbId) {
@@ -723,7 +735,7 @@ export function CAMPOSFolderView() {
 
   const filteredFolders = useMemo(() => {
     return folders.map((folder) => {
-      const searchLower = searchQuery.toLowerCase()
+      const searchLower = debouncedSearchQuery.toLowerCase()
       
       // Check if region name matches search
       const regionMatches = folder.name.toLowerCase().includes(searchLower)
@@ -736,7 +748,7 @@ export function CAMPOSFolderView() {
       }) || []
       
       // If search query is empty, show all; otherwise only show if region or children match
-      if (!searchQuery.trim()) {
+      if (!debouncedSearchQuery.trim()) {
         return folder
       }
       
@@ -749,7 +761,7 @@ export function CAMPOSFolderView() {
       
       return null
     }).filter(Boolean) as FolderItem[]
-  }, [folders, searchQuery])
+  }, [folders, debouncedSearchQuery])
 
   // Use exact count from database instead of summing folder counts
   const totalFiles = totalFileCount > 0 ? totalFileCount : folders.reduce((sum, folder) => sum + (folder.fileCount || 0), 0)
@@ -1152,7 +1164,14 @@ export function CAMPOSFolderView() {
           {/* Map Display */}
           <div className="flex-1 overflow-hidden relative w-full">
             {kmzFiles.length > 0 && mapCenter ? (
-              <KMZMapDisplay kmzFiles={kmzFiles} centerCoordinates={mapCenter} height="100%" enableGeocoding={true} />
+              <KMZMapDisplay 
+                kmzFiles={kmzFiles} 
+                centerCoordinates={mapCenter} 
+                height="100%" 
+                enableGeocoding={true}
+                selectedKmzId={selectedKmzId}
+                onKmzSelect={setSelectedKmzId}
+              />
             ) : (
               <div className="h-full flex items-center justify-center bg-slate-100">
                 <div className="text-center">
