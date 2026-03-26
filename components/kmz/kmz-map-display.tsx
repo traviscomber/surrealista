@@ -872,51 +872,10 @@ export function KMZMapDisplay({
             </div>
           )}
         </div>
-              )}
-
-              {layers.length === 0 ? (
-                <p className="text-xs text-gray-500">No hay capas cargadas</p>
-              ) : (
-                <div className="space-y-1.5">
-                  {layers.map((layer, index) => (
-                    <div
-                      key={index}
-                      onClick={() => {
-                        zoomToLayer(index)
-                        setSelectedLayer(layer)
-                        onPlacemarkSelect?.(layer)
-                      }}
-                      className={`flex items-start gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
-                        selectedLayer?.name === layer.name
-                          ? "bg-blue-50 border-blue-300"
-                          : "bg-card hover:bg-accent/70 border-gray-200"
-                      }`}
-                    >
-                      <div
-                        className="w-3 h-3 rounded flex-shrink-0 mt-0.5 border border-gray-300"
-                        style={{ backgroundColor: layer.color }}
-                        title={`Color: ${layer.color}`}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium truncate">{layer.name}</p>
-                        <p className="text-[10px] text-muted-foreground truncate">{layer.fileName}</p>
-                        {layer.isLoadingLocation && (
-                          <p className="text-[10px] text-muted-foreground mt-0.5">Cargando ubicación...</p>
-                        )}
-                        {layer.locationDetails && !layer.isLoadingLocation && (
-                          <div className="mt-1 space-y-0.5">
-                            {layer.locationDetails.comuna && (
-                              <p className="text-[10px] text-muted-foreground">📍 {layer.locationDetails.comuna}</p>
-                            )}
-                            {layer.locationDetails.region && (
-                              <p className="text-[10px] text-muted-foreground">
-                                {layer.locationDetails.region.replace("Región de ", "")}
-                              </p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex gap-0.5 flex-shrink-0">
+      </div>
+    </>
+  )
+}
                         <Button
                           variant="ghost"
                           size="sm"
