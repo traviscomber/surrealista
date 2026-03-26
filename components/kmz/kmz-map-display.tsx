@@ -765,13 +765,6 @@ export function KMZMapDisplay({
 
   return (
     <>
-      {mapError && (
-        <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <AlertCircle className="h-5 w-5 text-red-600" />
-          <p className="text-sm text-red-800">{mapError}</p>
-        </div>
-      )}
-
       <div
         ref={containerRef}
         className="flex w-full h-full relative"
