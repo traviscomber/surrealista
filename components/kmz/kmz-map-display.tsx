@@ -21,6 +21,9 @@ interface LayerInfo {
   visible: boolean
   color: string
   bounds: any[]
+  owner?: string
+  kmzId?: string
+  placemarks_count?: number
   locationDetails?: ChileanLocationDetails
   isLoadingLocation?: boolean
 }
@@ -40,6 +43,8 @@ export function KMZMapDisplay({
   const [isLoadingLayers, setIsLoadingLayers] = useState(false)
   const [layerProgress, setLayerProgress] = useState(0)
   const [selectedLayer, setSelectedLayer] = useState<LayerInfo | null>(null) // track selected layer
+  const [ownerInput, setOwnerInput] = useState("")
+  const [isSavingOwner, setIsSavingOwner] = useState(false)
   const mapRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const clientMarkerRef = useRef<any>(null)
@@ -651,6 +656,41 @@ export function KMZMapDisplay({
     }
   }
 
+  const saveOwner = async () => {
+    if (!selectedLayer?.kmzId || !ownerInput.trim()) return
+
+    setIsSavingOwner(true)
+    try {
+      const response = await fetch("/api/kmz/update-owner", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kmzId: selectedLayer.kmzId, owner: ownerInput.trim() }),
+      })
+
+      if (!response.ok) throw new Error("Failed to save owner")
+
+      // Update the selected layer with the new owner
+      setSelectedLayer((prev) =>
+        prev ? { ...prev, owner: ownerInput.trim() } : null
+      )
+
+      console.log("[v0] Owner saved successfully:", ownerInput)
+    } catch (error) {
+      console.error("[v0] Error saving owner:", error)
+    } finally {
+      setIsSavingOwner(false)
+    }
+  }
+
+  // Update owner input when selected layer changes
+  useEffect(() => {
+    if (selectedLayer?.owner) {
+      setOwnerInput(selectedLayer.owner)
+    } else {
+      setOwnerInput("")
+    }
+  }, [selectedLayer])
+
   useEffect(() => {
     const handleFullscreenChange = () => {
       setIsFullscreen(!!document.fullscreenElement)
@@ -734,7 +774,7 @@ export function KMZMapDisplay({
 
       <div
         ref={containerRef}
-        className="flex w-full h-full relative pr-96"
+        className="flex w-full h-full relative"
         style={{ height: isFullscreen ? "100vh" : height || "100%" }}
       >
         <Button
@@ -750,18 +790,88 @@ export function KMZMapDisplay({
         <div ref={mapRef} className="flex-1 h-full rounded-lg overflow-hidden border pointer-events-auto" />
 
         <div className="absolute inset-y-0 right-0 w-96 flex flex-col pointer-events-none bg-white border-l shadow-lg z-[200]">
-          {/* Capas del Mapa section */}
-          <div className="flex-1 border-b overflow-y-auto pointer-events-auto">
-            <div className="p-4">
-              <h3 className="font-semibold flex items-center gap-2 text-sm mb-3">
-                <MapPin className="h-4 w-4" />
-                Capas del Mapa ({layers.length})
-              </h3>
-
-              {isLoadingLayers && (
-                <div className="mb-2 p-2 bg-blue-50 rounded text-xs text-blue-700">
-                  Cargando capas: {layerProgress}%
+          {/* Detalles del KMZ section - simplified, detail only */}
+          {selectedLayer && (
+            <div className="flex-1 p-4 overflow-y-auto bg-white">
+              <h4 className="font-semibold text-lg mb-4 flex items-center gap-2">
+                <MapPin className="h-5 w-5" />
+                Detalles del KMZ
+              </h4>
+              <div className="space-y-4 text-sm pointer-events-auto">
+                <div>
+                  <p className="font-semibold text-gray-900 mb-1">{selectedLayer.name}</p>
+                  <p className="text-gray-600 text-xs">Archivo: {selectedLayer.fileName}</p>
                 </div>
+
+                {selectedLayer.locationDetails && (
+                  <>
+                    {selectedLayer.locationDetails.region && (
+                      <div className="pt-3 border-t">
+                        <p className="font-medium text-gray-700 mb-1">Región</p>
+                        <p className="text-gray-600">{selectedLayer.locationDetails.region}</p>
+                      </div>
+                    )}
+                    {selectedLayer.locationDetails.provincia && (
+                      <div className="pt-3 border-t">
+                        <p className="font-medium text-gray-700 mb-1">Provincia</p>
+                        <p className="text-gray-600">{selectedLayer.locationDetails.provincia}</p>
+                      </div>
+                    )}
+                    {selectedLayer.locationDetails.comuna && (
+                      <div className="pt-3 border-t">
+                        <p className="font-medium text-gray-700 mb-1">Comuna</p>
+                        <p className="text-gray-600">{selectedLayer.locationDetails.comuna}</p>
+                      </div>
+                    )}
+                    {selectedLayer.locationDetails.nearbyCities &&
+                      selectedLayer.locationDetails.nearbyCities.length > 0 && (
+                        <div className="pt-3 border-t">
+                          <p className="font-medium text-gray-700 mb-1">Ciudades Cercanas</p>
+                          <p className="text-gray-600">{selectedLayer.locationDetails.nearbyCities.join(", ")}</p>
+                        </div>
+                      )}
+                  </>
+                )}
+
+                {/* Owner field section */}
+                <div className="pt-3 border-t">
+                  <p className="font-medium text-gray-700 mb-2">Propietario</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Ingresar propietario..."
+                      value={ownerInput}
+                      onChange={(e) => setOwnerInput(e.target.value)}
+                      className="flex-1 px-2 py-1 border rounded text-xs bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <Button
+                      size="sm"
+                      className="h-8 px-2 text-xs"
+                      onClick={saveOwner}
+                      disabled={isSavingOwner || !ownerInput.trim()}
+                    >
+                      {isSavingOwner ? "..." : "Guardar"}
+                    </Button>
+                  </div>
+                  {selectedLayer.owner && (
+                    <p className="text-xs text-green-600 mt-2">✓ Propietario: {selectedLayer.owner}</p>
+                  )}
+                </div>
+
+                <div className="pt-3 border-t text-xs text-gray-500">
+                  <p className="mb-1">Puntos de interés: {selectedLayer.placemarks_count || 0}</p>
+                  <p>Total de capas: {layers.length}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!selectedLayer && (
+            <div className="flex-1 p-4 flex items-center justify-center text-gray-500 text-sm">
+              <p>Selecciona un KMZ en el mapa para ver detalles</p>
+            </div>
+          )}
+        </div>
               )}
 
               {layers.length === 0 ? (
