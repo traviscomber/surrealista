@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import KMZMapDisplay from "@/components/kmz/kmz-map-display"
+import { KMZMapDisplay } from "@/components/kmz/kmz-map-display"
 import { createBrowserClient } from "@/lib/supabase/client"
 import {
   Folder,
@@ -88,7 +88,6 @@ export function CAMPOSFolderView() {
   const [documentCount, setDocumentCount] = useState<number>(0)
   const [loadingDocuments, setLoadingDocuments] = useState(false)
   const [isLoadingFromURL, setIsLoadingFromURL] = useState(false)
-  const [selectedKmzId, setSelectedKmzId] = useState<string | null>(null)
 
   const searchParams = useSearchParams()
   const kmzIdFromURL = searchParams?.get("kmz")
@@ -484,7 +483,6 @@ export function CAMPOSFolderView() {
     // If this is a FOLDER/REGION, load all KMZ files for that region AND toggle folder open/closed
     if (item.type === "folder") {
       console.log("[v0] Folder/Region clicked, loading all KMZ files for region:", item.name)
-      setSelectedKmzId(null) // Clear selected KMZ when clicking a region
       await loadRegionKMZFiles(item.name)
       
       // Toggle folder open/closed
@@ -503,8 +501,6 @@ export function CAMPOSFolderView() {
     }
 
     if (item.type === "file" && item.dbId) {
-      console.log("[v0] File clicked, selecting KMZ for map display:", item.dbId)
-      setSelectedKmzId(item.dbId.toString()) // Set selected KMZ to show only this on map
       setLoadingDocuments(true)
       try {
         const docs = await documentKMZLinker.getDocumentsForKMZ(item.dbId.toString(), item.name)
@@ -1156,13 +1152,7 @@ export function CAMPOSFolderView() {
           {/* Map Display */}
           <div className="flex-1 overflow-hidden relative w-full">
             {kmzFiles.length > 0 && mapCenter ? (
-              <KMZMapDisplay 
-                kmzFiles={selectedKmzId ? kmzFiles.filter(f => (f.dbId || f.id)?.toString() === selectedKmzId.toString()) : kmzFiles}
-                centerCoordinates={mapCenter} 
-                height="100%" 
-                enableGeocoding={true}
-                selectedKmzId={selectedKmzId}
-              />
+              <KMZMapDisplay kmzFiles={kmzFiles} centerCoordinates={mapCenter} height="100%" enableGeocoding={true} />
             ) : (
               <div className="h-full flex items-center justify-center bg-slate-100">
                 <div className="text-center">
