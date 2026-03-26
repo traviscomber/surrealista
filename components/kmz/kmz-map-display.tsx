@@ -12,6 +12,7 @@ interface KMZMapDisplayProps {
   centerCoordinates?: { lat: number; lng: number }
   onPlacemarkSelect?: (placemark: LayerInfo | null) => void
   enableGeocoding?: boolean // Add option to disable geocoding for performance
+  selectedKmzId?: string | null
 }
 
 interface LayerInfo {
@@ -31,6 +32,7 @@ export function KMZMapDisplay({
   centerCoordinates,
   onPlacemarkSelect,
   enableGeocoding = true, // Re-enabled by default for location details
+  selectedKmzId = null,
 }: KMZMapDisplayProps) {
   const [mapInstance, setMapInstance] = useState<any>(null)
   const [leafletLoaded, setLeafletLoaded] = useState(false)
@@ -102,6 +104,20 @@ export function KMZMapDisplay({
 
     loadLeaflet()
   }, [])
+
+  // Auto-select layer when selectedKmzId changes
+  useEffect(() => {
+    if (!selectedKmzId || layers.length === 0) return
+    
+    const matchedLayer = layers.find(
+      (layer) => layer.fileName.includes(selectedKmzId) || layer.name.includes(selectedKmzId)
+    )
+    
+    if (matchedLayer) {
+      console.log("[v0] Auto-selecting layer:", matchedLayer.name)
+      setSelectedLayer(matchedLayer)
+    }
+  }, [selectedKmzId, layers])
 
   useEffect(() => {
     if (!leafletLoaded || !mapRef.current || mapInstance) return
