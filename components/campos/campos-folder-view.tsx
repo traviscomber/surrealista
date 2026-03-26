@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { KMZMapDisplay } from "@/components/kmz/kmz-map-display"
+import KMZMapDisplay from "@/components/kmz/kmz-map-display"
 import { createBrowserClient } from "@/lib/supabase/client"
 import {
   Folder,
