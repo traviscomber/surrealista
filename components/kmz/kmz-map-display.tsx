@@ -56,10 +56,12 @@ export function KMZMapDisplay({
 
   // Filter KMZ files if a specific one is selected
   const displayKmzFiles = selectedKmzId 
-    ? safeKmzFiles.filter(file => 
-        file.fileName.includes(selectedKmzId) || 
-        file.id?.toString() === selectedKmzId.toString()
-      )
+    ? safeKmzFiles.filter(file => {
+        const selectedIdStr = selectedKmzId.toString()
+        const fileId = file.id?.toString() || file.dbId?.toString() || ""
+        const fileName = file.fileName || file.name || ""
+        return fileName.includes(selectedIdStr) || fileId === selectedIdStr
+      })
     : safeKmzFiles
 
   console.log("[v0] KMZMapDisplay received", safeKmzFiles.length, "KMZ files, displaying", displayKmzFiles.length)
@@ -117,9 +119,11 @@ export function KMZMapDisplay({
   useEffect(() => {
     if (!selectedKmzId || layers.length === 0) return
     
-    const matchedLayer = layers.find(
-      (layer) => layer.fileName.includes(selectedKmzId) || layer.name.includes(selectedKmzId)
-    )
+    const selectedIdStr = selectedKmzId.toString()
+    const matchedLayer = layers.find((layer) => {
+      const layerFileName = layer.fileName || layer.name || ""
+      return layerFileName.includes(selectedIdStr) || layerFileName === selectedIdStr
+    })
     
     if (matchedLayer) {
       console.log("[v0] Auto-selecting layer:", matchedLayer.name)
