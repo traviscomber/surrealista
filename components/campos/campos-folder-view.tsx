@@ -88,6 +88,7 @@ export function CAMPOSFolderView() {
   const [documentCount, setDocumentCount] = useState<number>(0)
   const [loadingDocuments, setLoadingDocuments] = useState(false)
   const [isLoadingFromURL, setIsLoadingFromURL] = useState(false)
+  const [selectedKmzId, setSelectedKmzId] = useState<string | null>(null)
 
   const searchParams = useSearchParams()
   const kmzIdFromURL = searchParams?.get("kmz")
