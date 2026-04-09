@@ -43,6 +43,7 @@ interface FolderItem {
   type: "folder" | "file"
   location?: { lat: number; lng: number }
   area?: string
+  owner?: string
   kmzFiles?: any[]
   children?: FolderItem[]
   isOpen?: boolean
@@ -63,6 +64,8 @@ const getCleanRegionName = (fullName: string): string => {
 export function CAMPOSFolderView() {
   const [folders, setFolders] = useState<FolderItem[]>([])
   const [selectedItem, setSelectedItem] = useState<FolderItem | null>(null)
+  const [editingOwner, setEditingOwner] = useState<string>("")
+  const [isSavingOwner, setIsSavingOwner] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [kmzFiles, setKmzFiles] = useState<any[]>([])
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null)
@@ -96,6 +99,13 @@ export function CAMPOSFolderView() {
   useEffect(() => {
     loadRegionMetadata()
   }, [])
+
+  // Update editingOwner when selectedItem changes
+  useEffect(() => {
+    if (selectedItem) {
+      setEditingOwner(selectedItem.owner || "")
+    }
+  }, [selectedItem])
 
   // Load KMZ file from URL parameter if provided
   useEffect(() => {
@@ -965,6 +975,20 @@ export function CAMPOSFolderView() {
               <div>
                 <p className="text-sm font-medium mb-1">Información</p>
                 <Badge variant="secondary">{selectedItem.area}</Badge>
+              </div>
+            )}
+
+            {selectedItem.type === "file" && (
+              <div className="pt-2">
+                <label className="text-sm font-medium mb-2 block">Propietario / Cliente</label>
+                <input
+                  type="text"
+                  value={editingOwner}
+                  onChange={(e) => setEditingOwner(e.target.value)}
+                  placeholder="Ingresa nombre del propietario o cliente"
+                  className="w-full px-2 py-1.5 border rounded-md text-sm"
+                />
+                <p className="text-xs text-muted-foreground mt-1">Nombre del dueño del predio o cliente asociado</p>
               </div>
             )}
 
