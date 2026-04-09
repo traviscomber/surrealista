@@ -55,12 +55,10 @@ export function GlobalCommandPalette() {
 
   const performSearch = useCallback(async (searchQuery: string) => {
     if (!searchQuery || searchQuery.length < 2) {
-      console.log("[v0] Search query too short:", searchQuery?.length)
       setResults([])
       return
     }
 
-    console.log("[v0] Performing search for:", searchQuery)
     setIsSearching(true)
     const allResults: SearchResult[] = []
     const seenIds = new Set<string>() // Deduplication
@@ -137,8 +135,6 @@ export function GlobalCommandPalette() {
           .ilike("name", `%${searchQuery}%`)
           .limit(5),
       ])
-
-      console.log("[v0] Search results - clients:", clientsResult.data?.length, "campos:", camposResult.data?.length, "docs:", docsResult.data?.length)
 
       // Process CLIENTS
       const clients = clientsResult.data || []
@@ -394,7 +390,6 @@ export function GlobalCommandPalette() {
       }
 
       setResults(allResults.slice(0, 100)) // Increase total limit to 100 for more comprehensive results
-      console.log("[v0] Final results count:", allResults.length)
     } catch (error) {
       console.error("[v0] Search error:", error)
       setResults([])
