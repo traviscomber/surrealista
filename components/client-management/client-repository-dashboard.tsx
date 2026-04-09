@@ -113,7 +113,6 @@ const statusConfig = {
 
 export function ClientRepositoryDashboard() {
   const [clients, setClients] = useState<Client[]>([])
-  const [filteredClients, setFilteredClients] = useState<Client[]>([])
   const [stats, setStats] = useState({ total: 0, hot: 0, warm: 0, cold: 0, inactive: 0, avgBudget: 0, totalValue: 0, totalDocuments: 0 })
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
