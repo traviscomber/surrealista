@@ -36,6 +36,7 @@ import { regionRescanService, type RescanProgress } from "@/lib/kmz/region-resca
 import { documentKMZLinker, type KMZDocumentLink } from "@/lib/documents/document-kmz-linker"
 import { useToast } from "@/hooks/use-toast"
 import { CAMPOSAIAgent } from "@/components/campos/campos-ai-agent"
+import { AdvancedGeoSearch } from "@/components/features/advanced-geo-search/advanced-geo-search"
 
 interface FolderItem {
   id: string

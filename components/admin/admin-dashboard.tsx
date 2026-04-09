@@ -16,6 +16,7 @@ import {
   Eye,
 } from "lucide-react"
 import Link from "next/link"
+import { SalesHeatmap } from "@/components/features/heatmap-sales/heatmap-sales"
 
 const StatCard = ({ title, value, trend, trendValue, icon: Icon, color }) => {
   return (
@@ -181,22 +182,7 @@ export function AdminDashboard() {
         </TabsContent>
 
         <TabsContent value="analytics" className="mt-0">
-          <Card>
-            <CardHeader>
-              <CardTitle>Analíticas y Reportes</CardTitle>
-              <CardDescription>Visualiza el rendimiento de la plataforma</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-center py-12">
-                <BarChart3 className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                <h3 className="text-lg font-medium mb-2">Analíticas y Reportes</h3>
-                <p className="text-gray-500 max-w-md mx-auto mb-6">Accede a informes detallados y estadísticas.</p>
-                <Button asChild>
-                  <Link href="/admin/analytics">Ver Analíticas</Link>
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+          <SalesHeatmap />
         </TabsContent>
 
         <TabsContent value="settings" className="mt-0">

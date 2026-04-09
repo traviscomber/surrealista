@@ -46,10 +46,12 @@ import {
   Loader2,
   ChevronLeft,
   ChevronRight,
+  BarChart3,
 } from "lucide-react"
 import { getClientsPaginated, getClientStatistics, deleteClient } from "@/app/actions/clients"
 import { useRouter } from "next/navigation"
 import { ClientEmailDialog } from "@/components/email/client-email-dialog"
+import { PipelineKanban } from "@/components/features/pipeline-kanban/pipeline-kanban"
 
 interface Client {
   id: string
@@ -111,22 +113,16 @@ const statusConfig = {
 
 export function ClientRepositoryDashboard() {
   const [clients, setClients] = useState<Client[]>([])
+  const [filteredClients, setFilteredClients] = useState<Client[]>([])
+  const [stats, setStats] = useState({ total: 0, hot: 0, warm: 0, cold: 0, inactive: 0, avgBudget: 0, totalValue: 0, totalDocuments: 0 })
+  const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [industryFilter, setIndustryFilter] = useState("all")
   const [sortBy, setSortBy] = useState<"completeness" | "created_at">("completeness")
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null)
-  const [emailDialogOpen, setEmailDialogOpen] = useState(false)
-  const [selectedClientForEmail, setSelectedClientForEmail] = useState<any>(null)
-  const [isLoading, setIsLoading] = useState(true)
-
   const [currentPage, setCurrentPage] = useState(1)
-  const [totalPages, setTotalPages] = useState(0)
-  const [totalClients, setTotalClients] = useState(0)
-  const [pageSize] = useState(50)
-
-  const [statistics, setStatistics] = useState<any>(null)
-
+  const [itemsPerPage] = useState(10)
+  const [viewMode, setViewMode] = useState<"table" | "pipeline">("table")
   const router = useRouter()
 
   useEffect(() => {
@@ -241,7 +237,29 @@ export function ClientRepositoryDashboard() {
           <h1 className="text-3xl font-bold text-gray-900">Repositorio de Clientes</h1>
           <p className="text-gray-600">Gestión Inteligente de Clientes</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          {/* View Mode Toggle */}
+          <div className="flex gap-2 border border-gray-200 rounded-lg p-1 bg-white">
+            <Button
+              variant={viewMode === "table" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("table")}
+              className="flex items-center gap-1"
+            >
+              <Users className="w-4 h-4" />
+              Tabla
+            </Button>
+            <Button
+              variant={viewMode === "pipeline" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setViewMode("pipeline")}
+              className="flex items-center gap-1"
+            >
+              <BarChart3 className="w-4 h-4" />
+              Pipeline
+            </Button>
+          </div>
+
           <Button
             variant="outline"
             onClick={handleRefresh}
@@ -266,7 +284,12 @@ export function ClientRepositoryDashboard() {
         </div>
       </div>
 
-      {/* Traffic Light Status Cards */}
+      {/* Conditional View - Show Pipeline or Table View */}
+      {viewMode === "pipeline" ? (
+        <PipelineKanban />
+      ) : (
+        <>
+          {/* Traffic Light Status Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <Card className="border-sage/30 bg-sage/5">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -875,6 +898,8 @@ export function ClientRepositoryDashboard() {
           clientEmail={selectedClientForEmail.email}
           clientId={selectedClientForEmail.id}
         />
+      )}
+        </>
       )}
     </div>
   )
