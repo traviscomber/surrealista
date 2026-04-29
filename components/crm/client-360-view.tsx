@@ -15,11 +15,12 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
-import { AlertCircle, Plus, Phone, Mail, MessageSquare, Calendar, FileText, MessageCircle, Zap } from 'lucide-react'
+import { AlertCircle, Plus, Phone, Mail, MessageSquare, Calendar, FileText, MessageCircle, Zap, TrendingUp } from 'lucide-react'
 import { ClientInteraction, ClientTask, ClientNote } from '@/lib/types/crm'
 import { QuickOpportunityForm } from '@/components/quick-wins/quick-opportunity-form'
 import { DocumentChecklist } from '@/components/quick-wins/document-checklist'
 import { OfferManager } from '@/components/quick-wins/offer-manager'
+import { PriceTasacionMotor } from '@/components/quick-wins/price-tasacion-motor'
 
 interface Client360ViewProps {
   clientId: string
@@ -138,7 +139,7 @@ export function Client360View({ clientId, client }: Client360ViewProps) {
 
       {/* Tabs */}
       <Tabs defaultValue="interactions" className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="interactions">
             <MessageSquare className="w-4 h-4 mr-2" />
             Interacciones ({interactions.length})
@@ -162,6 +163,10 @@ export function Client360View({ clientId, client }: Client360ViewProps) {
           <TabsTrigger value="ofertas">
             <MessageSquare className="w-4 h-4 mr-2" />
             Ofertas
+          </TabsTrigger>
+          <TabsTrigger value="tasacion">
+            <TrendingUp className="w-4 h-4 mr-2" />
+            Tasación
           </TabsTrigger>
         </TabsList>
 
@@ -335,6 +340,11 @@ export function Client360View({ clientId, client }: Client360ViewProps) {
         {/* Quick Wins - Ofertas Tab */}
         <TabsContent value="ofertas" className="space-y-4">
           <OfferManager clientId={clientId} />
+        </TabsContent>
+
+        {/* Quick Wins - Tasación Tab */}
+        <TabsContent value="tasacion" className="space-y-4">
+          <PriceTasacionMotor clientId={clientId} />
         </TabsContent>
       </Tabs>
     </div>
