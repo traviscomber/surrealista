@@ -99,15 +99,27 @@ export function Client360View({ clientId, client }: Client360ViewProps) {
         fetch(`/api/crm/notes?client_id=${clientId}`),
       ])
 
+      if (!interactionsRes.ok || !tasksRes.ok || !notesRes.ok) {
+        console.error('[v0] API error - responses not ok')
+        setInteractions([])
+        setTasks([])
+        setNotes([])
+        setLoading(false)
+        return
+      }
+
       const interactionsData = await interactionsRes.json()
       const tasksData = await tasksRes.json()
       const notesData = await notesRes.json()
 
-      setInteractions(interactionsData.data || [])
-      setTasks(tasksData.data || [])
-      setNotes(notesData.data || [])
+      setInteractions(interactionsData?.data || [])
+      setTasks(tasksData?.data || [])
+      setNotes(notesData?.data || [])
     } catch (error) {
-      console.error('Error loading client data:', error)
+      console.error('[v0] Error loading client data:', error)
+      setInteractions([])
+      setTasks([])
+      setNotes([])
     } finally {
       setLoading(false)
     }

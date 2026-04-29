@@ -1,16 +1,18 @@
 import { Client360View } from '@/components/crm/client-360-view'
 
 interface ClientPageProps {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
 export default async function ClientDetailPage({ params }: ClientPageProps) {
+  const { id } = await params
+
   // Aquí iría la lógica para obtener el cliente desde la BD
   // Por ahora usamos datos de ejemplo
   const client = {
-    id: params.id,
+    id,
     name: 'Cliente Ejemplo',
     email: 'cliente@example.com',
     phone: '+56 9 1234 5678',
@@ -22,7 +24,7 @@ export default async function ClientDetailPage({ params }: ClientPageProps) {
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto">
-        <Client360View clientId={params.id} client={client} />
+        <Client360View clientId={id} client={client} />
       </div>
     </div>
   )
