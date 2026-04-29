@@ -15,8 +15,11 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
-import { AlertCircle, Plus, Phone, Mail, MessageSquare, Calendar, FileText, MessageCircle } from 'lucide-react'
+import { AlertCircle, Plus, Phone, Mail, MessageSquare, Calendar, FileText, MessageCircle, Zap } from 'lucide-react'
 import { ClientInteraction, ClientTask, ClientNote } from '@/lib/types/crm'
+import { QuickOpportunityForm } from '@/components/quick-wins/quick-opportunity-form'
+import { DocumentChecklist } from '@/components/quick-wins/document-checklist'
+import { OfferManager } from '@/components/quick-wins/offer-manager'
 
 interface Client360ViewProps {
   clientId: string
@@ -135,7 +138,7 @@ export function Client360View({ clientId, client }: Client360ViewProps) {
 
       {/* Tabs */}
       <Tabs defaultValue="interactions" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="interactions">
             <MessageSquare className="w-4 h-4 mr-2" />
             Interacciones ({interactions.length})
@@ -147,6 +150,18 @@ export function Client360View({ clientId, client }: Client360ViewProps) {
           <TabsTrigger value="notes">
             <FileText className="w-4 h-4 mr-2" />
             Notas ({notes.length})
+          </TabsTrigger>
+          <TabsTrigger value="oportunidades">
+            <Zap className="w-4 h-4 mr-2" />
+            Oportunidad
+          </TabsTrigger>
+          <TabsTrigger value="documentos">
+            <FileText className="w-4 h-4 mr-2" />
+            Documentos
+          </TabsTrigger>
+          <TabsTrigger value="ofertas">
+            <MessageSquare className="w-4 h-4 mr-2" />
+            Ofertas
           </TabsTrigger>
         </TabsList>
 
@@ -305,6 +320,21 @@ export function Client360View({ clientId, client }: Client360ViewProps) {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Quick Wins - Oportunidad Tab */}
+        <TabsContent value="oportunidades" className="space-y-4">
+          <QuickOpportunityForm />
+        </TabsContent>
+
+        {/* Quick Wins - Documentos Tab */}
+        <TabsContent value="documentos" className="space-y-4">
+          <DocumentChecklist clientId={clientId} />
+        </TabsContent>
+
+        {/* Quick Wins - Ofertas Tab */}
+        <TabsContent value="ofertas" className="space-y-4">
+          <OfferManager clientId={clientId} />
         </TabsContent>
       </Tabs>
     </div>
