@@ -540,6 +540,10 @@ export function ClientRepositoryDashboard() {
                               <Eye className="mr-2 h-4 w-4" />
                               Ver detalles
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => router.push(`/clientes/${client.id}`)}>
+                              <Activity className="mr-2 h-4 w-4" />
+                              Ficha 360°
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => router.push(`/admin/clientes/${client.id}`)}>
                               <Edit className="mr-2 h-4 w-4" />
                               Editar
