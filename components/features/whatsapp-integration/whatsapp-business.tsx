@@ -7,18 +7,8 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { MessageCircle, Send, AlertCircle, Check } from 'lucide-react'
+import { MessageCircle, Send, Copy, Check, ExternalLink } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-
-interface WhatsAppMessage {
-  id: string
-  phone: string
-  name: string
-  message: string
-  timestamp: Date
-  direction: 'sent' | 'received'
-  status: 'pending' | 'sent' | 'delivered' | 'read'
-}
 
 interface WhatsAppTemplate {
   id: string
@@ -55,20 +45,210 @@ const WHATSAPP_TEMPLATES: WhatsAppTemplate[] = [
 ]
 
 export function WhatsAppBusinessIntegration() {
-  const [messages, setMessages] = useState<WhatsAppMessage[]>([
-    {
-      id: '1',
-      phone: '+56912345678',
-      name: 'Juan Pérez',
-      message: 'Hola, me interesa el campo en Curicó',
-      timestamp: new Date(Date.now() - 3600000),
-      direction: 'received',
-      status: 'read',
-    },
-  ])
-  const [newMessage, setNewMessage] = useState('')
-  const [selectedPhone, setSelectedPhone] = useState('+56912345678')
+  const [selectedTemplate, setSelectedTemplate] = useState<WhatsAppTemplate | null>(null)
   const [templateVariables, setTemplateVariables] = useState<Record<string, string>>({})
+  const [phoneNumber, setPhoneNumber] = useState('')
+  const [customMessage, setCustomMessage] = useState('')
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+
+  const generateMessage = () => {
+    if (!selectedTemplate) return ''
+    let message = selectedTemplate.content
+    selectedTemplate.variables.forEach((variable) => {
+      const value = templateVariables[variable] || `{{${variable}}}`
+      message = message.replace(`{{${variable}}}`, value)
+    })
+    return message
+  }
+
+  const openWhatsApp = (phone: string, message: string) => {
+    if (!phone.startsWith('+')) {
+      phone = '+56' + phone.replace(/^0/, '')
+    }
+    const encodedMessage = encodeURIComponent(message)
+    window.open(`https://wa.me/${phone.replace(/\D/g, '')}?text=${encodedMessage}`, '_blank')
+  }
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text)
+  }
+
+  const currentMessage = generateMessage()
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <MessageCircle className="w-5 h-5 text-green-600" />
+            WhatsApp Web - Mensajes Directos
+          </CardTitle>
+          <CardDescription>Envía mensajes a través de WhatsApp Web sin necesidad de configurar API</CardDescription>
+        </CardHeader>
+      </Card>
+
+      <Tabs defaultValue="templates" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="templates">Plantillas</TabsTrigger>
+          <TabsTrigger value="custom">Mensaje Personalizado</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="templates" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Plantillas Predefinidas</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                {WHATSAPP_TEMPLATES.map((template) => (
+                  <Button
+                    key={template.id}
+                    variant={selectedTemplate?.id === template.id ? 'default' : 'outline'}
+                    className="w-full justify-start text-left h-auto p-4"
+                    onClick={() => {
+                      setSelectedTemplate(template)
+                      setTemplateVariables({})
+                    }}
+                  >
+                    <div className="flex flex-col items-start gap-1">
+                      <span className="font-medium">{template.name}</span>
+                      <span className="text-xs opacity-70">{template.content.substring(0, 60)}...</span>
+                    </div>
+                  </Button>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {selectedTemplate && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Completar Variables</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {selectedTemplate.variables.map((variable) => (
+                  <div key={variable} className="space-y-2">
+                    <label className="text-sm font-medium capitalize">{variable.replace(/_/g, ' ')}</label>
+                    <Input
+                      placeholder={`Ingresa ${variable}`}
+                      value={templateVariables[variable] || ''}
+                      onChange={(e) =>
+                        setTemplateVariables({
+                          ...templateVariables,
+                          [variable]: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                ))}
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Número Teléfono (+56 o sin 0)</label>
+                  <Input
+                    placeholder="+56912345678 o 912345678"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                  />
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-2">
+                  <p className="text-sm font-medium text-blue-900">Vista Previa del Mensaje:</p>
+                  <p className="text-sm text-blue-800 whitespace-pre-wrap">{currentMessage}</p>
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => {
+                      if (phoneNumber && currentMessage) {
+                        openWhatsApp(phoneNumber, currentMessage)
+                      }
+                    }}
+                    disabled={!phoneNumber || !currentMessage}
+                    className="flex-1 bg-green-600 hover:bg-green-700"
+                  >
+                    <ExternalLink className="w-4 h-4 mr-2" />
+                    Abrir WhatsApp Web
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      copyToClipboard(currentMessage)
+                      setCopiedId('message')
+                      setTimeout(() => setCopiedId(null), 2000)
+                    }}
+                  >
+                    {copiedId === 'message' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="custom" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Mensaje Personalizado</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Número Teléfono</label>
+                <Input
+                  placeholder="+56912345678 o 912345678"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Mensaje</label>
+                <Textarea
+                  placeholder="Escribe tu mensaje aquí..."
+                  value={customMessage}
+                  onChange={(e) => setCustomMessage(e.target.value)}
+                  rows={5}
+                />
+                <p className="text-xs text-gray-500">{customMessage.length} caracteres</p>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => {
+                    if (phoneNumber && customMessage) {
+                      openWhatsApp(phoneNumber, customMessage)
+                    }
+                  }}
+                  disabled={!phoneNumber || !customMessage}
+                  className="flex-1 bg-green-600 hover:bg-green-700"
+                >
+                  <ExternalLink className="w-4 h-4 mr-2" />
+                  Abrir WhatsApp Web
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    copyToClipboard(customMessage)
+                    setCopiedId('custom')
+                    setTimeout(() => setCopiedId(null), 2000)
+                  }}
+                >
+                  {copiedId === 'custom' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+
+      <Alert className="bg-green-50 border-green-200">
+        <MessageCircle className="h-4 w-4 text-green-600" />
+        <AlertDescription className="text-green-800">
+          Los mensajes se abren en WhatsApp Web. Solo necesitas tener WhatsApp Web o la app de escritorio sincronizada con tu teléfono.
+        </AlertDescription>
+      </Alert>
+    </div>
+  )
+}
 
   const sendMessage = () => {
     if (!newMessage.trim()) return
