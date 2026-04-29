@@ -15,7 +15,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
-import { AlertCircle, Plus, Phone, Mail, MessageSquare, Calendar, FileText, MessageCircle, Zap, TrendingUp, Download, MapPin } from 'lucide-react'
+import { AlertCircle, Plus, Phone, Mail, MessageSquare, Calendar, FileText, MessageCircle, Zap, TrendingUp, Download, MapPin, Layers } from 'lucide-react'
 import { ClientInteraction, ClientTask, ClientNote } from '@/lib/types/crm'
 import { QuickOpportunityForm } from '@/components/quick-wins/quick-opportunity-form'
 import { DocumentChecklist } from '@/components/quick-wins/document-checklist'
@@ -24,6 +24,7 @@ import { PriceTasacionMotor } from '@/components/quick-wins/price-tasacion-motor
 import { VisitScheduler } from '@/components/visits/visit-scheduler'
 import { VisitsList } from '@/components/visits/visits-list'
 import { VisitEvaluation } from '@/components/visits/visit-evaluation'
+import { KMZAnalysisPanel } from '@/components/kmz/kmz-analysis-panel'
 
 interface Client360ViewProps {
   clientId: string
@@ -180,7 +181,7 @@ export function Client360View({ clientId, client }: Client360ViewProps) {
 
       {/* Tabs - Responsive layout */}
       <Tabs defaultValue="interactions" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-4 md:grid-cols-8 overflow-x-auto">
+        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-4 md:grid-cols-9 overflow-x-auto">
           <TabsTrigger value="interactions" className="text-xs sm:text-sm">
             <MessageSquare className="w-3 h-3 sm:w-4 sm:h-4 mr-0 sm:mr-2" />
             <span className="hidden sm:inline">Interacciones</span>
@@ -217,6 +218,10 @@ export function Client360View({ clientId, client }: Client360ViewProps) {
           <TabsTrigger value="visitas" className="text-xs sm:text-sm hidden lg:flex">
             <MapPin className="w-3 h-3 sm:w-4 sm:h-4 mr-0 sm:mr-2" />
             <span>Visitas</span>
+          </TabsTrigger>
+          <TabsTrigger value="kmz-analysis" className="text-xs sm:text-sm hidden lg:flex">
+            <Layers className="w-3 h-3 sm:w-4 sm:h-4 mr-0 sm:mr-2" />
+            <span>Análisis KMZ</span>
           </TabsTrigger>
         </TabsList>
 
@@ -411,6 +416,11 @@ export function Client360View({ clientId, client }: Client360ViewProps) {
               <VisitEvaluation visitId={clientId} clientName={client?.name} />
             </div>
           </div>
+        </TabsContent>
+
+        {/* KMZ Analysis Tab */}
+        <TabsContent value="kmz-analysis" className="space-y-4">
+          <KMZAnalysisPanel clientId={clientId} clientName={client?.name} />
         </TabsContent>
       </Tabs>
     </div>
