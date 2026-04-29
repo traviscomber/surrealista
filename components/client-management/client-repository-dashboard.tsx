@@ -124,6 +124,7 @@ export function ClientRepositoryDashboard() {
   const [totalClients, setTotalClients] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [statistics, setStatistics] = useState<any>(null)
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null)
   const pageSize = 10
   const router = useRouter()
 
