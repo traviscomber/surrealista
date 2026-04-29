@@ -125,6 +125,8 @@ export function ClientRepositoryDashboard() {
   const [totalPages, setTotalPages] = useState(0)
   const [statistics, setStatistics] = useState<any>(null)
   const [selectedClient, setSelectedClient] = useState<Client | null>(null)
+  const [selectedClientForEmail, setSelectedClientForEmail] = useState<Client | null>(null)
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false)
   const pageSize = 10
   const router = useRouter()
 
