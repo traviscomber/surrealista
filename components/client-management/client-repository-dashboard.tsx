@@ -121,6 +121,10 @@ export function ClientRepositoryDashboard() {
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(10)
   const [viewMode, setViewMode] = useState<"table" | "pipeline">("table")
+  const [totalClients, setTotalClients] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
+  const [statistics, setStatistics] = useState<any>(null)
+  const pageSize = 10
   const router = useRouter()
 
   useEffect(() => {
