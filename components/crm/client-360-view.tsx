@@ -15,7 +15,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
-import { AlertCircle, Plus, Phone, Mail, MessageSquare, Calendar, FileText, MessageCircle, Zap, TrendingUp } from 'lucide-react'
+import { AlertCircle, Plus, Phone, Mail, MessageSquare, Calendar, FileText, MessageCircle, Zap, TrendingUp, Download } from 'lucide-react'
 import { ClientInteraction, ClientTask, ClientNote } from '@/lib/types/crm'
 import { QuickOpportunityForm } from '@/components/quick-wins/quick-opportunity-form'
 import { DocumentChecklist } from '@/components/quick-wins/document-checklist'
@@ -41,6 +41,7 @@ export function Client360View({ clientId, client }: Client360ViewProps) {
   const [notes, setNotes] = useState<ClientNote[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [exportingPDF, setExportingPDF] = useState(false)
 
   useEffect(() => {
     loadClientData()
@@ -87,6 +88,34 @@ export function Client360View({ clientId, client }: Client360ViewProps) {
     )
   }
 
+  const exportToPDF = async () => {
+    try {
+      setExportingPDF(true)
+      const response = await fetch('/api/pdf/generate-client-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId, clientData: client }),
+      })
+
+      if (!response.ok) throw new Error('Error generating PDF')
+
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `cliente_${client?.name || 'reporte'}_${Date.now()}.html`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error('Error exporting PDF:', error)
+      alert('Error al exportar PDF')
+    } finally {
+      setExportingPDF(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header Info */}
@@ -100,6 +129,15 @@ export function Client360View({ clientId, client }: Client360ViewProps) {
             <div className="flex gap-2">
               <Badge variant="outline">{client?.type || 'N/A'}</Badge>
               <Badge>{client?.pipeline_status || 'N/A'}</Badge>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={exportToPDF}
+                disabled={exportingPDF}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                {exportingPDF ? 'Exportando...' : 'Exportar PDF'}
+              </Button>
             </div>
           </div>
         </CardHeader>
@@ -137,36 +175,41 @@ export function Client360View({ clientId, client }: Client360ViewProps) {
         </Card>
       )}
 
-      {/* Tabs */}
+      {/* Tabs - Responsive layout */}
       <Tabs defaultValue="interactions" className="w-full">
-        <TabsList className="grid w-full grid-cols-7">
-          <TabsTrigger value="interactions">
-            <MessageSquare className="w-4 h-4 mr-2" />
-            Interacciones ({interactions.length})
+        <TabsList className="grid w-full grid-cols-3 sm:grid-cols-4 md:grid-cols-7 overflow-x-auto">
+          <TabsTrigger value="interactions" className="text-xs sm:text-sm">
+            <MessageSquare className="w-3 h-3 sm:w-4 sm:h-4 mr-0 sm:mr-2" />
+            <span className="hidden sm:inline">Interacciones</span>
+            <span className="sm:hidden">Int.</span>
           </TabsTrigger>
-          <TabsTrigger value="tasks">
-            <Calendar className="w-4 h-4 mr-2" />
-            Tareas ({tasks.length})
+          <TabsTrigger value="tasks" className="text-xs sm:text-sm">
+            <Calendar className="w-3 h-3 sm:w-4 sm:h-4 mr-0 sm:mr-2" />
+            <span className="hidden sm:inline">Tareas</span>
+            <span className="sm:hidden">Tar.</span>
           </TabsTrigger>
-          <TabsTrigger value="notes">
-            <FileText className="w-4 h-4 mr-2" />
-            Notas ({notes.length})
+          <TabsTrigger value="notes" className="text-xs sm:text-sm">
+            <FileText className="w-3 h-3 sm:w-4 sm:h-4 mr-0 sm:mr-2" />
+            <span className="hidden sm:inline">Notas</span>
+            <span className="sm:hidden">Not.</span>
           </TabsTrigger>
-          <TabsTrigger value="oportunidades">
-            <Zap className="w-4 h-4 mr-2" />
-            Oportunidad
+          <TabsTrigger value="oportunidades" className="text-xs sm:text-sm">
+            <Zap className="w-3 h-3 sm:w-4 sm:h-4 mr-0 sm:mr-2" />
+            <span className="hidden sm:inline">Oportunidad</span>
+            <span className="sm:hidden">Opor.</span>
           </TabsTrigger>
-          <TabsTrigger value="documentos">
-            <FileText className="w-4 h-4 mr-2" />
-            Documentos
+          <TabsTrigger value="documentos" className="text-xs sm:text-sm hidden sm:flex">
+            <FileText className="w-3 h-3 sm:w-4 sm:h-4 mr-0 sm:mr-2" />
+            <span className="hidden md:inline">Documentos</span>
+            <span className="md:hidden">Docs</span>
           </TabsTrigger>
-          <TabsTrigger value="ofertas">
-            <MessageSquare className="w-4 h-4 mr-2" />
-            Ofertas
+          <TabsTrigger value="ofertas" className="text-xs sm:text-sm hidden md:flex">
+            <MessageSquare className="w-3 h-3 sm:w-4 sm:h-4 mr-0 sm:mr-2" />
+            <span>Ofertas</span>
           </TabsTrigger>
-          <TabsTrigger value="tasacion">
-            <TrendingUp className="w-4 h-4 mr-2" />
-            Tasación
+          <TabsTrigger value="tasacion" className="text-xs sm:text-sm hidden md:flex">
+            <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4 mr-0 sm:mr-2" />
+            <span>Tasación</span>
           </TabsTrigger>
         </TabsList>
 

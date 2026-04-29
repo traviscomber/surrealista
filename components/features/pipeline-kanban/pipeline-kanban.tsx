@@ -108,14 +108,14 @@ export function PipelineKanban() {
   }
 
   return (
-    <div className="w-full h-full bg-gradient-to-br from-slate-50 to-slate-100 p-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-slate-900">Pipeline de Ventas</h1>
-        <p className="text-slate-600 mt-2">Visualiza y gestiona el progreso de tus oportunidades</p>
+    <div className="w-full h-full bg-gradient-to-br from-slate-50 to-slate-100 p-3 sm:p-6">
+      <div className="mb-4 sm:mb-6">
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Pipeline de Ventas</h1>
+        <p className="text-sm sm:text-base text-slate-600 mt-1 sm:mt-2">Visualiza y gestiona el progreso de tus oportunidades</p>
       </div>
 
-      {/* Kanban Board */}
-      <div className="flex gap-4 overflow-x-auto pb-4">
+      {/* Kanban Board - Responsive layout */}
+      <div className="flex gap-2 sm:gap-4 overflow-x-auto pb-4 -mx-3 sm:mx-0 px-3 sm:px-0">
         {PIPELINE_STAGES.map((stage) => {
           const stageClients = getClientsByStage(stage.id)
           return (
@@ -223,8 +223,8 @@ export function PipelineKanban() {
         })}
       </div>
 
-      {/* Stats Footer */}
-      <div className="mt-8 grid grid-cols-5 gap-4">
+      {/* Stats Footer - Responsive grid */}
+      <div className="mt-6 sm:mt-8 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-4">
         {PIPELINE_STAGES.map((stage) => {
           const stageBudget = getClientsByStage(stage.id).reduce(
             (sum, client) => sum + (client.budget_max || 0),

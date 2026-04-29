@@ -45,6 +45,8 @@ import {
   Sparkles,
 } from "lucide-react"
 import { GlobalCommandPalette } from "@/components/search/global-command-palette"
+import { ThemeToggle } from "@/components/ui/theme-toggle"
+import { ColorCustomizer } from "@/components/ui/color-customizer"
 // import { DriveStatusIndicator } from "@/components/google-drive/drive-status-indicator"
 
 const toolsItems = [
@@ -319,6 +321,12 @@ export function Header() {
           <div className="lg:hidden">
             <GlobalCommandPalette />
           </div>
+
+          {/* Theme Toggle */}
+          <ThemeToggle />
+
+          {/* Color Customizer */}
+          <ColorCustomizer />
 
           {/* Drive status indicator */}
           {/* <DriveStatusIndicator /> */}
