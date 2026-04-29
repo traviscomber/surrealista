@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Plus, DollarSign, Calendar, AlertTriangle } from 'lucide-react'
+import { Plus, DollarSign, Calendar, AlertTriangle, MessageSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { QuickContactPanel } from '@/components/quick-wins/quick-contact-panel'
 
 interface PipelineStage {
   id: string
@@ -28,6 +29,8 @@ interface PipelineClient {
   created_at?: string
   client_type?: string
   email?: string
+  phone?: string
+  mobile?: string
 }
 
 const PIPELINE_STAGES: PipelineStage[] = [
@@ -66,6 +69,7 @@ const PIPELINE_STAGES: PipelineStage[] = [
 export function PipelineKanban() {
   const [clients, setClients] = useState<PipelineClient[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedClientForContact, setSelectedClientForContact] = useState<PipelineClient | null>(null)
 
   // Helper function to check if lead is abandoned (7+ days without contact)
   const isLeadAbandoned = (client: PipelineClient): boolean => {
@@ -186,6 +190,17 @@ export function PipelineKanban() {
                             <span>{getRelativeTime(client.last_contact_date)}</span>
                           </div>
                         )}
+
+                        {/* Contact Button */}
+                        <Button
+                          onClick={() => setSelectedClientForContact(client)}
+                          size="sm"
+                          variant="outline"
+                          className="w-full mt-3 h-8"
+                        >
+                          <MessageSquare className="w-3 h-3 mr-1" />
+                          Contactar
+                        </Button>
                       </CardContent>
                     </Card>
                   ))
@@ -232,6 +247,15 @@ export function PipelineKanban() {
           )
         })}
       </div>
+
+      {/* Quick Contact Panel Modal */}
+      {selectedClientForContact && (
+        <QuickContactPanel
+          isOpen={!!selectedClientForContact}
+          onClose={() => setSelectedClientForContact(null)}
+          client={selectedClientForContact}
+        />
+      )}
     </div>
   )
 }
