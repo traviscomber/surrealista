@@ -99,6 +99,16 @@ export function CAMPOSFolderView() {
   const searchParams = useSearchParams()
   const kmzIdFromURL = searchParams?.get("kmz")
 
+  const calculateCenterFromBounds = (bounds: any): { lat: number; lng: number } => {
+    if (!bounds || !bounds.south || !bounds.north || !bounds.west || !bounds.east) {
+      return { lat: -39.8196, lng: -73.2452 }
+    }
+    return {
+      lat: (bounds.south + bounds.north) / 2,
+      lng: (bounds.west + bounds.east) / 2,
+    }
+  }
+
   useEffect(() => {
     loadRegionMetadata()
   }, [])
@@ -113,7 +123,6 @@ export function CAMPOSFolderView() {
   // Load KMZ file from URL parameter if provided
   useEffect(() => {
     if (kmzIdFromURL) {
-      console.log("[v0] KMZ ID detected in URL, will load directly:", kmzIdFromURL)
       setIsLoadingFromURL(true)
       // Load metadata first, then KMZ
       loadRegionMetadata().then(() => {
@@ -123,7 +132,6 @@ export function CAMPOSFolderView() {
   }, [kmzIdFromURL])
 
   const loadRegionMetadata = async () => {
-    console.log("[v0] Loading region metadata from database with pagination...")
     setIsLoadingMetadata(true)
 
     try {
@@ -137,7 +145,6 @@ export function CAMPOSFolderView() {
         const start = page * pageSize
         const end = start + pageSize - 1
         
-        console.log("[v0] Fetching page", page, `(rows ${start}-${end})`)
         
         const { data, error, count } = await supabase
           .from("kmz_collection")
@@ -147,33 +154,26 @@ export function CAMPOSFolderView() {
           .range(start, end)
 
         if (error) {
-          console.error("[v0] Error loading metadata:", error)
           break
         }
 
         if (!data || data.length === 0) {
           hasMore = false
-          console.log("[v0] Reached end of data")
         } else {
           allData.push(...data)
-          console.log("[v0] Fetched", data.length, "rows, total so far:", allData.length)
           page++
         }
       }
 
       if (allData.length > 0) {
         const uniqueRegions = new Set(allData.map(d => d.region).filter(r => r)).size
-        console.log("[v0] Loaded metadata for", allData.length, "KMZ files with", uniqueRegions, "unique regions")
-        console.log("[v0] Regions present:", [...new Set(allData.map(d => d.region))].filter(r => r).sort().join(", "))
         setTotalFileCount(allData.length)
         buildRegionFolders(allData)
       } else {
-        console.log("[v0] No metadata loaded")
         setFolders([])
         setTotalFileCount(0)
       }
     } catch (err) {
-      console.error("[v0] Error fetching metadata:", err)
       setFolders([])
       setTotalFileCount(0)
     } finally {
@@ -182,7 +182,6 @@ export function CAMPOSFolderView() {
   }
 
   const handleRefresh = async () => {
-    console.log("[v0] Refreshing view - clearing selection and reloading metadata")
     
     // Clear current selection
     setSelectedItem(null)
@@ -202,7 +201,6 @@ export function CAMPOSFolderView() {
   }
 
   const handleLoadKmzFromId = async (kmzId: string) => {
-    console.log("[v0] Loading KMZ by ID from URL parameter:", kmzId)
     setIsLoadingKMZ(true)
 
     try {
@@ -214,7 +212,6 @@ export function CAMPOSFolderView() {
         .single()
 
       if (error) {
-        console.error("[v0] Error loading KMZ data:", error)
         toast({
           title: "Error",
           description: "No se pudo cargar el archivo KMZ",
@@ -226,7 +223,6 @@ export function CAMPOSFolderView() {
       }
 
       if (data) {
-        console.log("[v0] Loaded full KMZ data for:", data.file_name)
 
         // Set the region
         setSelectedRegion(data.region)
@@ -271,7 +267,6 @@ export function CAMPOSFolderView() {
           },
         }
 
-        console.log("[v0] Displaying KMZ file loaded from URL:", data.file_name)
         setKmzFiles([transformedKMZ])
 
         // Load documents for this KMZ
@@ -280,9 +275,7 @@ export function CAMPOSFolderView() {
           const count = await documentKMZLinker.getDocumentCountForKMZ(data.id, data.file_name)
           setSelectedItemDocuments(docs)
           setDocumentCount(count)
-          console.log("[v0] Loaded", count, "documents for KMZ:", data.file_name)
         } catch (docError) {
-          console.error("[v0] Error loading documents:", docError)
           setSelectedItemDocuments([])
           setDocumentCount(0)
         }
@@ -306,7 +299,6 @@ export function CAMPOSFolderView() {
         })
       }
     } catch (err) {
-      console.error("[v0] Error loading KMZ:", err)
       toast({
         title: "Error",
         description: "Error al cargar el archivo KMZ",
@@ -316,17 +308,6 @@ export function CAMPOSFolderView() {
       setIsLoadingFromURL(false)
     } finally {
       setIsLoadingKMZ(false)
-    }
-  }
-
-  const calculateCenterFromBounds = (bounds: any): { lat: number; lng: number } => {
-    if (!bounds || !bounds.south || !bounds.north || !bounds.west || !bounds.east) {
-      return { lat: -39.8196, lng: -73.2452 } // Default Chile center
-    }
-
-    return {
-      lat: (bounds.south + bounds.north) / 2,
-      lng: (bounds.west + bounds.east) / 2,
     }
   }
 
@@ -341,12 +322,10 @@ export function CAMPOSFolderView() {
       regionMap.get(region)?.push(record)
     })
 
-    console.log("[v0] Grouped files into", regionMap.size, "regions:")
     const regionDetails: string[] = []
     regionMap.forEach((files, region) => {
       regionDetails.push(`${region}: ${files.length} files`)
     })
-    console.log("[v0] Region breakdown:", regionDetails.join(", "))
 
     const folderItems: FolderItem[] = []
     let folderId = 1
@@ -395,12 +374,10 @@ export function CAMPOSFolderView() {
 
     folderItems.sort((a, b) => (b.fileCount || 0) - (a.fileCount || 0))
 
-    console.log("[v0] Built", folderItems.length, "region folders with", metadata.length, "total files")
     setFolders(folderItems)
   }
 
   const loadRegionKMZFiles = async (region: string) => {
-    console.log("[v0] Loading full KMZ data for region:", region)
     setIsLoadingKMZ(true)
     setSelectedRegion(region)
 
@@ -411,75 +388,59 @@ export function CAMPOSFolderView() {
         .eq("is_active", true)
         .eq("region", region)
         .order("file_name", { ascending: true })
-        .order("created_at", { ascending: false })
 
       if (error) {
-        console.error("[v0] Error loading KMZ files:", error)
         setKmzFiles([])
       } else {
-        console.log("[v0] Loaded", data?.length || 0, "KMZ files with full coordinates for region:", region)
-
         const uniqueData = data?.filter(
           (record, index, self) => index === self.findIndex((r) => r.file_name === record.file_name),
         )
 
-        console.log("[v0] After deduplication:", uniqueData?.length || 0, "unique KMZ files")
-
-        const transformedKMZ = (uniqueData || []).map((record: any) => {
-          const placemarks = (record.coordinates || []).map((coordArray: any, index: number) => {
-            // Determine geometry type based on coordinate structure
-            let geometryType = "Point"
-            let coordinates = coordArray
-
-            // If coordArray is an array of coordinate pairs (more than 3 points), it's likely a polygon
-            if (Array.isArray(coordArray) && coordArray.length > 3) {
-              // Check if first element is a coordinate pair [lng, lat]
-              if (Array.isArray(coordArray[0]) && coordArray[0].length >= 2 && typeof coordArray[0][0] === "number") {
-                geometryType = "Polygon"
-                // Polygons need coordinates wrapped in an extra array for Leaflet
-                coordinates = coordArray
-              }
-            } else if (Array.isArray(coordArray) && coordArray.length <= 3) {
-              // Single point or very small line
-              geometryType = "Point"
-              coordinates = coordArray
-            }
-
-            console.log(
-              `[v0] Placemark ${index + 1}: ${record.file_name} - Type: ${geometryType}, Coords: ${coordArray.length}`,
-            )
-
-            return {
-              name: `${record.file_name} - ${geometryType === "Polygon" ? "Polígono" : "Punto"} ${index + 1}`,
-              type: geometryType,
-              coordinates: coordinates,
-              description: record.description || "",
-              properties: {
-                rol: record.rol_numbers?.[index] || "",
-                category: record.category || "general",
-              },
-            }
-          })
-
-          return {
-            fileName: record.file_name,
-            placemarks: placemarks,
-            bounds: record.bounds,
-            metadata: {
-              id: record.id,
-              category: record.category,
-              rolNumbers: record.rol_numbers || [],
-              placemarks_count: record.placemarks_count,
+        const transformedKMZ = (uniqueData || []).map((record: any) => ({
+          fileName: record.file_name,
+          placemarks: (record.coordinates || []).map((coordArray: any, index: number) => ({
+            name: `${record.file_name} - ${Array.isArray(coordArray) && coordArray.length > 3 ? "Polígono" : "Punto"} ${index + 1}`,
+            type: Array.isArray(coordArray) && coordArray.length > 3 ? "Polygon" : "Point",
+            coordinates: coordArray,
+            description: record.description || "",
+            properties: {
+              rol: record.rol_numbers?.[index] || "",
+              category: record.category || "general",
             },
-          }
-        })
+          })),
+          bounds: record.bounds,
+          metadata: {
+            id: record.id,
+            category: record.category,
+            rolNumbers: record.rol_numbers || [],
+            placemarks_count: record.placemarks_count,
+          },
+        }))
 
-        console.log("[v0] Transformed", transformedKMZ.length, "KMZ files for display")
         setKmzFiles(transformedKMZ)
+        
+        // Now rebuild folders with children to show files
+        setFolders((prevFolders) =>
+          prevFolders.map((folder) =>
+            folder.name === region
+              ? {
+                  ...folder,
+                  children: transformedKMZ.map((kmz, idx) => ({
+                    id: `file-${folder.id}-${idx}`,
+                    name: kmz.fileName,
+                    type: "file" as const,
+                    area: `${kmz.metadata.placemarks_count || 0} puntos`,
+                    location: kmz.bounds ? calculateCenterFromBounds(kmz.bounds) : undefined,
+                    dbId: kmz.metadata.id,
+                    owner: undefined,
+                    google_docs_link: undefined,
+                  })),
+                }
+              : folder,
+          ),
+        )
       }
     } catch (err) {
-      console.error("[v0] Error fetching KMZ files:", err)
-      setKmzFiles([])
     } finally {
       setIsLoadingKMZ(false)
     }
@@ -492,7 +453,6 @@ export function CAMPOSFolderView() {
   }
 
   const handleItemClick = async (item: FolderItem) => {
-    console.log("[v0] Item clicked:", item.name, "type:", item.type)
     setSelectedItem(item)
     setIsDetailsSheetOpen(true)
 
@@ -504,21 +464,23 @@ export function CAMPOSFolderView() {
 
     // If this is a FOLDER/REGION, load all KMZ files for that region AND toggle folder open/closed
     if (item.type === "folder") {
-      console.log("[v0] Folder/Region clicked, loading all KMZ files for region:", item.name)
-      await loadRegionKMZFiles(item.name)
-      
-      // Toggle folder open/closed
       setFolders((prevFolders) =>
-        prevFolders.map((folder) =>
-          folder.id === item.id ? { ...folder, isOpen: !folder.isOpen } : folder,
-        ),
+        prevFolders.map((folder) => {
+          if (folder.id === item.id) {
+            const isNowOpen = !folder.isOpen
+            if (isNowOpen && (!folder.children || folder.children.length === 0)) {
+              loadRegionKMZFiles(folder.name)
+            }
+            return { ...folder, isOpen: isNowOpen }
+          }
+          return folder
+        }),
       )
       return
     }
 
     // Otherwise, it's a file - load individual file data
     if (item.location) {
-      console.log("[v0] Centering map on coordinates:", item.location)
       setMapCenter(item.location)
     }
 
@@ -529,7 +491,6 @@ export function CAMPOSFolderView() {
         const count = await documentKMZLinker.getDocumentCountForKMZ(item.dbId.toString(), item.name)
         setSelectedItemDocuments(docs)
         setDocumentCount(count)
-        console.log("[v0] Loaded", count, "documents for KMZ:", item.name)
 
         // IMPORTANT: Load the full KMZ data for this specific file first
         try {
@@ -541,10 +502,8 @@ export function CAMPOSFolderView() {
             .single()
 
           if (error) {
-            console.error("[v0] Error loading KMZ data:", error)
             setKmzFiles([])
           } else if (data) {
-            console.log("[v0] Loaded full KMZ data for:", item.name)
 
             // Transform the single KMZ file
             const placemarks = (data.coordinates || []).map((coordArray: any, index: number) => {
@@ -582,15 +541,12 @@ export function CAMPOSFolderView() {
               },
             }
 
-            console.log("[v0] Displaying only selected KMZ file:", item.name)
             setKmzFiles([transformedKMZ]) // Show ONLY this file
           }
         } catch (kmzError) {
-          console.error("[v0] Error loading full KMZ data:", kmzError)
           setKmzFiles([])
         }
       } catch (error) {
-        console.error("[v0] Error loading documents for KMZ:", error)
         setSelectedItemDocuments([])
         setDocumentCount(0)
         setKmzFiles([])
@@ -617,7 +573,6 @@ export function CAMPOSFolderView() {
     if (!files || files.length === 0) return
 
     setUploading(true)
-    console.log("[v0] Uploading", files.length, "KMZ files from local computer...")
 
     try {
       let successCount = 0
@@ -629,7 +584,6 @@ export function CAMPOSFolderView() {
 
       for (const file of Array.from(files)) {
         try {
-          console.log(`[v0] Processing offline KMZ file: ${file.name}`)
 
           // Parse KMZ file
           const kmzData = await kmzReader.readKMZFile(file)
@@ -652,14 +606,11 @@ export function CAMPOSFolderView() {
           })
 
           if (!saveResult.success) {
-            console.error(`[v0] Error saving ${file.name}:`, saveResult.error)
             errorCount++
           } else {
-            console.log(`[v0] Successfully saved ${file.name} with region auto-detection`)
             successCount++
           }
         } catch (error) {
-          console.error(`[v0] Error processing ${file.name}:`, error)
           errorCount++
         }
       }
@@ -676,7 +627,6 @@ export function CAMPOSFolderView() {
         alert(`❌ Error al cargar archivos KMZ. Por favor, verifica los archivos e intenta nuevamente.`)
       }
     } catch (error) {
-      console.error("[v0] Error uploading offline KMZ files:", error)
       alert("Error al cargar archivos KMZ")
     } finally {
       setUploading(false)
@@ -780,7 +730,6 @@ export function CAMPOSFolderView() {
         })
       }
     } catch (error) {
-      console.error("[v0] Error during rescan:", error)
       toast({
         title: "Error",
         description: "No se pudo completar la reasignación de regiones.",
