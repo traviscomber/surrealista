@@ -45,6 +45,7 @@ interface FolderItem {
   location?: { lat: number; lng: number }
   area?: string
   owner?: string
+  google_docs_link?: string
   kmzFiles?: any[]
   children?: FolderItem[]
   isOpen?: boolean
@@ -66,6 +67,7 @@ export function CAMPOSFolderView() {
   const [folders, setFolders] = useState<FolderItem[]>([])
   const [selectedItem, setSelectedItem] = useState<FolderItem | null>(null)
   const [editingOwner, setEditingOwner] = useState<string>("")
+  const [editingGoogleDocsLink, setEditingGoogleDocsLink] = useState<string>("")
   const [isSavingOwner, setIsSavingOwner] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [kmzFiles, setKmzFiles] = useState<any[]>([])
@@ -139,7 +141,7 @@ export function CAMPOSFolderView() {
         
         const { data, error, count } = await supabase
           .from("kmz_collection")
-          .select("id, file_name, region, placemarks_count, bounds, tags, file_path", { count: 'exact' })
+          .select("id, file_name, region, placemarks_count, bounds, tags, file_path, owner, google_docs_link", { count: 'exact' })
           .eq("is_active", true)
           .order("region", { ascending: true })
           .range(start, end)
@@ -382,6 +384,8 @@ export function CAMPOSFolderView() {
             area: `${file.placemarks_count || 0} puntos`,
             location: fileCenter,
             dbId: file.id,
+            owner: file.owner,
+            google_docs_link: file.google_docs_link,
           }
         }),
         isOpen: false,
@@ -491,6 +495,12 @@ export function CAMPOSFolderView() {
     console.log("[v0] Item clicked:", item.name, "type:", item.type)
     setSelectedItem(item)
     setIsDetailsSheetOpen(true)
+
+    // Si es archivo, cargar owner y google_docs_link
+    if (item.type === "file") {
+      setEditingOwner(item.owner || "")
+      setEditingGoogleDocsLink(item.google_docs_link || "")
+    }
 
     // If this is a FOLDER/REGION, load all KMZ files for that region AND toggle folder open/closed
     if (item.type === "folder") {
@@ -673,6 +683,55 @@ export function CAMPOSFolderView() {
       if (fileInputRef.current) {
         fileInputRef.current.value = ""
       }
+    }
+  }
+
+  const handleSaveOwnerAndDocsLink = async () => {
+    if (!selectedItem || selectedItem.type !== "file" || !selectedItem.dbId) {
+      toast({
+        title: "Error",
+        description: "Debes seleccionar un archivo KMZ válido",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsSavingOwner(true)
+
+    try {
+      const { error } = await supabase
+        .from("kmz_collection")
+        .update({
+          owner: editingOwner || null,
+          google_docs_link: editingGoogleDocsLink || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", selectedItem.dbId)
+
+      if (error) {
+        console.error("[v0] Error saving owner and docs link:", error)
+        toast({
+          title: "Error",
+          description: "No se pudieron guardar los cambios",
+          variant: "destructive",
+        })
+      } else {
+        toast({
+          title: "Guardado",
+          description: "Propietario y enlace de Google Docs actualizado",
+        })
+        // Actualizar el item seleccionado
+        setSelectedItem((prev) =>
+          prev
+            ? {
+                ...prev,
+                owner: editingOwner,
+              }
+            : null,
+        )
+      }
+    } finally {
+      setIsSavingOwner(false)
     }
   }
 
@@ -980,16 +1039,38 @@ export function CAMPOSFolderView() {
             )}
 
             {selectedItem.type === "file" && (
-              <div className="pt-2">
-                <label className="text-sm font-medium mb-2 block">Propietario / Cliente</label>
-                <input
-                  type="text"
-                  value={editingOwner}
-                  onChange={(e) => setEditingOwner(e.target.value)}
-                  placeholder="Ingresa nombre del propietario o cliente"
-                  className="w-full px-2 py-1.5 border rounded-md text-sm"
-                />
-                <p className="text-xs text-muted-foreground mt-1">Nombre del dueño del predio o cliente asociado</p>
+              <div className="pt-2 space-y-3">
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Propietario / Cliente</label>
+                  <input
+                    type="text"
+                    value={editingOwner}
+                    onChange={(e) => setEditingOwner(e.target.value)}
+                    placeholder="Ingresa nombre del propietario o cliente"
+                    className="w-full px-2 py-1.5 border rounded-md text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Nombre del dueño del predio o cliente asociado</p>
+                </div>
+
+                <div>
+                  <label className="text-sm font-medium mb-2 block">Enlace Google Docs</label>
+                  <input
+                    type="text"
+                    value={editingGoogleDocsLink}
+                    onChange={(e) => setEditingGoogleDocsLink(e.target.value)}
+                    placeholder="https://docs.google.com/document/d/..."
+                    className="w-full px-2 py-1.5 border rounded-md text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">Enlace a la documentación en Google Docs del predio</p>
+                </div>
+
+                <Button
+                  onClick={handleSaveOwnerAndDocsLink}
+                  disabled={isSavingOwner}
+                  className="w-full bg-sage hover:bg-sage-dark text-white"
+                >
+                  {isSavingOwner ? "Guardando..." : "Guardar Cambios"}
+                </Button>
               </div>
             )}
 
