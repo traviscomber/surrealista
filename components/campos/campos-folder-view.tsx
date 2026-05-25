@@ -45,7 +45,6 @@ interface FolderItem {
   location?: { lat: number; lng: number }
   area?: string
   owner?: string
-  google_docs_link?: string
   kmzFiles?: any[]
   children?: FolderItem[]
   isOpen?: boolean
@@ -67,7 +66,6 @@ export function CAMPOSFolderView() {
   const [folders, setFolders] = useState<FolderItem[]>([])
   const [selectedItem, setSelectedItem] = useState<FolderItem | null>(null)
   const [editingOwner, setEditingOwner] = useState<string>("")
-  const [editingGoogleDocsLink, setEditingGoogleDocsLink] = useState<string>("")
   const [isSavingOwner, setIsSavingOwner] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [kmzFiles, setKmzFiles] = useState<any[]>([])
@@ -141,7 +139,7 @@ export function CAMPOSFolderView() {
         
         const { data, error, count } = await supabase
           .from("kmz_collection")
-          .select("id, file_name, region, placemarks_count, bounds, tags, file_path, owner, google_docs_link", { count: 'exact' })
+          .select("id, file_name, region, placemarks_count, bounds, tags, file_path, owner", { count: 'exact' })
           .eq("is_active", true)
           .order("region", { ascending: true })
           .range(start, end)
@@ -385,7 +383,6 @@ export function CAMPOSFolderView() {
             location: fileCenter,
             dbId: file.id,
             owner: file.owner,
-            google_docs_link: file.google_docs_link,
           }
         }),
         isOpen: false,
@@ -496,10 +493,9 @@ export function CAMPOSFolderView() {
     setSelectedItem(item)
     setIsDetailsSheetOpen(true)
 
-    // Si es archivo, cargar owner y google_docs_link
+    // Si es archivo, cargar owner
     if (item.type === "file") {
       setEditingOwner(item.owner || "")
-      setEditingGoogleDocsLink(item.google_docs_link || "")
     }
 
     // If this is a FOLDER/REGION, load all KMZ files for that region AND toggle folder open/closed
@@ -703,13 +699,12 @@ export function CAMPOSFolderView() {
         .from("kmz_collection")
         .update({
           owner: editingOwner || null,
-          google_docs_link: editingGoogleDocsLink || null,
           updated_at: new Date().toISOString(),
         })
         .eq("id", selectedItem.dbId)
 
       if (error) {
-        console.error("[v0] Error saving owner and docs link:", error)
+        console.error("[v0] Error saving owner:", error)
         toast({
           title: "Error",
           description: "No se pudieron guardar los cambios",
@@ -718,7 +713,7 @@ export function CAMPOSFolderView() {
       } else {
         toast({
           title: "Guardado",
-          description: "Propietario y enlace de Google Docs actualizado",
+          description: "Propietario actualizado correctamente",
         })
         // Actualizar el item seleccionado
         setSelectedItem((prev) =>
@@ -1050,18 +1045,6 @@ export function CAMPOSFolderView() {
                     className="w-full px-2 py-1.5 border rounded-md text-sm"
                   />
                   <p className="text-xs text-muted-foreground mt-1">Nombre del dueño del predio o cliente asociado</p>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Enlace Google Docs</label>
-                  <input
-                    type="text"
-                    value={editingGoogleDocsLink}
-                    onChange={(e) => setEditingGoogleDocsLink(e.target.value)}
-                    placeholder="https://docs.google.com/document/d/..."
-                    className="w-full px-2 py-1.5 border rounded-md text-sm"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">Enlace a la documentación en Google Docs del predio</p>
                 </div>
 
                 <Button
