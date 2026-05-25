@@ -18,11 +18,13 @@ import {
   CheckCircle,
   AlertCircle,
   Upload,
+  Edit2,
 } from "lucide-react"
 import { createBrowserClient } from "@supabase/ssr"
 import { driveService } from "@/lib/google-drive/drive-service"
 import { kmzReader } from "@/lib/kmz/kmz-reader"
 import { NeighborhoodAnalysisModal } from "@/components/kmz/neighborhood-analysis-modal"
+import { KMZOwnerEditModal } from "@/components/kmz/kmz-owner-edit-modal"
 
 interface KMZRecord {
   id: string
@@ -40,6 +42,11 @@ interface KMZRecord {
   created_at: string
   updated_at: string
   file_size?: number
+  owner?: string
+  pic?: string
+  pic_phone?: string
+  pic_email?: string
+  google_docs_link?: string
 }
 
 export function KMZCollectionManager() {
@@ -59,6 +66,8 @@ export function KMZCollectionManager() {
     totalPlacemarks: 0,
     totalRoles: 0,
   })
+  const [selectedKmzForOwnerEdit, setSelectedKmzForOwnerEdit] = useState<KMZRecord | null>(null)
+  const [showOwnerEditModal, setShowOwnerEditModal] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [indexing, setIndexing] = useState(false)
@@ -602,6 +611,17 @@ export function KMZCollectionManager() {
         onOpenChange={setShowAnalysisModal}
         kmz={selectedKmzForAnalysis}
       />
+      <KMZOwnerEditModal
+        open={showOwnerEditModal}
+        onOpenChange={setShowOwnerEditModal}
+        kmzId={selectedKmzForOwnerEdit?.id || ''}
+        currentOwner={selectedKmzForOwnerEdit?.owner}
+        currentPic={selectedKmzForOwnerEdit?.pic}
+        currentPicPhone={selectedKmzForOwnerEdit?.pic_phone}
+        currentPicEmail={selectedKmzForOwnerEdit?.pic_email}
+        currentGoogleDocsLink={selectedKmzForOwnerEdit?.google_docs_link}
+        onSave={loadKMZCollection}
+      />
       <div className="container mx-auto p-6 space-y-8">
         {/* Unassigned KMZ Alert */}
         {showUnassignedAlert && unassignedKMZCount > 0 && (
@@ -994,6 +1014,37 @@ export function KMZCollectionManager() {
                     </div>
                   )}
 
+                  {/* Owner/PIC Info */}
+                  {(kmz.owner || kmz.pic || kmz.google_docs_link) && (
+                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1 text-xs">
+                      {kmz.owner && (
+                        <div>
+                          <span className="font-medium text-slate-700">Dueño:</span>
+                          <span className="text-slate-600 ml-1">{kmz.owner}</span>
+                        </div>
+                      )}
+                      {kmz.pic && (
+                        <div>
+                          <span className="font-medium text-slate-700">PIC:</span>
+                          <span className="text-slate-600 ml-1">{kmz.pic}</span>
+                          {kmz.pic_phone && <span className="text-slate-500 ml-1">({kmz.pic_phone})</span>}
+                        </div>
+                      )}
+                      {kmz.google_docs_link && (
+                        <div>
+                          <a
+                            href={kmz.google_docs_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-700 underline"
+                          >
+                            📄 Ver Documentación
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="flex gap-2">
                     <Button
                       onClick={() => loadToMap(kmz)}
@@ -1001,6 +1052,17 @@ export function KMZCollectionManager() {
                     >
                       <Layers className="h-4 w-4 mr-2" />
                       Cargar en Mapa
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setSelectedKmzForOwnerEdit(kmz)
+                        setShowOwnerEditModal(true)
+                      }}
+                      variant="outline"
+                      className="flex-1 border-blue-200 text-blue-700 hover:bg-blue-50"
+                    >
+                      <Edit2 className="h-4 w-4 mr-2" />
+                      Editar
                     </Button>
                     <Button
                       onClick={() => openNeighborhoodAnalysis(kmz)}
