@@ -698,12 +698,6 @@ export function CAMPOSFolderView() {
 
     setIsSavingOwner(true)
 
-    console.log("[v0] Saving owner and docs link:", {
-      dbId: selectedItem.dbId,
-      owner: editingOwner,
-      googleDocsLink: editingGoogleDocsLink,
-    })
-
     try {
       const { error } = await supabase
         .from("kmz_collection")
@@ -715,14 +709,12 @@ export function CAMPOSFolderView() {
         .eq("id", selectedItem.dbId)
 
       if (error) {
-        console.error("[v0] Error saving owner:", error)
         toast({
           title: "Error",
-          description: "No se pudieron guardar los cambios: " + error.message,
+          description: "No se pudieron guardar los cambios",
           variant: "destructive",
         })
       } else {
-        console.log("[v0] Save successful!")
         toast({
           title: "Guardado",
           description: "Propietario y enlace de documentos actualizados",
