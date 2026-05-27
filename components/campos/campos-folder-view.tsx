@@ -996,7 +996,7 @@ export function CAMPOSFolderView() {
                     value={editingOwner}
                     onChange={(e) => setEditingOwner(e.target.value)}
                     placeholder="Ingresa nombre del propietario o cliente"
-                    className="w-full px-2 py-1.5 border rounded-md text-sm"
+                    className="w-full px-2 py-1.5 border rounded-md text-sm bg-background text-foreground border-input"
                   />
                   <p className="text-xs text-muted-foreground mt-1">Nombre del dueño del predio o cliente asociado</p>
                 </div>
@@ -1008,7 +1008,7 @@ export function CAMPOSFolderView() {
                     value={editingGoogleDocsLink}
                     onChange={(e) => setEditingGoogleDocsLink(e.target.value)}
                     placeholder="https://docs.google.com/document/d/..."
-                    className="w-full px-2 py-1.5 border rounded-md text-sm"
+                    className="w-full px-2 py-1.5 border rounded-md text-sm bg-background text-foreground border-input"
                   />
                   <p className="text-xs text-muted-foreground mt-1">Enlace a la documentacion en Google Docs</p>
                   {editingGoogleDocsLink && (
@@ -1016,7 +1016,7 @@ export function CAMPOSFolderView() {
                       href={editingGoogleDocsLink}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-blue-600 hover:underline mt-1 inline-flex items-center gap-1"
+                      className="text-xs text-primary hover:underline mt-1 inline-flex items-center gap-1"
                     >
                       <ExternalLink className="h-3 w-3" />
                       Abrir documento
@@ -1027,7 +1027,7 @@ export function CAMPOSFolderView() {
                 <Button
                   onClick={handleSaveOwnerAndDocsLink}
                   disabled={isSavingOwner}
-                  className="w-full bg-sage hover:bg-sage-dark text-white"
+                  className="w-full"
                 >
                   {isSavingOwner ? "Guardando..." : "Guardar Cambios"}
                 </Button>
@@ -1251,7 +1251,7 @@ export function CAMPOSFolderView() {
 
             {showAIAgent && (
               <div className="fixed bottom-24 right-6 z-40 w-96 h-[500px] max-w-[calc(100vw-3rem)]">
-                <Card className="h-full flex flex-col shadow-2xl border-0 bg-white">
+                <Card className="h-full flex flex-col shadow-2xl border-0 bg-card">
                   <CardHeader className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-t-lg py-3">
                     <CardTitle className="text-sm flex items-center gap-2">
                       <Sparkles className="h-4 w-4" />
@@ -1295,7 +1295,7 @@ export function CAMPOSFolderView() {
 
       {/* Right Panel - Details (Desktop) - Collapsible */}
       <div
-        className={`hidden md:flex flex-col items-center pt-2 bg-white border-l ${
+        className={`hidden md:flex flex-col items-center pt-2 bg-card border-l ${
           isMapFullscreen ? "md:hidden" : ""
         }`}
       >
@@ -1311,7 +1311,7 @@ export function CAMPOSFolderView() {
       </div>
 
       <div
-        className={`hidden md:flex flex-col bg-white overflow-hidden transition-all duration-300 ${
+        className={`hidden md:flex flex-col bg-card overflow-hidden transition-all duration-300 ${
           isMapFullscreen ? "md:hidden" : ""
         } ${isRightPanelOpen ? "w-80 border-l" : "w-0"}`}
       >
