@@ -253,10 +253,12 @@ IMPORTANT: Always respond ONLY with valid JSON, no markdown, no extra text.`,
       }
       
       const parsed = JSON.parse(cleanContent)
+      console.log("[v0] Parsed query analysis:", parsed)
       return parsed
-    } catch (error) {
-      console.error("[v0] Query processing error:", error)
-      return { intent: "general", region: null, search_term: null }
+    } catch (error: any) {
+      console.error("[v0] Query processing error:", error?.message || error)
+      // Return default statistics intent as fallback
+      return { intent: "statistics", region: null, search_term: null, exact_match: false }
     }
   }
 
@@ -274,13 +276,13 @@ IMPORTANT: Always respond ONLY with valid JSON, no markdown, no extra text.`,
       }
     }
 
-    if (message.includes("kmz") || message.includes("mapa") || message.includes("región") || message.includes("region")) {
+    if (message.includes("kmz") || message.includes("mapa") || message.includes("región") || message.includes("region") || message.includes("archivos")) {
       try {
         // Use OpenAI to understand the query
         const queryAnalysis = await processQueryWithAI(userMessage)
         console.log("[v0] Query analysis:", queryAnalysis)
 
-        if (queryAnalysis.intent === "region_search" && queryAnalysis.region) {
+        if (queryAnalysis?.intent === "region_search" && queryAnalysis?.region) {
           // Search by region using kmz_placemarks
           const { data: placemarks } = await supabase
             .from("kmz_placemarks")
@@ -320,7 +322,7 @@ IMPORTANT: Always respond ONLY with valid JSON, no markdown, no extra text.`,
               metadata: { type: "no_results", confidence: 0.9 },
             }
           }
-        } else if (queryAnalysis.intent === "statistics") {
+        } else if (queryAnalysis?.intent === "statistics") {
           // Return statistics
           const { data: kmzFiles } = await supabase
             .from("kmz_collection")
@@ -338,8 +340,15 @@ IMPORTANT: Always respond ONLY with valid JSON, no markdown, no extra text.`,
               timestamp: new Date(),
               metadata: { type: "statistics", confidence: 0.95 },
             }
+          } else {
+            return {
+              id: uuidv4(),
+              role: "assistant",
+              content: `📊 No hay archivos KMZ en la base de datos. Carga algunos archivos para ver estadísticas.`,
+              timestamp: new Date(),
+              metadata: { type: "statistics", confidence: 0.9 },
+            }
           }
-          return null
         } else {
           // General KMZ help
           return {
