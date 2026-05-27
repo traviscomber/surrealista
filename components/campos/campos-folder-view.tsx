@@ -1172,7 +1172,7 @@ export function CAMPOSFolderView() {
     >
       {/* Left sidebar - collapsible on desktop, hidden on mobile when fullscreen */}
       <div
-        className={`hidden md:flex flex-col bg-white overflow-hidden transition-all duration-300 ${
+        className={`hidden md:flex flex-col bg-card overflow-hidden transition-all duration-300 ${
           isMapFullscreen ? "md:hidden" : ""
         } ${isLeftPanelOpen ? "w-80 border-r" : "w-0"}`}
       >
@@ -1181,7 +1181,7 @@ export function CAMPOSFolderView() {
 
       {/* Left panel toggle button */}
       <div
-        className={`hidden md:flex flex-col items-center pt-2 bg-white border-r ${
+        className={`hidden md:flex flex-col items-center pt-2 bg-card border-r ${
           isMapFullscreen ? "md:hidden" : ""
         }`}
       >
@@ -1199,9 +1199,9 @@ export function CAMPOSFolderView() {
       {/* Main content area */}
       <div className={`${isMapFullscreen ? "fixed inset-0 md:relative z-50" : "flex-1"} flex flex-col overflow-hidden`}>
         <div
-          className={`${isMapFullscreen ? "md:flex" : "flex"} items-center justify-between px-4 py-2 border-b bg-white flex-shrink-0`}
+          className={`${isMapFullscreen ? "md:flex" : "flex"} items-center justify-between px-4 py-2 border-b bg-card flex-shrink-0`}
         >
-          <h1 className="text-2xl font-bold text-gray-900">CAMPOS</h1>
+          <h1 className="text-2xl font-bold text-foreground">CAMPOS</h1>
           {isMapFullscreen && (
             <Button
               size="icon"
@@ -1227,10 +1227,10 @@ export function CAMPOSFolderView() {
                 selectedKmzId={selectedKmzId}
               />
             ) : (
-              <div className="h-full flex items-center justify-center bg-slate-100">
+              <div className="h-full flex items-center justify-center bg-muted">
                 <div className="text-center">
-                  <MapPin className="h-12 w-12 mx-auto text-gray-400 mb-3" />
-                  <p className="text-gray-600">Selecciona una región para ver el mapa</p>
+                  <MapPin className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+                  <p className="text-muted-foreground">Selecciona una región para ver el mapa</p>
                 </div>
               </div>
             )}
