@@ -480,8 +480,7 @@ export function CAMPOSFolderView() {
       return
     }
 
-    // Otherwise, it's a file - load individual file data for details panel only
-    // DO NOT change the map layers - keep showing all region layers
+    // Otherwise, it's a file - load ONLY this file on the map
     if (item.location) {
       setMapCenter(item.location)
     }
@@ -494,8 +493,52 @@ export function CAMPOSFolderView() {
         setSelectedItemDocuments(docs)
         setDocumentCount(count)
 
-        // Load metadata for details panel but DON'T change kmzFiles (map layers)
-        // The map should continue showing all region layers
+        // Load ONLY this specific KMZ file on the map
+        const { data, error } = await supabase
+          .from("kmz_collection")
+          .select("*")
+          .eq("is_active", true)
+          .eq("id", item.dbId)
+          .single()
+
+        if (!error && data) {
+          const placemarks = (data.coordinates || []).map((coordArray: any, index: number) => {
+            let geometryType = "Point"
+            let coordinates = coordArray
+
+            if (Array.isArray(coordArray) && coordArray.length > 3) {
+              if (Array.isArray(coordArray[0]) && coordArray[0].length >= 2 && typeof coordArray[0][0] === "number") {
+                geometryType = "Polygon"
+                coordinates = coordArray
+              }
+            }
+
+            return {
+              name: `${data.file_name} - ${geometryType === "Polygon" ? "Polígono" : "Punto"} ${index + 1}`,
+              type: geometryType,
+              coordinates: coordinates,
+              description: data.description || "",
+              properties: {
+                rol: data.rol_numbers?.[index] || "",
+                category: data.category || "general",
+              },
+            }
+          })
+
+          const transformedKMZ = {
+            fileName: data.file_name,
+            placemarks: placemarks,
+            bounds: data.bounds,
+            metadata: {
+              id: data.id,
+              category: data.category,
+              rolNumbers: data.rol_numbers || [],
+              placemarks_count: data.placemarks_count,
+            },
+          }
+
+          setKmzFiles([transformedKMZ]) // Show ONLY this file on the map
+        }
       } catch (error) {
         setSelectedItemDocuments([])
         setDocumentCount(0)
@@ -503,17 +546,8 @@ export function CAMPOSFolderView() {
         setLoadingDocuments(false)
       }
     } else {
-      // Clear documents if not a file
       setSelectedItemDocuments([])
       setDocumentCount(0)
-    }
-
-    if (item.type === "folder") {
-      toggleFolder(item.id)
-
-      if (item.category && item.category !== selectedRegion) {
-        await loadRegionKMZFiles(item.category)
-      }
     }
   }
 
