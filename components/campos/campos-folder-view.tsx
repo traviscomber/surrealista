@@ -77,7 +77,7 @@ export function CAMPOSFolderView() {
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
   const [isFolderSheetOpen, setIsFolderSheetOpen] = useState(false)
   const [isDetailsSheetOpen, setIsDetailsSheetOpen] = useState(false)
-  const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(false)
+  const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true)
   const [isRightPanelOpen, setIsRightPanelOpen] = useState(false)
   const [isMapFullscreen, setIsMapFullscreen] = useState(false)
   const [uploading, setUploading] = useState(false)
