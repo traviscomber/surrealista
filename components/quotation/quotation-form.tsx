@@ -31,45 +31,46 @@ export function QuotationForm() {
     setIsSubmitting(true)
 
     try {
-      // In a real application, this would call an AI service
-      // For now, we'll simulate a response after a delay
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      // Search KMZ files based on user requirements
+      const searchTerms = requirements.toLowerCase()
+      
+      // Query real KMZ data from Supabase
+      const { data: kmzFiles, error: kmzError } = await supabase
+        .from("kmz_collection")
+        .select("file_name, region, placemarks_count, created_at, file_id")
+        .order("created_at", { ascending: false })
+        .limit(20)
 
-      // Simulate AI response
-      const simulatedResponse = `
-Basado en tus requerimientos, te recomiendo las siguientes propiedades:
+      if (kmzError) throw kmzError
 
-1. **Casa en Puerto Varas** - $350.000.000
-   - 3 dormitorios, 2 baños
-   - 150m² construidos, 500m² de terreno
-   - Vista al lago y volcán
-   - [Ver propiedad](/propiedades/1)
+      // Filter based on search terms
+      const matchingFiles = kmzFiles?.filter((f) => {
+        const fileName = f.file_name?.toLowerCase() || ""
+        const region = f.region?.toLowerCase() || ""
+        return searchTerms.split(" ").some(
+          (term) => term.length > 2 && (fileName.includes(term) || region.includes(term))
+        )
+      }) || []
 
-2. **Parcela en Frutillar** - $280.000.000
-   - 2 dormitorios, 2 baños
-   - 120m² construidos, 5000m² de terreno
-   - Acceso a lago
-   - [Ver propiedad](/propiedades/2)
+      let response = ""
 
-3. **Departamento en Puerto Montt** - $180.000.000
-   - 2 dormitorios, 1 baño
-   - 75m² construidos
-   - Vista a la bahía
-   - [Ver propiedad](/propiedades/3)
+      if (matchingFiles.length > 0) {
+        const fileList = matchingFiles
+          .slice(0, 5)
+          .map((f, i) => `${i + 1}. **${f.file_name}**\n   - Region: ${f.region || "Sin especificar"}\n   - Puntos/Ubicaciones: ${f.placemarks_count || 0}`)
+          .join("\n\n")
 
-¿Te gustaría más información sobre alguna de estas propiedades?
-      `
+        response = `Basado en tu busqueda, encontre ${matchingFiles.length} archivo(s) KMZ relevantes:\n\n${fileList}\n\nPuedes ver estos archivos en la seccion CAMPOS para explorar las ubicaciones en el mapa.`
+      } else if (kmzFiles && kmzFiles.length > 0) {
+        const totalPoints = kmzFiles.reduce((sum, f) => sum + (f.placemarks_count || 0), 0)
+        const regions = [...new Set(kmzFiles.map((f) => f.region).filter(Boolean))]
+        
+        response = `No encontre coincidencias exactas para "${requirements}", pero tenemos:\n\n- **${kmzFiles.length}** archivos KMZ disponibles\n- **${totalPoints.toLocaleString()}** ubicaciones/puntos totales\n- Regiones: ${regions.slice(0, 5).join(", ") || "Varias"}\n\nVisita la seccion CAMPOS para explorar todas las propiedades disponibles.`
+      } else {
+        response = `Actualmente no hay archivos KMZ cargados en el sistema.\n\nPara comenzar:\n1. Ve a la seccion CAMPOS\n2. Carga archivos KMZ con ubicaciones de propiedades\n3. Vuelve aqui para buscar propiedades`
+      }
 
-      setAiResponse(simulatedResponse)
-
-      // Save the quotation to the database
-      const { error } = await supabase.from("quotations").insert({
-        requirements,
-        ai_response: simulatedResponse,
-        status: "completed",
-      })
-
-      if (error) throw error
+      setAiResponse(response)
     } catch (error) {
       toast({
         title: "Error",
