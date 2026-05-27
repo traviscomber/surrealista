@@ -63,7 +63,7 @@ const getCleanRegionName = (fullName: string): string => {
   return fullName.replace(/^Región de /i, "").replace(/^Región del /i, "")
 }
 
-// Memoized search input component to prevent focus loss on parent re-renders
+// Search input with internal state to prevent focus loss - only syncs to parent on debounce
 const SearchInput = memo(function SearchInput({ 
   value, 
   onChange, 
@@ -73,13 +73,45 @@ const SearchInput = memo(function SearchInput({
   onChange: (value: string) => void
   disabled?: boolean 
 }) {
+  const [localValue, setLocalValue] = useState(value)
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Sync from parent only when value changes externally (e.g., reset)
+  useEffect(() => {
+    if (value !== localValue && value === "") {
+      setLocalValue(value)
+    }
+  }, [value])
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value
+    setLocalValue(newValue)
+    
+    // Debounce parent update to prevent re-renders while typing
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+    }
+    timeoutRef.current = setTimeout(() => {
+      onChange(newValue)
+    }, 300)
+  }
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+    }
+  }, [])
+
   return (
     <div className="relative">
       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
       <Input
         placeholder="Buscar ubicaciones, archivos KMZ..."
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+        value={localValue}
+        onChange={handleChange}
         className="pl-9"
         disabled={disabled}
       />
