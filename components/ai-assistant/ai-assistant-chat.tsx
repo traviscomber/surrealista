@@ -252,10 +252,20 @@ export function AIAssistantChat() {
 
           if (requestedRegion) {
             const regionFiles = kmzFiles.filter((f: any) => {
-              const fileRegion = (f.region || "").toLowerCase().trim()
+              // Try to get region from field first, or extract from file_name
+              let fileRegion = (f.region || "").toLowerCase().trim()
+              
+              // If region is empty, try to extract from file_name (usually at the end after "-")
+              if (!fileRegion && f.file_name) {
+                const match = f.file_name.match(/[-–]\s*([a-záéíóúñ\s]+?)(?:\s*\(|$)/)
+                if (match) {
+                  fileRegion = match[1].toLowerCase().trim()
+                }
+              }
+              
               const requestLower = requestedRegion.toLowerCase().trim()
-              // Exact match first
-              return fileRegion === requestLower || fileRegion.includes(requestLower)
+              // Check if requested region matches or is contained in file region
+              return fileRegion === requestLower || fileRegion.includes(requestLower) || requestLower.includes(fileRegion.split(" ")[0])
             })
             
             if (regionFiles.length > 0) {
