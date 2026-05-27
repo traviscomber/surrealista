@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect, useRef, useMemo, useCallback, memo } from "react"
+import { useState, useEffect, useRef, useMemo, useCallback, memo, useDeferredValue } from "react"
 import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -759,9 +759,12 @@ export function CAMPOSFolderView() {
     }
   }
 
+  // Defer search query to prevent input focus loss - keeps search responsive while deferring filtering
+  const deferredSearchQuery = useDeferredValue(searchQuery)
+
   const filteredFolders = useMemo(() => {
     return folders.map((folder) => {
-      const searchLower = searchQuery.toLowerCase()
+      const searchLower = deferredSearchQuery.toLowerCase()
       
       // Check if region name matches search
       const regionMatches = folder.name.toLowerCase().includes(searchLower)
@@ -774,7 +777,7 @@ export function CAMPOSFolderView() {
       }) || []
       
       // If search query is empty, show all; otherwise only show if region or children match
-      if (!searchQuery.trim()) {
+      if (!deferredSearchQuery.trim()) {
         return folder
       }
       
@@ -787,7 +790,7 @@ export function CAMPOSFolderView() {
       
       return null
     }).filter(Boolean) as FolderItem[]
-  }, [folders, searchQuery])
+  }, [folders, deferredSearchQuery])
 
   // Use exact count from database instead of summing folder counts
   const totalFiles = totalFileCount > 0 ? totalFileCount : folders.reduce((sum, folder) => sum + (folder.fileCount || 0), 0)
