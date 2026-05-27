@@ -227,7 +227,7 @@ export function AIAssistantChat() {
         // Get all KMZ files
         const { data: kmzFiles } = await supabase
           .from("kmz_collection")
-          .select("file_name, region, placemarks_count, created_at, file_id")
+          .select("id, file_name, region, placemarks_count, created_at")
           .order("created_at", { ascending: false })
 
         // Get region statistics
@@ -323,7 +323,7 @@ export function AIAssistantChat() {
       try {
         const { data: kmzFiles } = await supabase
           .from("kmz_collection")
-          .select("file_name, region, placemarks_count, created_at, file_id")
+          .select("id, file_name, region, placemarks_count, created_at")
           .or(`file_name.ilike.%${searchTerm}%,region.ilike.%${searchTerm}%`)
           .order("created_at", { ascending: false })
           .limit(10)
@@ -364,7 +364,7 @@ export function AIAssistantChat() {
       return {
         id: uuidv4(),
         role: "assistant",
-        content: `🤖 **Guía del Asistente IA de Datos**\n\n**📁 CARPETAS Y ARCHIVOS:**\n• "¿Qué carpetas tengo?"\n• "Muéstrame la carpeta CAMPOS"\n• "¿Cuántos archivos hay en [carpeta]?"\n\n**🔍 BÚSQUEDA:**\n• "Buscar [término]"\n• "Encontrar contratos"\n• "Archivos de Puerto Varas"\n\n**🗺️ ARCHIVOS KMZ:**\n• "¿Cuántos KMZ tengo?"\n• "Estadísticas de KMZ"\n• "Archivos KMZ por región"\n• "¿Qué KMZ hay en [región]?"\n• "Detalles del archivo [nombre]"\n\n**📊 ESTADÍSTICAS:**\n• "Dame estadísticas de mis archivos"\n• "Estadísticas de KMZ completas"\n• "¿Cuántos puntos tengo en total?"\n\n**🌎 BUSCAR POR REGIÓN:**\n• "Muéstrame todos los archivos de Los Lagos"\n• "¿Qué KMZ hay en Región de Aysén?"\n\n**❓ AYUDA:**\n• "ayuda"\n\n**💡 TIPS:**\n• Usa lenguaje natural\n• Sé específico en tus consultas\n• Menciona regiones, tipos de archivo o ubicaciones\n• Puedo buscar en nombres, contenido y metadata`,
+        content: `��� **Guía del Asistente IA de Datos**\n\n**📁 CARPETAS Y ARCHIVOS:**\n• "¿Qué carpetas tengo?"\n• "Muéstrame la carpeta CAMPOS"\n• "¿Cuántos archivos hay en [carpeta]?"\n\n**🔍 BÚSQUEDA:**\n• "Buscar [término]"\n• "Encontrar contratos"\n• "Archivos de Puerto Varas"\n\n**🗺️ ARCHIVOS KMZ:**\n• "¿Cuántos KMZ tengo?"\n• "Estadísticas de KMZ"\n• "Archivos KMZ por región"\n• "¿Qué KMZ hay en [región]?"\n• "Detalles del archivo [nombre]"\n\n**📊 ESTADÍSTICAS:**\n• "Dame estadísticas de mis archivos"\n• "Estadísticas de KMZ completas"\n• "¿Cuántos puntos tengo en total?"\n\n**🌎 BUSCAR POR REGIÓN:**\n• "Muéstrame todos los archivos de Los Lagos"\n• "¿Qué KMZ hay en Región de Aysén?"\n\n**❓ AYUDA:**\n• "ayuda"\n\n**💡 TIPS:**\n• Usa lenguaje natural\n• Sé específico en tus consultas\n• Menciona regiones, tipos de archivo o ubicaciones\n• Puedo buscar en nombres, contenido y metadata`,
         timestamp: new Date(),
         metadata: { type: "help", confidence: 1.0 },
       }
