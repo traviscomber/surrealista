@@ -288,7 +288,6 @@ IMPORTANT: Always respond ONLY with valid JSON, no markdown, no extra text.`,
             .from("kmz_placemarks")
             .select("id, kmz_id, name, region, city, address")
             .ilike("region", `%${queryAnalysis.region}%`)
-            .limit(100)
 
           if (placemarks && placemarks.length > 0) {
             const kmzIds = [...new Set(placemarks.map((p: any) => p.kmz_id))]
@@ -324,19 +323,19 @@ IMPORTANT: Always respond ONLY with valid JSON, no markdown, no extra text.`,
           }
         } else if (queryAnalysis?.intent === "statistics") {
           // Return statistics
-          const { data: kmzFiles } = await supabase
+          const { data: kmzFiles, count } = await supabase
             .from("kmz_collection")
-            .select("id, file_name, placemarks_count")
-            .limit(100)
+            .select("id, file_name, placemarks_count", { count: "exact" })
 
           if (kmzFiles && kmzFiles.length > 0) {
             const totalPoints = kmzFiles.reduce((sum: number, f: any) => sum + (f.placemarks_count || 0), 0)
             const latestFiles = kmzFiles.slice(0, 5)
+            const totalCount = count || kmzFiles.length
 
             return {
               id: uuidv4(),
               role: "assistant",
-              content: `📊 **Estadísticas KMZ:**\n\n• **Total de archivos:** ${kmzFiles.length}\n• **Total de ubicaciones:** ${totalPoints.toLocaleString()}\n• **Promedio por archivo:** ${Math.round(totalPoints / kmzFiles.length)} puntos\n\n**Archivos recientes:**\n${latestFiles.map((f: any) => `• ${f.file_name} (${f.placemarks_count} puntos)`).join("\n")}`,
+              content: `📊 **Estadísticas KMZ:**\n\n• **Total de archivos:** ${totalCount}\n• **Total de ubicaciones:** ${totalPoints.toLocaleString()}\n• **Promedio por archivo:** ${Math.round(totalPoints / kmzFiles.length)} puntos\n\n**Archivos recientes:**\n${latestFiles.map((f: any) => `• ${f.file_name} (${f.placemarks_count} puntos)`).join("\n")}`,
               timestamp: new Date(),
               metadata: { type: "statistics", confidence: 0.95 },
             }
