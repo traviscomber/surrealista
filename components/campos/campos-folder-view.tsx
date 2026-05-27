@@ -928,12 +928,6 @@ export function CAMPOSFolderView() {
             )}
           </Button>
         </div>
-
-        <SearchInput 
-          value={searchQuery} 
-          onChange={setSearchQuery} 
-          disabled={isLoadingFromURL}
-        />
       </div>
 
       <div className="flex-1 overflow-y-auto min-h-0">
@@ -1224,6 +1218,14 @@ export function CAMPOSFolderView() {
           isMapFullscreen ? "md:hidden" : ""
         } ${isLeftPanelOpen ? "w-80 border-r" : "w-0"}`}
       >
+        {/* Search input rendered outside FolderList to prevent focus loss */}
+        <div className="p-4 border-b flex-shrink-0">
+          <SearchInput 
+            value={searchQuery} 
+            onChange={setSearchQuery} 
+            disabled={isLoadingFromURL}
+          />
+        </div>
         <FolderList />
       </div>
 
@@ -1326,6 +1328,14 @@ export function CAMPOSFolderView() {
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="w-[85vw] sm:w-[400px] p-0 flex flex-col h-full">
+                {/* Search input rendered outside FolderList for mobile */}
+                <div className="p-4 border-b flex-shrink-0">
+                  <SearchInput 
+                    value={searchQuery} 
+                    onChange={setSearchQuery} 
+                    disabled={isLoadingFromURL}
+                  />
+                </div>
                 <FolderList />
               </SheetContent>
             </Sheet>
