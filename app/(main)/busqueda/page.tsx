@@ -22,8 +22,8 @@ import { Button } from "@/components/ui/button"
 const KMZMapDisplay = dynamicImport(() => import("@/components/kmz/kmz-map-display").then((mod) => mod.KMZMapDisplay), {
   ssr: false,
   loading: () => (
-    <div className="h-[600px] w-full flex items-center justify-center bg-slate-100 rounded-xl">
-      <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+    <div className="h-[600px] w-full flex items-center justify-center bg-muted rounded-xl">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
     </div>
   ),
 })
@@ -36,8 +36,8 @@ const SimpleDriveFolderViewDynamic = dynamicImport(
   {
     ssr: false,
     loading: () => (
-      <div className="h-[600px] w-full flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      <div className="h-[600px] w-full flex items-center justify-center bg-muted rounded-xl">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     ),
   },
@@ -51,8 +51,8 @@ const CommunicationsManagerDynamic = dynamicImport(
   {
     ssr: false,
     loading: () => (
-      <div className="h-[600px] w-full flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+      <div className="h-[600px] w-full flex items-center justify-center bg-muted rounded-xl">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     ),
   },
@@ -544,12 +544,12 @@ export default function UnifiedSearchPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 p-6">
+    <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Sur-Realista</h1>
-          <p className="text-gray-600">Sistema integrado de gestión para CAMPOS, Clientes, Comunicaciones y Tareas</p>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Sur-Realista</h1>
+          <p className="text-muted-foreground">Sistema integrado de gestión para CAMPOS, Clientes, Comunicaciones y Tareas</p>
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
