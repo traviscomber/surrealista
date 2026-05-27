@@ -450,8 +450,8 @@ export function AIAssistantChat() {
   }
 
   return (
-    <Card className="border-2 h-[800px] flex flex-col">
-      <CardContent className="p-0 flex-1 flex flex-col">
+    <Card className="border-2 h-[800px] flex flex-col w-full overflow-hidden">
+      <CardContent className="p-0 flex-1 flex flex-col w-full">
         <div className="bg-gradient-to-r from-green-600 to-blue-600 text-white p-4 rounded-t-lg">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -481,7 +481,7 @@ export function AIAssistantChat() {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0 w-full">
           {messages.map((message) => (
             <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"} gap-2`}>
               <div
@@ -548,8 +548,8 @@ export function AIAssistantChat() {
         </div>
 
         {/* Input Area */}
-        <div className="border-t p-4">
-          <div className="flex gap-2">
+        <div className="border-t p-4 w-full flex-shrink-0">
+          <div className="flex gap-2 w-full">
             <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
