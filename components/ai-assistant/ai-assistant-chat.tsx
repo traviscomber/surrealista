@@ -246,13 +246,17 @@ export function AIAssistantChat() {
           })
 
           // Check if user is asking for specific region
-          const regionMatch = message.match(/región\s+de\s+(\w+)|region\s+de\s+(\w+)|(\w+)\s+region/i)
-          const requestedRegion = regionMatch ? (regionMatch[1] || regionMatch[2] || regionMatch[3]) : null
+          const regionPattern = /(?:región|region)\s+(?:de\s+)?([a-záéíóúñ\s]+?)(?:\?|$|\.|\s+muéstrame|\s+archivos)/i
+          const regionMatch = message.match(regionPattern)
+          const requestedRegion = regionMatch ? regionMatch[1].trim() : null
 
           if (requestedRegion) {
-            const regionFiles = kmzFiles.filter((f: any) => 
-              f.region?.toLowerCase().includes(requestedRegion.toLowerCase())
-            )
+            const regionFiles = kmzFiles.filter((f: any) => {
+              const fileRegion = (f.region || "").toLowerCase().trim()
+              const requestLower = requestedRegion.toLowerCase().trim()
+              // Exact match first
+              return fileRegion === requestLower || fileRegion.includes(requestLower)
+            })
             
             if (regionFiles.length > 0) {
               const fileList = regionFiles
@@ -481,8 +485,9 @@ export function AIAssistantChat() {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0 w-full">
-          {messages.map((message) => (
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0 w-full flex flex-col">
+          <div className="space-y-4">
+            {messages.map((message) => (
             <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"} gap-2`}>
               <div
                 className={`flex items-start max-w-[70%] ${
@@ -545,6 +550,7 @@ export function AIAssistantChat() {
           )}
 
           <div ref={messagesEndRef} />
+          </div>
         </div>
 
         {/* Input Area */}
