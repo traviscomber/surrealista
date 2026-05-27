@@ -395,33 +395,6 @@ IMPORTANT: Always respond ONLY with valid JSON, no markdown, no extra text.`,
               console.error("Region search error:", error)
             }
           }
-
-          const kmzList = kmzFiles
-            .slice(0, 8)
-            .map((f: any) => `• **${f.file_name}** - ${f.region || "Sin región"} (${f.placemarks_count || 0} puntos)`)
-            .join("\n")
-
-          const regionSummary = Object.entries(regionCounts)
-            .slice(0, 5)
-            .map(([region, count]) => `• ${region}: ${count} archivos`)
-            .join("\n")
-
-          return {
-            id: uuidv4(),
-            role: "assistant",
-            content: `🗺️ **Estadísticas de Archivos KMZ:**\n\n**Resumen General:**\n• Total de archivos: ${kmzFiles.length}\n• Total de puntos: ${totalPoints.toLocaleString()}\n• Regiones cubiertas: ${Object.keys(regionCounts).length}\n\n**Top Regiones:**\n${regionSummary}\n\n**Últimos archivos agregados:**\n${kmzList}${kmzFiles.length > 8 ? `\n\n... y ${kmzFiles.length - 8} archivos más` : ""}\n\n💡 **Puedes preguntar:**\n• "¿Qué KMZ hay en [región]?"\n• "Detalles de [nombre archivo]"\n• "¿Cuántos puntos tengo en total?"`,
-            timestamp: new Date(),
-            metadata: { type: "kmz_list", confidence: 0.95 },
-          }
-        } else {
-          return {
-            id: uuidv4(),
-            role: "assistant",
-            content: `📭 No se encontraron archivos KMZ en la base de datos.\n\n**Sugerencias:**\n• Carga archivos KMZ desde la página /campos\n• Verifica que los archivos se hayan guardado correctamente\n• Usa el botón "Cargar KMZ Offline" para subir archivos`,
-            timestamp: new Date(),
-            metadata: { type: "no_data", confidence: 1.0 },
-          }
-        }
       } catch (error) {
         console.error("[v0] KMZ query error:", error)
         return {
