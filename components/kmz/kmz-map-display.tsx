@@ -59,26 +59,22 @@ export function KMZMapDisplay({
     ? safeKmzFiles.filter(file => {
         const selectedIdStr = selectedKmzId.toString()
         const fileId = file.id?.toString() || file.dbId?.toString() || ""
-        const fileName = file.fileName || file.name || ""
-        return fileName.includes(selectedIdStr) || fileId === selectedIdStr
+        // Only match by ID, not by filename
+        return fileId === selectedIdStr
       })
     : safeKmzFiles
 
-  console.log("[v0] KMZMapDisplay received", safeKmzFiles.length, "KMZ files, displaying", displayKmzFiles.length)
 
   useEffect(() => {
     const loadLeaflet = async () => {
       if (typeof window === "undefined") return
 
       if ((window as any).L) {
-        console.log("[v0] Leaflet already loaded")
         setLeafletLoaded(true)
         return
       }
 
       try {
-        console.log("[v0] Loading Leaflet...")
-
         // Load Leaflet CSS
         const cssLink = document.createElement("link")
         cssLink.rel = "stylesheet"
@@ -95,7 +91,6 @@ export function KMZMapDisplay({
 
         await new Promise((resolve, reject) => {
           script.onload = () => {
-            console.log("[v0] Leaflet loaded successfully")
             resolve(true)
           }
           script.onerror = (error) => {
