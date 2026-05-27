@@ -63,27 +63,23 @@ const menuItems: MenuItem[] = [
     href: "/busqueda",
     icon: Search,
     badge: "New",
-    badgeColor: "bg-green-500",
   },
   {
     title: "Colección KMZ",
     icon: MapPin,
     badge: "New",
-    badgeColor: "bg-blue-500",
     children: [
       {
         title: "Estado del Sistema",
         href: "/admin/kmz-status",
         icon: AlertCircle,
         badge: "Check",
-        badgeColor: "bg-purple-500",
       },
       {
         title: "Guía de Búsqueda",
         href: "/kmz-guide",
         icon: HelpCircle,
         badge: "Start",
-        badgeColor: "bg-yellow-500",
       },
       {
         title: "Gestionar Colección",
@@ -95,7 +91,6 @@ const menuItems: MenuItem[] = [
         href: "/admin/kmz",
         icon: MapPin,
         badge: "Fast",
-        badgeColor: "bg-green-500",
       },
       {
         title: "Buscar por Ubicación",
@@ -108,21 +103,18 @@ const menuItems: MenuItem[] = [
     title: "Comunicaciones",
     icon: Mail,
     badge: "Nuevo",
-    badgeColor: "bg-blue-500",
     children: [
       {
         title: "Enviar Emails",
         href: "/comunicaciones/email",
         icon: Mail,
         badge: "Feature",
-        badgeColor: "bg-blue-500",
       },
       {
         title: "Historial",
         href: "/comunicaciones/email",
         icon: FileText,
         badge: "Logs",
-        badgeColor: "bg-gray-500",
       },
     ],
   },
@@ -131,35 +123,30 @@ const menuItems: MenuItem[] = [
     icon: FileText,
     badge: "Etapa 1",
     badgeVariant: "default",
-    badgeColor: "bg-orange-500",
     children: [
       {
         title: "Google Drive Integration",
         href: "/admin/google-drive-integration",
         icon: Database,
         badge: "API Ready",
-        badgeColor: "bg-green-500",
       },
       {
         title: "Organización Carpetas",
         href: "/admin/organizacion-carpetas-demo",
         icon: Eye,
         badge: "Demo",
-        badgeColor: "bg-blue-500",
       },
       {
         title: "Método PARA",
         href: "/admin/documentacion-para-method",
         icon: HelpCircle,
         badge: "Guía",
-        badgeColor: "bg-indigo-500",
       },
       {
         title: "Migración Data Real",
         href: "/admin/migracion-data-real",
         icon: Upload,
         badge: "Ready",
-        badgeColor: "bg-purple-500",
       },
     ],
   },
