@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useEffect, useRef, useMemo } from "react"
+import { useState, useEffect, useRef, useMemo, useCallback, memo } from "react"
 import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -62,6 +62,30 @@ const getCleanRegionName = (fullName: string): string => {
   // Remove "Región de " or "Región del "
   return fullName.replace(/^Región de /i, "").replace(/^Región del /i, "")
 }
+
+// Memoized search input component to prevent focus loss on parent re-renders
+const SearchInput = memo(function SearchInput({ 
+  value, 
+  onChange, 
+  disabled 
+}: { 
+  value: string
+  onChange: (value: string) => void
+  disabled?: boolean 
+}) {
+  return (
+    <div className="relative">
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      <Input
+        placeholder="Buscar ubicaciones, archivos KMZ..."
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="pl-9"
+        disabled={disabled}
+      />
+    </div>
+  )
+})
 
 export function CAMPOSFolderView() {
   const [folders, setFolders] = useState<FolderItem[]>([])
@@ -870,16 +894,11 @@ export function CAMPOSFolderView() {
           </Button>
         </div>
 
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar ubicaciones, archivos KMZ..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-            disabled={isLoadingFromURL}
-          />
-        </div>
+        <SearchInput 
+          value={searchQuery} 
+          onChange={setSearchQuery} 
+          disabled={isLoadingFromURL}
+        />
       </div>
 
       <div className="flex-1 overflow-y-auto min-h-0">
