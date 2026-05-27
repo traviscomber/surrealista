@@ -12,6 +12,11 @@ import {
   User,
   Sparkles,
   HelpCircle,
+  FolderOpen,
+  Search,
+  TrendingUp,
+  MapPin,
+  FileText,
 } from "lucide-react"
 import { v4 as uuidv4 } from "uuid"
 
