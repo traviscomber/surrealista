@@ -233,26 +233,6 @@ export function Header() {
               <GlobalCommandPalette />
             </NavigationMenuItem>
 
-            <NavigationMenuItem>
-              <Link href="/busqueda">
-                <Button variant={isActive("/busqueda") ? "default" : "ghost"} size="sm" className="h-10">
-                  <Search className="mr-2 h-4 w-4" />
-                  Búsqueda
-                  <Badge className="ml-2 text-xs bg-green-500 text-white">New</Badge>
-                </Button>
-              </Link>
-            </NavigationMenuItem>
-
-            <NavigationMenuItem>
-              <Link href="/home-spotter">
-                <Button variant={isActive("/home-spotter") ? "default" : "ghost"} size="sm" className="h-10">
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  Oportunidades
-                  <Badge className="ml-2 text-xs bg-purple-500 text-white">Premium</Badge>
-                </Button>
-              </Link>
-            </NavigationMenuItem>
-
             {/* Tools Dropdown */}
             <NavigationMenuItem>
               <NavigationMenuTrigger className="h-10">
@@ -390,31 +370,6 @@ export function Header() {
                     <Building2 className="h-4 w-4 text-white" />
                   </div>
                   <span className="text-lg font-serif font-semibold">Sur-Realista</span>
-                </div>
-
-                <div className="space-y-2">
-                  <Link
-                    href="/busqueda"
-                    className="flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent bg-green-50"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <Search className="h-4 w-4" />
-                      <span>Búsqueda Unificada</span>
-                    </div>
-                    <Badge className="bg-green-500 text-white text-xs">New</Badge>
-                  </Link>
-                  <Link
-                    href="/home-spotter"
-                    className="flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent bg-purple-50"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <Sparkles className="h-4 w-4" />
-                      <span>Oportunidades de Inversión</span>
-                    </div>
-                    <Badge className="bg-purple-500 text-white text-xs">Premium</Badge>
-                  </Link>
                 </div>
 
                 {/* Mobile Tools */}
