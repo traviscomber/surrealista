@@ -55,8 +55,8 @@ export default function AsistenteIAPage() {
                   <div className="flex items-start gap-3">
                     <FolderOpen className="h-4 w-4 text-primary mt-1" />
                     <div>
-                      <div className="font-medium text-sm">Exploración de Carpetas</div>
-                      <div className="text-xs text-muted-foreground">Navega y consulta estructura de Drive</div>
+                      <div className="font-medium text-sm">Exploración de Archivos KMZ</div>
+                      <div className="text-xs text-muted-foreground">Navega y consulta tus archivos de ubicación</div>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
@@ -87,25 +87,25 @@ export default function AsistenteIAPage() {
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Ejemplos de Consultas</CardTitle>
-                <CardDescription>Pregunta sobre tus datos en Drive</CardDescription>
+                <CardDescription>Preguntas que puedo responder con tus datos</CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="text-sm space-y-2">
-                  <div className="p-3 bg-secondary rounded-lg">
-                    <div className="font-medium text-secondary-foreground">Carpetas y Archivos</div>
-                    <div className="text-xs text-muted-foreground">&quot;¿Qué carpetas tengo en CAMPOS?&quot;</div>
-                  </div>
-                  <div className="p-3 bg-secondary rounded-lg">
-                    <div className="font-medium text-secondary-foreground">Búsqueda de Documentos</div>
-                    <div className="text-xs text-muted-foreground">&quot;Busca contratos de Puerto Varas&quot;</div>
-                  </div>
-                  <div className="p-3 bg-secondary rounded-lg">
-                    <div className="font-medium text-secondary-foreground">Archivos KMZ</div>
+                  <div className="p-3 bg-secondary rounded-lg cursor-pointer hover:bg-secondary/80 transition-colors">
+                    <div className="font-medium text-secondary-foreground">Estadísticas KMZ</div>
                     <div className="text-xs text-muted-foreground">&quot;¿Cuántos archivos KMZ tengo?&quot;</div>
                   </div>
-                  <div className="p-3 bg-secondary rounded-lg">
-                    <div className="font-medium text-secondary-foreground">Análisis de Datos</div>
-                    <div className="text-xs text-muted-foreground">&quot;Resume los documentos del cliente X&quot;</div>
+                  <div className="p-3 bg-secondary rounded-lg cursor-pointer hover:bg-secondary/80 transition-colors">
+                    <div className="font-medium text-secondary-foreground">Archivos por Región</div>
+                    <div className="text-xs text-muted-foreground">&quot;Muéstrame los archivos de la Región Metropolitana&quot;</div>
+                  </div>
+                  <div className="p-3 bg-secondary rounded-lg cursor-pointer hover:bg-secondary/80 transition-colors">
+                    <div className="font-medium text-secondary-foreground">Búsqueda de Archivos</div>
+                    <div className="text-xs text-muted-foreground">&quot;Buscar archivos KMZ&quot;</div>
+                  </div>
+                  <div className="p-3 bg-secondary rounded-lg cursor-pointer hover:bg-secondary/80 transition-colors">
+                    <div className="font-medium text-secondary-foreground">Ubicaciones</div>
+                    <div className="text-xs text-muted-foreground">&quot;¿Qué regiones tengo cargadas?&quot;</div>
                   </div>
                 </div>
               </CardContent>
@@ -118,12 +118,6 @@ export default function AsistenteIAPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span>Google Drive</span>
-                    <Badge variant="outline" className="text-xs">
-                      Conectado
-                    </Badge>
-                  </div>
                   <div className="flex justify-between">
                     <span>Base de Datos Supabase</span>
                     <Badge variant="outline" className="text-xs">
