@@ -81,13 +81,6 @@ const toolsItems = [
     badge: "Nuevo",
   },
   {
-    title: "Lector KMZ",
-    href: "/admin/kmz-reader",
-    icon: Map,
-    description: "Procesamiento múltiple de archivos KMZ geoespaciales",
-    badge: "Beta",
-  },
-  {
     title: "Tecnología IA",
     href: "/tecnologia-ia",
     icon: Brain,
@@ -95,31 +88,11 @@ const toolsItems = [
     badge: "Nuevo",
   },
   {
-    title: "Mapas Interactivos",
-    href: "/mapas",
-    icon: MapPin,
-    description: "Explora ubicaciones en mapas detallados",
-  },
-  {
-    title: "Google Drive Integration",
-    href: "/admin/google-drive-integration",
-    icon: FolderOpen,
-    description: "Integración completa con Google Drive - PRIORIDAD",
-    badge: "Activo",
-  },
-  {
     title: "Organización Carpetas",
     href: "/admin/organizacion-carpetas-demo",
     icon: FolderOpen,
     description: "Demo de organización profesional de carpetas",
     badge: "Demo",
-  },
-  {
-    title: "Análisis de Vecindario KMZ",
-    href: "/kmz-analisis",
-    icon: MapPin,
-    description: "Identifica roles vecinos, accesos y distancias",
-    badge: "Análisis",
   },
 ]
 
