@@ -47,7 +47,7 @@ export function TeamSection() {
         {team.map((member, index) => (
           <div
             key={index}
-            className="bg-white rounded-lg shadow-md overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
+            className="bg-card rounded-lg shadow-md overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
           >
             <div className="h-64 overflow-hidden">
               <BasicImage
@@ -59,7 +59,7 @@ export function TeamSection() {
             <div className="p-6">
               <h3 className="text-xl font-semibold mb-1">{member.name}</h3>
               <p className="text-primary font-medium mb-3">{member.role}</p>
-              <p className="text-gray-600">{member.bio}</p>
+              <p className="text-foreground/80">{member.bio}</p>
             </div>
           </div>
         ))}

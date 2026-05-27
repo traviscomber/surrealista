@@ -44,8 +44,8 @@ const StatCard = ({ title, value, trend, trendValue, icon: Icon, color }) => {
             <span>{trendValue}</span>
           </div>
         </div>
-        <div className="text-2xl font-bold mb-1 text-gray-900">{value}</div>
-        <div className="text-sm text-gray-600">{title}</div>
+        <div className="text-2xl font-bold mb-1 text-foreground">{value}</div>
+        <div className="text-sm text-muted-foreground">{title}</div>
       </CardContent>
     </Card>
   )
@@ -59,7 +59,7 @@ export function AdminDashboard() {
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
           <h1 className="text-3xl font-bold mb-1">Panel de Administración</h1>
-          <p className="text-gray-500">Gestiona propiedades, usuarios y analíticas de Sur-Realista</p>
+          <p className="text-muted-foreground">Gestiona propiedades, usuarios y analíticas de Sur-Realista</p>
         </div>
         <div className="flex gap-3">
           <Button asChild variant="outline" className="gap-2 bg-transparent">
@@ -150,30 +150,30 @@ export function AdminDashboard() {
                       <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                       <div>
                         <p className="font-medium text-sm">Nueva propiedad ingresada</p>
-                        <p className="text-xs text-gray-500">Fundo Los Robles - 45 ha</p>
+                        <p className="text-xs text-muted-foreground">Fundo Los Robles - 45 ha</p>
                       </div>
                     </div>
-                    <span className="text-xs text-gray-400">Hace 2 horas</span>
+                    <span className="text-xs text-muted-foreground/70">Hace 2 horas</span>
                   </div>
                   <div className="flex items-center justify-between pb-4 border-b">
                     <div className="flex items-center gap-3">
                       <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                       <div>
                         <p className="font-medium text-sm">Venta completada</p>
-                        <p className="text-xs text-gray-500">Parcela San José - UF 5.200</p>
+                        <p className="text-xs text-muted-foreground">Parcela San José - UF 5.200</p>
                       </div>
                     </div>
-                    <span className="text-xs text-gray-400">Hace 4 horas</span>
+                    <span className="text-xs text-muted-foreground/70">Hace 4 horas</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
                       <div>
                         <p className="font-medium text-sm">Usuario registrado</p>
-                        <p className="text-xs text-gray-500">Juan Carlos Pérez</p>
+                        <p className="text-xs text-muted-foreground">Juan Carlos Pérez</p>
                       </div>
                     </div>
-                    <span className="text-xs text-gray-400">Hace 6 horas</span>
+                    <span className="text-xs text-muted-foreground/70">Hace 6 horas</span>
                   </div>
                 </div>
               </CardContent>
@@ -304,37 +304,37 @@ export function AdminDashboard() {
             </CardHeader>
             <CardContent className="pt-6 space-y-6">
               <div className="space-y-4">
-                <h3 className="font-semibold text-sm text-gray-900">Configuración General</h3>
+                <h3 className="font-semibold text-sm text-foreground">Configuración General</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Button asChild variant="outline" className="justify-start h-auto p-4">
                     <Link href="/admin/configuracion/general" className="flex flex-col items-start">
                       <span className="font-medium text-sm">Configuración General</span>
-                      <span className="text-xs text-gray-500 mt-1">Nombre, logo, dominio</span>
+                      <span className="text-xs text-muted-foreground mt-1">Nombre, logo, dominio</span>
                     </Link>
                   </Button>
                   <Button asChild variant="outline" className="justify-start h-auto p-4">
                     <Link href="/admin/configuracion/comisiones" className="flex flex-col items-start">
                       <span className="font-medium text-sm">Comisiones y Precios</span>
-                      <span className="text-xs text-gray-500 mt-1">Estructura de comisiones</span>
+                      <span className="text-xs text-muted-foreground mt-1">Estructura de comisiones</span>
                     </Link>
                   </Button>
                   <Button asChild variant="outline" className="justify-start h-auto p-4">
                     <Link href="/admin/configuracion/notificaciones" className="flex flex-col items-start">
                       <span className="font-medium text-sm">Notificaciones</span>
-                      <span className="text-xs text-gray-500 mt-1">Canales y preferencias</span>
+                      <span className="text-xs text-muted-foreground mt-1">Canales y preferencias</span>
                     </Link>
                   </Button>
                   <Button asChild variant="outline" className="justify-start h-auto p-4">
                     <Link href="/admin/configuracion/integraciones" className="flex flex-col items-start">
                       <span className="font-medium text-sm">Integraciones</span>
-                      <span className="text-xs text-gray-500 mt-1">APIs y webhooks</span>
+                      <span className="text-xs text-muted-foreground mt-1">APIs y webhooks</span>
                     </Link>
                   </Button>
                 </div>
               </div>
 
               <div className="pt-4 border-t">
-                <h3 className="font-semibold text-sm text-gray-900 mb-4">Estado del Sistema</h3>
+                <h3 className="font-semibold text-sm text-foreground mb-4">Estado del Sistema</h3>
                 <div className="space-y-3">
                   <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
                     <div>

@@ -6,12 +6,12 @@ export function CompanyInfo() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
         <div>
           <h2 className="text-2xl font-bold mb-4">Nuestra Historia</h2>
-          <p className="text-gray-700 mb-4">
+          <p className="text-foreground/80 mb-4">
             Sur-Realista nació en 2015 con la visión de transformar el mercado inmobiliario en el sur de Chile,
             combinando el conocimiento local con tecnología de punta para ofrecer un servicio excepcional a nuestros
             clientes.
           </p>
-          <p className="text-gray-700 mb-4">
+          <p className="text-foreground/80 mb-4">
             Desde nuestros inicios, nos hemos especializado en propiedades únicas que capturan la esencia y belleza del
             sur de Chile, desde casas con vista al lago en Puerto Varas hasta parcelas en la Carretera Austral.
           </p>
@@ -31,7 +31,7 @@ export function CompanyInfo() {
       </div>
 
       <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="bg-card p-6 rounded-lg shadow-md">
           <div className="h-40 mb-4 rounded-md overflow-hidden">
             <BasicImage
               src="https://images.unsplash.com/photo-1600880292089-90a7e086ee0c?auto=format&fit=crop&w=500&q=80"
@@ -45,7 +45,7 @@ export function CompanyInfo() {
             personalizado y utilizando tecnología innovadora para simplificar el proceso de compra, venta y arriendo.
           </p>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="bg-card p-6 rounded-lg shadow-md">
           <div className="h-40 mb-4 rounded-md overflow-hidden">
             <BasicImage
               src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=500&q=80"
@@ -59,7 +59,7 @@ export function CompanyInfo() {
             tecnológica y compromiso con el desarrollo sostenible de las comunidades donde operamos.
           </p>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="bg-card p-6 rounded-lg shadow-md">
           <div className="h-40 mb-4 rounded-md overflow-hidden">
             <BasicImage
               src="https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=500&q=80"
@@ -68,7 +68,7 @@ export function CompanyInfo() {
             />
           </div>
           <h3 className="text-xl font-semibold mb-3">Valores</h3>
-          <ul className="text-gray-700 space-y-2">
+          <ul className="text-foreground/80 space-y-2">
             <li>• Excelencia en el servicio</li>
             <li>• Innovación constante</li>
             <li>• Transparencia y honestidad</li>
