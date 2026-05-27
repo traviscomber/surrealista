@@ -76,17 +76,24 @@ const quickActions: QuickAction[] = [
     category: "search",
   },
   {
+    id: "kmz_stats",
+    label: "📊 Estadísticas KMZ",
+    icon: <TrendingUp className="h-4 w-4" />,
+    prompt: "Dame estadísticas completas de mis archivos KMZ",
+    category: "analysis",
+  },
+  {
+    id: "kmz_by_region",
+    label: "🌎 KMZ por Región",
+    icon: <MapPin className="h-4 w-4" />,
+    prompt: "¿Cuántos archivos KMZ tengo por región?",
+    category: "analysis",
+  },
+  {
     id: "kmz_files",
     label: "🗺️ Archivos KMZ",
     icon: <MapPin className="h-4 w-4" />,
     prompt: "¿Cuántos archivos KMZ tengo y en qué regiones?",
-    category: "search",
-  },
-  {
-    id: "folder_structure",
-    label: "📂 Estructura de carpetas",
-    icon: <FolderOpen className="h-4 w-4" />,
-    prompt: "Muéstrame la estructura de carpetas de CAMPOS",
     category: "search",
   },
   {
@@ -246,23 +253,67 @@ export function AIAssistantChat() {
       }
     }
 
-    if (message.includes("kmz") || message.includes("mapa")) {
+    if (message.includes("kmz") || message.includes("mapa") || message.includes("región") || message.includes("region")) {
       try {
+        // Get all KMZ files
         const { data: kmzFiles } = await supabase
           .from("kmz_collection")
-          .select("file_name, region, placemarks_count, created_at")
+          .select("file_name, region, placemarks_count, created_at, file_id")
           .order("created_at", { ascending: false })
-          .limit(10)
+
+        // Get region statistics
+        const { data: regionStats } = await supabase
+          .from("kmz_collection")
+          .select("region")
 
         if (kmzFiles && kmzFiles.length > 0) {
+          // Calculate statistics
+          const totalPoints = kmzFiles.reduce((sum: number, f: any) => sum + (f.placemarks_count || 0), 0)
+          const regionCounts: Record<string, number> = {}
+          regionStats?.forEach((item: any) => {
+            if (item.region) {
+              regionCounts[item.region] = (regionCounts[item.region] || 0) + 1
+            }
+          })
+
+          // Check if user is asking for specific region
+          const regionMatch = message.match(/región\s+de\s+(\w+)|region\s+de\s+(\w+)|(\w+)\s+region/i)
+          const requestedRegion = regionMatch ? (regionMatch[1] || regionMatch[2] || regionMatch[3]) : null
+
+          if (requestedRegion) {
+            const regionFiles = kmzFiles.filter((f: any) => 
+              f.region?.toLowerCase().includes(requestedRegion.toLowerCase())
+            )
+            
+            if (regionFiles.length > 0) {
+              const fileList = regionFiles
+                .map((f: any) => `• **${f.file_name}** (${f.placemarks_count || 0} puntos)`)
+                .join("\n")
+
+              return {
+                id: uuidv4(),
+                role: "assistant",
+                content: `🗺️ **Archivos KMZ en Región de ${requestedRegion}:**\n\n${fileList}\n\n**Total en región:** ${regionFiles.length} archivos con ${regionFiles.reduce((s: number, f: any) => s + (f.placemarks_count || 0), 0)} puntos`,
+                timestamp: new Date(),
+                metadata: { type: "kmz_list", confidence: 0.95 },
+              }
+            }
+          }
+
           const kmzList = kmzFiles
+            .slice(0, 8)
             .map((f: any) => `• **${f.file_name}** - ${f.region || "Sin región"} (${f.placemarks_count || 0} puntos)`)
+            .join("\n")
+
+          const regionSummary = Object.entries(regionCounts)
+            .slice(0, 5)
+            .map(([region, count]) => `• ${region}: ${count} archivos`)
             .join("\n")
 
           return {
             id: uuidv4(),
             role: "assistant",
-            content: `🗺️ **Archivos KMZ en el sistema:**\n\n${kmzList}\n\n**Total:** ${kmzFiles.length} archivos\n\n💡 **Puedes preguntar:**\n• "¿Qué propiedades hay en [región]?"\n• "Muéstrame detalles del archivo [nombre]"\n• "¿Cuántos KMZ tengo por región?"`,
+            content: `🗺️ **Estadísticas de Archivos KMZ:**\n\n**Resumen General:**\n• Total de archivos: ${kmzFiles.length}\n• Total de puntos: ${totalPoints.toLocaleString()}\n• Regiones cubiertas: ${Object.keys(regionCounts).length}\n\n**Top Regiones:**\n${regionSummary}\n\n**Últimos archivos agregados:**\n${kmzList}${kmzFiles.length > 8 ? `\n\n... y ${kmzFiles.length - 8} archivos más` : ""}\n\n💡 **Puedes preguntar:**\n• "¿Qué KMZ hay en [región]?"\n• "Detalles de [nombre archivo]"\n• "¿Cuántos puntos tengo en total?"`,
             timestamp: new Date(),
             metadata: { type: "kmz_list", confidence: 0.95 },
           }
@@ -276,6 +327,7 @@ export function AIAssistantChat() {
           }
         }
       } catch (error) {
+        console.error("[v0] KMZ query error:", error)
         return {
           id: uuidv4(),
           role: "assistant",
@@ -339,7 +391,7 @@ export function AIAssistantChat() {
       return {
         id: uuidv4(),
         role: "assistant",
-        content: `🤖 **Guía del Asistente IA de Datos**\n\n**📁 CARPETAS Y ARCHIVOS:**\n• "¿Qué carpetas tengo?"\n• "Muéstrame la carpeta CAMPOS"\n• "¿Cuántos archivos hay en [carpeta]?"\n\n**🔍 BÚSQUEDA:**\n• "Buscar [término]"\n• "Encontrar contratos"\n• "Archivos de Puerto Varas"\n\n**🗺️ ARCHIVOS KMZ:**\n• "¿Cuántos KMZ tengo?"\n• "Archivos KMZ por región"\n• "Detalles del archivo [nombre]"\n\n**📊 ESTADÍSTICAS:**\n• "Dame estadísticas de mis archivos y carpetas"\n\n**🌎 BUSCAR POR REGIÓN:**\n• "Muéstrame todos los archivos de la Región de Los Lagos"\n\n**❓ AYUDA:**\n• "ayuda"\n\n**💡 TIPS:**\n• Usa lenguaje natural\n• Sé específico en tus consultas\n• Puedo buscar en nombres y contenido`,
+        content: `🤖 **Guía del Asistente IA de Datos**\n\n**📁 CARPETAS Y ARCHIVOS:**\n• "¿Qué carpetas tengo?"\n• "Muéstrame la carpeta CAMPOS"\n• "¿Cuántos archivos hay en [carpeta]?"\n\n**🔍 BÚSQUEDA:**\n• "Buscar [término]"\n• "Encontrar contratos"\n• "Archivos de Puerto Varas"\n\n**🗺️ ARCHIVOS KMZ:**\n• "¿Cuántos KMZ tengo?"\n• "Estadísticas de KMZ"\n• "Archivos KMZ por región"\n• "¿Qué KMZ hay en [región]?"\n• "Detalles del archivo [nombre]"\n\n**📊 ESTADÍSTICAS:**\n• "Dame estadísticas de mis archivos"\n• "Estadísticas de KMZ completas"\n• "¿Cuántos puntos tengo en total?"\n\n**🌎 BUSCAR POR REGIÓN:**\n• "Muéstrame todos los archivos de Los Lagos"\n• "¿Qué KMZ hay en Región de Aysén?"\n\n**❓ AYUDA:**\n• "ayuda"\n\n**💡 TIPS:**\n• Usa lenguaje natural\n• Sé específico en tus consultas\n• Menciona regiones, tipos de archivo o ubicaciones\n• Puedo buscar en nombres, contenido y metadata`,
         timestamp: new Date(),
         metadata: { type: "help", confidence: 1.0 },
       }
