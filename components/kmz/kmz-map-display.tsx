@@ -737,10 +737,10 @@ export function KMZMapDisplay({
 
   if (!leafletLoaded) {
     return (
-      <div className="flex items-center justify-center h-full bg-gray-100" style={{ height }}>
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-          <p className="text-gray-600">Cargando mapa...</p>
+      <div className="flex items-center justify-center h-full bg-muted" style={{ height }}>
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <p className="text-muted-foreground">Cargando mapa...</p>
         </div>
       </div>
     )
@@ -772,23 +772,23 @@ export function KMZMapDisplay({
 
         <div ref={mapRef} className="flex-1 h-full rounded-lg overflow-hidden border pointer-events-auto" />
 
-        <div className="absolute inset-y-0 right-0 w-96 flex flex-col pointer-events-none bg-white border-l shadow-lg z-[200]">
+        <div className="absolute inset-y-0 right-0 w-96 flex flex-col pointer-events-none bg-card border-l shadow-lg z-[200]">
           {/* Capas del Mapa section */}
           <div className="flex-1 border-b overflow-y-auto pointer-events-auto">
             <div className="p-4">
-              <h3 className="font-semibold flex items-center gap-2 text-sm mb-3">
+              <h3 className="font-semibold flex items-center gap-2 text-sm mb-3 text-foreground">
                 <MapPin className="h-4 w-4" />
                 Capas del Mapa ({layers.length})
               </h3>
 
               {isLoadingLayers && (
-                <div className="mb-2 p-2 bg-blue-50 rounded text-xs text-blue-700">
+                <div className="mb-2 p-2 bg-blue-50 dark:bg-blue-900/30 rounded text-xs text-blue-700 dark:text-blue-300">
                   Cargando capas: {layerProgress}%
                 </div>
               )}
 
               {layers.length === 0 ? (
-                <p className="text-xs text-gray-500">No hay capas cargadas</p>
+                <p className="text-xs text-muted-foreground">No hay capas cargadas</p>
               ) : (
                 <div className="space-y-1.5">
                   {layers.map((layer, index) => (
@@ -801,12 +801,12 @@ export function KMZMapDisplay({
                       }}
                       className={`flex items-start gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
                         selectedLayer?.name === layer.name
-                          ? "bg-blue-50 border-blue-300"
-                          : "bg-card hover:bg-accent/70 border-gray-200"
+                          ? "bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700"
+                          : "bg-card hover:bg-accent/70 border-border"
                       }`}
                     >
                       <div
-                        className="w-3 h-3 rounded flex-shrink-0 mt-0.5 border border-gray-300"
+                        className="w-3 h-3 rounded flex-shrink-0 mt-0.5 border border-border"
                         style={{ backgroundColor: layer.color }}
                         title={`Color: ${layer.color}`}
                       />
@@ -871,34 +871,33 @@ export function KMZMapDisplay({
               </h4>
               <div className="space-y-2 text-xs">
                 <div>
-                  <p className="font-medium text-gray-700">{selectedLayer.name}</p>
-                  <p className="text-gray-600">Archivo: {selectedLayer.fileName}</p>
+                  <p className="font-medium text-foreground">{selectedLayer.name}</p>
+                  <p className="text-muted-foreground">Archivo: {selectedLayer.fileName}</p>
                 </div>
                 {selectedLayer.locationDetails && (
                   <>
                     {selectedLayer.locationDetails.region && (
                       <div className="pt-2 border-t">
-                        <p className="font-medium text-gray-700">Región</p>
-                        <p className="text-gray-600">{selectedLayer.locationDetails.region}</p>
+                        <p className="font-medium text-foreground">Región</p>
+                        <p className="text-muted-foreground">{selectedLayer.locationDetails.region}</p>
                       </div>
                     )}
                     {selectedLayer.locationDetails.provincia && (
-                      <div className="pt-2 border-t">
-                        <p className="font-medium text-gray-700">Provincia</p>
-                        <p className="text-gray-600">{selectedLayer.locationDetails.provincia}</p>
+                      <div>
+                        <p className="font-medium text-foreground">Provincia</p>
+                        <p className="text-muted-foreground">{selectedLayer.locationDetails.provincia}</p>
                       </div>
                     )}
                     {selectedLayer.locationDetails.comuna && (
-                      <div className="pt-2 border-t">
-                        <p className="font-medium text-gray-700">Comuna</p>
-                        <p className="text-gray-600">{selectedLayer.locationDetails.comuna}</p>
+                      <div>
+                        <p className="font-medium text-foreground">Comuna</p>
+                        <p className="text-muted-foreground">{selectedLayer.locationDetails.comuna}</p>
                       </div>
                     )}
-                    {selectedLayer.locationDetails.nearbyCities &&
-                      selectedLayer.locationDetails.nearbyCities.length > 0 && (
-                        <div className="pt-2 border-t">
-                          <p className="font-medium text-gray-700">Ciudades Cercanas</p>
-                          <p className="text-gray-600">{selectedLayer.locationDetails.nearbyCities.join(", ")}</p>
+                    {selectedLayer.locationDetails.nearbyCities && selectedLayer.locationDetails.nearbyCities.length > 0 && (
+                      <div>
+                        <p className="font-medium text-foreground">Ciudades Cercanas</p>
+                        <p className="text-muted-foreground">{selectedLayer.locationDetails.nearbyCities.join(", ")}</p>
                         </div>
                       )}
                   </>
