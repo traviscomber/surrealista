@@ -8,8 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Folder, Users, MessageSquare, Loader2, HardDrive, CheckSquare, MapPin, Database } from "lucide-react"
 import { createBrowserClient } from "@/lib/supabase/client"
 import { TaskCreationDialog } from "@/components/tasks/task-creation-dialog"
-import { TasksManager } from "@/components/tasks/tasks-manager"
-import { useGoogleDrive } from "@/lib/contexts/google-drive-context"
 import dynamicImport from "next/dynamic"
 import { CAMPOSFolderView } from "@/components/campos/campos-folder-view"
 import { kmzReader } from "@/lib/kmz/kmz-reader"
@@ -125,8 +123,6 @@ export default function UnifiedSearchPage() {
   const [showRUTValidation, setShowRUTValidation] = useState(false)
   const [taskRefreshTrigger, setTaskRefreshTrigger] = useState(0)
 
-  const { driveService, isConnected, isLoading: driveLoading, reconnect } = useGoogleDrive()
-
   const supabase = createBrowserClient()
 
   const router = useRouter() // Added router instance
@@ -153,26 +149,9 @@ export default function UnifiedSearchPage() {
   }, [])
 
   useEffect(() => {
-    if (isConnected && driveService) {
-      const controller = new AbortController()
-
-      const loadDrive = async () => {
-        try {
-          await loadDriveFolders()
-        } catch (error) {
-          if (error instanceof Error && error.name !== "AbortError") {
-            console.error("[v0] Error loading drive:", error)
-          }
-        }
-      }
-
-      loadDrive()
-
-      return () => {
-        controller.abort()
-      }
-    }
-  }, [isConnected, driveService])
+    // Load KMZ data from Supabase on mount
+    loadKMZFromSupabase()
+  }, [])
 
   useEffect(() => {
     if (activeTab === "clientes") {
@@ -212,85 +191,9 @@ export default function UnifiedSearchPage() {
     }
   }
 
-  const loadDriveFolders = async () => {
-    if (!driveService || !isConnected) {
-      console.log("[v0] Google Drive not connected, cannot load folders")
-      setCamposData([])
-      return
-    }
-
-    try {
-      console.log("[v0] Loading folders from Google Drive...")
-
-      const kmzFiles = await driveService.searchKMZFiles()
-      console.log("[v0] Found KMZ files:", kmzFiles.length)
-
-      const folderMap = new Map<string, any[]>()
-
-      for (const file of kmzFiles) {
-        const parentId = file.parents?.[0] || "root"
-        if (!folderMap.has(parentId)) {
-          folderMap.set(parentId, [])
-        }
-        folderMap.get(parentId)?.push(file)
-      }
-
-      const camposFromDrive: Campo[] = []
-      let index = 1
-
-      for (const [folderId, files] of folderMap.entries()) {
-        if (files.length > 0) {
-          let folderName = "Sin nombre"
-          let location = "Chile"
-
-          try {
-            if (folderId !== "root") {
-              const apiKey = driveService.apiKey
-              if (apiKey) {
-                const folderResponse = await fetch(
-                  `https://www.googleapis.com/drive/v3/files/${folderId}?key=${apiKey}&fields=name`,
-                )
-                if (folderResponse.ok) {
-                  const folderData = await folderResponse.json()
-                  folderName = folderData.name
-                  console.log("[v0] Exact folder name from Drive:", folderName)
-
-                  const firstWord = folderName.split(" ")[0]
-                  if (firstWord && firstWord.length > 2) {
-                    location = firstWord
-                  }
-                }
-              }
-            } else {
-              folderName = files[0]?.name?.split(".")[0] || "Archivos raíz"
-              location = "Drive raíz"
-            }
-          } catch (error) {
-            if (error instanceof Error && error.name !== "AbortError") {
-              console.error("[v0] Error getting folder name:", error)
-            }
-            folderName = files[0]?.name?.split(".")[0] || `Carpeta ${index}`
-          }
-
-          camposFromDrive.push({
-            id: `drive-${index}`,
-            name: folderName,
-            location: location,
-            files: files.length,
-            driveFiles: files,
-          })
-          index++
-        }
-      }
-
-      console.log("[v0] Created campos from Drive:", camposFromDrive.map((c) => c.name))
-      setCamposData(camposData.concat(camposFromDrive))
-    } catch (error: any) {
-      if (!(error instanceof Error && error.name === "AbortError")) {
-        console.error("[v0] Error loading Drive folders:", error)
-      }
-      setCamposData([])
-    }
+  const loadKMZFromSupabase = async () => {
+    console.log("[v0] Loading KMZ data from Supabase...")
+    await loadCamposMetadata()
   }
 
   const loadCamposMetadata = async () => {

@@ -7,7 +7,6 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
 import { supabase } from "@/lib/supabase/client"
-import { useGoogleDrive } from "@/lib/contexts/google-drive-context"
 import {
   Bot,
   Send,
@@ -163,8 +162,6 @@ const analyzeDocumentContent = async (documentId: string) => {
 }
 
 export function AIAssistantChat() {
-  const { driveService, isConnected, isLoading: driveLoading } = useGoogleDrive()
-
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
@@ -214,42 +211,14 @@ export function AIAssistantChat() {
   const getIntelligentResponse = async (userMessage: string): Promise<Message> => {
     const message = userMessage.toLowerCase()
 
-    // Check Google Drive connection
-    if (!isConnected) {
+    // Folder queries - redirect to CAMPOS
+    if (message.includes("carpeta") || message.includes("folder")) {
       return {
         id: uuidv4(),
         role: "assistant",
-        content: `✅ **Asistente IA Activo**\n\nEstoy listo para ayudarte a consultar tus archivos KMZ.\n\n**Puedo ayudarte con:**\n• Búsqueda de archivos KMZ\n• Estadísticas por región\n• Análisis de ubicaciones\n• Preguntas sobre tus datos geoespaciales`,
+        content: `📁 **Exploración de Carpetas:**\n\nLas carpetas se administran en la sección CAMPOS.\n\n💡 **Puedes preguntar:**\n• "¿Cuántos archivos KMZ tengo?"\n• "Muéstrame los archivos de [región]"\n• "Dame estadísticas de mis KMZ"`,
         timestamp: new Date(),
-        metadata: { type: "connection_error", confidence: 1.0 },
-      }
-    }
-
-    // Drive data queries
-    if (message.includes("carpeta") || message.includes("folder")) {
-      try {
-        const folders = await driveService?.listFolders()
-        const folderList =
-          folders
-            ?.slice(0, 10)
-            .map((f: any) => `• ${f.name}`)
-            .join("\n") || "No se encontraron carpetas"
-
-        return {
-          id: uuidv4(),
-          role: "assistant",
-          content: `📁 **Carpetas en Google Drive:**\n\n${folderList}\n\n${folders && folders.length > 10 ? `... y ${folders.length - 10} carpetas más.\n\n` : ""}💡 **Puedes preguntar:**\n• "¿Qué hay en la carpeta CAMPOS?"\n• "Muéstrame las subcarpetas de [nombre]"\n• "¿Cuántos archivos hay en [carpeta]?"`,
-          timestamp: new Date(),
-          metadata: { type: "folder_list", confidence: 0.95 },
-        }
-      } catch (error) {
-        return {
-          id: uuidv4(),
-          role: "assistant",
-          content: `❌ Error al consultar datos: ${error.message}`,
-          timestamp: new Date(),
-          metadata: { type: "error", confidence: 1.0 },
-        }
+        metadata: { type: "folder_redirect", confidence: 0.95 },
       }
     }
 
@@ -492,10 +461,8 @@ export function AIAssistantChat() {
               <div>
                 <h3 className="font-semibold">Asistente IA de Datos</h3>
                 <div className="flex items-center gap-2 text-sm opacity-90">
-                  <div
-                    className={`w-2 h-2 ${isConnected ? "bg-green-400" : "bg-red-400"} rounded-full animate-pulse`}
-                  ></div>
-                  <span>{isConnected ? "Drive Conectado" : "Drive Desconectado"} • IA Conversacional</span>
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  <span>IA Conversacional • Datos en Tiempo Real</span>
                 </div>
               </div>
             </div>
@@ -589,12 +556,12 @@ export function AIAssistantChat() {
               onKeyPress={handleKeyPress}
               placeholder="Pregunta sobre tus datos: carpetas, archivos, KMZ, documentos..."
               className="flex-1 min-h-[44px] max-h-32 resize-none"
-              disabled={isLoading || !isConnected}
+              disabled={isLoading}
             />
             <Button
               onClick={() => handleSendMessage()}
               size="sm"
-              disabled={isLoading || !input.trim() || !isConnected}
+              disabled={isLoading || !input.trim()}
               className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 px-4"
             >
               <Send className="h-4 w-4" />
@@ -605,7 +572,6 @@ export function AIAssistantChat() {
               <Database className="h-3 w-3" />
               <span>Consulta Conversacional • Datos en Tiempo Real</span>
             </div>
-            {!isConnected && <span className="text-red-600">⚠️ Conecta Google Drive primero</span>}
           </div>
         </div>
       </CardContent>

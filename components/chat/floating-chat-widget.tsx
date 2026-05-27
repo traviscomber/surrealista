@@ -8,7 +8,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { MessageCircle, X, Send, Bot, User } from "lucide-react"
-import { useGoogleDrive } from "@/lib/contexts/google-drive-context"
 
 interface Message {
   id: string
@@ -23,12 +22,11 @@ export function FloatingChatWidget() {
   const [inputValue, setInputValue] = useState("")
   const [isTyping, setIsTyping] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const { isConnected, folders } = useGoogleDrive()
 
   const quickReplies = [
-    "¿Qué carpetas tengo en Drive?",
+    "¿Cuántos archivos KMZ tengo?",
     "Buscar archivos KMZ",
-    "¿Cuántos documentos hay?",
+    "Estadísticas por región",
     "Mostrar archivos por región",
   ]
 

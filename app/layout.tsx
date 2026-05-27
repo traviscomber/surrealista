@@ -3,7 +3,6 @@ import type { Metadata } from "next"
 import { Inter, Lora } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
-import { GoogleDriveProvider } from "@/lib/contexts/google-drive-context"
 import { PasswordGate } from "@/components/auth/password-gate"
 import { VisitReminders } from "@/components/visits/visit-reminders"
 import { Toaster } from "sonner"
@@ -43,9 +42,7 @@ export default function RootLayout({
           disableTransitionOnChange
           storageKey="sur-realista-theme"
         >
-          <GoogleDriveProvider>
-            <PasswordGate>{children}</PasswordGate>
-          </GoogleDriveProvider>
+          <PasswordGate>{children}</PasswordGate>
         </ThemeProvider>
         <Toaster />
         <VisitReminders />
