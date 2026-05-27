@@ -339,6 +339,7 @@ IMPORTANT: Always respond ONLY with valid JSON, no markdown, no extra text.`,
               metadata: { type: "statistics", confidence: 0.95 },
             }
           }
+          return null
         } else {
           // General KMZ help
           return {
@@ -351,7 +352,15 @@ IMPORTANT: Always respond ONLY with valid JSON, no markdown, no extra text.`,
         }
       } catch (error: any) {
         console.error("KMZ query error:", error)
+        return {
+          id: uuidv4(),
+          role: "assistant",
+          content: `Error al procesar tu consulta. Por favor intenta nuevamente.`,
+          timestamp: new Date(),
+          metadata: { type: "error", confidence: 0.5 },
+        }
       }
+    }
     }
 
     // Default fallback response
@@ -430,7 +439,7 @@ IMPORTANT: Always respond ONLY with valid JSON, no markdown, no extra text.`,
 
         if (kmzFiles && kmzFiles.length > 0) {
           const fileList = kmzFiles
-            .map((f: any) => `• **${f.file_name}** - ${f.region || "Sin región"} (${f.placemarks_count || 0} puntos)`)
+            .map((f: any) => `�� **${f.file_name}** - ${f.region || "Sin región"} (${f.placemarks_count || 0} puntos)`)
             .join("\n")
 
           return {
