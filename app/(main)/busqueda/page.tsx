@@ -544,16 +544,16 @@ export default function UnifiedSearchPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-background px-4 py-4">
+      <div className="w-full">
         {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Sur-Realista</h1>
-          <p className="text-muted-foreground">Sistema integrado de gestión para CAMPOS, Clientes, Comunicaciones y Tareas</p>
+        <div className="mb-4">
+          <h1 className="text-2xl font-bold text-foreground mb-1">Sur-Realista</h1>
+          <p className="text-sm text-muted-foreground">Sistema integrado de gestión para CAMPOS, Clientes, Comunicaciones y Tareas</p>
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-6 mb-6 h-auto">
+          <TabsList className="grid w-full grid-cols-6 mb-4 h-auto">
             <TabsTrigger
               value="campos"
               className="flex items-center gap-2 data-[state=active]:bg-sage data-[state=active]:text-white"
