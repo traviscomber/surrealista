@@ -398,6 +398,8 @@ export function CAMPOSFolderView() {
 
         const transformedKMZ = (uniqueData || []).map((record: any) => ({
           fileName: record.file_name,
+          dbId: record.id, // Add dbId at top level for filtering in KMZMapDisplay
+          id: record.id, // Also add id for direct access
           placemarks: (record.coordinates || []).map((coordArray: any, index: number) => ({
             name: `${record.file_name} - ${Array.isArray(coordArray) && coordArray.length > 3 ? "Polígono" : "Punto"} ${index + 1}`,
             type: Array.isArray(coordArray) && coordArray.length > 3 ? "Polygon" : "Point",
@@ -464,6 +466,8 @@ export function CAMPOSFolderView() {
 
     // If this is a FOLDER/REGION, load all KMZ files for that region AND toggle folder open/closed
     if (item.type === "folder") {
+      // Clear selectedKmzId to show ALL capas when viewing a region
+      setSelectedKmzId(null)
       setFolders((prevFolders) =>
         prevFolders.map((folder) => {
           if (folder.id === item.id) {
@@ -483,6 +487,11 @@ export function CAMPOSFolderView() {
     // Otherwise, it's a file - load ONLY this file on the map
     if (item.location) {
       setMapCenter(item.location)
+    }
+
+    // Set selectedKmzId to filter the map display
+    if (item.type === "file") {
+      setSelectedKmzId(item.dbId?.toString() || item.name || null)
     }
 
     if (item.type === "file" && item.dbId) {
@@ -527,6 +536,8 @@ export function CAMPOSFolderView() {
 
           const transformedKMZ = {
             fileName: data.file_name,
+            dbId: data.id, // Add dbId at top level for filtering
+            id: data.id, // Also add id
             placemarks: placemarks,
             bounds: data.bounds,
             metadata: {
