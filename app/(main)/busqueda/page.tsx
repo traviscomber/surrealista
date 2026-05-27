@@ -645,17 +645,17 @@ export default function UnifiedSearchPage() {
                 {/* Admin KMZ Collection Access */}
                 <Link href="/admin/kmz-collection">
                   <div className="h-full group cursor-pointer">
-                    <div className="relative bg-white rounded-2xl border border-slate-200 p-8 hover:border-blue-400 transition-all hover:shadow-xl hover:-translate-y-1 h-full">
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-100 to-blue-50 rounded-full -mr-16 -mt-16 opacity-50 group-hover:opacity-100 transition-opacity" />
+                    <div className="relative bg-card rounded-2xl border p-8 hover:border-primary transition-all hover:shadow-xl hover:-translate-y-1 h-full">
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-secondary rounded-full -mr-16 -mt-16 opacity-50 group-hover:opacity-100 transition-opacity" />
                       <div className="relative z-10">
-                        <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                          <Database className="w-7 h-7 text-white" />
+                        <div className="w-14 h-14 bg-primary rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                          <Database className="w-7 h-7 text-primary-foreground" />
                         </div>
-                        <h3 className="text-2xl font-bold text-slate-900 mb-2">Administración de Colección</h3>
-                        <p className="text-slate-600 mb-6">
+                        <h3 className="text-2xl font-bold text-foreground mb-2">Administración de Colección</h3>
+                        <p className="text-muted-foreground mb-6">
                           Gestiona y visualiza la colección de 338 archivos KMZ. Carga, indexa y administra las ubicaciones de todos tus archivos.
                         </p>
-                        <div className="flex items-center gap-2 text-blue-600 font-semibold group-hover:gap-4 transition-all">
+                        <div className="flex items-center gap-2 text-primary font-semibold group-hover:gap-4 transition-all">
                           Administrar
                         </div>
                       </div>

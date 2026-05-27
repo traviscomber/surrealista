@@ -261,7 +261,7 @@ export default function NuevaTareaPage() {
               </Button>
             </div>
             {titleSTT.isListening && (
-              <p className="text-xs text-blue-600 animate-pulse">🎤 Escuchando... Habla ahora</p>
+              <p className="text-xs text-primary animate-pulse">Escuchando... Habla ahora</p>
             )}
             {titleSTT.error && <p className="text-xs text-red-600">{titleSTT.error}</p>}
           </div>
@@ -295,7 +295,7 @@ export default function NuevaTareaPage() {
               </Button>
             </div>
             {descriptionSTT.isListening && (
-              <p className="text-xs text-blue-600 animate-pulse">🎤 Escuchando... Habla ahora (modo continuo)</p>
+              <p className="text-xs text-primary animate-pulse">Escuchando... Habla ahora (modo continuo)</p>
             )}
             {descriptionSTT.error && <p className="text-xs text-red-600">{descriptionSTT.error}</p>}
           </div>
@@ -336,7 +336,7 @@ export default function NuevaTareaPage() {
       </Card>
 
       {showAssignUsers && createdTaskId && (
-        <Card className="p-4 border-blue-200 bg-blue-50 mt-6">
+        <Card className="p-4 border-primary/20 bg-secondary mt-6">
           <h3 className="font-semibold mb-3">Asignar Usuarios a la Tarea</h3>
           {loadingUsers ? (
             <p className="text-sm text-muted-foreground">Cargando usuarios...</p>
@@ -390,16 +390,16 @@ export default function NuevaTareaPage() {
         </Card>
       )}
 
-      <Card className="mt-6 p-4 bg-blue-50 border-blue-200">
-        <h3 className="font-semibold mb-2 text-blue-900">Cómo usar la grabación de voz:</h3>
-        <ul className="text-sm text-blue-800 space-y-1">
+      <Card className="mt-6 p-4 bg-secondary border-primary/20">
+        <h3 className="font-semibold mb-2 text-foreground">Cómo usar la grabación de voz:</h3>
+        <ul className="text-sm text-muted-foreground space-y-1">
           <li>1. Haz clic en el ícono del micrófono</li>
           <li>2. Permite el acceso al micrófono si se solicita</li>
           <li>3. Habla claramente cerca del micrófono</li>
           <li>4. El texto aparecerá automáticamente</li>
           <li>5. Haz clic nuevamente para detener</li>
         </ul>
-        <p className="text-xs text-blue-700 mt-3">
+        <p className="text-xs text-muted-foreground mt-3">
           <strong>Nota:</strong> La grabación de voz funciona mejor en dispositivos móviles y en conexiones HTTPS
           seguras.
         </p>
