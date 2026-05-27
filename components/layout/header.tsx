@@ -223,11 +223,6 @@ export function Header() {
                       <div className="flex items-center gap-2">
                         <item.icon className="h-4 w-4" />
                         <div className="text-sm font-medium leading-none">{item.title}</div>
-                        {item.badge && (
-                          <Badge className={cn("text-xs text-white", badgeColorMap[item.badge!] || "bg-slate-500")}>
-                            {item.badge}
-                          </Badge>
-                        )}
                       </div>
                       <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">{item.description}</p>
                     </Link>
@@ -253,11 +248,6 @@ export function Header() {
                       <div className="flex items-center gap-2">
                         <item.icon className="h-4 w-4" />
                         <div className="text-sm font-medium leading-none">{item.title}</div>
-                        {item.badge && (
-                          <Badge className={cn("text-xs text-white", badgeColorMap[item.badge!] || "bg-slate-500")}>
-                            {item.badge}
-                          </Badge>
-                        )}
                       </div>
                       <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">{item.description}</p>
                     </Link>
@@ -359,11 +349,6 @@ export function Header() {
                         <item.icon className="h-4 w-4" />
                         <span>{item.title}</span>
                       </div>
-                      {item.badge && (
-                        <Badge variant="secondary" className="text-xs">
-                          {item.badge}
-                        </Badge>
-                      )}
                     </Link>
                   ))}
                 </div>
@@ -382,11 +367,6 @@ export function Header() {
                         <item.icon className="h-4 w-4" />
                         <span>{item.title}</span>
                       </div>
-                      {item.badge && (
-                        <Badge variant="secondary" className="text-xs">
-                          {item.badge}
-                        </Badge>
-                      )}
                     </Link>
                   ))}
                 </div>
