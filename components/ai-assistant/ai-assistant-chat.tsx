@@ -6,20 +6,12 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { supabase } from "@/lib/supabase/client"
-import OpenAI from "openai"
 import {
   Bot,
   Send,
   User,
   Sparkles,
-  FolderOpen,
-  FileText,
-  Search,
   HelpCircle,
-  Database,
-  MapPin,
-  TrendingUp,
 } from "lucide-react"
 import { v4 as uuidv4 } from "uuid"
 
@@ -209,197 +201,32 @@ export function AIAssistantChat() {
     }
   }
 
-  // Process user query with OpenAI to extract intent and parameters
-  const processQueryWithAI = async (userMessage: string) => {
-    try {
-      const openai = new OpenAI({
-        apiKey: process.env.OPENAI_API_KEY,
-      })
-
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: `You are a KMZ file query analyzer for Chilean geographic data. Extract the user's intent and parameters.
-
-Return ONLY a JSON object (no markdown, no extra text):
-{
-  "intent": "region_search" | "statistics" | "file_search" | "general",
-  "region": "Los Ríos" | "Metropolitana" | "Los Lagos" | null,
-  "search_term": string or null,
-  "exact_match": boolean
-}
-
-RULES:
-1. If user mentions a region name → intent="region_search" with that region
-2. If user asks "cuantos" or "how many" or similar COUNT questions → intent="statistics"
-3. Keywords for region_search: "región", "region", "en la", "hay en", "cuantos en"
-4. Always extract region name even if misspelled or partial (e.g., "metropolitana", "la metro", "RM" → "Metropolitana")
-
-Available regions: Los Lagos, Región Metropolitana, Los Ríos, Aysén, Magallanes, Valparaíso, Coquimbo, Atacama, Arica y Parinacota, Libertador General Bernardo O'Higgins, Maule, Ñuble, Araucanía.
-
-Examples:
-- "cuantos kmz hay en la región metropolitana" → {"intent":"region_search","region":"Metropolitana"}
-- "¿Cuántos archivos tengo?" → {"intent":"statistics","region":null}
-- "archivos en los ríos" → {"intent":"region_search","region":"Los Ríos"}`,
-          },
-          {
-            role: "user",
-            content: userMessage,
-          },
-        ],
-        temperature: 0.1,
-      })
-
-      const content = response.choices[0].message.content || "{}"
-      console.log("[v0] OpenAI response:", content)
-      
-      let cleanContent = content
-      if (content.includes("```json")) {
-        cleanContent = content.split("```json")[1].split("```")[0].trim()
-      } else if (content.includes("```")) {
-        cleanContent = content.split("```")[1].split("```")[0].trim()
-      }
-      
-      const parsed = JSON.parse(cleanContent)
-      console.log("[v0] Parsed query analysis:", parsed)
-      
-      // Normalize region name to match database
-      if (parsed.region) {
-        const regionNorm = parsed.region.toLowerCase()
-        if (regionNorm.includes("metro") || regionNorm === "rm" || regionNorm === "m") {
-          parsed.region = "Metropolitana"
-        } else if (regionNorm.includes("ríos") || regionNorm.includes("rios")) {
-          parsed.region = "Los Ríos"
-        } else if (regionNorm.includes("lagos")) {
-          parsed.region = "Los Lagos"
-        }
-      }
-      
-      return parsed
-    } catch (error: any) {
-      console.error("[v0] Query processing error:", error?.message || error)
-      // Return default statistics intent as fallback
-      return { intent: "statistics", region: null, search_term: null, exact_match: false }
-    }
-  }
-
   const getIntelligentResponse = async (userMessage: string): Promise<Message> => {
-    const message = userMessage.toLowerCase()
+    try {
+      const response = await fetch("/api/ai-assistant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userMessage }),
+      })
 
-    // Folder queries - redirect to CAMPOS
-    if (message.includes("carpeta") || message.includes("folder")) {
+      const data = await response.json()
+
       return {
         id: uuidv4(),
         role: "assistant",
-        content: `📁 **Exploración de Carpetas:**\n\nLas carpetas se administran en la sección CAMPOS.\n\n💡 **Puedes preguntar:**\n• "¿Cuántos archivos KMZ tengo?"\n• "Muéstrame los archivos de [región]"\n• "Dame estadísticas de mis KMZ"`,
+        content: data.response || "No pude procesar tu consulta.",
         timestamp: new Date(),
-        metadata: { type: "folder_redirect", confidence: 0.95 },
+        metadata: { type: data.type || "general", confidence: 0.95 },
       }
-    }
-
-    if (message.includes("kmz") || message.includes("mapa") || message.includes("región") || message.includes("region") || message.includes("archivos")) {
-      try {
-        // Use OpenAI to understand the query
-        const queryAnalysis = await processQueryWithAI(userMessage)
-        console.log("[v0] Query analysis:", queryAnalysis)
-
-        if (queryAnalysis?.intent === "region_search" && queryAnalysis?.region) {
-          // Search by region using kmz_placemarks
-          const { data: placemarks } = await supabase
-            .from("kmz_placemarks")
-            .select("id, kmz_id, name, region, city, address")
-            .ilike("region", `%${queryAnalysis.region}%`)
-
-          if (placemarks && placemarks.length > 0) {
-            const kmzIds = [...new Set(placemarks.map((p: any) => p.kmz_id))]
-            const { data: kmzFilesForRegion } = await supabase
-              .from("kmz_collection")
-              .select("id, file_name, placemarks_count")
-              .in("id", kmzIds)
-
-            const fileList = kmzFilesForRegion
-              ?.map((f: any) => `• **${f.file_name}** (${f.placemarks_count || 0} puntos)`)
-              .join("\n")
-
-            const placemarksList = placemarks
-              .slice(0, 5)
-              .map((p: any) => `• ${p.name} - ${p.city || p.address || "Ubicación"}`)
-              .join("\n")
-
-            return {
-              id: uuidv4(),
-              role: "assistant",
-              content: `🗺️ **${placemarks.length} ubicaciones en ${queryAnalysis.region}:**\n\n${placemarksList}\n\n**Archivos KMZ (${kmzIds.length}):**\n${fileList}`,
-              timestamp: new Date(),
-              metadata: { type: "region_search", confidence: 0.95 },
-            }
-          } else {
-            return {
-              id: uuidv4(),
-              role: "assistant",
-              content: `🗺️ No encontré ubicaciones en "${queryAnalysis.region}". Verifica la región solicitada.`,
-              timestamp: new Date(),
-              metadata: { type: "no_results", confidence: 0.9 },
-            }
-          }
-        } else if (queryAnalysis?.intent === "statistics") {
-          // Return statistics
-          const { data: kmzFiles, count } = await supabase
-            .from("kmz_collection")
-            .select("id, file_name, placemarks_count", { count: "exact" })
-
-          if (kmzFiles && kmzFiles.length > 0) {
-            const totalPoints = kmzFiles.reduce((sum: number, f: any) => sum + (f.placemarks_count || 0), 0)
-            const latestFiles = kmzFiles.slice(0, 5)
-            const totalCount = count || kmzFiles.length
-
-            return {
-              id: uuidv4(),
-              role: "assistant",
-              content: `📊 **Estadísticas KMZ:**\n\n• **Total de archivos:** ${totalCount}\n• **Total de ubicaciones:** ${totalPoints.toLocaleString()}\n• **Promedio por archivo:** ${Math.round(totalPoints / kmzFiles.length)} puntos\n\n**Archivos recientes:**\n${latestFiles.map((f: any) => `• ${f.file_name} (${f.placemarks_count} puntos)`).join("\n")}`,
-              timestamp: new Date(),
-              metadata: { type: "statistics", confidence: 0.95 },
-            }
-          } else {
-            return {
-              id: uuidv4(),
-              role: "assistant",
-              content: `📊 No hay archivos KMZ en la base de datos. Carga algunos archivos para ver estadísticas.`,
-              timestamp: new Date(),
-              metadata: { type: "statistics", confidence: 0.9 },
-            }
-          }
-        } else {
-          // General KMZ help
-          return {
-            id: uuidv4(),
-            role: "assistant",
-            content: `📍 **Asistente de KMZ disponible**\n\nPuedo ayudarte con:\n• "¿Cuántos archivos KMZ tengo?" - Estadísticas\n• "Muéstrame los archivos de [región]" - Búsqueda por región\n• "¿Qué regiones tengo?" - Regiones disponibles\n\n¿Qué deseas saber?`,
-            timestamp: new Date(),
-            metadata: { type: "general", confidence: 0.85 },
-          }
-        }
-      } catch (error: any) {
-        console.error("KMZ query error:", error)
-        return {
-          id: uuidv4(),
-          role: "assistant",
-          content: `Error al procesar tu consulta. Por favor intenta nuevamente.`,
-          timestamp: new Date(),
-          metadata: { type: "error", confidence: 0.5 },
-        }
+    } catch (error: any) {
+      console.error("AI Assistant error:", error)
+      return {
+        id: uuidv4(),
+        role: "assistant",
+        content: "Error al procesar tu consulta. Intenta de nuevo.",
+        timestamp: new Date(),
+        metadata: { type: "error", confidence: 0.5 },
       }
-    }
-
-    // Default fallback response
-    return {
-      id: uuidv4(),
-      role: "assistant",
-      content: `Hola! Soy tu asistente de KMZ. Puedo ayudarte con:\n• Estadísticas de tus archivos\n• Búsqueda por región\n• Información sobre ubicaciones\n\n¿En qué puedo ayudarte?`,
-      timestamp: new Date(),
-      metadata: { type: "general", confidence: 0.7 },
     }
   }
 
