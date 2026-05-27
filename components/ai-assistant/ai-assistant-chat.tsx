@@ -221,30 +221,40 @@ export function AIAssistantChat() {
         messages: [
           {
             role: "system",
-            content: `You are a KMZ file query analyzer. Extract the user's intent and parameters from their query about KMZ files in Chile.
-            
-Return a JSON object with:
-- intent: "statistics" | "region_search" | "file_search" | "general" 
-- region: extracted region name (e.g., "Los Ríos", "Los Lagos", "Metropolitana") or null
-- search_term: search keyword or null
-- exact_match: boolean - whether to do exact region match or fuzzy search
+            content: `You are a KMZ file query analyzer for Chilean geographic data. Extract the user's intent and parameters.
 
-Regions in database: Los Lagos, Región Metropolitana, Los Ríos, Aysén, Magallanes, Valparaíso, Coquimbo, Atacama, Arica y Parinacota, Libertador General Bernardo O'Higgins, Maule, Ñuble, Araucanía, La Araucanía.
+Return ONLY a JSON object (no markdown, no extra text):
+{
+  "intent": "region_search" | "statistics" | "file_search" | "general",
+  "region": "Los Ríos" | "Metropolitana" | "Los Lagos" | null,
+  "search_term": string or null,
+  "exact_match": boolean
+}
 
-IMPORTANT: Always respond ONLY with valid JSON, no markdown, no extra text.`,
+RULES:
+1. If user mentions a region name → intent="region_search" with that region
+2. If user asks "cuantos" or "how many" or similar COUNT questions → intent="statistics"
+3. Keywords for region_search: "región", "region", "en la", "hay en", "cuantos en"
+4. Always extract region name even if misspelled or partial (e.g., "metropolitana", "la metro", "RM" → "Metropolitana")
+
+Available regions: Los Lagos, Región Metropolitana, Los Ríos, Aysén, Magallanes, Valparaíso, Coquimbo, Atacama, Arica y Parinacota, Libertador General Bernardo O'Higgins, Maule, Ñuble, Araucanía.
+
+Examples:
+- "cuantos kmz hay en la región metropolitana" → {"intent":"region_search","region":"Metropolitana"}
+- "¿Cuántos archivos tengo?" → {"intent":"statistics","region":null}
+- "archivos en los ríos" → {"intent":"region_search","region":"Los Ríos"}`,
           },
           {
             role: "user",
             content: userMessage,
           },
         ],
-        temperature: 0.3,
+        temperature: 0.1,
       })
 
       const content = response.choices[0].message.content || "{}"
       console.log("[v0] OpenAI response:", content)
       
-      // Clean up markdown if present
       let cleanContent = content
       if (content.includes("```json")) {
         cleanContent = content.split("```json")[1].split("```")[0].trim()
@@ -254,6 +264,19 @@ IMPORTANT: Always respond ONLY with valid JSON, no markdown, no extra text.`,
       
       const parsed = JSON.parse(cleanContent)
       console.log("[v0] Parsed query analysis:", parsed)
+      
+      // Normalize region name to match database
+      if (parsed.region) {
+        const regionNorm = parsed.region.toLowerCase()
+        if (regionNorm.includes("metro") || regionNorm === "rm" || regionNorm === "m") {
+          parsed.region = "Metropolitana"
+        } else if (regionNorm.includes("ríos") || regionNorm.includes("rios")) {
+          parsed.region = "Los Ríos"
+        } else if (regionNorm.includes("lagos")) {
+          parsed.region = "Los Lagos"
+        }
+      }
+      
       return parsed
     } catch (error: any) {
       console.error("[v0] Query processing error:", error?.message || error)
