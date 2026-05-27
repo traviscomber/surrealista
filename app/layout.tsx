@@ -34,9 +34,15 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="es" suppressHydrationWarning>
-      <body className={`${inter.variable} ${lora.variable} font-sans`}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+    <html lang="es" suppressHydrationWarning className="scroll-smooth">
+      <body className={`${inter.variable} ${lora.variable} font-sans bg-background text-foreground`}>
+        <ThemeProvider 
+          attribute="class" 
+          defaultTheme="system" 
+          enableSystem 
+          disableTransitionOnChange
+          storageKey="sur-realista-theme"
+        >
           <GoogleDriveProvider>
             <PasswordGate>{children}</PasswordGate>
           </GoogleDriveProvider>
