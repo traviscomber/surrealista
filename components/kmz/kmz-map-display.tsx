@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { AlertCircle, Eye, EyeOff, MapPin, Maximize, Minimize } from "lucide-react"
+import { AlertCircle, Eye, EyeOff, Loader2, MapPin, Maximize, Minimize } from "lucide-react"
 import type { KMZData } from "@/lib/kmz/kmz-reader"
 import { reverseGeocoder, type ChileanLocationDetails } from "@/lib/geocoding/reverse-geocode"
 import { Button } from "@/components/ui/button"
