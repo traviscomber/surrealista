@@ -450,7 +450,7 @@ export function AIAssistantChat() {
   }
 
   return (
-    <Card className="border-2 h-[700px] flex flex-col">
+    <Card className="border-2 h-[800px] flex flex-col">
       <CardContent className="p-0 flex-1 flex flex-col">
         <div className="bg-gradient-to-r from-green-600 to-blue-600 text-white p-4 rounded-t-lg">
           <div className="flex items-center justify-between">
@@ -481,7 +481,7 @@ export function AIAssistantChat() {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
           {messages.map((message) => (
             <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"} gap-2`}>
               <div
