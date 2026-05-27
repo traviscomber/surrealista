@@ -251,35 +251,51 @@ export function AIAssistantChat() {
           const requestedRegion = regionMatch ? regionMatch[1].trim() : null
 
           if (requestedRegion) {
-            const regionFiles = kmzFiles.filter((f: any) => {
-              // Try to get region from field first, or extract from file_name
-              let fileRegion = (f.region || "").toLowerCase().trim()
-              
-              // If region is empty, try to extract from file_name (usually at the end after "-")
-              if (!fileRegion && f.file_name) {
-                const match = f.file_name.match(/[-–]\s*([a-záéíóúñ\s]+?)(?:\s*\(|$)/)
-                if (match) {
-                  fileRegion = match[1].toLowerCase().trim()
+            try {
+              // Query actual placemarks by region (geospatial data)
+              const { data: placemarks } = await supabase
+                .from("kmz_placemarks")
+                .select("id, kmz_id, name, region, city, address")
+                .ilike("region", `%${requestedRegion}%`)
+                .limit(100)
+
+              if (placemarks && placemarks.length > 0) {
+                // Get unique KMZ IDs from the placemarks
+                const kmzIds = [...new Set(placemarks.map((p: any) => p.kmz_id))]
+                
+                // Get the KMZ file info for those IDs
+                const { data: kmzFilesForRegion } = await supabase
+                  .from("kmz_collection")
+                  .select("id, file_name, placemarks_count")
+                  .in("id", kmzIds)
+
+                const fileList = kmzFilesForRegion
+                  ?.map((f: any) => `• **${f.file_name}** (${f.placemarks_count || 0} puntos)`)
+                  .join("\n")
+
+                const placemarksList = placemarks
+                  .slice(0, 5)
+                  .map((p: any) => `• ${p.name} (${p.city || p.address || "Ubicación"})`)
+                  .join("\n")
+
+                return {
+                  id: uuidv4(),
+                  role: "assistant",
+                  content: `🗺️ **Ubicaciones en ${requestedRegion}:**\n\n${placemarksList}\n\n**Archivos KMZ con ubicaciones en esta región:**\n${fileList || "N/A"}\n\n**Total:** ${placemarks.length} ubicaciones en ${kmzIds.length} archivo(s)`,
+                  timestamp: new Date(),
+                  metadata: { type: "kmz_list", confidence: 0.95 },
+                }
+              } else {
+                return {
+                  id: uuidv4(),
+                  role: "assistant",
+                  content: `🗺️ **No encontré ubicaciones en ${requestedRegion}**\n\nVerifica la ortografía de la región. Algunas regiones disponibles:\n• Los Lagos\n• Región Metropolitana\n• Los Ríos\n• Aysén\n• Magallanes\n\n¿Quieres ver todas las regiones disponibles?`,
+                  timestamp: new Date(),
+                  metadata: { type: "no_results", confidence: 0.9 },
                 }
               }
-              
-              const requestLower = requestedRegion.toLowerCase().trim()
-              // Check if requested region matches or is contained in file region
-              return fileRegion === requestLower || fileRegion.includes(requestLower) || requestLower.includes(fileRegion.split(" ")[0])
-            })
-            
-            if (regionFiles.length > 0) {
-              const fileList = regionFiles
-                .map((f: any) => `• **${f.file_name}** (${f.placemarks_count || 0} puntos)`)
-                .join("\n")
-
-              return {
-                id: uuidv4(),
-                role: "assistant",
-                content: `🗺️ **Archivos KMZ en Región de ${requestedRegion}:**\n\n${fileList}\n\n**Total en región:** ${regionFiles.length} archivos con ${regionFiles.reduce((s: number, f: any) => s + (f.placemarks_count || 0), 0)} puntos`,
-                timestamp: new Date(),
-                metadata: { type: "kmz_list", confidence: 0.95 },
-              }
+            } catch (error) {
+              console.error("Region search error:", error)
             }
           }
 
