@@ -488,7 +488,7 @@ export function AIAssistantChat() {
                 className={`flex items-start max-w-[90%] ${
                   message.role === "user"
                     ? "bg-gradient-to-r from-green-600 to-blue-600 text-white"
-                    : "bg-gray-50 border"
+                    : "bg-gradient-to-r from-teal-50 to-cyan-50 border border-teal-200 text-gray-900"
                 } rounded-lg px-4 py-3`}
               >
                 {message.role === "assistant" && (
@@ -524,7 +524,7 @@ export function AIAssistantChat() {
           {/* Loading indicator */}
           {isLoading && (
             <div className="flex justify-start">
-              <div className="flex items-start bg-gray-50 border rounded-lg px-4 py-3 max-w-[90%]">
+              <div className="flex items-start bg-gradient-to-r from-teal-50 to-cyan-50 border border-teal-200 rounded-lg px-4 py-3 max-w-[90%]">
                 <div className="w-8 h-8 bg-gradient-to-r from-green-600 to-blue-600 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
                   <Bot className="h-4 w-4 text-white" />
                 </div>
