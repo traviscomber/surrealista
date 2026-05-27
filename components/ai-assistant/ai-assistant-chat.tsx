@@ -65,7 +65,7 @@ const quickActions: QuickAction[] = [
     id: "list_folders",
     label: "📁 Listar carpetas",
     icon: <FolderOpen className="h-4 w-4" />,
-    prompt: "¿Qué carpetas tengo en Google Drive?",
+    prompt: "¿Cuántos archivos KMZ tengo?",
     category: "search",
   },
   {
@@ -170,7 +170,7 @@ export function AIAssistantChat() {
       id: "1",
       role: "assistant",
       content:
-        "¡Hola! Soy tu asistente IA para consultar datos de Google Drive. Puedo ayudarte a buscar documentos, explorar carpetas, analizar archivos KMZ y responder preguntas sobre tus datos. ¿Qué te gustaría saber?",
+        "¡Hola! Soy tu asistente IA para consultar datos KMZ en tiempo real. Puedo ayudarte a buscar archivos, explorar ubicaciones, analizar datos geoespaciales y responder preguntas sobre tus archivos KMZ. ¿Qué te gustaría saber?",
       timestamp: new Date(),
       metadata: { type: "general", confidence: 1.0 },
     },
@@ -219,7 +219,7 @@ export function AIAssistantChat() {
       return {
         id: uuidv4(),
         role: "assistant",
-        content: `⚠️ **Google Drive no está conectado**\n\nPara poder consultar tus datos, necesito que conectes Google Drive primero.\n\n**Pasos:**\n1. Ve a la sección "Herramientas" en el menú superior\n2. Haz clic en "Google Drive"\n3. Autoriza el acceso\n\nUna vez conectado, podré ayudarte a:\n• Buscar documentos y archivos\n• Explorar estructura de carpetas\n• Analizar archivos KMZ\n• Responder preguntas sobre tus datos`,
+        content: `✅ **Asistente IA Activo**\n\nEstoy listo para ayudarte a consultar tus archivos KMZ.\n\n**Puedo ayudarte con:**\n• Búsqueda de archivos KMZ\n• Estadísticas por región\n• Análisis de ubicaciones\n• Preguntas sobre tus datos geoespaciales`,
         timestamp: new Date(),
         metadata: { type: "connection_error", confidence: 1.0 },
       }
@@ -246,7 +246,7 @@ export function AIAssistantChat() {
         return {
           id: uuidv4(),
           role: "assistant",
-          content: `❌ Error al consultar carpetas: ${error.message}\n\nIntenta reconectar Google Drive o verifica los permisos.`,
+          content: `❌ Error al consultar datos: ${error.message}`,
           timestamp: new Date(),
           metadata: { type: "error", confidence: 1.0 },
         }
@@ -352,20 +352,24 @@ export function AIAssistantChat() {
       }
 
       try {
-        const files = await driveService?.searchFiles(searchTerm)
+        const { data: kmzFiles } = await supabase
+          .from("kmz_collection")
+          .select("file_name, region, placemarks_count, created_at, file_id")
+          .or(`file_name.ilike.%${searchTerm}%,region.ilike.%${searchTerm}%`)
+          .order("created_at", { ascending: false })
+          .limit(10)
 
-        if (files && files.length > 0) {
-          const fileList = files
-            .slice(0, 10)
-            .map((f: any) => `• **${f.name}** (${f.mimeType?.split("/")[1] || "archivo"})`)
+        if (kmzFiles && kmzFiles.length > 0) {
+          const fileList = kmzFiles
+            .map((f: any) => `• **${f.file_name}** - ${f.region || "Sin región"} (${f.placemarks_count || 0} puntos)`)
             .join("\n")
 
           return {
             id: uuidv4(),
             role: "assistant",
-            content: `🔍 **Resultados para "${searchTerm}":**\n\n${fileList}\n\n${files.length > 10 ? `... y ${files.length - 10} archivos más.\n\n` : ""}💡 **Acciones:**\n• Pregunta por un archivo específico para más detalles\n• Refina tu búsqueda con términos más específicos`,
+            content: `🔍 **Resultados para "${searchTerm}":**\n\n${fileList}\n\n${""}💡 **Acciones:**\n• Pregunta por un archivo específico para más detalles\n• Refina tu búsqueda con términos más específicos`,
             timestamp: new Date(),
-            metadata: { type: "search_results", confidence: 0.9, searchResults: files },
+            metadata: { type: "search_results", confidence: 0.9, searchResults: kmzFiles },
           }
         } else {
           return {
