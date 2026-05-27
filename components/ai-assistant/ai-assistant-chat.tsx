@@ -361,129 +361,12 @@ IMPORTANT: Always respond ONLY with valid JSON, no markdown, no extra text.`,
         }
       }
     }
-    }
 
     // Default fallback response
     return {
       id: uuidv4(),
       role: "assistant",
       content: `Hola! Soy tu asistente de KMZ. Puedo ayudarte con:\n• Estadísticas de tus archivos\n• Búsqueda por región\n• Información sobre ubicaciones\n\n¿En qué puedo ayudarte?`,
-      timestamp: new Date(),
-      metadata: { type: "general", confidence: 0.7 },
-    }
-  }
-
-  const handleSendMessage = async () => {
-
-                const fileList = kmzFilesForRegion
-                  ?.map((f: any) => `• **${f.file_name}** (${f.placemarks_count || 0} puntos)`)
-                  .join("\n")
-
-                const placemarksList = placemarks
-                  .slice(0, 5)
-                  .map((p: any) => `• ${p.name} (${p.city || p.address || "Ubicación"})`)
-                  .join("\n")
-
-                return {
-                  id: uuidv4(),
-                  role: "assistant",
-                  content: `🗺️ **Ubicaciones en ${requestedRegion}:**\n\n${placemarksList}\n\n**Archivos KMZ con ubicaciones en esta región:**\n${fileList || "N/A"}\n\n**Total:** ${placemarks.length} ubicaciones en ${kmzIds.length} archivo(s)`,
-                  timestamp: new Date(),
-                  metadata: { type: "kmz_list", confidence: 0.95 },
-                }
-              } else {
-                return {
-                  id: uuidv4(),
-                  role: "assistant",
-                  content: `🗺️ **No encontré ubicaciones en ${requestedRegion}**\n\nVerifica la ortografía de la región. Algunas regiones disponibles:\n• Los Lagos\n• Región Metropolitana\n• Los Ríos\n• Aysén\n• Magallanes\n\n¿Quieres ver todas las regiones disponibles?`,
-                  timestamp: new Date(),
-                  metadata: { type: "no_results", confidence: 0.9 },
-                }
-              }
-            } catch (error) {
-              console.error("Region search error:", error)
-            }
-          }
-      } catch (error) {
-        console.error("[v0] KMZ query error:", error)
-        return {
-          id: uuidv4(),
-          role: "assistant",
-          content: `❌ Error al consultar archivos KMZ: ${error.message}`,
-          timestamp: new Date(),
-          metadata: { type: "error", confidence: 1.0 },
-        }
-      }
-    }
-
-    if (message.includes("buscar") || message.includes("encontrar") || message.includes("search")) {
-      const searchTerm = message.replace(/buscar|encontrar|search/gi, "").trim()
-
-      if (!searchTerm) {
-        return {
-          id: uuidv4(),
-          role: "assistant",
-          content: `🔍 **Búsqueda de Archivos**\n\n**Formato:** "Buscar [término]"\n\n**Ejemplos:**\n• "Buscar contrato"\n• "Buscar Puerto Varas"\n• "Buscar escritura"\n• "Buscar avalúo"\n\nTambién puedo buscar en:\n• Nombres de archivos\n• Contenido de documentos\n• Carpetas específicas\n• Archivos KMZ por ubicación`,
-          timestamp: new Date(),
-          metadata: { type: "search_help", confidence: 1.0 },
-        }
-      }
-
-      try {
-        const { data: kmzFiles } = await supabase
-          .from("kmz_collection")
-          .select("id, file_name, region, placemarks_count, created_at")
-          .or(`file_name.ilike.%${searchTerm}%,region.ilike.%${searchTerm}%`)
-          .order("created_at", { ascending: false })
-          .limit(10)
-
-        if (kmzFiles && kmzFiles.length > 0) {
-          const fileList = kmzFiles
-            .map((f: any) => `�� **${f.file_name}** - ${f.region || "Sin región"} (${f.placemarks_count || 0} puntos)`)
-            .join("\n")
-
-          return {
-            id: uuidv4(),
-            role: "assistant",
-            content: `🔍 **Resultados para "${searchTerm}":**\n\n${fileList}\n\n${""}💡 **Acciones:**\n• Pregunta por un archivo específico para más detalles\n• Refina tu búsqueda con términos más específicos`,
-            timestamp: new Date(),
-            metadata: { type: "search_results", confidence: 0.9, searchResults: kmzFiles },
-          }
-        } else {
-          return {
-            id: uuidv4(),
-            role: "assistant",
-            content: `📭 No se encontraron archivos con "${searchTerm}"\n\n**Sugerencias:**\n• Intenta con términos más generales\n• Verifica la ortografía\n• Busca por tipo de archivo (contrato, escritura, etc.)`,
-            timestamp: new Date(),
-            metadata: { type: "no_results", confidence: 1.0 },
-          }
-        }
-      } catch (error) {
-        return {
-          id: uuidv4(),
-          role: "assistant",
-          content: `❌ Error en la búsqueda: ${error.message}`,
-          timestamp: new Date(),
-          metadata: { type: "error", confidence: 1.0 },
-        }
-      }
-    }
-
-    if (message.includes("ayuda") || message.includes("help") || message.includes("comandos")) {
-      return {
-        id: uuidv4(),
-        role: "assistant",
-        content: `��� **Guía del Asistente IA de Datos**\n\n**📁 CARPETAS Y ARCHIVOS:**\n• "¿Qué carpetas tengo?"\n• "Muéstrame la carpeta CAMPOS"\n• "¿Cuántos archivos hay en [carpeta]?"\n\n**🔍 BÚSQUEDA:**\n• "Buscar [término]"\n• "Encontrar contratos"\n• "Archivos de Puerto Varas"\n\n**🗺️ ARCHIVOS KMZ:**\n• "¿Cuántos KMZ tengo?"\n• "Estadísticas de KMZ"\n• "Archivos KMZ por región"\n• "¿Qué KMZ hay en [región]?"\n• "Detalles del archivo [nombre]"\n\n**📊 ESTADÍSTICAS:**\n• "Dame estadísticas de mis archivos"\n• "Estadísticas de KMZ completas"\n• "¿Cuántos puntos tengo en total?"\n\n**🌎 BUSCAR POR REGIÓN:**\n• "Muéstrame todos los archivos de Los Lagos"\n• "¿Qué KMZ hay en Región de Aysén?"\n\n**❓ AYUDA:**\n• "ayuda"\n\n**💡 TIPS:**\n• Usa lenguaje natural\n• Sé específico en tus consultas\n• Menciona regiones, tipos de archivo o ubicaciones\n• Puedo buscar en nombres, contenido y metadata`,
-        timestamp: new Date(),
-        metadata: { type: "help", confidence: 1.0 },
-      }
-    }
-
-    // Default response
-    return {
-      id: uuidv4(),
-      role: "assistant",
-      content: `Entiendo tu consulta sobre "${userMessage}".\n\nPuedo ayudarte con:\n• 📁 Explorar carpetas y archivos en Drive\n• 🔍 Buscar documentos específicos\n• 🗺️ Consultar archivos KMZ y ubicaciones\n• 📊 Analizar datos y generar resúmenes\n\n¿Podrías ser más específico? Por ejemplo:\n• "¿Qué carpetas tengo?"\n• "Buscar contratos"\n• "¿Cuántos archivos KMZ tengo?"\n\nO escribe "ayuda" para ver todos los comandos disponibles.`,
       timestamp: new Date(),
       metadata: { type: "general", confidence: 0.7 },
     }
