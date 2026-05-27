@@ -246,11 +246,32 @@ export function AIAssistantChat() {
           })
 
           // Check if user is asking for specific region
-          const regionPattern = /(?:región|region)\s+(?:de\s+)?([a-záéíóúñ\s]+?)(?:\?|$|\.|\s+muéstrame|\s+archivos)/i
-          const regionMatch = message.match(regionPattern)
-          const requestedRegion = regionMatch ? regionMatch[1].trim() : null
+          const regionPatterns = [
+            /(?:región|region)\s+(?:de\s+)?(?:los\s+)?([a-záéíóúñ\s]+?)(?:\?|$|\.)/i,
+            /(?:en\s+)?(?:la\s+)?(?:región|region)\s+(?:de\s+)?(?:los\s+)?([a-záéíóúñ\s]+?)(?:\?|$|\.)/i,
+            /(?:kmz|archivos)\s+(?:en|de)\s+(?:la\s+)?(?:región|region)?\s*(?:de\s+)?(?:los\s+)?([a-záéíóúñ\s]+?)(?:\?|$|\.)/i,
+            /(?:hay\s+en)\s+(?:la\s+)?(?:región|region)?\s*(?:de\s+)?(?:los\s+)?([a-záéíóúñ\s]+?)(?:\?|$|\.)/i,
+          ]
+          
+          let requestedRegion = null
+          for (const pattern of regionPatterns) {
+            const match = message.match(pattern)
+            if (match && match[1] && match[1].trim().length > 2) {
+              requestedRegion = match[1].trim()
+              // Handle "los rios" -> "Los Ríos" etc
+              if (requestedRegion.toLowerCase() === "rios" || requestedRegion.toLowerCase() === "los rios") {
+                requestedRegion = "Los Ríos"
+              } else if (requestedRegion.toLowerCase() === "lagos" || requestedRegion.toLowerCase() === "los lagos") {
+                requestedRegion = "Los Lagos"
+              } else if (requestedRegion.toLowerCase().includes("metropolitan")) {
+                requestedRegion = "Metropolitana"
+              }
+              break
+            }
+          }
 
           if (requestedRegion) {
+            console.log("[v0] Region detected:", requestedRegion)
             try {
               // Query actual placemarks by region (geospatial data)
               const { data: placemarks } = await supabase
@@ -511,10 +532,10 @@ export function AIAssistantChat() {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0 w-full flex flex-col">
+        <div className="flex-1 overflow-y-auto p-4 min-h-0" style={{ maxHeight: "calc(100% - 180px)" }}>
           <div className="space-y-4">
             {messages.map((message) => (
-            <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"} gap-2`}>
+              <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"} gap-2`}>
               <div
                 className={`flex items-start max-w-[70%] ${
                   message.role === "user"
