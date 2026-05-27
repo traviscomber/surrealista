@@ -468,7 +468,8 @@ export function CAMPOSFolderView() {
         prevFolders.map((folder) => {
           if (folder.id === item.id) {
             const isNowOpen = !folder.isOpen
-            if (isNowOpen && (!folder.children || folder.children.length === 0)) {
+            // ALWAYS load region KMZ files when opening a folder to show ALL layers on the map
+            if (isNowOpen) {
               loadRegionKMZFiles(folder.name)
             }
             return { ...folder, isOpen: isNowOpen }
@@ -479,7 +480,8 @@ export function CAMPOSFolderView() {
       return
     }
 
-    // Otherwise, it's a file - load individual file data
+    // Otherwise, it's a file - load individual file data for details panel only
+    // DO NOT change the map layers - keep showing all region layers
     if (item.location) {
       setMapCenter(item.location)
     }
@@ -492,64 +494,11 @@ export function CAMPOSFolderView() {
         setSelectedItemDocuments(docs)
         setDocumentCount(count)
 
-        // IMPORTANT: Load the full KMZ data for this specific file first
-        try {
-          const { data, error } = await supabase
-            .from("kmz_collection")
-            .select("*")
-            .eq("is_active", true)
-            .eq("id", item.dbId)
-            .single()
-
-          if (error) {
-            setKmzFiles([])
-          } else if (data) {
-
-            // Transform the single KMZ file
-            const placemarks = (data.coordinates || []).map((coordArray: any, index: number) => {
-              let geometryType = "Point"
-              let coordinates = coordArray
-
-              if (Array.isArray(coordArray) && coordArray.length > 3) {
-                if (Array.isArray(coordArray[0]) && coordArray[0].length >= 2 && typeof coordArray[0][0] === "number") {
-                  geometryType = "Polygon"
-                  coordinates = coordArray
-                }
-              }
-
-              return {
-                name: `${data.file_name} - ${geometryType === "Polygon" ? "Polígono" : "Punto"} ${index + 1}`,
-                type: geometryType,
-                coordinates: coordinates,
-                description: data.description || "",
-                properties: {
-                  rol: data.rol_numbers?.[index] || "",
-                  category: data.category || "general",
-                },
-              }
-            })
-
-            const transformedKMZ = {
-              fileName: data.file_name,
-              placemarks: placemarks,
-              bounds: data.bounds,
-              metadata: {
-                id: data.id,
-                category: data.category,
-                rolNumbers: data.rol_numbers || [],
-                placemarks_count: data.placemarks_count,
-              },
-            }
-
-            setKmzFiles([transformedKMZ]) // Show ONLY this file
-          }
-        } catch (kmzError) {
-          setKmzFiles([])
-        }
+        // Load metadata for details panel but DON'T change kmzFiles (map layers)
+        // The map should continue showing all region layers
       } catch (error) {
         setSelectedItemDocuments([])
         setDocumentCount(0)
-        setKmzFiles([])
       } finally {
         setLoadingDocuments(false)
       }
