@@ -183,11 +183,11 @@ const getPageTitle = (pathname: string): string => {
 
 export function AdminSidebar() {
   const pathname = usePathname()
-  const [openItems, setOpenItems] = useState<string[]>(["Gestión Documentos"])
+  const [expandedItems, setExpandedItems] = useState<string[]>(["Gestión Documentos"])
   const pageTitle = getPageTitle(pathname)
 
   const toggleItem = (title: string) => {
-    setOpenItems((prev) => (prev.includes(title) ? prev.filter((item) => item !== title) : [...prev, title]))
+    setExpandedItems((prev) => (prev.includes(title) ? prev.filter((item) => item !== title) : [...prev, title]))
   }
 
   const isActive = (href: string) => {
@@ -199,7 +199,7 @@ export function AdminSidebar() {
 
   const renderMenuItem = (item: MenuItem, level = 0) => {
     const hasChildren = item.children && item.children.length > 0
-    const isOpen = openItems.includes(item.title)
+    const isOpen = expandedItems.includes(item.title)
     const isItemActive = item.href ? isActive(item.href) : false
 
     if (hasChildren) {
