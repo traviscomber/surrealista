@@ -185,6 +185,7 @@ export function AdminSidebar() {
   const pathname = usePathname()
   const [expandedItems, setExpandedItems] = useState<string[]>(["Gestión Documentos"])
   const pageTitle = getPageTitle(pathname)
+  const isKMZCollection = pathname === "/admin/kmz-collection"
 
   const toggleItem = (title: string) => {
     setExpandedItems((prev) => (prev.includes(title) ? prev.filter((item) => item !== title) : [...prev, title]))
