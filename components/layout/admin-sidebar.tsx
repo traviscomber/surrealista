@@ -291,8 +291,12 @@ export function AdminSidebar() {
         </div>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">{menuItems.map((item) => renderMenuItem(item))}</nav>
+      {/* Navigation - Hidden in KMZ Collection */}
+      {!isKMZCollection && (
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">{menuItems.map((item) => renderMenuItem(item))}</nav>
+      )}
+
+      {isKMZCollection && <div className="flex-1" />}
 
       <Separator />
 
