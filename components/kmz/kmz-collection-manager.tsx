@@ -976,15 +976,15 @@ export function KMZCollectionManager() {
                       <Trash2 className="h-4 w-4 text-red-600" />
                     </Button>
                   </div>
-                  <CardTitle className="text-lg font-bold text-slate-800 truncate">{kmz.file_name}</CardTitle>
-                  <CardDescription className="text-sm truncate">{kmz.file_path}</CardDescription>
+                  <CardTitle className="text-lg font-bold text-foreground truncate">{kmz.file_name}</CardTitle>
+                  <CardDescription className="text-sm truncate text-muted-foreground/80">{kmz.file_path}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="bg-blue-50 p-3 rounded-lg">
                       <div className="flex items-center gap-2 mb-1">
                         <MapPin className="h-4 w-4 text-blue-600" />
-                        <span className="text-xs font-medium text-slate-600">Ubicaciones</span>
+                        <span className="text-xs font-medium text-foreground/90">Ubicaciones</span>
                       </div>
                       <div className="text-xl font-bold text-blue-700">{kmz.placemarks_count}</div>
                     </div>
