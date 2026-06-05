@@ -43,6 +43,7 @@ import {
   Search,
   Tag,
   Sparkles,
+  HelpCircle,
 } from "lucide-react"
 import { GlobalCommandPalette } from "@/components/search/global-command-palette"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
@@ -148,6 +149,13 @@ const mvpItems = [
 ]
 
 const docsItems = [
+  {
+    title: "Centro de Ayuda",
+    href: "/ayuda",
+    icon: HelpCircle,
+    description: "Guías, tutoriales y preguntas frecuentes",
+    badge: "Nuevo",
+  },
   {
     title: "Documentación Técnica",
     href: "/docs/tecnica",

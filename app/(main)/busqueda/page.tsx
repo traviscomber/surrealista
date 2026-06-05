@@ -451,54 +451,56 @@ export default function UnifiedSearchPage() {
     <div className="min-h-screen bg-background px-4 py-4">
       <div className="w-full">
         {/* Header */}
-        <div className="mb-4">
-          <h1 className="text-2xl font-bold text-foreground mb-1">Sur-Realista</h1>
-          <p className="text-sm text-muted-foreground">Sistema integrado de gestión para CAMPOS, Clientes, Comunicaciones y Tareas</p>
+        <div className="mb-6 pb-4 border-b">
+          <h1 className="text-3xl font-bold text-foreground mb-2">Bienvenido a Sur-Realista</h1>
+          <p className="text-base text-muted-foreground max-w-2xl">
+            Tu centro de control para gestionar campos, contactos, comunicaciones, tareas y archivos geográficos. Todo en un mismo lugar.
+          </p>
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-6 mb-4 h-auto">
+          <TabsList className="grid w-full grid-cols-6 mb-4 h-auto gap-1 bg-transparent p-0">
             <TabsTrigger
               value="campos"
-              className="flex items-center gap-2 data-[state=active]:bg-sage data-[state=active]:text-white"
+              className="flex flex-col items-center gap-2 py-3 px-2 data-[state=active]:bg-teal-100 data-[state=active]:text-teal-900 rounded-lg transition-colors"
             >
-              <Folder className="h-4 w-4" />
-              CAMPOS
+              <Folder className="h-5 w-5" />
+              <span className="text-xs font-semibold">Mis Campos</span>
             </TabsTrigger>
             <TabsTrigger
               value="clientes"
-              className="flex items-center gap-2 cursor-pointer data-[state=active]:bg-sage data-[state=active]:text-white"
+              className="flex flex-col items-center gap-2 py-3 px-2 cursor-pointer data-[state=active]:bg-blue-100 data-[state=active]:text-blue-900 rounded-lg transition-colors"
             >
-              <Users className="h-4 w-4" />
-              Clientes
+              <Users className="h-5 w-5" />
+              <span className="text-xs font-semibold">Clientes</span>
             </TabsTrigger>
             <TabsTrigger
               value="comunicaciones"
-              className="flex items-center gap-2 cursor-pointer data-[state=active]:bg-sage data-[state=active]:text-white"
+              className="flex flex-col items-center gap-2 py-3 px-2 cursor-pointer data-[state=active]:bg-purple-100 data-[state=active]:text-purple-900 rounded-lg transition-colors"
             >
-              <MessageSquare className="h-4 w-4" />
-              Comunicaciones
+              <MessageSquare className="h-5 w-5" />
+              <span className="text-xs font-semibold">Mensajes</span>
             </TabsTrigger>
             <TabsTrigger
               value="tareas"
-              className="flex items-center gap-2 cursor-pointer data-[state=active]:bg-sage data-[state=active]:text-white"
+              className="flex flex-col items-center gap-2 py-3 px-2 cursor-pointer data-[state=active]:bg-orange-100 data-[state=active]:text-orange-900 rounded-lg transition-colors"
             >
-              <CheckSquare className="h-4 w-4" />
-              Tareas
+              <CheckSquare className="h-5 w-5" />
+              <span className="text-xs font-semibold">Tareas</span>
             </TabsTrigger>
             <TabsTrigger
               value="drive"
-              className="flex items-center gap-2 cursor-pointer data-[state=active]:bg-sage data-[state=active]:text-white"
+              className="flex flex-col items-center gap-2 py-3 px-2 cursor-pointer data-[state=active]:bg-sky-100 data-[state=active]:text-sky-900 rounded-lg transition-colors"
             >
-              <HardDrive className="h-4 w-4" />
-              Google Drive
+              <HardDrive className="h-5 w-5" />
+              <span className="text-xs font-semibold">Archivos</span>
             </TabsTrigger>
             <TabsTrigger
               value="kmz"
-              className="flex items-center gap-2 cursor-pointer data-[state=active]:bg-sage data-[state=active]:text-white"
+              className="flex flex-col items-center gap-2 py-3 px-2 cursor-pointer data-[state=active]:bg-green-100 data-[state=active]:text-green-900 rounded-lg transition-colors"
             >
-              <MapPin className="h-4 w-4" />
-              KMZ
+              <MapPin className="h-5 w-5" />
+              <span className="text-xs font-semibold">Mapas</span>
             </TabsTrigger>
           </TabsList>
 

@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { KMZMapDisplay } from "@/components/kmz/kmz-map-display"
+import { OnboardingGuide } from "@/components/campos/onboarding-guide"
 import { createBrowserClient } from "@/lib/supabase/client"
 import {
   Folder,
@@ -1387,7 +1388,12 @@ export function CAMPOSFolderView() {
             disabled={isLoadingFromURL}
           />
         </div>
-        <FolderList />
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-4">
+            <OnboardingGuide />
+          </div>
+          <FolderList />
+        </div>
       </div>
 
       {/* Left panel toggle button */}
