@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
-
 interface TasacionRequest {
   property: {
     type: string
@@ -29,6 +25,11 @@ interface TasacionRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    // Initialize OpenAI at runtime
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    })
+
     const body: TasacionRequest = await request.json()
 
     if (!body.property) {

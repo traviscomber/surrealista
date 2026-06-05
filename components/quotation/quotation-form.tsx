@@ -6,7 +6,6 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
-import { supabase } from "@/lib/supabase/client"
 import { useToast } from "@/hooks/use-toast"
 import { Bot, Loader2 } from "lucide-react"
 
@@ -22,7 +21,7 @@ export function QuotationForm() {
     if (!requirements.trim()) {
       toast({
         title: "Error",
-        description: "Por favor, describe tus requerimientos.",
+        description: "Por favor, describe la propiedad que buscas.",
         variant: "destructive",
       })
       return
@@ -31,47 +30,25 @@ export function QuotationForm() {
     setIsSubmitting(true)
 
     try {
-      // Search KMZ files based on user requirements
-      const searchTerms = requirements.toLowerCase()
-      
-      // Query real KMZ data from Supabase
-      const { data: kmzFiles, error: kmzError } = await supabase
-        .from("kmz_collection")
-        .select("file_name, region, placemarks_count, created_at, file_id")
-        .order("created_at", { ascending: false })
-        .limit(20)
+      const response = await fetch("/api/quotation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requirements }),
+      })
 
-      if (kmzError) throw kmzError
-
-      // Filter based on search terms
-      const matchingFiles = kmzFiles?.filter((f) => {
-        const fileName = f.file_name?.toLowerCase() || ""
-        const region = f.region?.toLowerCase() || ""
-        return searchTerms.split(" ").some(
-          (term) => term.length > 2 && (fileName.includes(term) || region.includes(term))
-        )
-      }) || []
-
-      let response = ""
-
-      if (matchingFiles.length > 0) {
-        const fileList = matchingFiles
-          .slice(0, 5)
-          .map((f, i) => `${i + 1}. **${f.file_name}**\n   - Region: ${f.region || "Sin especificar"}\n   - Puntos/Ubicaciones: ${f.placemarks_count || 0}`)
-          .join("\n\n")
-
-        response = `Basado en tu busqueda, encontre ${matchingFiles.length} archivo(s) KMZ relevantes:\n\n${fileList}\n\nPuedes ver estos archivos en la seccion CAMPOS para explorar las ubicaciones en el mapa.`
-      } else if (kmzFiles && kmzFiles.length > 0) {
-        const totalPoints = kmzFiles.reduce((sum, f) => sum + (f.placemarks_count || 0), 0)
-        const regions = [...new Set(kmzFiles.map((f) => f.region).filter(Boolean))]
-        
-        response = `No encontre coincidencias exactas para "${requirements}", pero tenemos:\n\n- **${kmzFiles.length}** archivos KMZ disponibles\n- **${totalPoints.toLocaleString()}** ubicaciones/puntos totales\n- Regiones: ${regions.slice(0, 5).join(", ") || "Varias"}\n\nVisita la seccion CAMPOS para explorar todas las propiedades disponibles.`
-      } else {
-        response = `Actualmente no hay archivos KMZ cargados en el sistema.\n\nPara comenzar:\n1. Ve a la seccion CAMPOS\n2. Carga archivos KMZ con ubicaciones de propiedades\n3. Vuelve aqui para buscar propiedades`
+      if (!response.ok) {
+        throw new Error("Error en la cotización")
       }
 
-      setAiResponse(response)
+      const data = await response.json()
+      setAiResponse(data.quotation)
+      
+      toast({
+        title: "Cotización generada",
+        description: "Análisis completado usando datos reales del mercado inmobiliario chileno.",
+      })
     } catch (error) {
+      console.error("Quotation error:", error)
       toast({
         title: "Error",
         description: "No se pudo procesar tu solicitud. Intenta nuevamente.",
@@ -114,13 +91,40 @@ export function QuotationForm() {
           <CardContent className="p-6">
             <div className="flex items-center mb-4">
               <Bot className="h-6 w-6 text-primary mr-2" />
-              <h3 className="text-lg font-semibold">Recomendaciones de IA</h3>
+              <h3 className="text-lg font-semibold">Cotización Inteligente</h3>
             </div>
-            <div className="prose prose-sm max-w-none">
-              {aiResponse.split("\n").map((line, index) => (
-                <p key={index} className="mb-2">
-                  {line}
-                </p>
+            <div className="prose prose-sm max-w-none dark:prose-invert">
+              {aiResponse.split("\n\n").map((paragraph, pIdx) => (
+                <div key={pIdx} className="mb-4">
+                  {paragraph.split("\n").map((line, lIdx) => {
+                    if (line.startsWith("**") && line.endsWith("**")) {
+                      return (
+                        <h4 key={lIdx} className="font-semibold text-base mb-2 text-foreground">
+                          {line.replace(/\*\*/g, "")}
+                        </h4>
+                      )
+                    }
+                    if (line.startsWith("- ")) {
+                      return (
+                        <p key={lIdx} className="ml-4 mb-1 text-muted-foreground">
+                          {line}
+                        </p>
+                      )
+                    }
+                    if (line.startsWith("✅") || line.startsWith("⚠️")) {
+                      return (
+                        <p key={lIdx} className="font-semibold mb-1 text-foreground">
+                          {line}
+                        </p>
+                      )
+                    }
+                    return (
+                      <p key={lIdx} className="mb-1 text-muted-foreground">
+                        {line}
+                      </p>
+                    )
+                  })}
+                </div>
               ))}
             </div>
           </CardContent>

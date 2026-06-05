@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useState, useEffect } from "react"
+import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,11 +13,18 @@ import { Lock } from "lucide-react"
 const CORRECT_PASSWORD = "srmagica"
 const STORAGE_KEY = "site_access_token"
 
+// Routes that don't require password
+const PUBLIC_ROUTES = ["/ayuda", "/docs"]
+
 export function PasswordGate({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(true)
+
+  // Check if current route is public
+  const isPublicRoute = PUBLIC_ROUTES.some(route => pathname.startsWith(route))
 
   useEffect(() => {
     // Check if user has already authenticated
@@ -43,6 +51,11 @@ export function PasswordGate({ children }: { children: React.ReactNode }) {
   // Show nothing while checking authentication
   if (isLoading) {
     return null
+  }
+
+  // Allow public routes without authentication
+  if (isPublicRoute) {
+    return <>{children}</>
   }
 
   // Show password gate if not authenticated

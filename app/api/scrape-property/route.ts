@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 
-// Initialize Supabase client with environment variables
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
 export async function POST(request: Request) {
   try {
+    // Initialize Supabase client at runtime
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
+    const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
     const { url } = await request.json()
 
     if (!url || typeof url !== "string") {
