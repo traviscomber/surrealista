@@ -264,28 +264,28 @@ export function AdminSidebar() {
   }
 
   return (
-    <div className="w-80 bg-white border-r border-gray-200 flex flex-col h-full">
+    <div className="w-80 bg-card border-r border-border flex flex-col h-full">
       {/* Header */}
-      <div className="p-6 border-b border-gray-200">
+      <div className="p-6 border-b border-border">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+          <div className="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center">
             <Building2 className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-gray-900">Panel de Administración</h2>
-            <p className="text-sm text-gray-500">Sur-Realista</p>
+            <h2 className="text-lg font-bold text-foreground">Panel de Administración</h2>
+            <p className="text-sm text-muted-foreground">Sur-Realista</p>
           </div>
         </div>
 
         {/* Current Page Title */}
         <div className="mb-4">
-          <h1 className="text-xl font-bold text-gray-900">{pageTitle}</h1>
+          <h1 className="text-xl font-bold text-foreground">{pageTitle}</h1>
         </div>
 
         {/* Search */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input type="search" placeholder="Buscar..." className="pl-10 pr-4 w-full h-9" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input type="search" placeholder="Buscar..." className="pl-10 pr-4 w-full h-9 bg-background text-foreground border-border" />
         </div>
       </div>
 

@@ -630,7 +630,7 @@ export function KMZCollectionManager() {
   const categories = ["all", ...new Set(kmzFiles.map((kmz) => kmz.category).filter(Boolean))]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-100">
+    <div className="min-h-screen bg-background">
       <NeighborhoodAnalysisModal
         open={showAnalysisModal}
         onOpenChange={setShowAnalysisModal}
@@ -683,17 +683,17 @@ export function KMZCollectionManager() {
           </div>
         )}
         {/* Header */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-700 p-8 text-white">
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary via-accent to-secondary p-8 text-foreground">
           <div className="absolute inset-0 bg-black/10"></div>
           <div className="relative flex justify-between items-center">
             <div className="space-y-2">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                <div className="p-2 bg-foreground/10 rounded-lg backdrop-blur-sm">
                   <Database className="h-6 w-6" />
                 </div>
                 <h1 className="text-4xl font-bold tracking-tight">Colección de Archivos KMZ</h1>
               </div>
-              <p className="text-purple-100 text-lg font-medium">
+              <p className="text-foreground/80 text-lg font-medium">
                 Gestiona y visualiza todos los archivos KMZ de Google Drive
               </p>
               <p className="text-purple-200 text-sm">
@@ -862,7 +862,7 @@ export function KMZCollectionManager() {
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="border-0 shadow-lg bg-white/90 backdrop-blur-sm">
+          <Card className="border-0 shadow-lg bg-card backdrop-blur-sm">
             <CardContent className="p-6">
               <div className="flex items-center gap-3">
                 <div className="p-3 bg-purple-100 rounded-xl">
@@ -876,7 +876,7 @@ export function KMZCollectionManager() {
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-lg bg-white/90 backdrop-blur-sm">
+          <Card className="border-0 shadow-lg bg-card backdrop-blur-sm">
             <CardContent className="p-6">
               <div className="flex items-center gap-3">
                 <div className="p-3 bg-green-100 rounded-xl">
@@ -890,7 +890,7 @@ export function KMZCollectionManager() {
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-lg bg-white/90 backdrop-blur-sm">
+          <Card className="border-0 shadow-lg bg-card backdrop-blur-sm">
             <CardContent className="p-6">
               <div className="flex items-center gap-3">
                 <div className="p-3 bg-blue-100 rounded-xl">
@@ -904,7 +904,7 @@ export function KMZCollectionManager() {
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-lg bg-white/90 backdrop-blur-sm">
+          <Card className="border-0 shadow-lg bg-card backdrop-blur-sm">
             <CardContent className="p-6">
               <div className="flex items-center gap-3">
                 <div className="p-3 bg-orange-100 rounded-xl">
@@ -920,7 +920,7 @@ export function KMZCollectionManager() {
         </div>
 
         {/* Search and Filters */}
-        <Card className="border-0 shadow-xl bg-white/90 backdrop-blur-sm">
+        <Card className="border-0 shadow-xl bg-card backdrop-blur-sm">
           <CardContent className="p-6">
             <div className="space-y-4">
               <div className="flex gap-4">
@@ -973,7 +973,7 @@ export function KMZCollectionManager() {
 
         {/* KMZ List */}
         {loading ? (
-          <Card className="border-0 shadow-xl bg-white/90 backdrop-blur-sm">
+          <Card className="border-0 shadow-xl bg-card backdrop-blur-sm">
             <CardContent className="p-12 text-center">
               <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-purple-600" />
               <p className="text-slate-600 font-medium">Cargando colección...</p>
@@ -984,7 +984,7 @@ export function KMZCollectionManager() {
             {sortedKMZ.map((kmz) => (
               <Card
                 key={kmz.id}
-                className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-white"
+                className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-card"
               >
                 <CardHeader className="pb-3">
                   <div className="flex justify-between items-start mb-2">
@@ -1074,7 +1074,7 @@ export function KMZCollectionManager() {
                   <div className="flex gap-2">
                     <Button
                       onClick={() => loadToMap(kmz)}
-                      className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                      className="flex-1 bg-gradient-to-r from-primary to-accent hover:from-primary/80 hover:to-accent/80"
                     >
                       <Layers className="h-4 w-4 mr-2" />
                       Cargar en Mapa
@@ -1110,7 +1110,7 @@ export function KMZCollectionManager() {
         )}
 
         {filteredKMZ.length === 0 && !loading && (
-          <Card className="border-0 shadow-xl bg-white/90 backdrop-blur-sm">
+          <Card className="border-0 shadow-xl bg-card backdrop-blur-sm">
             <CardContent className="p-12 text-center">
               <div className="p-4 bg-slate-100 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center">
                 <AlertCircle className="h-10 w-10 text-slate-400" />
