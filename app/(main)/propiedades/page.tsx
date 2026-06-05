@@ -2,6 +2,9 @@ import { Suspense } from "react"
 import PropertiesClient from "./properties-client"
 import { createClient } from "@/lib/supabase/server"
 
+// Mark as dynamic to skip prerendering
+export const dynamic = "force-dynamic"
+
 async function getProperties() {
   const supabase = await createClient()
 
