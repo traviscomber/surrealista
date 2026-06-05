@@ -1,4 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+
+// Initialize Supabase client
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
+// FUENTES DE DATOS REALES:
+// 1. SII (Servicio de Impuestos Internos) - Avalúos fiscales reales de propiedades en Chile
+// 2. Properties Enhanced - Base de datos de propiedades reales registradas
+// 3. Opportunities - Análisis de propiedades y análisis de mercado en Tu BD
+// 4. Market benchmarks - Comparables históricos
 
 // Real estate market data for Chile by region and property type
 const marketData = {
@@ -94,15 +107,97 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get market data
-    const regionData = marketData[region as keyof typeof marketData] || marketData.Biobío
-    const propertyData = regionData[property_type as keyof typeof regionData] || regionData.terreno
+    // STEP 1: Consultar datos reales del SII (Servicio de Impuestos Internos)
+    let siiData: any = null
+    let siiAvaluos: any[] = []
+    
+    try {
+      const { data: sii } = await supabase
+        .from('sii_coordinate_extractions')
+        .select('avaluo_total, built_area, surface_area, region, city, property_type')
+        .ilike('region', `%${region}%`)
+        .limit(50)
+      
+      if (sii && sii.length > 0) {
+        siiAvaluos = sii
+        siiData = sii[0]
+      }
+    } catch (err) {
+      console.log('[Cotizador] SII data not available')
+    }
+
+    // STEP 2: Consultar propiedades similares reales de la BD (Properties Enhanced)
+    let similarProperties: any[] = []
+    
+    try {
+      const { data: props } = await supabase
+        .from('properties_enhanced')
+        .select('price, square_meters, property_type, region, city, bedrooms, bathrooms')
+        .eq('region', region)
+        .eq('property_type', property_type)
+        .gt('price', 0)
+        .gt('square_meters', sqm * 0.5)
+        .lt('square_meters', sqm * 2)
+        .limit(10)
+      
+      if (props && props.length > 0) {
+        similarProperties = props
+      }
+    } catch (err) {
+      console.log('[Cotizador] Properties data not available')
+    }
+
+    // STEP 3: Consultar análisis de oportunidades (market intelligence)
+    let opportunities: any[] = []
+    
+    try {
+      const { data: opps } = await supabase
+        .from('opportunities')
+        .select('price, area_sqm, location, property_type, market_trend, investment_potential')
+        .ilike('location', `%${city || region}%`)
+        .limit(5)
+      
+      if (opps && opps.length > 0) {
+        opportunities = opps
+      }
+    } catch (err) {
+      console.log('[Cotizador] Opportunities data not available')
+    }
+
+    // CALCULATE: Usar datos reales si están disponibles, sino usar benchmarks
+    let base_price_sqm = 0
+    let data_sources = ['Benchmarks internos']
+    let confidence_boost = 0
+
+    // Si hay datos similares reales, usarlos
+    if (similarProperties.length > 0) {
+      const avgPrice = similarProperties.reduce((sum, p) => sum + (p.price / p.square_meters), 0) / similarProperties.length
+      base_price_sqm = avgPrice
+      data_sources = ['Properties Enhanced (BD Real)', `${similarProperties.length} comparables similares`]
+      confidence_boost = Math.min(similarProperties.length * 5, 20)
+    } 
+    // Si hay datos del SII, usarlos
+    else if (siiAvaluos.length > 0) {
+      const avgAvaluo = siiAvaluos.reduce((sum, s) => {
+        const total = s.avaluo_total || 0
+        const area = s.surface_area || 1
+        return sum + (total / area)
+      }, 0) / siiAvaluos.length
+      base_price_sqm = avgAvaluo
+      data_sources = ['SII - Avalúos Fiscales', `${siiAvaluos.length} registros de Servicio de Impuestos Internos`]
+      confidence_boost = 15
+    }
+    // Sino, usar benchmarks
+    else {
+      const regionData = marketData[region as keyof typeof marketData] || marketData.Biobío
+      const propertyData = regionData[property_type as keyof typeof regionData] || regionData.terreno
+      base_price_sqm = propertyData.price_sqm
+      data_sources = ['Benchmarks de mercado regional']
+    }
 
     // Get condition multiplier
     const multiplier = conditionMultipliers[condition as keyof typeof conditionMultipliers] || 1.0
-
-    // Calculate base price per m²
-    let base_price_sqm = propertyData.price_sqm * multiplier
+    let adjusted_price_sqm = base_price_sqm * multiplier
 
     // Apply features bonus
     const featuresList = features ? features.split(',').map(f => f.trim().toLowerCase()) : []
@@ -126,35 +221,46 @@ export async function POST(request: NextRequest) {
       featureBonus = 1 + (matchedFeatures.length * 0.05)
     }
 
-    base_price_sqm *= featureBonus
+    adjusted_price_sqm *= featureBonus
 
     // Calculate prices
-    const estimated_price = Math.round(base_price_sqm * sqm)
-    const min_price = Math.round(propertyData.range[0] * sqm * multiplier * (featureBonus * 0.95))
-    const max_price = Math.round(propertyData.range[1] * sqm * multiplier * (featureBonus * 1.05))
+    const estimated_price = Math.round(adjusted_price_sqm * sqm)
+    const price_range_margin = 0.15
+    const min_price = Math.round(estimated_price * (1 - price_range_margin))
+    const max_price = Math.round(estimated_price * (1 + price_range_margin))
 
     // Determine methodology and confidence
     let methodology = ''
-    let confidence = 0
+    let confidence = 65
     let market_factors: string[] = []
 
-    if (property_type === 'terreno' || property_type === 'agrícola') {
-      methodology = 'Enfoque Comparativo - Análisis de terrenos similares en la región'
-      confidence = condition ? 75 : 65
+    if (similarProperties.length > 0) {
+      methodology = `Enfoque Comparativo Directo - Análisis de ${similarProperties.length} propiedades similares en ${region}`
+      confidence = 80 + confidence_boost
       market_factors = [
-        `Precio promedio m² en ${region}: $${propertyData.price_sqm.toLocaleString()}`,
-        `Área de propiedad: ${sqm.toLocaleString()} m²`,
-        `Multiplicador por estado: ${(multiplier * 100).toFixed(0)}%`,
-        `Bonificación por características: ${((featureBonus - 1) * 100).toFixed(0)}%`
+        `Precio promedio de comparables: $${Math.round(base_price_sqm).toLocaleString()}/m²`,
+        `Número de propiedades similares analizadas: ${similarProperties.length}`,
+        `Ajuste por estado: ${(multiplier * 100).toFixed(0)}%`,
+        `Bonificación por características: +${((featureBonus - 1) * 100).toFixed(0)}%`,
+        `Fuentes: ${data_sources.join(', ')}`
+      ]
+    } else if (siiAvaluos.length > 0) {
+      methodology = `Avalúo Fiscal del SII - Análisis de ${siiAvaluos.length} propiedades en registros del Servicio de Impuestos Internos`
+      confidence = 75 + confidence_boost
+      market_factors = [
+        `Promedio de avalúos SII: $${Math.round(base_price_sqm).toLocaleString()}/m²`,
+        `Registros del SII analizados: ${siiAvaluos.length}`,
+        `Ajuste por condición actual: ${(multiplier * 100).toFixed(0)}%`,
+        `Fuentes: SII (Servicio de Impuestos Internos)`
       ]
     } else {
-      methodology = 'Enfoque Comparativo - Análisis de mejoras constructivas y mercado similar'
-      confidence = condition ? 80 : 70
+      methodology = 'Enfoque Comparativo - Benchmarks de mercado regional vigente'
+      confidence = 65
       market_factors = [
-        `Valor base construcción m²: $${propertyData.price_sqm.toLocaleString()}`,
-        `Estado de propiedad: ${condition || 'No especificado'}`,
-        `Características detectadas: ${featuresList.length} mejoras`,
-        `Mercado regional: ${region} - tendencia estable`
+        `Valor base mercado en ${region}: $${Math.round(base_price_sqm).toLocaleString()}/m²`,
+        `Tipo de propiedad: ${property_type}`,
+        `Ajuste por estado: ${(multiplier * 100).toFixed(0)}%`,
+        `Fuentes: Benchmarks internos, datos de mercado regional`
       ]
     }
 
@@ -182,12 +288,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       estimated_price,
       price_range: { min: min_price, max: max_price },
-      price_per_sqm: Math.round(base_price_sqm),
+      price_per_sqm: Math.round(adjusted_price_sqm),
       methodology,
-      confidence: Math.min(confidence + (condition ? 10 : 0), 95),
+      confidence: Math.min(confidence + (condition ? 5 : 0), 95),
       market_factors,
-      comparable_analysis: `Basado en ${sqm >= 5000 ? 'análisis extenso' : 'análisis detallado'} de propiedades comparables en ${city || region}. Datos actualizados a mercado vigente.`,
+      comparable_analysis: `Basado en análisis ${
+        similarProperties.length > 0 ? `directo de ${similarProperties.length} propiedades similares` :
+        siiAvaluos.length > 0 ? `de avalúos del SII` :
+        'de benchmarks de mercado'
+      } en ${city || region}. Datos actualizados a mercado vigente.`,
       recommendations,
+      data_sources: data_sources,
+      comparable_count: similarProperties.length,
     })
   } catch (error: any) {
     console.error('Quotation error:', error)

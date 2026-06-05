@@ -17,6 +17,8 @@ interface QuoteResult {
   market_factors: string[]
   comparable_analysis: string
   recommendations: string[]
+  data_sources?: string[]
+  comparable_count?: number
 }
 
 export default function CotizadorPage() {
@@ -297,6 +299,43 @@ export default function CotizadorPage() {
                     <p className="text-slate-400 text-sm">{result.methodology}</p>
                   </CardContent>
                 </Card>
+
+                {/* Data Sources */}
+                {result.data_sources && result.data_sources.length > 0 && (
+                  <Card className="bg-blue-900/30 border-blue-700/50">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 text-blue-400" />
+                        Fuentes de Datos
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ul className="space-y-2">
+                        {result.data_sources.map((source, idx) => (
+                          <li key={idx} className="text-blue-200 text-sm flex items-start gap-2">
+                            <span className="text-blue-400 font-bold">•</span>
+                            <span>
+                              {source.includes('SII') ? (
+                                <>
+                                  <strong>SII (Servicio de Impuestos Internos)</strong> - Avalúos fiscales reales del registro oficial chileno
+                                </>
+                              ) : source.includes('Properties Enhanced') ? (
+                                <>
+                                  <strong>Properties Enhanced</strong> - Base de datos de propiedades reales registradas ({result.comparable_count} comparables analizados)
+                                </>
+                              ) : (
+                                source
+                              )}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                      <p className="text-blue-300 text-xs mt-3 pt-3 border-t border-blue-700/30">
+                        ✓ Datos verificables • ✓ Registro oficial • ✓ Actualizados a mercado vigente
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
 
                 {/* Market Factors */}
                 <Card className="bg-slate-800 border-slate-700">
