@@ -1378,7 +1378,7 @@ export function CAMPOSFolderView() {
       <div
         className={`hidden md:flex flex-col bg-card overflow-hidden transition-all duration-300 ${
           isMapFullscreen ? "md:hidden" : ""
-        } ${isLeftPanelOpen ? "w-80 border-r" : "w-0"}`}
+        } ${isLeftPanelOpen ? "w-[420px] border-r" : "w-0"}`}
       >
         {/* Search input rendered outside FolderList to prevent focus loss */}
         <div className="p-4 border-b flex-shrink-0">
