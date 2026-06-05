@@ -158,27 +158,31 @@ EJEMPLOS DE ANÁLISIS:
       })
     }
 
-    // Handle region search (KMZ files)
+    // Handle region search (KMZ files and locations)
     if (queryAnalysis.intent === "file_search" && queryAnalysis.region) {
-      const { data: placemarks, error } = await supabase
-        .from("kmz_placemarks")
-        .select("id, kmz_id, name, region, city")
+      // Use kmz_search_index which has proper city/region columns
+      const { data: searchResults, error: searchError } = await supabase
+        .from("kmz_search_index")
+        .select("id, kmz_id, name, region, city, address, placemark_count")
         .ilike("region", `%${queryAnalysis.region}%`)
+        .limit(100)
 
-      if (error) {
-        console.error("Supabase error:", error)
+      if (searchError) {
+        console.error("Search index error:", searchError)
         return NextResponse.json({ 
-          response: `Error al buscar archivos en ${queryAnalysis.region}: ${error.message}`,
+          response: `Error al buscar archivos en ${queryAnalysis.region}: ${searchError.message}`,
           type: "error"
         })
       }
 
-      if (placemarks && placemarks.length > 0) {
-        const kmzIds = [...new Set(placemarks.map((p) => p.kmz_id))]
+      if (searchResults && searchResults.length > 0) {
+        // Get unique KMZ files from search results
+        const kmzIds = [...new Set(searchResults.map((r) => r.kmz_id))]
         
+        // Fetch KMZ collection details
         const { data: kmzFiles } = await supabase
           .from("kmz_collection")
-          .select("id, file_name, placemarks_count")
+          .select("id, file_name, placemarks_count, region, description")
           .in("id", kmzIds)
 
         const fileList = kmzFiles
@@ -186,14 +190,28 @@ EJEMPLOS DE ANÁLISIS:
           .map((f) => `- ${f.file_name} (${f.placemarks_count || 0} ubicaciones)`)
           .join("\n")
 
+        // Group search results by city for better insights
+        const byCity: Record<string, number> = {}
+        searchResults.forEach(r => {
+          const city = r.city || "Sin especificar"
+          byCity[city] = (byCity[city] || 0) + 1
+        })
+        const cityStats = Object.entries(byCity)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 5)
+          .map(([city, count]) => `  • ${city}: ${count} ubicaciones`)
+          .join("\n")
+
+        const totalLocations = searchResults.length
+
         return NextResponse.json({
-          response: `**Archivos Geográficos KMZ en ${queryAnalysis.region}**\n\n📊 **Total:** ${kmzIds.length} archivos con ${placemarks.length} ubicaciones catalogadas\n\n🗺️ **Archivos disponibles:**\n${fileList || "No hay detalles disponibles"}`,
+          response: `**Archivos Geográficos KMZ en ${queryAnalysis.region}**\n\n📊 **Resultados:** ${kmzIds.length} archivos con ${totalLocations} ubicaciones registradas\n\n🏘️ **Ciudades principales:**\n${cityStats}\n\n🗺️ **Archivos disponibles:**\n${fileList || "No hay archivos listados"}\n\nPuedes visualizar estos archivos en la sección de MAPAS para análisis geográfico completo.`,
           type: "region_search",
-          data: { total: kmzIds.length, placemarks: placemarks.length }
+          data: { total_files: kmzIds.length, total_locations: totalLocations, files: kmzFiles?.length, by_city: byCity }
         })
       } else {
         return NextResponse.json({
-          response: `No hay archivos KMZ disponibles en "${queryAnalysis.region}". Intenta con otra región o carga nuevos archivos.`,
+          response: `No hay archivos KMZ catalogados en "${queryAnalysis.region}". Intenta con otra región o carga nuevos archivos geográficos.`,
           type: "no_results"
         })
       }
