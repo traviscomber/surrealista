@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -12,6 +12,7 @@ interface KMZOwnerEditModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   kmzId: string
+  kmzFileName?: string
   currentOwner?: string
   currentPic?: string
   currentPicPhone?: string
@@ -24,6 +25,7 @@ export function KMZOwnerEditModal({
   open,
   onOpenChange,
   kmzId,
+  kmzFileName,
   currentOwner,
   currentPic,
   currentPicPhone,
@@ -31,13 +33,25 @@ export function KMZOwnerEditModal({
   currentGoogleDocsLink,
   onSave,
 }: KMZOwnerEditModalProps) {
-  const [owner, setOwner] = useState(currentOwner || '')
-  const [pic, setPic] = useState(currentPic || '')
-  const [picPhone, setPicPhone] = useState(currentPicPhone || '')
-  const [picEmail, setPicEmail] = useState(currentPicEmail || '')
-  const [googleDocsLink, setGoogleDocsLink] = useState(currentGoogleDocsLink || '')
+  const [owner, setOwner] = useState('')
+  const [pic, setPic] = useState('')
+  const [picPhone, setPicPhone] = useState('')
+  const [picEmail, setPicEmail] = useState('')
+  const [googleDocsLink, setGoogleDocsLink] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Update form fields when modal opens or data changes
+  useEffect(() => {
+    if (open) {
+      setOwner(currentOwner || '')
+      setPic(currentPic || '')
+      setPicPhone(currentPicPhone || '')
+      setPicEmail(currentPicEmail || '')
+      setGoogleDocsLink(currentGoogleDocsLink || '')
+      setError(null)
+    }
+  }, [open, currentOwner, currentPic, currentPicPhone, currentPicEmail, currentGoogleDocsLink])
 
   const handleSave = async () => {
     try {
@@ -76,6 +90,11 @@ export function KMZOwnerEditModal({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Editar Dueño y Documentación del Campo</DialogTitle>
+          {kmzFileName && (
+            <p className="text-sm text-gray-500 mt-2">
+              Archivo: <span className="font-mono font-semibold text-gray-700">{kmzFileName}</span>
+            </p>
+          )}
         </DialogHeader>
 
         <div className="space-y-4">

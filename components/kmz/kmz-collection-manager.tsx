@@ -615,6 +615,7 @@ export function KMZCollectionManager() {
         open={showOwnerEditModal}
         onOpenChange={setShowOwnerEditModal}
         kmzId={selectedKmzForOwnerEdit?.id || ''}
+        kmzFileName={selectedKmzForOwnerEdit?.file_name}
         currentOwner={selectedKmzForOwnerEdit?.owner}
         currentPic={selectedKmzForOwnerEdit?.pic}
         currentPicPhone={selectedKmzForOwnerEdit?.pic_phone}
