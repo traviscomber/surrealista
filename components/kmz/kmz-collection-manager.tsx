@@ -371,7 +371,7 @@ export function KMZCollectionManager() {
   }
 
   const loadToMap = (kmz: KMZRecord) => {
-    window.location.href = "/mapas"
+    window.location.href = "/campos"
   }
 
   const openNeighborhoodAnalysis = (kmz: KMZRecord) => {
