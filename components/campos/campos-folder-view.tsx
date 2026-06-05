@@ -178,14 +178,17 @@ export function CAMPOSFolderView() {
 
   // Load KMZ file from URL parameter if provided
   useEffect(() => {
-    if (kmzIdFromURL) {
+    if (kmzIdFromURL && kmzIdFromURL.trim()) {
       setIsLoadingFromURL(true)
-      // Load metadata first, then KMZ
-      loadRegionMetadata().then(() => {
-        handleLoadKmzFromId(kmzIdFromURL)
-      })
     }
   }, [kmzIdFromURL])
+
+  // Once metadata is loaded and we have a kmzIdFromURL, load the KMZ
+  useEffect(() => {
+    if (isLoadingFromURL && !isLoadingMetadata && kmzIdFromURL && handleLoadKmzFromId) {
+      handleLoadKmzFromId(kmzIdFromURL)
+    }
+  }, [isLoadingFromURL, isLoadingMetadata, kmzIdFromURL])
 
   const loadRegionMetadata = async () => {
     setIsLoadingMetadata(true)
