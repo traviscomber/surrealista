@@ -91,9 +91,10 @@ export function KMZOwnerEditModal({
         <DialogHeader>
           <DialogTitle>Editar Dueño y Documentación del Campo</DialogTitle>
           {kmzFileName && (
-            <p className="text-sm text-gray-500 mt-2">
-              Archivo: <span className="font-mono font-semibold text-gray-700">{kmzFileName}</span>
-            </p>
+            <div className="mt-3 p-2 bg-blue-50 rounded border border-blue-200">
+              <p className="text-xs text-gray-600">Editando:</p>
+              <p className="text-sm font-mono font-semibold text-blue-900 break-all">{kmzFileName}</p>
+            </div>
           )}
         </DialogHeader>
 

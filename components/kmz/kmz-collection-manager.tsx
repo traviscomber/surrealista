@@ -42,11 +42,12 @@ interface KMZRecord {
   created_at: string
   updated_at: string
   file_size?: number
-  owner?: string
-  pic?: string
-  pic_phone?: string
-  pic_email?: string
-  google_docs_link?: string
+  owner?: string | null
+  pic?: string | null
+  pic_phone?: string | null
+  pic_email?: string | null
+  google_docs_link?: string | null
+  region?: string | null
 }
 
 export function KMZCollectionManager() {
@@ -78,6 +79,30 @@ export function KMZCollectionManager() {
   useEffect(() => {
     loadKMZCollection()
   }, [])
+
+  const setupMissingColumns = async () => {
+    try {
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      )
+
+      const response = await fetch("/api/admin/kmz/setup-contact-fields", {
+        method: "POST",
+      })
+
+      if (response.ok) {
+        alert("✅ Campos de contacto agregados exitosamente!")
+        await loadKMZCollection()
+      } else {
+        const error = await response.json()
+        alert(`Error: ${error.error || "No se pudieron agregar los campos"}`)
+      }
+    } catch (error) {
+      console.error("Error setting up columns:", error)
+      alert("Error al agregar los campos de contacto")
+    }
+  }
 
   const loadKMZCollection = async () => {
     setLoading(true)
