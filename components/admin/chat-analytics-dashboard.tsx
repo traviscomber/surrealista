@@ -84,8 +84,8 @@ export function ChatAnalyticsDashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Analytics del Chat</h2>
-          <p className="text-gray-600">Métricas y análisis del asistente virtual</p>
+          <h2 className="text-2xl font-bold text-foreground">Analytics del Chat</h2>
+          <p className="text-muted-foreground">Métricas y análisis del asistente virtual</p>
         </div>
         <div className="flex items-center space-x-2">
           <Button variant="outline" onClick={handleRefresh} disabled={isRefreshing}>
@@ -166,7 +166,7 @@ export function ChatAnalyticsDashboard() {
                         <span className="text-sm font-medium">
                           {topicLabels[topic as keyof typeof topicLabels] || topic}
                         </span>
-                        <span className="text-sm text-gray-500">{count} mensajes</span>
+                        <span className="text-sm text-muted-foreground">{count} mensajes</span>
                       </div>
                       <Progress value={percentage} className="h-2" />
                     </div>
@@ -193,7 +193,7 @@ export function ChatAnalyticsDashboard() {
                     </Badge>
                     <div>
                       <p className="text-sm font-medium">{hour}</p>
-                      <p className="text-xs text-gray-500">{count} mensajes</p>
+                      <p className="text-xs text-muted-foreground">{count} mensajes</p>
                     </div>
                   </div>
                   <div className="text-right">
@@ -222,13 +222,13 @@ export function ChatAnalyticsDashboard() {
                     <Bot className="h-4 w-4 text-blue-600" />
                     <div>
                       <p className="text-sm font-medium">Sesión {session.sessionId.slice(-8)}</p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-muted-foreground">
                         {session.messageCount} mensajes • {session.topics.join(", ")}
                       </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-muted-foreground">
                       {session.startTime.toLocaleTimeString("es-CL", {
                         hour: "2-digit",
                         minute: "2-digit",
@@ -275,7 +275,7 @@ export function ChatAnalyticsDashboard() {
                             ? "Consulta Propiedad"
                             : "Pregunta Financiamiento"}
                       </Badge>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-muted-foreground">
                         {lead.timestamp.toLocaleTimeString("es-CL", {
                           hour: "2-digit",
                           minute: "2-digit",

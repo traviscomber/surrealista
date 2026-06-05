@@ -547,6 +547,38 @@ const DocumentsManager = () => {
                         }
                         return [...prev, insertedDoc[0]]
                       })
+
+                      // If it's a KMZ file, index the locations
+                      if (zone.toLowerCase() === "kmz" && file.url) {
+                        console.log("[v0] KMZ file uploaded, indexing locations:", file.name)
+                        try {
+                          const indexResponse = await fetch("/api/kmz/index-locations", {
+                            method: "POST",
+                            headers: {
+                              "Content-Type": "application/json",
+                            },
+                            body: JSON.stringify({
+                              kmzUrl: file.url,
+                              kmzFileName: file.name,
+                              collectionId: folderId,
+                            }),
+                          })
+
+                          if (!indexResponse.ok) {
+                            const errorData = await indexResponse.json()
+                            console.warn("[v0] KMZ indexing warning:", errorData.error)
+                          } else {
+                            const indexData = await indexResponse.json()
+                            console.log("[v0] KMZ locations indexed successfully:", {
+                              fileName: file.name,
+                              indexedLocations: indexData.indexedLocations,
+                            })
+                          }
+                        } catch (indexError) {
+                          console.error("[v0] Error indexing KMZ locations:", indexError)
+                          // Don't fail the upload if indexing fails, it's a background operation
+                        }
+                      }
                     }
                   }
                 } catch (err) {

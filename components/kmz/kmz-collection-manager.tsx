@@ -18,11 +18,13 @@ import {
   CheckCircle,
   AlertCircle,
   Upload,
+  Edit2,
 } from "lucide-react"
 import { createBrowserClient } from "@supabase/ssr"
 import { driveService } from "@/lib/google-drive/drive-service"
 import { kmzReader } from "@/lib/kmz/kmz-reader"
 import { NeighborhoodAnalysisModal } from "@/components/kmz/neighborhood-analysis-modal"
+import { KMZOwnerEditModal } from "@/components/kmz/kmz-owner-edit-modal"
 
 interface KMZRecord {
   id: string
@@ -34,13 +36,18 @@ interface KMZRecord {
   placemarks_count: number
   rol_numbers: string[]
   bounds: any
-  coordinates: any
   tags: string[]
   category: string | null
   is_active: boolean
   created_at: string
   updated_at: string
   file_size?: number
+  owner?: string | null
+  pic?: string | null
+  pic_phone?: string | null
+  pic_email?: string | null
+  google_docs_link?: string | null
+  region?: string | null
 }
 
 export function KMZCollectionManager() {
@@ -60,12 +67,42 @@ export function KMZCollectionManager() {
     totalPlacemarks: 0,
     totalRoles: 0,
   })
+  const [selectedKmzForOwnerEdit, setSelectedKmzForOwnerEdit] = useState<KMZRecord | null>(null)
+  const [showOwnerEditModal, setShowOwnerEditModal] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
+  const [indexing, setIndexing] = useState(false)
+  const [fixingRegions, setFixingRegions] = useState(false)
+  const [unassignedKMZCount, setUnassignedKMZCount] = useState(0)
+  const [showUnassignedAlert, setShowUnassignedAlert] = useState(false)
 
   useEffect(() => {
     loadKMZCollection()
   }, [])
+
+  const setupMissingColumns = async () => {
+    try {
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      )
+
+      const response = await fetch("/api/admin/kmz/setup-contact-fields", {
+        method: "POST",
+      })
+
+      if (response.ok) {
+        alert("✅ Campos de contacto agregados exitosamente!")
+        await loadKMZCollection()
+      } else {
+        const error = await response.json()
+        alert(`Error: ${error.error || "No se pudieron agregar los campos"}`)
+      }
+    } catch (error) {
+      console.error("Error setting up columns:", error)
+      alert("Error al agregar los campos de contacto")
+    }
+  }
 
   const loadKMZCollection = async () => {
     setLoading(true)
@@ -75,11 +112,14 @@ export function KMZCollectionManager() {
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       )
 
-      const { data: results, error } = await supabase
+      // Fetch ALL KMZ files WITHOUT the default 1000-row limit
+      // Use range query to bypass Supabase's default row limit
+      const { data: results, error, count } = await supabase
         .from("kmz_collection")
-        .select("*")
+        .select("*", { count: 'exact' })
         .eq("is_active", true)
         .order("created_at", { ascending: false })
+        .range(0, 9999) // Override 1000-row default limit by requesting 0-9999 (supports up to 10,000 rows)
 
       if (error) {
         if (error.message.includes("does not exist") || error.code === "42P01") {
@@ -104,16 +144,38 @@ export function KMZCollectionManager() {
       const totalPlacemarks = results.reduce((sum: number, kmz: any) => sum + (kmz.placemarks_count || 0), 0)
       const allRoles = new Set(results.flatMap((kmz: any) => kmz.rol_numbers || []))
 
+      console.log(`[v0] Loaded KMZ collection: ${results.length} returned, ${count} total in database, ${totalPlacemarks} total placemarks`)
+
       setStats({
-        total: results.length,
-        active: results.filter((kmz: any) => kmz.is_active).length,
+        total: count || results.length, // Use exact count from database
+        active: count || results.length, // Since query filters by is_active: true, count is the active count
         totalPlacemarks,
         totalRoles: allRoles.size,
       })
+
+      // Check for unassigned KMZ files
+      checkUnassignedKMZ()
     } catch (error) {
       console.error("[v0] Error loading KMZ collection:", error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const checkUnassignedKMZ = async () => {
+    try {
+      const response = await fetch("/api/admin/kmz/check-unassigned")
+      if (!response.ok) throw new Error("Failed to check unassigned KMZ")
+      
+      const data = await response.json()
+      console.log("[v0] Unassigned KMZ check:", data)
+      
+      if (data.unassigned > 0) {
+        setUnassignedKMZCount(data.unassigned)
+        setShowUnassignedAlert(true)
+      }
+    } catch (error) {
+      console.error("[v0] Error checking unassigned KMZ:", error)
     }
   }
 
@@ -195,23 +257,45 @@ export function KMZCollectionManager() {
 
           const rolNumbers = kmzReader.extractPropertyRoles(kmzData)
 
-          const { error } = await supabase.from("kmz_collection").insert({
-            file_name: file.name,
-            file_path: file.path,
-            drive_file_id: file.id,
-            description: kmzData.metadata?.description || null,
-            metadata: kmzData.metadata,
-            placemarks_count: kmzData.placemarks.length,
-            rol_numbers: rolNumbers,
-            bounds: kmzData.bounds,
-            coordinates: kmzData.placemarks.map((p) => p.coordinates),
-            tags: [],
-            category: detectCategory(file.path),
-            is_active: true,
-            file_size: fileBlob.size,
-          })
+          // Insert KMZ into collection
+          const { data: insertedKMZ, error: kmzError } = await supabase
+            .from("kmz_collection")
+            .insert({
+              file_name: file.name,
+              file_path: file.path,
+              drive_file_id: file.id,
+              description: kmzData.metadata?.description || null,
+              metadata: kmzData.metadata,
+              placemarks_count: kmzData.placemarks.length,
+              rol_numbers: rolNumbers,
+              bounds: kmzData.bounds,
+              tags: [],
+              category: detectCategory(file.path),
+              is_active: true,
+              file_size: fileBlob.size,
+            })
+            .select()
 
-          if (error) throw error
+          if (kmzError) throw kmzError
+
+          const kmzId = insertedKMZ?.[0]?.id
+          if (!kmzId) throw new Error("KMZ insertion failed - no ID returned")
+
+          // Index locations using kmzLocationIndexer
+          if (kmzData.placemarks && kmzData.placemarks.length > 0) {
+            try {
+              await kmzLocationIndexer.initialize()
+              const indexResult = await kmzLocationIndexer.indexKMZLocations(
+                kmzId,
+                file.name,
+                kmzData.placemarks,
+                kmzData.bounds ? detectRegionFromBounds(kmzData.bounds) : undefined,
+              )
+              console.log(`[v0] Indexed ${indexResult.indexCount} locations for ${file.name}`)
+            } catch (indexError) {
+              console.error(`[v0] Error indexing locations for ${file.name}:`, indexError)
+            }
+          }
 
           processed++
           console.log(`Processed ${processed}/${allFiles.length}: ${file.name}`)
@@ -221,7 +305,7 @@ export function KMZCollectionManager() {
       }
 
       await loadKMZCollection()
-      alert(`Escaneo completado! ${processed} archivos KMZ agregados a la colección.`)
+      alert(`Escaneo completado! ${processed} archivos KMZ agregados a la colección.\n✅ Ubicaciones indexadas automáticamente.`)
     } catch (error) {
       console.error("Error scanning Google Drive:", error)
       alert("Error al escanear Google Drive")
@@ -259,8 +343,35 @@ export function KMZCollectionManager() {
     }
   }
 
+  const indexAllKMZLocations = async () => {
+    setIndexing(true)
+    try {
+      console.log("[v0] Starting mass indexing of KMZ locations...")
+
+      const response = await fetch("/api/admin/kmz/mass-index", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action: "start" }),
+      })
+
+      if (response.ok) {
+        alert("Indexación iniciada en background. Revisa /admin/kmz para ver el progreso.")
+      } else {
+        const error = await response.json()
+        alert(`Error: ${error.error}`)
+      }
+    } catch (error) {
+      console.error("[v0] Error starting indexation:", error)
+      alert("Error al iniciar la indexación")
+    } finally {
+      setIndexing(false)
+    }
+  }
+
   const loadToMap = (kmz: KMZRecord) => {
-    window.location.href = "/mapas"
+    window.location.href = `/campos?kmz=${kmz.id}`
   }
 
   const openNeighborhoodAnalysis = (kmz: KMZRecord) => {
@@ -317,22 +428,24 @@ export function KMZCollectionManager() {
           const rolNumbers = kmzReader.extractPropertyRoles(kmzData)
 
           // Save to database
-          const { error } = await supabase.from("kmz_collection").insert({
-            file_name: file.name,
-            file_path: `offline/${file.name}`,
-            file_hash: fileHash,
-            drive_file_id: null,
-            description: kmzData.metadata?.description || null,
-            metadata: kmzData.metadata,
-            placemarks_count: kmzData.placemarks.length,
-            rol_numbers: rolNumbers,
-            bounds: kmzData.bounds,
-            coordinates: kmzData.placemarks.map((p) => p.coordinates),
-            tags: ["offline"],
-            category: "offline",
-            is_active: true,
-            file_size: file.size,
-          })
+          const { data: insertedKMZ, error } = await supabase
+            .from("kmz_collection")
+            .insert({
+              file_name: file.name,
+              file_path: `offline/${file.name}`,
+              file_hash: fileHash,
+              drive_file_id: null,
+              description: kmzData.metadata?.description || null,
+              metadata: kmzData.metadata,
+              placemarks_count: kmzData.placemarks.length,
+              rol_numbers: rolNumbers,
+              bounds: kmzData.bounds,
+              tags: ["offline"],
+              category: "offline",
+              is_active: true,
+              file_size: file.size,
+            })
+            .select()
 
           if (error) {
             console.error(`[v0] Error saving ${file.name}:`, error)
@@ -340,6 +453,23 @@ export function KMZCollectionManager() {
           } else {
             console.log(`[v0] Successfully saved ${file.name} to database`)
             successCount++
+
+            // Index locations using kmzLocationIndexer
+            const kmzId = insertedKMZ?.[0]?.id
+            if (kmzId && kmzData.placemarks && kmzData.placemarks.length > 0) {
+              try {
+                await kmzLocationIndexer.initialize()
+                const indexResult = await kmzLocationIndexer.indexKMZLocations(
+                  kmzId,
+                  file.name,
+                  kmzData.placemarks,
+                  kmzData.bounds ? detectRegionFromBounds(kmzData.bounds) : undefined,
+                )
+                console.log(`[v0] Indexed ${indexResult.indexCount} locations for ${file.name}`)
+              } catch (indexError) {
+                console.error(`[v0] Error indexing locations for ${file.name}:`, indexError)
+              }
+            }
           }
         } catch (error) {
           console.error(`[v0] Error processing ${file.name}:`, error)
@@ -347,7 +477,7 @@ export function KMZCollectionManager() {
         }
       }
 
-      // Reload collection
+              // Reload collection
       await loadKMZCollection()
 
       // Show result
@@ -355,6 +485,7 @@ export function KMZCollectionManager() {
       if (successCount > 0) messages.push(`✅ ${successCount} archivo(s) KMZ cargado(s) exitosamente`)
       if (skippedCount > 0) messages.push(`⏭️ ${skippedCount} archivo(s) duplicado(s) omitido(s)`)
       if (errorCount > 0) messages.push(`⚠️ ${errorCount} archivo(s) fallaron`)
+      messages.push(`�� Ubicaciones indexadas automáticamente`)
 
       if (messages.length > 0) {
         alert(messages.join("\n"))
@@ -400,28 +531,169 @@ export function KMZCollectionManager() {
     return `${mb.toFixed(2)} MB`
   }
 
+  const detectRegionFromBounds = (bounds: any): string => {
+    const centerLat = (bounds.north + bounds.south) / 2
+    const centerLng = (bounds.east + bounds.west) / 2
+    
+    // Simple region detection based on coordinates
+    // Chile ranges roughly: -17° to -56° latitude, -66° to -75° longitude
+    if (centerLat > -27) return "Arica y Parinacota"
+    if (centerLat > -26) return "Tarapacá"
+    if (centerLat > -25) return "Antofagasta"
+    if (centerLat > -20) return "Atacama"
+    if (centerLat > -19) return "Coquimbo"
+    if (centerLat > -17) return "Valparaíso"
+    if (centerLat > -15) return "Metropolitana"
+    if (centerLat > -19) return "Libertador Bernardo O'Higgins"
+    if (centerLat > -24) return "Maule"
+    if (centerLat > -29) return "Ñuble"
+    if (centerLat > -31) return "La Araucanía"
+    if (centerLat > -38) return "Los Ríos"
+    if (centerLat > -41) return "Los Lagos"
+    if (centerLat > -44) return "Aysén"
+    return "Magallanes"
+  }
+
+  const fixRegions = async () => {
+    setFixingRegions(true)
+    try {
+      const response = await fetch("/api/admin/kmz/fix-regions", {
+        method: "POST",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to fix regions")
+      }
+
+      const data = await response.json()
+      console.log("[v0] Regions fixed:", data)
+      alert(`Regiones actualizadas: ${data.updated} ubicaciones`)
+      loadKMZCollection()
+    } catch (error) {
+      console.error("[v0] Error fixing regions:", error)
+      alert("Error al actualizar regiones")
+    } finally {
+      setFixingRegions(false)
+    }
+  }
+
+  const reindexAllKMZ = async () => {
+    if (!confirm(`¿Re-indexar todos los ${kmzFiles.length} KMZ? Esto puede tomar algunos minutos.`)) return
+    
+    setIndexing(true)
+    try {
+      const response = await fetch("/api/admin/kmz/reindex-all", {
+        method: "POST",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to re-index KMZ")
+      }
+
+      const data = await response.json()
+      console.log("[v0] Re-index complete:", data)
+      alert(`Re-indexación completa: ${data.totalLocations} ubicaciones indexadas en ${data.success} archivos`)
+      loadKMZCollection()
+    } catch (error) {
+      console.error("[v0] Error re-indexing:", error)
+      alert("Error al re-indexar KMZ")
+    } finally {
+      setIndexing(false)
+    }
+  }
+
+  const processAllKMZ = async () => {
+    if (!confirm(`¿Procesar todos los ${kmzFiles.length} KMZ? Esto extraerá ubicaciones y creará el índice de búsqueda. Puede tomar varios minutos.`)) return
+    
+    setIndexing(true)
+    try {
+      const response = await fetch("/api/admin/kmz/process-all", {
+        method: "POST",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to process KMZ")
+      }
+
+      const data = await response.json()
+      console.log("[v0] Process complete:", data)
+      alert(`${data.message}. Errores: ${data.errors.length}`)
+      loadKMZCollection()
+    } catch (error) {
+      console.error("[v0] Error processing KMZ:", error)
+      alert("Error al procesar KMZ")
+    } finally {
+      setIndexing(false)
+    }
+  }
+
   const categories = ["all", ...new Set(kmzFiles.map((kmz) => kmz.category).filter(Boolean))]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-indigo-100">
+    <div className="min-h-screen bg-background">
       <NeighborhoodAnalysisModal
         open={showAnalysisModal}
         onOpenChange={setShowAnalysisModal}
         kmz={selectedKmzForAnalysis}
       />
+      <KMZOwnerEditModal
+        open={showOwnerEditModal}
+        onOpenChange={setShowOwnerEditModal}
+        kmzId={selectedKmzForOwnerEdit?.id || ''}
+        kmzFileName={selectedKmzForOwnerEdit?.file_name}
+        currentOwner={selectedKmzForOwnerEdit?.owner}
+        currentPic={selectedKmzForOwnerEdit?.pic}
+        currentPicPhone={selectedKmzForOwnerEdit?.pic_phone}
+        currentPicEmail={selectedKmzForOwnerEdit?.pic_email}
+        currentGoogleDocsLink={selectedKmzForOwnerEdit?.google_docs_link}
+        onSave={loadKMZCollection}
+      />
       <div className="container mx-auto p-6 space-y-8">
+        {/* Unassigned KMZ Alert */}
+        {showUnassignedAlert && unassignedKMZCount > 0 && (
+          <div className="flex items-start gap-4 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-lg shadow-sm">
+            <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <h3 className="font-semibold text-yellow-800">⚠️ {unassignedKMZCount} Archivos KMZ sin Región Asignada</h3>
+              <p className="text-sm text-yellow-700 mt-1">
+                Estos archivos no tienen una región geográfica asignada. Haz clic en "Actualizar Regiones" para asignarlas automáticamente.
+              </p>
+            </div>
+            <Button
+              onClick={fixRegions}
+              disabled={fixingRegions}
+              className="ml-2 bg-yellow-600 hover:bg-yellow-700 text-white whitespace-nowrap"
+              size="sm"
+            >
+              {fixingRegions ? (
+                <>
+                  <RefreshCw className="h-3 w-3 mr-2 animate-spin" />
+                  Procesando...
+                </>
+              ) : (
+                "Actualizar Regiones"
+              )}
+            </Button>
+            <button
+              onClick={() => setShowUnassignedAlert(false)}
+              className="text-yellow-600 hover:text-yellow-800 font-bold"
+            >
+              ✕
+            </button>
+          </div>
+        )}
         {/* Header */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-700 p-8 text-white">
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary via-accent to-secondary p-8 text-foreground">
           <div className="absolute inset-0 bg-black/10"></div>
           <div className="relative flex justify-between items-center">
             <div className="space-y-2">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                <div className="p-2 bg-foreground/10 rounded-lg backdrop-blur-sm">
                   <Database className="h-6 w-6" />
                 </div>
                 <h1 className="text-4xl font-bold tracking-tight">Colección de Archivos KMZ</h1>
               </div>
-              <p className="text-purple-100 text-lg font-medium">
+              <p className="text-foreground/80 text-lg font-medium">
                 Gestiona y visualiza todos los archivos KMZ de Google Drive
               </p>
               <p className="text-purple-200 text-sm">
@@ -474,29 +746,66 @@ export function KMZCollectionManager() {
                 )}
               </Button>
               <Button
-                onClick={scanGoogleDrive}
-                disabled={scanning || tableExists === false}
-                className="bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm"
-              >
-                {scanning ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Escaneando...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Escanear Drive
-                  </>
-                )}
-              </Button>
-              <Button
                 onClick={loadKMZCollection}
                 variant="secondary"
                 className="bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm"
               >
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Actualizar
+              </Button>
+              <Button
+                onClick={processAllKMZ}
+                disabled={indexing}
+                variant="secondary"
+                className="bg-green-500/20 hover:bg-green-500/30 text-green-700 border-green-300 backdrop-blur-sm"
+              >
+                {indexing ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Procesando...
+                  </>
+                ) : (
+                  <>
+                    <Database className="h-4 w-4 mr-2" />
+                    Procesar Todo
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={reindexAllKMZ}
+                disabled={indexing}
+                variant="secondary"
+                className="bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm"
+              >
+                {indexing ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Re-indexando...
+                  </>
+                ) : (
+                  <>
+                    <MapPin className="h-4 w-4 mr-2" />
+                    Re-indexar Todo
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={fixRegions}
+                disabled={fixingRegions}
+                variant="secondary"
+                className="bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm"
+              >
+                {fixingRegions ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Corrigiendo Regiones...
+                  </>
+                ) : (
+                  <>
+                    <MapPin className="h-4 w-4 mr-2" />
+                    Corregir Regiones
+                  </>
+                )}
               </Button>
             </div>
           </div>
@@ -536,7 +845,7 @@ export function KMZCollectionManager() {
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card className="border-0 shadow-lg bg-white/90 backdrop-blur-sm">
+          <Card className="border-0 shadow-lg bg-card backdrop-blur-sm">
             <CardContent className="p-6">
               <div className="flex items-center gap-3">
                 <div className="p-3 bg-purple-100 rounded-xl">
@@ -550,7 +859,7 @@ export function KMZCollectionManager() {
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-lg bg-white/90 backdrop-blur-sm">
+          <Card className="border-0 shadow-lg bg-card backdrop-blur-sm">
             <CardContent className="p-6">
               <div className="flex items-center gap-3">
                 <div className="p-3 bg-green-100 rounded-xl">
@@ -564,7 +873,7 @@ export function KMZCollectionManager() {
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-lg bg-white/90 backdrop-blur-sm">
+          <Card className="border-0 shadow-lg bg-card backdrop-blur-sm">
             <CardContent className="p-6">
               <div className="flex items-center gap-3">
                 <div className="p-3 bg-blue-100 rounded-xl">
@@ -578,7 +887,7 @@ export function KMZCollectionManager() {
             </CardContent>
           </Card>
 
-          <Card className="border-0 shadow-lg bg-white/90 backdrop-blur-sm">
+          <Card className="border-0 shadow-lg bg-card backdrop-blur-sm">
             <CardContent className="p-6">
               <div className="flex items-center gap-3">
                 <div className="p-3 bg-orange-100 rounded-xl">
@@ -594,7 +903,7 @@ export function KMZCollectionManager() {
         </div>
 
         {/* Search and Filters */}
-        <Card className="border-0 shadow-xl bg-white/90 backdrop-blur-sm">
+        <Card className="border-0 shadow-xl bg-card backdrop-blur-sm">
           <CardContent className="p-6">
             <div className="space-y-4">
               <div className="flex gap-4">
@@ -647,7 +956,7 @@ export function KMZCollectionManager() {
 
         {/* KMZ List */}
         {loading ? (
-          <Card className="border-0 shadow-xl bg-white/90 backdrop-blur-sm">
+          <Card className="border-0 shadow-xl bg-card backdrop-blur-sm">
             <CardContent className="p-12 text-center">
               <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-purple-600" />
               <p className="text-slate-600 font-medium">Cargando colección...</p>
@@ -658,7 +967,7 @@ export function KMZCollectionManager() {
             {sortedKMZ.map((kmz) => (
               <Card
                 key={kmz.id}
-                className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-white"
+                className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-card"
               >
                 <CardHeader className="pb-3">
                   <div className="flex justify-between items-start mb-2">
@@ -667,15 +976,15 @@ export function KMZCollectionManager() {
                       <Trash2 className="h-4 w-4 text-red-600" />
                     </Button>
                   </div>
-                  <CardTitle className="text-lg font-bold text-slate-800 truncate">{kmz.file_name}</CardTitle>
-                  <CardDescription className="text-sm truncate">{kmz.file_path}</CardDescription>
+                  <CardTitle className="text-lg font-bold text-foreground truncate">{kmz.file_name}</CardTitle>
+                  <CardDescription className="text-sm truncate text-muted-foreground/80">{kmz.file_path}</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="bg-blue-50 p-3 rounded-lg">
                       <div className="flex items-center gap-2 mb-1">
                         <MapPin className="h-4 w-4 text-blue-600" />
-                        <span className="text-xs font-medium text-slate-600">Ubicaciones</span>
+                        <span className="text-xs font-medium text-foreground/90">Ubicaciones</span>
                       </div>
                       <div className="text-xl font-bold text-blue-700">{kmz.placemarks_count}</div>
                     </div>
@@ -714,21 +1023,55 @@ export function KMZCollectionManager() {
                     </div>
                   )}
 
+                  {/* Owner/PIC Info */}
+                  {(kmz.owner || kmz.pic || kmz.google_docs_link) && (
+                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1 text-xs">
+                      {kmz.owner && (
+                        <div>
+                          <span className="font-medium text-slate-700">Dueño:</span>
+                          <span className="text-slate-600 ml-1">{kmz.owner}</span>
+                        </div>
+                      )}
+                      {kmz.pic && (
+                        <div>
+                          <span className="font-medium text-slate-700">PIC:</span>
+                          <span className="text-slate-600 ml-1">{kmz.pic}</span>
+                          {kmz.pic_phone && <span className="text-slate-500 ml-1">({kmz.pic_phone})</span>}
+                        </div>
+                      )}
+                      {kmz.google_docs_link && (
+                        <div>
+                          <a
+                            href={kmz.google_docs_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-700 underline"
+                          >
+                            📄 Ver Documentación
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="flex gap-2">
                     <Button
                       onClick={() => loadToMap(kmz)}
-                      className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                      className="flex-1 bg-gradient-to-r from-primary to-accent hover:from-primary/80 hover:to-accent/80"
                     >
                       <Layers className="h-4 w-4 mr-2" />
                       Cargar en Mapa
                     </Button>
                     <Button
-                      onClick={() => openNeighborhoodAnalysis(kmz)}
+                      onClick={() => {
+                        setSelectedKmzForOwnerEdit(kmz)
+                        setShowOwnerEditModal(true)
+                      }}
                       variant="outline"
-                      className="flex-1 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                      className="flex-1 border-blue-200 text-blue-700 hover:bg-blue-50"
                     >
-                      <MapPin className="h-4 w-4 mr-2" />
-                      Analizar
+                      <Edit2 className="h-4 w-4 mr-2" />
+                      Editar
                     </Button>
                   </div>
 
@@ -742,7 +1085,7 @@ export function KMZCollectionManager() {
         )}
 
         {filteredKMZ.length === 0 && !loading && (
-          <Card className="border-0 shadow-xl bg-white/90 backdrop-blur-sm">
+          <Card className="border-0 shadow-xl bg-card backdrop-blur-sm">
             <CardContent className="p-12 text-center">
               <div className="p-4 bg-slate-100 rounded-full w-20 h-20 mx-auto mb-4 flex items-center justify-center">
                 <AlertCircle className="h-10 w-10 text-slate-400" />

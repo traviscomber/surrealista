@@ -24,12 +24,23 @@ import { AppHeader } from "@/components/layout/app-header"
 
 // Componente para las tarjetas de estadísticas
 const StatCard = ({ title, value, trend, trendValue, icon: Icon, color }) => {
+  const colorMap = {
+    blue: { bg: "bg-blue-100", text: "text-blue-600" },
+    green: { bg: "bg-green-100", text: "text-green-600" },
+    purple: { bg: "bg-purple-100", text: "text-purple-600" },
+    orange: { bg: "bg-orange-100", text: "text-orange-600" },
+    red: { bg: "bg-red-100", text: "text-red-600" },
+    amber: { bg: "bg-amber-100", text: "text-amber-600" },
+  }
+
+  const colorClasses = colorMap[color] || colorMap.blue
+
   return (
-    <Card>
+    <Card className="border-l-4 border-l-gray-200 hover:shadow-lg transition-shadow">
       <CardContent className="p-6">
         <div className="flex items-center justify-between mb-4">
-          <div className={`p-2 rounded-lg bg-${color}-100`}>
-            <Icon className={`h-5 w-5 text-${color}-600`} />
+          <div className={`p-2 rounded-lg ${colorClasses.bg}`}>
+            <Icon className={`h-5 w-5 ${colorClasses.text}`} />
           </div>
           <div
             className={`flex items-center gap-1 text-xs font-medium ${trend === "up" ? "text-green-600" : "text-red-600"}`}
@@ -38,8 +49,8 @@ const StatCard = ({ title, value, trend, trendValue, icon: Icon, color }) => {
             <span>{trendValue}</span>
           </div>
         </div>
-        <div className="text-2xl font-bold mb-1">{value}</div>
-        <div className="text-sm text-gray-500">{title}</div>
+        <div className="text-2xl font-bold mb-1 text-gray-900">{value}</div>
+        <div className="text-sm text-gray-600">{title}</div>
       </CardContent>
     </Card>
   )

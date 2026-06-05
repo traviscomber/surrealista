@@ -1,0 +1,188 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { RefreshCw } from 'lucide-react'
+import { createBrowserClient } from '@supabase/ssr'
+
+interface KMZOwnerEditModalProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  kmzId: string
+  kmzFileName?: string
+  currentOwner?: string
+  currentPic?: string
+  currentPicPhone?: string
+  currentPicEmail?: string
+  currentGoogleDocsLink?: string
+  onSave?: () => void
+}
+
+export function KMZOwnerEditModal({
+  open,
+  onOpenChange,
+  kmzId,
+  kmzFileName,
+  currentOwner,
+  currentPic,
+  currentPicPhone,
+  currentPicEmail,
+  currentGoogleDocsLink,
+  onSave,
+}: KMZOwnerEditModalProps) {
+  const [owner, setOwner] = useState('')
+  const [pic, setPic] = useState('')
+  const [picPhone, setPicPhone] = useState('')
+  const [picEmail, setPicEmail] = useState('')
+  const [googleDocsLink, setGoogleDocsLink] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Update form fields when modal opens or data changes
+  useEffect(() => {
+    if (open) {
+      setOwner(currentOwner || '')
+      setPic(currentPic || '')
+      setPicPhone(currentPicPhone || '')
+      setPicEmail(currentPicEmail || '')
+      setGoogleDocsLink(currentGoogleDocsLink || '')
+      setError(null)
+    }
+  }, [open, currentOwner, currentPic, currentPicPhone, currentPicEmail, currentGoogleDocsLink])
+
+  const handleSave = async () => {
+    try {
+      setSaving(true)
+      setError(null)
+
+      const supabase = createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      )
+
+      const { error: updateError } = await supabase
+        .from('kmz_collection')
+        .update({
+          owner: owner || null,
+          pic: pic || null,
+          pic_phone: picPhone || null,
+          pic_email: picEmail || null,
+          google_docs_link: googleDocsLink || null,
+        })
+        .eq('id', kmzId)
+
+      if (updateError) throw updateError
+
+      onOpenChange(false)
+      onSave?.()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al guardar')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Editar Dueño y Documentación del Campo</DialogTitle>
+          {kmzFileName && (
+            <div className="mt-3 p-2 bg-blue-50 rounded border border-blue-200">
+              <p className="text-xs text-gray-600">Editando:</p>
+              <p className="text-sm font-mono font-semibold text-blue-900 break-all">{kmzFileName}</p>
+            </div>
+          )}
+        </DialogHeader>
+
+        <div className="space-y-4">
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <Label htmlFor="owner">Dueño del Campo</Label>
+            <Input
+              id="owner"
+              placeholder="Nombre del propietario"
+              value={owner}
+              onChange={(e) => setOwner(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="pic">Person In Charge (PIC)</Label>
+            <Input
+              id="pic"
+              placeholder="Nombre del contacto principal"
+              value={pic}
+              onChange={(e) => setPic(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="picPhone">Teléfono PIC</Label>
+            <Input
+              id="picPhone"
+              placeholder="+56 9 1234 5678"
+              value={picPhone}
+              onChange={(e) => setPicPhone(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="picEmail">Email PIC</Label>
+            <Input
+              id="picEmail"
+              type="email"
+              placeholder="contacto@ejemplo.com"
+              value={picEmail}
+              onChange={(e) => setPicEmail(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="googleDocsLink">Link Google Docs</Label>
+            <Input
+              id="googleDocsLink"
+              placeholder="https://docs.google.com/..."
+              value={googleDocsLink}
+              onChange={(e) => setGoogleDocsLink(e.target.value)}
+              className="font-mono text-xs"
+            />
+          </div>
+
+          <div className="flex gap-2 pt-4">
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+              disabled={saving}
+              className="flex-1"
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex-1 bg-purple-600 hover:bg-purple-700"
+            >
+              {saving ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Guardando...
+                </>
+              ) : (
+                'Guardar'
+              )}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}

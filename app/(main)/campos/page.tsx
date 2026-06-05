@@ -7,5 +7,9 @@ export const metadata: Metadata = {
 }
 
 export default function CAMPOSPage() {
-  return <CAMPOSFolderView />
+  return (
+    <div className="w-full h-full">
+      <CAMPOSFolderView />
+    </div>
+  )
 }

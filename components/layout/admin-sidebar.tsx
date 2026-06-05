@@ -25,6 +25,8 @@ import {
   FolderOpen,
   MapPin,
   Mail,
+  AlertCircle,
+  ArrowLeft,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -62,34 +64,58 @@ const menuItems: MenuItem[] = [
     href: "/busqueda",
     icon: Search,
     badge: "New",
-    badgeColor: "bg-green-500",
   },
   {
     title: "Colección KMZ",
-    href: "/admin/kmz-collection",
     icon: MapPin,
     badge: "New",
-    badgeColor: "bg-blue-500",
+    children: [
+      {
+        title: "Estado del Sistema",
+        href: "/admin/kmz-status",
+        icon: AlertCircle,
+        badge: "Check",
+      },
+      {
+        title: "Guía de Búsqueda",
+        href: "/kmz-guide",
+        icon: HelpCircle,
+        badge: "Start",
+      },
+      {
+        title: "Gestionar Colección",
+        href: "/admin/kmz-collection",
+        icon: Database,
+      },
+      {
+        title: "Indexar Ubicaciones",
+        href: "/admin/kmz",
+        icon: MapPin,
+        badge: "Fast",
+      },
+      {
+        title: "Buscar por Ubicación",
+        href: "/kmz-search",
+        icon: Search,
+      },
+    ],
   },
   {
     title: "Comunicaciones",
     icon: Mail,
     badge: "Nuevo",
-    badgeColor: "bg-blue-500",
     children: [
       {
         title: "Enviar Emails",
         href: "/comunicaciones/email",
         icon: Mail,
         badge: "Feature",
-        badgeColor: "bg-blue-500",
       },
       {
         title: "Historial",
         href: "/comunicaciones/email",
         icon: FileText,
         badge: "Logs",
-        badgeColor: "bg-gray-500",
       },
     ],
   },
@@ -98,35 +124,30 @@ const menuItems: MenuItem[] = [
     icon: FileText,
     badge: "Etapa 1",
     badgeVariant: "default",
-    badgeColor: "bg-orange-500",
     children: [
       {
         title: "Google Drive Integration",
         href: "/admin/google-drive-integration",
         icon: Database,
         badge: "API Ready",
-        badgeColor: "bg-green-500",
       },
       {
         title: "Organización Carpetas",
         href: "/admin/organizacion-carpetas-demo",
         icon: Eye,
         badge: "Demo",
-        badgeColor: "bg-blue-500",
       },
       {
         title: "Método PARA",
         href: "/admin/documentacion-para-method",
         icon: HelpCircle,
         badge: "Guía",
-        badgeColor: "bg-indigo-500",
       },
       {
         title: "Migración Data Real",
         href: "/admin/migracion-data-real",
         icon: Upload,
         badge: "Ready",
-        badgeColor: "bg-purple-500",
       },
     ],
   },
@@ -137,7 +158,11 @@ const getPageTitle = (pathname: string): string => {
     "/admin": "Dashboard",
     "/busqueda": "Búsqueda Unificada",
     "/campos": "Vista CAMPOS",
+    "/admin/kmz-status": "Estado del Sistema KMZ",
     "/admin/kmz-collection": "Colección KMZ",
+    "/admin/kmz": "Panel de Indexación KMZ",
+    "/kmz-search": "Búsqueda de Ubicaciones KMZ",
+    "/kmz-guide": "Guía de Búsqueda KMZ",
     "/admin/sii-extractor": "Extractor de Coordenadas SII",
     "/admin/file-explorer": "Explorador de Archivos",
     "/admin/kmz-vecindario": "Análisis de Vecindario KMZ",
@@ -159,11 +184,12 @@ const getPageTitle = (pathname: string): string => {
 
 export function AdminSidebar() {
   const pathname = usePathname()
-  const [openItems, setOpenItems] = useState<string[]>(["Gestión Documentos"])
+  const [expandedItems, setExpandedItems] = useState<string[]>(["Gestión Documentos"])
   const pageTitle = getPageTitle(pathname)
+  const isKMZCollection = pathname === "/admin/kmz-collection"
 
   const toggleItem = (title: string) => {
-    setOpenItems((prev) => (prev.includes(title) ? prev.filter((item) => item !== title) : [...prev, title]))
+    setExpandedItems((prev) => (prev.includes(title) ? prev.filter((item) => item !== title) : [...prev, title]))
   }
 
   const isActive = (href: string) => {
@@ -175,7 +201,7 @@ export function AdminSidebar() {
 
   const renderMenuItem = (item: MenuItem, level = 0) => {
     const hasChildren = item.children && item.children.length > 0
-    const isOpen = openItems.includes(item.title)
+    const isOpen = expandedItems.includes(item.title)
     const isItemActive = item.href ? isActive(item.href) : false
 
     if (hasChildren) {
@@ -240,91 +266,85 @@ export function AdminSidebar() {
   }
 
   return (
-    <div className="w-80 bg-white border-r border-gray-200 flex flex-col h-full">
+    <div className="w-80 bg-card border-r border-border flex flex-col h-full">
       {/* Header */}
-      <div className="p-6 border-b border-gray-200">
+      <div className="p-6 border-b border-border">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+          <div className="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center">
             <Building2 className="h-5 w-5 text-white" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-gray-900">Panel de Administración</h2>
-            <p className="text-sm text-gray-500">Sur-Realista</p>
+            <h2 className="text-lg font-bold text-foreground">Panel de Administración</h2>
+            <p className="text-sm text-muted-foreground">Sur-Realista</p>
           </div>
         </div>
 
         {/* Current Page Title */}
         <div className="mb-4">
-          <h1 className="text-xl font-bold text-gray-900">{pageTitle}</h1>
+          <h1 className="text-xl font-bold text-foreground">{pageTitle}</h1>
         </div>
 
         {/* Search */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input type="search" placeholder="Buscar..." className="pl-10 pr-4 w-full h-9" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input type="search" placeholder="Buscar..." className="pl-10 pr-4 w-full h-9 bg-background text-foreground border-border" />
         </div>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto">{menuItems.map((item) => renderMenuItem(item))}</nav>
+      {/* Navigation - Hidden in KMZ Collection */}
+      {!isKMZCollection && (
+        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">{menuItems.map((item) => renderMenuItem(item))}</nav>
+      )}
+
+      {isKMZCollection && <div className="flex-1" />}
 
       <Separator />
 
-      {/* Quick Actions */}
-      <div className="p-4 space-y-3">
-        <h3 className="text-sm font-semibold text-gray-700 px-3">Acciones Rápidas</h3>
-        <div className="space-y-2">
-          <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
-            <Link href="/admin/tags">
-              <Database className="h-4 w-4" />
-              Gestión de Tags
-              <Badge className="ml-auto bg-green-500 text-white text-xs">NEW</Badge>
-            </Link>
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
-            <Link href="/admin/google-drive-integration">
-              <Database className="h-4 w-4" />
-              Google Drive
-              <Badge className="ml-auto bg-green-500 text-white text-xs">API Ready</Badge>
-            </Link>
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
-            <Link href="/admin/migracion-data-real">
-              <Upload className="h-4 w-4" />
-              Migración Data
-              <Badge className="ml-auto bg-purple-500 text-white text-xs">Ready</Badge>
-            </Link>
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
-            <Link href="/busqueda">
-              <Search className="h-4 w-4" />
-              Búsqueda Unificada
-              <Badge className="ml-auto bg-green-500 text-white text-xs">New</Badge>
-            </Link>
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
-            <Link href="/campos">
-              <FolderOpen className="h-4 w-4" />
-              Vista CAMPOS
-              <Badge className="ml-auto bg-blue-500 text-white text-xs">New</Badge>
-            </Link>
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
-            <Link href="/admin/kmz-collection">
-              <MapPin className="h-4 w-4" />
-              Colección KMZ
-              <Badge className="ml-auto bg-blue-500 text-white text-xs">New</Badge>
-            </Link>
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
-            <Link href="/comunicaciones/email">
-              <Mail className="h-4 w-4" />
-              Comunicaciones
-              <Badge className="ml-auto bg-blue-500 text-white text-xs">Nuevo</Badge>
-            </Link>
-          </Button>
+      {/* Quick Actions / Navigation */}
+      {isKMZCollection ? (
+        <div className="p-4">
+          <Link href="/busqueda" className="block">
+            <Button className="w-full justify-start gap-2 h-10 bg-primary hover:bg-primary/90 text-white">
+              <ArrowLeft className="h-4 w-4" />
+              Volver al Sitio
+            </Button>
+          </Link>
         </div>
-      </div>
+      ) : (
+        <div className="p-4 space-y-3">
+          <h3 className="text-sm font-semibold text-muted-foreground px-3">Accesos Directos</h3>
+          <div className="space-y-2">
+            <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
+              <Link href="/admin/tags">
+                <Database className="h-4 w-4" />
+                Gestión de Tags
+                <Badge className="ml-auto bg-green-500 text-white text-xs">NEW</Badge>
+              </Link>
+            </Button>
+            <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
+              <Link href="/admin/google-drive-integration">
+                <Database className="h-4 w-4" />
+                Google Drive
+                <Badge className="ml-auto bg-green-500 text-white text-xs">API Ready</Badge>
+              </Link>
+            </Button>
+            <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
+              <Link href="/busqueda">
+                <Search className="h-4 w-4" />
+                Búsqueda
+                <Badge className="ml-auto bg-primary text-white text-xs">Inicio</Badge>
+              </Link>
+            </Button>
+            <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
+              <Link href="/campos">
+                <FolderOpen className="h-4 w-4" />
+                CAMPOS
+                <Badge className="ml-auto bg-accent text-white text-xs">Mapa</Badge>
+              </Link>
+            </Button>
+          </div>
+        </div>
+      )}
 
       <Separator />
 
@@ -382,13 +402,6 @@ export function AdminSidebar() {
             </DropdownMenu>
           </div>
         </div>
-
-        <Button variant="ghost" size="sm" className="w-full justify-start gap-2 h-9" asChild>
-          <Link href="/">
-            <Home className="h-4 w-4" />
-            Volver al Sitio
-          </Link>
-        </Button>
       </div>
     </div>
   )

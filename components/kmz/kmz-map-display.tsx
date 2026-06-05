@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { AlertCircle, Eye, EyeOff, MapPin, Maximize, Minimize } from "lucide-react"
+import { AlertCircle, Eye, EyeOff, Loader2, MapPin, Maximize, Minimize } from "lucide-react"
 import type { KMZData } from "@/lib/kmz/kmz-reader"
 import { reverseGeocoder, type ChileanLocationDetails } from "@/lib/geocoding/reverse-geocode"
 import { Button } from "@/components/ui/button"
@@ -12,6 +12,7 @@ interface KMZMapDisplayProps {
   centerCoordinates?: { lat: number; lng: number }
   onPlacemarkSelect?: (placemark: LayerInfo | null) => void
   enableGeocoding?: boolean // Add option to disable geocoding for performance
+  selectedKmzId?: string | null
 }
 
 interface LayerInfo {
@@ -31,6 +32,7 @@ export function KMZMapDisplay({
   centerCoordinates,
   onPlacemarkSelect,
   enableGeocoding = true, // Re-enabled by default for location details
+  selectedKmzId = null,
 }: KMZMapDisplayProps) {
   const [mapInstance, setMapInstance] = useState<any>(null)
   const [leafletLoaded, setLeafletLoaded] = useState(false)
@@ -52,21 +54,27 @@ export function KMZMapDisplay({
 
   const safeKmzFiles = Array.isArray(kmzFiles) ? kmzFiles : []
 
-  console.log("[v0] KMZMapDisplay received", safeKmzFiles.length, "KMZ files")
+  // Filter KMZ files if a specific one is selected
+  const displayKmzFiles = selectedKmzId 
+    ? safeKmzFiles.filter(file => {
+        const selectedIdStr = selectedKmzId.toString()
+        const fileId = file.id?.toString() || file.dbId?.toString() || ""
+        // Only match by ID, not by filename
+        return fileId === selectedIdStr
+      })
+    : safeKmzFiles
+
 
   useEffect(() => {
     const loadLeaflet = async () => {
       if (typeof window === "undefined") return
 
       if ((window as any).L) {
-        console.log("[v0] Leaflet already loaded")
         setLeafletLoaded(true)
         return
       }
 
       try {
-        console.log("[v0] Loading Leaflet...")
-
         // Load Leaflet CSS
         const cssLink = document.createElement("link")
         cssLink.rel = "stylesheet"
@@ -83,7 +91,6 @@ export function KMZMapDisplay({
 
         await new Promise((resolve, reject) => {
           script.onload = () => {
-            console.log("[v0] Leaflet loaded successfully")
             resolve(true)
           }
           script.onerror = (error) => {
@@ -102,6 +109,22 @@ export function KMZMapDisplay({
 
     loadLeaflet()
   }, [])
+
+  // Auto-select layer when selectedKmzId changes
+  useEffect(() => {
+    if (!selectedKmzId || layers.length === 0) return
+    
+    const selectedIdStr = selectedKmzId.toString()
+    const matchedLayer = layers.find((layer) => {
+      const layerFileName = layer.fileName || layer.name || ""
+      return layerFileName.includes(selectedIdStr) || layerFileName === selectedIdStr
+    })
+    
+    if (matchedLayer) {
+      console.log("[v0] Auto-selecting layer:", matchedLayer.name)
+      setSelectedLayer(matchedLayer)
+    }
+  }, [selectedKmzId, layers])
 
   useEffect(() => {
     if (!leafletLoaded || !mapRef.current || mapInstance) return
@@ -323,11 +346,64 @@ export function KMZMapDisplay({
 
                   newLayers.push(layerInfo)
 
+                  // Calculate center of polygon/polyline for popup and geocoding
+                  const centerLat = leafletCoords.reduce((sum, coord) => sum + coord[0], 0) / leafletCoords.length
+                  const centerLng = leafletCoords.reduce((sum, coord) => sum + coord[1], 0) / leafletCoords.length
+
+                  // Add a pin/marker at the center of the polygon for easy identification
+                  if (placemark.type === "Polygon") {
+                    const pinIcon = L.divIcon({
+                      html: `<div style="
+                        background-color: ${color};
+                        width: 12px;
+                        height: 12px;
+                        border-radius: 50%;
+                        border: 2px solid white;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                        cursor: pointer;
+                      "></div>`,
+                      iconSize: [16, 16],
+                      className: "kmz-polygon-pin",
+                    })
+
+                    const pinMarker = L.marker([centerLat, centerLng], {
+                      icon: pinIcon,
+                      title: placemark.name,
+                      zIndexOffset: 1000,
+                    }).addTo(mapInstance)
+
+                    // Clicking the pin also opens the polygon popup
+                    pinMarker.on("click", () => {
+                      shape.openPopup()
+                    })
+                  }
+
+                  // Bind popup to shape
+                  const popupContent = `
+                    <div style="min-width: 250px;">
+                      <h4 style="margin: 0 0 8px 0; color: ${color}; font-weight: bold;">${placemark.name}</h4>
+                      <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Archivo:</strong> ${kmzData.fileName}</p>
+                      <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Tipo:</strong> ${placemark.type}</p>
+                      <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Coordenadas (centro):</strong> ${centerLat.toFixed(6)}, ${centerLng.toFixed(6)}</p>
+                      <div id="location-details-${placemark.name}" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
+                        <p style="margin: 0; font-size: 11px; color: #666;">Cargando información de ubicación...</p>
+                      </div>
+                      <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
+                        <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>📁 Documentación:</strong></p>
+                        <a href="/documentacion/campos/${encodeURIComponent(kmzData.fileName.replace(".kmz", "").replace(".kml", ""))}" 
+                           target="_blank"
+                           style="color: #6B8E7A; text-decoration: none; font-size: 11px; display: inline-block; padding: 4px 8px; background: #f0f4f0; border-radius: 4px; margin-top: 4px;">
+                          Ver carpeta de documentos →
+                        </a>
+                      </div>
+                      ${placemark.description ? `<p style="margin: 8px 0 0 0; font-size: 11px; color: #666;">${placemark.description.substring(0, 100)}...</p>` : ""}
+                    </div>
+                  `
+
+                  shape.bindPopup(popupContent)
+
                   // Only geocode if enabled
                   if (enableGeocoding) {
-                    const centerLat = (leafletCoords[0][0] + leafletCoords[leafletCoords.length - 1][0]) / 2
-                    const centerLng = (leafletCoords[0][1] + leafletCoords[leafletCoords.length - 1][1]) / 2
-
                     geocodingQueueRef.current.push({
                       lat: centerLat,
                       lng: centerLng,
@@ -404,13 +480,13 @@ export function KMZMapDisplay({
   }
 
   useEffect(() => {
-    if (!mapInstance || !safeKmzFiles || safeKmzFiles.length === 0) {
+    if (!mapInstance || !displayKmzFiles || displayKmzFiles.length === 0) {
       console.log("[v0] Map not ready or no KMZ files")
       return
     }
 
     const kmzDataHash = JSON.stringify(
-      safeKmzFiles.map((f) => ({
+      displayKmzFiles.map((f) => ({
         fileName: f.fileName,
         placemarkCount: f.placemarks?.length || 0,
       })),
@@ -445,7 +521,7 @@ export function KMZMapDisplay({
     const newLayers: LayerInfo[] = []
 
     // Process each KMZ file
-    const allPlacemarks = safeKmzFiles.flatMap((kmzData) => {
+    const allPlacemarks = displayKmzFiles.flatMap((kmzData) => {
       if (!kmzData.placemarks || !Array.isArray(kmzData.placemarks)) {
         return []
       }
@@ -474,7 +550,7 @@ export function KMZMapDisplay({
         }
       }
     })
-  }, [mapInstance, safeKmzFiles])
+    }, [mapInstance, displayKmzFiles])
 
   useEffect(() => {
     if (!mapInstance || !centerCoordinates) return
@@ -661,10 +737,10 @@ export function KMZMapDisplay({
 
   if (!leafletLoaded) {
     return (
-      <div className="flex items-center justify-center h-full bg-gray-100" style={{ height }}>
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-          <p className="text-gray-600">Cargando mapa...</p>
+      <div className="flex items-center justify-center h-full bg-muted" style={{ height }}>
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <p className="text-muted-foreground">Cargando mapa...</p>
         </div>
       </div>
     )
@@ -694,25 +770,25 @@ export function KMZMapDisplay({
           {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
         </Button>
 
-        <div ref={mapRef} className="flex-1 h-full rounded-lg overflow-hidden border" />
+        <div ref={mapRef} className="flex-1 h-full rounded-lg overflow-hidden border pointer-events-auto" />
 
-        <div className="absolute inset-y-0 right-0 w-96 flex flex-col pointer-events-auto bg-white border-l shadow-lg z-[200]">
+        <div className="absolute inset-y-0 right-0 w-96 flex flex-col pointer-events-none bg-card border-l shadow-lg z-[200]">
           {/* Capas del Mapa section */}
-          <div className="flex-1 border-b overflow-y-auto">
+          <div className="flex-1 border-b overflow-y-auto pointer-events-auto">
             <div className="p-4">
-              <h3 className="font-semibold flex items-center gap-2 text-sm mb-3">
+              <h3 className="font-semibold flex items-center gap-2 text-sm mb-3 text-foreground">
                 <MapPin className="h-4 w-4" />
                 Capas del Mapa ({layers.length})
               </h3>
 
               {isLoadingLayers && (
-                <div className="mb-2 p-2 bg-blue-50 rounded text-xs text-blue-700">
+                <div className="mb-2 p-2 bg-blue-50 dark:bg-blue-900/30 rounded text-xs text-blue-700 dark:text-blue-300">
                   Cargando capas: {layerProgress}%
                 </div>
               )}
 
               {layers.length === 0 ? (
-                <p className="text-xs text-gray-500">No hay capas cargadas</p>
+                <p className="text-xs text-muted-foreground">No hay capas cargadas</p>
               ) : (
                 <div className="space-y-1.5">
                   {layers.map((layer, index) => (
@@ -725,12 +801,12 @@ export function KMZMapDisplay({
                       }}
                       className={`flex items-start gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
                         selectedLayer?.name === layer.name
-                          ? "bg-blue-50 border-blue-300"
-                          : "bg-card hover:bg-accent/70 border-gray-200"
+                          ? "bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700"
+                          : "bg-card hover:bg-accent/70 border-border"
                       }`}
                     >
                       <div
-                        className="w-3 h-3 rounded flex-shrink-0 mt-0.5 border border-gray-300"
+                        className="w-3 h-3 rounded flex-shrink-0 mt-0.5 border border-border"
                         style={{ backgroundColor: layer.color }}
                         title={`Color: ${layer.color}`}
                       />
@@ -795,34 +871,33 @@ export function KMZMapDisplay({
               </h4>
               <div className="space-y-2 text-xs">
                 <div>
-                  <p className="font-medium text-gray-700">{selectedLayer.name}</p>
-                  <p className="text-gray-600">Archivo: {selectedLayer.fileName}</p>
+                  <p className="font-medium text-foreground">{selectedLayer.name}</p>
+                  <p className="text-muted-foreground">Archivo: {selectedLayer.fileName}</p>
                 </div>
                 {selectedLayer.locationDetails && (
                   <>
                     {selectedLayer.locationDetails.region && (
                       <div className="pt-2 border-t">
-                        <p className="font-medium text-gray-700">Región</p>
-                        <p className="text-gray-600">{selectedLayer.locationDetails.region}</p>
+                        <p className="font-medium text-foreground">Región</p>
+                        <p className="text-muted-foreground">{selectedLayer.locationDetails.region}</p>
                       </div>
                     )}
                     {selectedLayer.locationDetails.provincia && (
-                      <div className="pt-2 border-t">
-                        <p className="font-medium text-gray-700">Provincia</p>
-                        <p className="text-gray-600">{selectedLayer.locationDetails.provincia}</p>
+                      <div>
+                        <p className="font-medium text-foreground">Provincia</p>
+                        <p className="text-muted-foreground">{selectedLayer.locationDetails.provincia}</p>
                       </div>
                     )}
                     {selectedLayer.locationDetails.comuna && (
-                      <div className="pt-2 border-t">
-                        <p className="font-medium text-gray-700">Comuna</p>
-                        <p className="text-gray-600">{selectedLayer.locationDetails.comuna}</p>
+                      <div>
+                        <p className="font-medium text-foreground">Comuna</p>
+                        <p className="text-muted-foreground">{selectedLayer.locationDetails.comuna}</p>
                       </div>
                     )}
-                    {selectedLayer.locationDetails.nearbyCities &&
-                      selectedLayer.locationDetails.nearbyCities.length > 0 && (
-                        <div className="pt-2 border-t">
-                          <p className="font-medium text-gray-700">Ciudades Cercanas</p>
-                          <p className="text-gray-600">{selectedLayer.locationDetails.nearbyCities.join(", ")}</p>
+                    {selectedLayer.locationDetails.nearbyCities && selectedLayer.locationDetails.nearbyCities.length > 0 && (
+                      <div>
+                        <p className="font-medium text-foreground">Ciudades Cercanas</p>
+                        <p className="text-muted-foreground">{selectedLayer.locationDetails.nearbyCities.join(", ")}</p>
                         </div>
                       )}
                   </>

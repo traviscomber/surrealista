@@ -42,9 +42,21 @@ import {
   Map,
   Search,
   Tag,
+  Sparkles,
 } from "lucide-react"
 import { GlobalCommandPalette } from "@/components/search/global-command-palette"
-// import { DriveStatusIndicator } from "@/components/google-drive/drive-status-indicator"
+import { ThemeToggle } from "@/components/ui/theme-toggle"
+
+// Badge color map - only keep essential and useful badges
+const badgeColorMap: Record<string, string> = {
+  Gratis: "bg-blue-500",      // Free tier
+  IA: "bg-cyan-500",          // AI features
+  Nuevo: "bg-purple-500",     // New features
+  Beta: "bg-orange-500",      // Beta status
+  Activo: "bg-green-500",     // Active/Running
+  Demo: "bg-slate-500",       // Demo mode
+  Análisis: "bg-emerald-500", // Analysis
+}
 
 const toolsItems = [
   {
@@ -67,15 +79,6 @@ const toolsItems = [
     icon: Brain,
     description: "Sistema agéntico para gestión documental automática",
     badge: "Nuevo",
-    badgeColor: "bg-purple-500",
-  },
-  {
-    title: "Lector KMZ",
-    href: "/admin/kmz-reader",
-    icon: Map,
-    description: "Procesamiento múltiple de archivos KMZ geoespaciales",
-    badge: "Beta",
-    badgeColor: "bg-orange-500",
   },
   {
     title: "Tecnología IA",
@@ -85,33 +88,11 @@ const toolsItems = [
     badge: "Nuevo",
   },
   {
-    title: "Mapas Interactivos",
-    href: "/mapas",
-    icon: MapPin,
-    description: "Explora ubicaciones en mapas detallados",
-  },
-  {
-    title: "Google Drive Integration",
-    href: "/admin/google-drive-integration",
-    icon: FolderOpen,
-    description: "Integración completa con Google Drive - PRIORIDAD",
-    badge: "Activo",
-    badgeColor: "bg-green-500",
-  },
-  {
     title: "Organización Carpetas",
     href: "/admin/organizacion-carpetas-demo",
     icon: FolderOpen,
     description: "Demo de organización profesional de carpetas",
     badge: "Demo",
-  },
-  {
-    title: "Análisis de Vecindario KMZ",
-    href: "/kmz-analisis",
-    icon: MapPin,
-    description: "Identifica roles vecinos, accesos y distancias",
-    badge: "Análisis",
-    badgeColor: "bg-emerald-500",
   },
 ]
 
@@ -122,7 +103,6 @@ const mvpItems = [
     icon: Activity,
     description: "Estado actual y progreso completo del desarrollo",
     badge: "85%",
-    badgeColor: "bg-blue-500",
   },
   {
     title: "Fase 1 - MVP",
@@ -130,7 +110,6 @@ const mvpItems = [
     icon: Rocket,
     description: "Gestión documental y organización de carpetas",
     badge: "Fase 1",
-    badgeColor: "bg-green-500",
   },
   {
     title: "Fase 2 - MVP",
@@ -138,7 +117,6 @@ const mvpItems = [
     icon: TrendingUp,
     description: "Automatización y análisis inteligente",
     badge: "Fase 2",
-    badgeColor: "bg-orange-500",
   },
   {
     title: "Fase 3 - MVP",
@@ -146,23 +124,20 @@ const mvpItems = [
     icon: BarChart3,
     description: "Optimización y escalabilidad",
     badge: "Fase 3",
-    badgeColor: "bg-purple-500",
   },
   {
     title: "Agentes Documentales",
     href: "/admin/agentes",
     icon: Brain,
     description: "Sistema agéntico para automatización documental",
-    badge: "Semana 4",
-    badgeColor: "bg-purple-500",
+    badge: "Nuevo",
   },
   {
     title: "Updates & Releases",
     href: "/mvp/updates",
     icon: GitBranch,
     description: "Historial de actualizaciones y nuevas funciones",
-    badge: "v1.2",
-    badgeColor: "bg-purple-500",
+    badge: "Nuevo",
   },
   {
     title: "Roadmap",
@@ -231,16 +206,6 @@ export function Header() {
               <GlobalCommandPalette />
             </NavigationMenuItem>
 
-            <NavigationMenuItem>
-              <Link href="/busqueda">
-                <Button variant={isActive("/busqueda") ? "default" : "ghost"} size="sm" className="h-10">
-                  <Search className="mr-2 h-4 w-4" />
-                  Búsqueda
-                  <Badge className="ml-2 text-xs bg-green-500 text-white">New</Badge>
-                </Button>
-              </Link>
-            </NavigationMenuItem>
-
             {/* Tools Dropdown */}
             <NavigationMenuItem>
               <NavigationMenuTrigger className="h-10">
@@ -258,11 +223,6 @@ export function Header() {
                       <div className="flex items-center gap-2">
                         <item.icon className="h-4 w-4" />
                         <div className="text-sm font-medium leading-none">{item.title}</div>
-                        {item.badge && (
-                          <Badge className={cn("text-xs text-white", item.badgeColor || "bg-blue-500")}>
-                            {item.badge}
-                          </Badge>
-                        )}
                       </div>
                       <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">{item.description}</p>
                     </Link>
@@ -288,11 +248,6 @@ export function Header() {
                       <div className="flex items-center gap-2">
                         <item.icon className="h-4 w-4" />
                         <div className="text-sm font-medium leading-none">{item.title}</div>
-                        {item.badge && (
-                          <Badge className={cn("text-xs text-white", item.badgeColor || "bg-blue-500")}>
-                            {item.badge}
-                          </Badge>
-                        )}
                       </div>
                       <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">{item.description}</p>
                     </Link>
@@ -308,6 +263,9 @@ export function Header() {
           <div className="lg:hidden">
             <GlobalCommandPalette />
           </div>
+
+          {/* Theme Toggle */}
+          <ThemeToggle />
 
           {/* Drive status indicator */}
           {/* <DriveStatusIndicator /> */}
@@ -326,14 +284,14 @@ export function Header() {
                 <Link href="/busqueda" className="flex items-center">
                   <Search className="mr-2 h-4 w-4" />
                   <span>Búsqueda Unificada</span>
-                  <Badge className="ml-auto bg-green-500 text-white text-xs">New</Badge>
+                  <Badge className={cn("ml-auto text-white text-xs", badgeColorMap["Nuevo"])}>Nuevo</Badge>
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link href="/admin/tags" className="flex items-center">
                   <Tag className="mr-2 h-4 w-4" />
                   <span>Tags</span>
-                  <Badge className="ml-auto bg-green-500 text-white text-xs">NEW</Badge>
+                  <Badge className={cn("ml-auto text-white text-xs", badgeColorMap["Nuevo"])}>Nuevo</Badge>
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -347,14 +305,14 @@ export function Header() {
                 <Link href="/admin/agentes" className="flex items-center">
                   <Brain className="mr-2 h-4 w-4" />
                   <span>Agentes Documentales</span>
-                  <Badge className="ml-auto bg-purple-500 text-white text-xs">Nuevo</Badge>
+                  <Badge className={cn("ml-auto text-white text-xs", badgeColorMap["Nuevo"])}>Nuevo</Badge>
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem asChild>
                 <Link href="/kmz-analisis" className="flex items-center">
                   <MapPin className="mr-2 h-4 w-4" />
                   <span>Análisis de Vecindario KMZ</span>
-                  <Badge className="ml-auto bg-emerald-500 text-white text-xs">Nuevo</Badge>
+                  <Badge className={cn("ml-auto text-white text-xs", badgeColorMap["Análisis"])}>Análisis</Badge>
                 </Link>
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -377,20 +335,6 @@ export function Header() {
                   <span className="text-lg font-serif font-semibold">Sur-Realista</span>
                 </div>
 
-                <div className="space-y-2">
-                  <Link
-                    href="/busqueda"
-                    className="flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent bg-green-50"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <Search className="h-4 w-4" />
-                      <span>Búsqueda Unificada</span>
-                    </div>
-                    <Badge className="bg-green-500 text-white text-xs">New</Badge>
-                  </Link>
-                </div>
-
                 {/* Mobile Tools */}
                 <div className="space-y-2 pt-4 border-t">
                   <h3 className="text-sm font-semibold text-muted-foreground px-3">Herramientas</h3>
@@ -405,11 +349,6 @@ export function Header() {
                         <item.icon className="h-4 w-4" />
                         <span>{item.title}</span>
                       </div>
-                      {item.badge && (
-                        <Badge variant="secondary" className="text-xs">
-                          {item.badge}
-                        </Badge>
-                      )}
                     </Link>
                   ))}
                 </div>
@@ -428,11 +367,6 @@ export function Header() {
                         <item.icon className="h-4 w-4" />
                         <span>{item.title}</span>
                       </div>
-                      {item.badge && (
-                        <Badge variant="secondary" className="text-xs">
-                          {item.badge}
-                        </Badge>
-                      )}
                     </Link>
                   ))}
                 </div>
@@ -446,7 +380,7 @@ export function Header() {
                   >
                     <Tag className="h-4 w-4" />
                     <span>Tags</span>
-                    <Badge className="ml-auto bg-green-500 text-white text-xs">NEW</Badge>
+                    <Badge className={cn("ml-auto text-white text-xs", badgeColorMap["Nuevo"])}>Nuevo</Badge>
                   </Link>
                   <Link
                     href="/admin/ia-workspace"
@@ -463,7 +397,7 @@ export function Header() {
                   >
                     <Brain className="mr-2 h-4 w-4" />
                     <span>Agentes Documentales</span>
-                    <Badge className="ml-auto bg-purple-500 text-white text-xs">Nuevo</Badge>
+                    <Badge className={cn("ml-auto text-white text-xs", badgeColorMap["Nuevo"])}>Nuevo</Badge>
                   </Link>
                   <Link
                     href="/kmz-analisis"
@@ -472,7 +406,7 @@ export function Header() {
                   >
                     <MapPin className="mr-2 h-4 w-4" />
                     <span>Análisis de Vecindario KMZ</span>
-                    <Badge className="ml-auto bg-emerald-500 text-white text-xs">Nuevo</Badge>
+                    <Badge className={cn("ml-auto text-white text-xs", badgeColorMap["Análisis"])}>Análisis</Badge>
                   </Link>
                 </div>
               </div>

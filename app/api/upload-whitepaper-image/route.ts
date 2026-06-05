@@ -1,19 +1,43 @@
 import { put } from "@vercel/blob"
 import { type NextRequest, NextResponse } from "next/server"
 
-export async function POST(request: NextRequest) {
-  try {
-    console.log("[v0] Whitepaper image upload API called")
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type",
+    },
+  })
+}
 
-    const formData = await request.formData()
+export async function POST(request: NextRequest) {
+  const requestId = `[${new Date().toISOString()}]`
+
+  try {
+    console.log(requestId, "[v0] Whitepaper image upload API called")
+
+    let formData
+    try {
+      formData = await request.formData()
+      console.log(requestId, "[v0] FormData parsed successfully")
+    } catch (formError: any) {
+      console.error(requestId, "[v0] Error parsing FormData:", formError?.message)
+      return NextResponse.json(
+        { error: "Error al procesar la solicitud. Verifica que estés enviando un archivo válido." },
+        { status: 400 }
+      )
+    }
+
     const file = formData.get("file") as File
 
     if (!file) {
-      console.log("[v0] No file provided in upload request")
+      console.log(requestId, "[v0] No file provided in upload request")
       return NextResponse.json({ error: "No file provided" }, { status: 400 })
     }
 
-    console.log("[v0] Uploading image:", {
+    console.log(requestId, "[v0] File received:", {
       name: file.name,
       size: file.size,
       type: file.type,
@@ -23,32 +47,76 @@ export async function POST(request: NextRequest) {
     // Validate file size (max 10MB for images)
     const maxSize = 10 * 1024 * 1024
     if (file.size > maxSize) {
-      return NextResponse.json({ error: "Imagen demasiado grande. Máximo 10MB" }, { status: 400 })
+      const errorMsg = `Imagen demasiado grande. Máximo 10MB, recibido: ${(file.size / 1024 / 1024).toFixed(2)}MB`
+      console.error(requestId, "[v0]", errorMsg)
+      return NextResponse.json({ error: errorMsg }, { status: 400 })
     }
 
     // Validate image type
     const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"]
     if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json({ error: "Tipo de archivo no permitido. Solo imágenes JPG, PNG, WebP" }, { status: 400 })
+      const errorMsg = `Tipo de archivo no permitido: ${file.type}. Solo imágenes JPG, PNG, WebP`
+      console.error(requestId, "[v0]", errorMsg)
+      return NextResponse.json({ error: errorMsg }, { status: 400 })
     }
 
-    // Upload to Vercel Blob
-    const blob = await put(`whitepaper-images/${file.name}`, file, {
-      access: "public",
-      addRandomSuffix: true,
-      token: process.env.BLOB_READ_WRITE_TOKEN,
-    })
+    // Check environment variable
+    if (!process.env.BLOB_READ_WRITE_TOKEN) {
+      console.error(requestId, "[v0] BLOB_READ_WRITE_TOKEN not configured")
+      return NextResponse.json(
+        {
+          error: "Configuración del servidor incompleta. Verifica el token de acceso a almacenamiento.",
+          code: "BLOB_TOKEN_ERROR",
+        },
+        { status: 503 }
+      )
+    }
 
-    console.log("[v0] Image uploaded successfully:", blob.url)
+    try {
+      console.log(requestId, "[v0] Uploading to Vercel Blob:", file.name)
+      const blob = await put(`whitepaper-images/${Date.now()}-${file.name}`, file, {
+        access: "public",
+        addRandomSuffix: true,
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+      })
 
-    return NextResponse.json({
-      url: blob.url,
-      fileName: file.name,
-      fileSize: file.size,
-      fileType: file.type,
-    })
+      console.log(requestId, "[v0] Image uploaded successfully to Blob:", blob.url)
+
+      return NextResponse.json(
+        {
+          url: blob.url,
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type,
+          message: "Imagen cargada exitosamente",
+        },
+        { status: 200 }
+      )
+    } catch (blobError: any) {
+      console.error(requestId, "[v0] Vercel Blob upload error:", {
+        message: blobError?.message,
+        code: blobError?.code,
+      })
+      return NextResponse.json(
+        {
+          error: `Error al guardar imagen: ${blobError?.message || "Error desconocido"}`,
+          code: "BLOB_UPLOAD_ERROR",
+        },
+        { status: 500 }
+      )
+    }
   } catch (error: any) {
-    console.error("[v0] Error uploading image:", error?.message || String(error))
-    return NextResponse.json({ error: "Error al subir la imagen" }, { status: 500 })
+    console.error(requestId, "[v0] Unexpected error in upload API:", {
+      message: error?.message || String(error),
+      name: error?.name,
+      code: error?.code,
+    })
+    return NextResponse.json(
+      {
+        error: "Error inesperado al procesar tu solicitud. Por favor intenta nuevamente.",
+        code: "INTERNAL_SERVER_ERROR",
+      },
+      { status: 500 }
+    )
   }
 }

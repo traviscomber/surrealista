@@ -5,23 +5,24 @@ export const dynamic = "force-dynamic"
 
 import { useState, useEffect, useRef } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Folder, Users, MessageSquare, Loader2, HardDrive, CheckSquare } from "lucide-react"
+import { Folder, Users, MessageSquare, Loader2, HardDrive, CheckSquare, MapPin, Database } from "lucide-react"
 import { createBrowserClient } from "@/lib/supabase/client"
 import { TaskCreationDialog } from "@/components/tasks/task-creation-dialog"
 import { TasksManager } from "@/components/tasks/tasks-manager"
-import { useGoogleDrive } from "@/lib/contexts/google-drive-context"
 import dynamicImport from "next/dynamic"
 import { CAMPOSFolderView } from "@/components/campos/campos-folder-view"
 import { kmzReader } from "@/lib/kmz/kmz-reader"
 import { kmzStorageService } from "@/lib/kmz/kmz-storage-service"
 import { useRouter } from "next/navigation" // Added router for navigation
 import { ClientRepositoryDashboard } from "@/components/client-management/client-repository-dashboard"
+import Link from "next/link"
+import { Button } from "@/components/ui/button"
 
 const KMZMapDisplay = dynamicImport(() => import("@/components/kmz/kmz-map-display").then((mod) => mod.KMZMapDisplay), {
   ssr: false,
   loading: () => (
-    <div className="h-[600px] w-full flex items-center justify-center bg-slate-100 rounded-xl">
-      <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+    <div className="h-[600px] w-full flex items-center justify-center bg-muted rounded-xl">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
     </div>
   ),
 })
@@ -34,8 +35,8 @@ const SimpleDriveFolderViewDynamic = dynamicImport(
   {
     ssr: false,
     loading: () => (
-      <div className="h-[600px] w-full flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      <div className="h-[600px] w-full flex items-center justify-center bg-muted rounded-xl">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     ),
   },
@@ -49,8 +50,8 @@ const CommunicationsManagerDynamic = dynamicImport(
   {
     ssr: false,
     loading: () => (
-      <div className="h-[600px] w-full flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+      <div className="h-[600px] w-full flex items-center justify-center bg-muted rounded-xl">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     ),
   },
@@ -123,8 +124,6 @@ export default function UnifiedSearchPage() {
   const [showRUTValidation, setShowRUTValidation] = useState(false)
   const [taskRefreshTrigger, setTaskRefreshTrigger] = useState(0)
 
-  const { driveService, isConnected, isLoading: driveLoading, reconnect } = useGoogleDrive()
-
   const supabase = createBrowserClient()
 
   const router = useRouter() // Added router instance
@@ -151,26 +150,9 @@ export default function UnifiedSearchPage() {
   }, [])
 
   useEffect(() => {
-    if (isConnected && driveService) {
-      const controller = new AbortController()
-
-      const loadDrive = async () => {
-        try {
-          await loadDriveFolders()
-        } catch (error) {
-          if (error instanceof Error && error.name !== "AbortError") {
-            console.error("[v0] Error loading drive:", error)
-          }
-        }
-      }
-
-      loadDrive()
-
-      return () => {
-        controller.abort()
-      }
-    }
-  }, [isConnected, driveService])
+    // Load KMZ data from Supabase on mount
+    loadKMZFromSupabase()
+  }, [])
 
   useEffect(() => {
     if (activeTab === "clientes") {
@@ -210,85 +192,9 @@ export default function UnifiedSearchPage() {
     }
   }
 
-  const loadDriveFolders = async () => {
-    if (!driveService || !isConnected) {
-      console.log("[v0] Google Drive not connected, cannot load folders")
-      setCamposData([])
-      return
-    }
-
-    try {
-      console.log("[v0] Loading folders from Google Drive...")
-
-      const kmzFiles = await driveService.searchKMZFiles()
-      console.log("[v0] Found KMZ files:", kmzFiles.length)
-
-      const folderMap = new Map<string, any[]>()
-
-      for (const file of kmzFiles) {
-        const parentId = file.parents?.[0] || "root"
-        if (!folderMap.has(parentId)) {
-          folderMap.set(parentId, [])
-        }
-        folderMap.get(parentId)?.push(file)
-      }
-
-      const camposFromDrive: Campo[] = []
-      let index = 1
-
-      for (const [folderId, files] of folderMap.entries()) {
-        if (files.length > 0) {
-          let folderName = "Sin nombre"
-          let location = "Chile"
-
-          try {
-            if (folderId !== "root") {
-              const apiKey = driveService.apiKey
-              if (apiKey) {
-                const folderResponse = await fetch(
-                  `https://www.googleapis.com/drive/v3/files/${folderId}?key=${apiKey}&fields=name`,
-                )
-                if (folderResponse.ok) {
-                  const folderData = await folderResponse.json()
-                  folderName = folderData.name
-                  console.log("[v0] Exact folder name from Drive:", folderName)
-
-                  const firstWord = folderName.split(" ")[0]
-                  if (firstWord && firstWord.length > 2) {
-                    location = firstWord
-                  }
-                }
-              }
-            } else {
-              folderName = files[0]?.name?.split(".")[0] || "Archivos raíz"
-              location = "Drive raíz"
-            }
-          } catch (error) {
-            if (error instanceof Error && error.name !== "AbortError") {
-              console.error("[v0] Error getting folder name:", error)
-            }
-            folderName = files[0]?.name?.split(".")[0] || `Carpeta ${index}`
-          }
-
-          camposFromDrive.push({
-            id: `drive-${index}`,
-            name: folderName,
-            location: location,
-            files: files.length,
-            driveFiles: files,
-          })
-          index++
-        }
-      }
-
-      console.log("[v0] Created campos from Drive:", camposFromDrive.map((c) => c.name))
-      setCamposData(camposData.concat(camposFromDrive))
-    } catch (error: any) {
-      if (!(error instanceof Error && error.name === "AbortError")) {
-        console.error("[v0] Error loading Drive folders:", error)
-      }
-      setCamposData([])
-    }
+  const loadKMZFromSupabase = async () => {
+    console.log("[v0] Loading KMZ data from Supabase...")
+    await loadCamposMetadata()
   }
 
   const loadCamposMetadata = async () => {
@@ -542,16 +448,16 @@ export default function UnifiedSearchPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50 p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-background px-4 py-4">
+      <div className="w-full">
         {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Sur-Realista</h1>
-          <p className="text-gray-600">Sistema integrado de gestión para CAMPOS, Clientes, Comunicaciones y Tareas</p>
+        <div className="mb-4">
+          <h1 className="text-2xl font-bold text-foreground mb-1">Sur-Realista</h1>
+          <p className="text-sm text-muted-foreground">Sistema integrado de gestión para CAMPOS, Clientes, Comunicaciones y Tareas</p>
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-6 h-auto">
+          <TabsList className="grid w-full grid-cols-6 mb-4 h-auto">
             <TabsTrigger
               value="campos"
               className="flex items-center gap-2 data-[state=active]:bg-sage data-[state=active]:text-white"
@@ -587,6 +493,13 @@ export default function UnifiedSearchPage() {
               <HardDrive className="h-4 w-4" />
               Google Drive
             </TabsTrigger>
+            <TabsTrigger
+              value="kmz"
+              className="flex items-center gap-2 cursor-pointer data-[state=active]:bg-sage data-[state=active]:text-white"
+            >
+              <MapPin className="h-4 w-4" />
+              KMZ
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="campos" className="h-[calc(100vh-20rem)] min-h-[600px]">
@@ -607,6 +520,54 @@ export default function UnifiedSearchPage() {
 
           <TabsContent value="drive" className="h-[calc(100vh-16rem)] min-h-[600px]">
             <SimpleDriveFolderViewDynamic />
+          </TabsContent>
+
+          <TabsContent value="kmz" className="h-[calc(100vh-16rem)] min-h-[600px]">
+            <div className="space-y-6">
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* KMZ Search Access */}
+                <Link href="/kmz-search">
+                  <div className="h-full group cursor-pointer">
+                    <div className="relative bg-white rounded-2xl border border-slate-200 p-8 hover:border-emerald-400 transition-all hover:shadow-xl hover:-translate-y-1 h-full">
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-100 to-emerald-50 rounded-full -mr-16 -mt-16 opacity-50 group-hover:opacity-100 transition-opacity" />
+                      <div className="relative z-10">
+                        <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                          <MapPin className="w-7 h-7 text-white" />
+                        </div>
+                        <h3 className="text-2xl font-bold text-slate-900 mb-2">Búsqueda de Ubicaciones</h3>
+                        <p className="text-slate-600 mb-6">
+                          Busca y explora ubicaciones indexadas de 338 archivos KMZ. Soporta búsqueda sin acentos en todas las regiones de Chile.
+                        </p>
+                        <div className="flex items-center gap-2 text-emerald-600 font-semibold group-hover:gap-4 transition-all">
+                          Acceder
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+
+                {/* Admin KMZ Collection Access */}
+                <Link href="/admin/kmz-collection">
+                  <div className="h-full group cursor-pointer">
+                    <div className="relative bg-card rounded-2xl border p-8 hover:border-primary transition-all hover:shadow-xl hover:-translate-y-1 h-full">
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-secondary rounded-full -mr-16 -mt-16 opacity-50 group-hover:opacity-100 transition-opacity" />
+                      <div className="relative z-10">
+                        <div className="w-14 h-14 bg-primary rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                          <Database className="w-7 h-7 text-primary-foreground" />
+                        </div>
+                        <h3 className="text-2xl font-bold text-foreground mb-2">Administración de Colección</h3>
+                        <p className="text-muted-foreground mb-6">
+                          Gestiona y visualiza la colección de 338 archivos KMZ. Carga, indexa y administra las ubicaciones de todos tus archivos.
+                        </p>
+                        <div className="flex items-center gap-2 text-primary font-semibold group-hover:gap-4 transition-all">
+                          Administrar
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
 

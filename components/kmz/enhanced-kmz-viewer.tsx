@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Upload, MapPin, FileText, Eye, Trash2, AlertCircle, CheckCircle, Sparkles } from "lucide-react"
 import { useDropzone } from "react-dropzone"
 import { kmzReader, type KMZData } from "@/lib/kmz/kmz-reader"
+import { DownloadPropertyButton } from "@/components/features/pdf-generator/download-button"
 
 export function EnhancedKMZViewer() {
   const [kmzFiles, setKmzFiles] = useState<KMZData[]>([])
@@ -593,15 +594,23 @@ export function EnhancedKMZViewer() {
         {selectedKMZ && (
           <Card className="border-0 shadow-2xl bg-white">
             <CardHeader className="bg-gradient-to-r from-slate-50 to-blue-50 border-b">
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center gap-3">
                 <CardTitle className="text-xl font-bold text-slate-800">Detalles: {selectedKMZ.fileName}</CardTitle>
-                <Button
-                  variant="ghost"
-                  onClick={() => setSelectedKMZ(null)}
-                  className="hover:bg-red-50 hover:text-red-600 transition-colors"
-                >
-                  ✕
-                </Button>
+                <div className="flex items-center gap-2">
+                  <DownloadPropertyButton
+                    propertyData={selectedKMZ}
+                    propertyName={selectedKMZ.fileName}
+                    variant="outline"
+                    size="sm"
+                  />
+                  <Button
+                    variant="ghost"
+                    onClick={() => setSelectedKMZ(null)}
+                    className="hover:bg-red-50 hover:text-red-600 transition-colors"
+                  >
+                    ✕
+                  </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="p-6 space-y-6">

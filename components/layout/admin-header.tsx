@@ -1,7 +1,7 @@
 "use client"
 
 import React from "react"
-
+import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -14,7 +14,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Bell, Search, Settings, User, LogOut, HelpCircle } from "lucide-react"
+import { Bell, Search, Settings, User, LogOut, HelpCircle, ArrowLeft } from "lucide-react"
 import { Input } from "@/components/ui/input"
 
 const getPageTitle = (pathname: string): string => {
@@ -61,28 +61,36 @@ export function AdminHeader() {
   const breadcrumbs = getBreadcrumbs(pathname)
 
   return (
-    <header className="bg-white border-b border-gray-200 px-6 py-4">
+    <header className="bg-card border-b border-border px-6 py-4">
       <div className="flex items-center justify-between">
-        {/* Left side - Title and Breadcrumbs */}
-        <div className="flex-1">
-          <div className="flex items-center space-x-2 text-sm text-gray-500 mb-1">
-            {breadcrumbs.map((crumb, index) => (
-              <React.Fragment key={crumb.label}>
-                {index > 0 && <span>/</span>}
-                <span className={index === breadcrumbs.length - 1 ? "text-gray-900 font-medium" : ""}>
-                  {crumb.label}
-                </span>
-              </React.Fragment>
-            ))}
+        {/* Left side - Back button and Title */}
+        <div className="flex-1 flex items-center gap-4">
+          <Link href="/busqueda">
+            <Button variant="outline" size="sm" className="gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Volver a Búsqueda
+            </Button>
+          </Link>
+          <div>
+            <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-1">
+              {breadcrumbs.map((crumb, index) => (
+                <React.Fragment key={crumb.label}>
+                  {index > 0 && <span>/</span>}
+                  <span className={index === breadcrumbs.length - 1 ? "text-foreground font-medium" : ""}>
+                    {crumb.label}
+                  </span>
+                </React.Fragment>
+              ))}
+            </div>
+            <h1 className="text-2xl font-bold text-foreground">{pageTitle}</h1>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">{pageTitle}</h1>
         </div>
 
         {/* Center - Search */}
         <div className="flex-1 max-w-md mx-8">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <Input type="search" placeholder="Buscar propiedades, usuarios..." className="pl-10 pr-4 w-full" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input type="search" placeholder="Buscar propiedades, usuarios..." className="pl-10 pr-4 w-full bg-background text-foreground border-border" />
           </div>
         </div>
 

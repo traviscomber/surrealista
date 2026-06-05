@@ -459,6 +459,7 @@ export async function bulkImportWithDuplicateHandlingInBatches(
     let totalImported = 0
     let totalUpdated = 0
     let totalFailed = 0
+    const failedRUTs = new Set<string>() // Track failed RUTs to prevent re-attempts
     const batchResults = []
 
     // Import new clients in batches
@@ -470,24 +471,74 @@ export async function bulkImportWithDuplicateHandlingInBatches(
 
         console.log(`[v0] Importing batch ${batchNumber}/${totalBatches} (${batch.length} new clients)`)
 
-        const { data, error } = await supabase.from("clients").insert(batch).select()
-
-        const batchResult = {
-          type: "import" as const,
-          batchNumber,
-          totalBatches,
-          success: !error,
-          count: data?.length || 0,
-          failed: error ? batch.length : 0,
+        // Filter out RUTs that already failed in previous batches
+        const filteredBatch = batch.filter(c => !failedRUTs.has(c.rut))
+        
+        if (filteredBatch.length === 0) {
+          console.log(`[v0] All clients in batch ${batchNumber} already failed, skipping`)
+          continue
         }
 
-        batchResults.push(batchResult)
+        // Try to insert entire batch first
+        const { data, error } = await supabase.from("clients").insert(filteredBatch).select()
 
         if (error) {
-          console.error("[v0] Error importing batch:", error)
-          totalFailed += batch.length
+          // If batch fails (likely due to duplicates), insert records one by one
+          console.error("[v0] Batch insert failed, attempting individual inserts:", error.message)
+          
+          let batchSuccess = 0
+          let batchFailed = 0
+          
+          for (const client of filteredBatch) {
+            // Skip if this RUT already failed
+            if (failedRUTs.has(client.rut)) {
+              batchFailed++
+              continue
+            }
+            
+            const { error: singleError } = await supabase.from("clients").insert([client]).select()
+            
+            if (singleError) {
+              // Log but don't fail - this might be a duplicate
+              if (singleError.code === '23505') {
+                console.log(`[v0] Duplicate detected for RUT: ${client.rut} - ${singleError.message}`)
+                failedRUTs.add(client.rut) // Mark this RUT as failed to skip future attempts
+              } else {
+                console.error(`[v0] Error inserting client ${client.rut}:`, singleError.message)
+                failedRUTs.add(client.rut)
+              }
+              batchFailed++
+            } else {
+              batchSuccess++
+              totalImported++
+            }
+          }
+          
+          totalFailed += batchFailed
+          
+          const batchResult = {
+            type: "import" as const,
+            batchNumber,
+            totalBatches,
+            success: batchSuccess > 0,
+            count: batchSuccess,
+            failed: batchFailed,
+          }
+          batchResults.push(batchResult)
         } else {
-          totalImported += data?.length || 0
+          // Batch succeeded
+          const successCount = data?.length || 0
+          totalImported += successCount
+          
+          const batchResult = {
+            type: "import" as const,
+            batchNumber,
+            totalBatches,
+            success: true,
+            count: successCount,
+            failed: 0,
+          }
+          batchResults.push(batchResult)
         }
       }
     }
@@ -530,7 +581,7 @@ export async function bulkImportWithDuplicateHandlingInBatches(
       }
     }
 
-    console.log(`[v0] Batch import complete: ${totalImported} new, ${totalUpdated} updated, ${totalFailed} failed`)
+    console.log(`[v0] Batch import complete: ${totalImported} new, ${totalUpdated} updated, ${totalFailed} failed, ${failedRUTs.size} duplicate RUTs detected`)
 
     revalidatePath("/admin/clientes")
     revalidatePath("/gestion-clientes")
@@ -542,6 +593,7 @@ export async function bulkImportWithDuplicateHandlingInBatches(
       updated: totalUpdated,
       failed: totalFailed,
       batches: batchResults,
+      duplicateRUTs: Array.from(failedRUTs),
     }
   } catch (error) {
     console.error("[v0] Error in bulkImportWithDuplicateHandlingInBatches:", error)
@@ -552,6 +604,7 @@ export async function bulkImportWithDuplicateHandlingInBatches(
       updated: 0,
       failed: newClients.length + updates.length,
       batches: [],
+      duplicateRUTs: [],
     }
   }
 }

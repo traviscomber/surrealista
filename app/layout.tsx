@@ -3,8 +3,9 @@ import type { Metadata } from "next"
 import { Inter, Lora } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
-import { GoogleDriveProvider } from "@/lib/contexts/google-drive-context"
 import { PasswordGate } from "@/components/auth/password-gate"
+import { VisitReminders } from "@/components/visits/visit-reminders"
+import { Toaster } from "sonner"
 
 const lora = Lora({
   subsets: ["latin"],
@@ -32,13 +33,19 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="es" suppressHydrationWarning>
-      <body className={`${inter.variable} ${lora.variable} font-sans`}>
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-          <GoogleDriveProvider>
-            <PasswordGate>{children}</PasswordGate>
-          </GoogleDriveProvider>
+    <html lang="es" suppressHydrationWarning className="scroll-smooth">
+      <body className={`${inter.variable} ${lora.variable} font-sans bg-background text-foreground`}>
+        <ThemeProvider 
+          attribute="class" 
+          defaultTheme="system" 
+          enableSystem 
+          disableTransitionOnChange
+          storageKey="sur-realista-theme"
+        >
+          <PasswordGate>{children}</PasswordGate>
         </ThemeProvider>
+        <Toaster />
+        <VisitReminders />
       </body>
     </html>
   )

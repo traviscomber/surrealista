@@ -6,20 +6,17 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Textarea } from "@/components/ui/textarea"
-import { supabase } from "@/lib/supabase/client"
-import { useGoogleDrive } from "@/lib/contexts/google-drive-context"
 import {
   Bot,
   Send,
   User,
   Sparkles,
-  FolderOpen,
-  FileText,
-  Search,
   HelpCircle,
-  Database,
-  MapPin,
+  FolderOpen,
+  Search,
   TrendingUp,
+  MapPin,
+  FileText,
 } from "lucide-react"
 import { v4 as uuidv4 } from "uuid"
 
@@ -65,7 +62,7 @@ const quickActions: QuickAction[] = [
     id: "list_folders",
     label: "📁 Listar carpetas",
     icon: <FolderOpen className="h-4 w-4" />,
-    prompt: "¿Qué carpetas tengo en Google Drive?",
+    prompt: "¿Cuántos archivos KMZ tengo?",
     category: "search",
   },
   {
@@ -76,17 +73,24 @@ const quickActions: QuickAction[] = [
     category: "search",
   },
   {
+    id: "kmz_stats",
+    label: "📊 Estadísticas KMZ",
+    icon: <TrendingUp className="h-4 w-4" />,
+    prompt: "Dame estadísticas completas de mis archivos KMZ",
+    category: "analysis",
+  },
+  {
+    id: "kmz_by_region",
+    label: "🌎 KMZ por Región",
+    icon: <MapPin className="h-4 w-4" />,
+    prompt: "¿Cuántos archivos KMZ tengo por región?",
+    category: "analysis",
+  },
+  {
     id: "kmz_files",
     label: "🗺️ Archivos KMZ",
     icon: <MapPin className="h-4 w-4" />,
     prompt: "¿Cuántos archivos KMZ tengo y en qué regiones?",
-    category: "search",
-  },
-  {
-    id: "folder_structure",
-    label: "📂 Estructura de carpetas",
-    icon: <FolderOpen className="h-4 w-4" />,
-    prompt: "Muéstrame la estructura de carpetas de CAMPOS",
     category: "search",
   },
   {
@@ -156,14 +160,12 @@ const analyzeDocumentContent = async (documentId: string) => {
 }
 
 export function AIAssistantChat() {
-  const { driveService, isConnected, isLoading: driveLoading } = useGoogleDrive()
-
   const [messages, setMessages] = useState<Message[]>([
     {
       id: "1",
       role: "assistant",
       content:
-        "¡Hola! Soy tu asistente IA para consultar datos de Google Drive. Puedo ayudarte a buscar documentos, explorar carpetas, analizar archivos KMZ y responder preguntas sobre tus datos. ¿Qué te gustaría saber?",
+        "¡Hola! Soy tu asistente IA para consultar datos KMZ en tiempo real. Puedo ayudarte a buscar archivos, explorar ubicaciones, analizar datos geoespaciales y responder preguntas sobre tus archivos KMZ. ¿Qué te gustaría saber?",
       timestamp: new Date(),
       metadata: { type: "general", confidence: 1.0 },
     },
@@ -205,153 +207,31 @@ export function AIAssistantChat() {
   }
 
   const getIntelligentResponse = async (userMessage: string): Promise<Message> => {
-    const message = userMessage.toLowerCase()
+    try {
+      const response = await fetch("/api/ai-assistant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userMessage }),
+      })
 
-    // Check Google Drive connection
-    if (!isConnected) {
+      const data = await response.json()
+
       return {
         id: uuidv4(),
         role: "assistant",
-        content: `⚠️ **Google Drive no está conectado**\n\nPara poder consultar tus datos, necesito que conectes Google Drive primero.\n\n**Pasos:**\n1. Ve a la sección "Herramientas" en el menú superior\n2. Haz clic en "Google Drive"\n3. Autoriza el acceso\n\nUna vez conectado, podré ayudarte a:\n• Buscar documentos y archivos\n• Explorar estructura de carpetas\n• Analizar archivos KMZ\n• Responder preguntas sobre tus datos`,
+        content: data.response || "No pude procesar tu consulta.",
         timestamp: new Date(),
-        metadata: { type: "connection_error", confidence: 1.0 },
+        metadata: { type: data.type || "general", confidence: 0.95 },
       }
-    }
-
-    // Drive data queries
-    if (message.includes("carpeta") || message.includes("folder")) {
-      try {
-        const folders = await driveService?.listFolders()
-        const folderList =
-          folders
-            ?.slice(0, 10)
-            .map((f: any) => `• ${f.name}`)
-            .join("\n") || "No se encontraron carpetas"
-
-        return {
-          id: uuidv4(),
-          role: "assistant",
-          content: `📁 **Carpetas en Google Drive:**\n\n${folderList}\n\n${folders && folders.length > 10 ? `... y ${folders.length - 10} carpetas más.\n\n` : ""}💡 **Puedes preguntar:**\n• "¿Qué hay en la carpeta CAMPOS?"\n• "Muéstrame las subcarpetas de [nombre]"\n• "¿Cuántos archivos hay en [carpeta]?"`,
-          timestamp: new Date(),
-          metadata: { type: "folder_list", confidence: 0.95 },
-        }
-      } catch (error) {
-        return {
-          id: uuidv4(),
-          role: "assistant",
-          content: `❌ Error al consultar carpetas: ${error.message}\n\nIntenta reconectar Google Drive o verifica los permisos.`,
-          timestamp: new Date(),
-          metadata: { type: "error", confidence: 1.0 },
-        }
-      }
-    }
-
-    if (message.includes("kmz") || message.includes("mapa")) {
-      try {
-        const { data: kmzFiles } = await supabase
-          .from("kmz_collection")
-          .select("file_name, region, placemarks_count, created_at")
-          .order("created_at", { ascending: false })
-          .limit(10)
-
-        if (kmzFiles && kmzFiles.length > 0) {
-          const kmzList = kmzFiles
-            .map((f: any) => `• **${f.file_name}** - ${f.region || "Sin región"} (${f.placemarks_count || 0} puntos)`)
-            .join("\n")
-
-          return {
-            id: uuidv4(),
-            role: "assistant",
-            content: `🗺️ **Archivos KMZ en el sistema:**\n\n${kmzList}\n\n**Total:** ${kmzFiles.length} archivos\n\n💡 **Puedes preguntar:**\n• "¿Qué propiedades hay en [región]?"\n• "Muéstrame detalles del archivo [nombre]"\n• "¿Cuántos KMZ tengo por región?"`,
-            timestamp: new Date(),
-            metadata: { type: "kmz_list", confidence: 0.95 },
-          }
-        } else {
-          return {
-            id: uuidv4(),
-            role: "assistant",
-            content: `📭 No se encontraron archivos KMZ en la base de datos.\n\n**Sugerencias:**\n• Carga archivos KMZ desde la página /campos\n• Verifica que los archivos se hayan guardado correctamente\n• Usa el botón "Cargar KMZ Offline" para subir archivos`,
-            timestamp: new Date(),
-            metadata: { type: "no_data", confidence: 1.0 },
-          }
-        }
-      } catch (error) {
-        return {
-          id: uuidv4(),
-          role: "assistant",
-          content: `❌ Error al consultar archivos KMZ: ${error.message}`,
-          timestamp: new Date(),
-          metadata: { type: "error", confidence: 1.0 },
-        }
-      }
-    }
-
-    if (message.includes("buscar") || message.includes("encontrar") || message.includes("search")) {
-      const searchTerm = message.replace(/buscar|encontrar|search/gi, "").trim()
-
-      if (!searchTerm) {
-        return {
-          id: uuidv4(),
-          role: "assistant",
-          content: `🔍 **Búsqueda de Archivos**\n\n**Formato:** "Buscar [término]"\n\n**Ejemplos:**\n• "Buscar contrato"\n• "Buscar Puerto Varas"\n• "Buscar escritura"\n• "Buscar avalúo"\n\nTambién puedo buscar en:\n• Nombres de archivos\n• Contenido de documentos\n• Carpetas específicas\n• Archivos KMZ por ubicación`,
-          timestamp: new Date(),
-          metadata: { type: "search_help", confidence: 1.0 },
-        }
-      }
-
-      try {
-        const files = await driveService?.searchFiles(searchTerm)
-
-        if (files && files.length > 0) {
-          const fileList = files
-            .slice(0, 10)
-            .map((f: any) => `• **${f.name}** (${f.mimeType?.split("/")[1] || "archivo"})`)
-            .join("\n")
-
-          return {
-            id: uuidv4(),
-            role: "assistant",
-            content: `🔍 **Resultados para "${searchTerm}":**\n\n${fileList}\n\n${files.length > 10 ? `... y ${files.length - 10} archivos más.\n\n` : ""}💡 **Acciones:**\n• Pregunta por un archivo específico para más detalles\n• Refina tu búsqueda con términos más específicos`,
-            timestamp: new Date(),
-            metadata: { type: "search_results", confidence: 0.9, searchResults: files },
-          }
-        } else {
-          return {
-            id: uuidv4(),
-            role: "assistant",
-            content: `📭 No se encontraron archivos con "${searchTerm}"\n\n**Sugerencias:**\n• Intenta con términos más generales\n• Verifica la ortografía\n• Busca por tipo de archivo (contrato, escritura, etc.)`,
-            timestamp: new Date(),
-            metadata: { type: "no_results", confidence: 1.0 },
-          }
-        }
-      } catch (error) {
-        return {
-          id: uuidv4(),
-          role: "assistant",
-          content: `❌ Error en la búsqueda: ${error.message}`,
-          timestamp: new Date(),
-          metadata: { type: "error", confidence: 1.0 },
-        }
-      }
-    }
-
-    if (message.includes("ayuda") || message.includes("help") || message.includes("comandos")) {
+    } catch (error: any) {
+      console.error("AI Assistant error:", error)
       return {
         id: uuidv4(),
         role: "assistant",
-        content: `🤖 **Guía del Asistente IA de Datos**\n\n**📁 CARPETAS Y ARCHIVOS:**\n• "¿Qué carpetas tengo?"\n• "Muéstrame la carpeta CAMPOS"\n• "¿Cuántos archivos hay en [carpeta]?"\n\n**🔍 BÚSQUEDA:**\n• "Buscar [término]"\n• "Encontrar contratos"\n• "Archivos de Puerto Varas"\n\n**🗺️ ARCHIVOS KMZ:**\n• "¿Cuántos KMZ tengo?"\n• "Archivos KMZ por región"\n• "Detalles del archivo [nombre]"\n\n**📊 ESTADÍSTICAS:**\n• "Dame estadísticas de mis archivos y carpetas"\n\n**🌎 BUSCAR POR REGIÓN:**\n• "Muéstrame todos los archivos de la Región de Los Lagos"\n\n**❓ AYUDA:**\n• "ayuda"\n\n**💡 TIPS:**\n• Usa lenguaje natural\n• Sé específico en tus consultas\n• Puedo buscar en nombres y contenido`,
+        content: "Error al procesar tu consulta. Intenta de nuevo.",
         timestamp: new Date(),
-        metadata: { type: "help", confidence: 1.0 },
+        metadata: { type: "error", confidence: 0.5 },
       }
-    }
-
-    // Default response
-    return {
-      id: uuidv4(),
-      role: "assistant",
-      content: `Entiendo tu consulta sobre "${userMessage}".\n\nPuedo ayudarte con:\n• 📁 Explorar carpetas y archivos en Drive\n• 🔍 Buscar documentos específicos\n• 🗺️ Consultar archivos KMZ y ubicaciones\n• 📊 Analizar datos y generar resúmenes\n\n¿Podrías ser más específico? Por ejemplo:\n• "¿Qué carpetas tengo?"\n• "Buscar contratos"\n• "¿Cuántos archivos KMZ tengo?"\n\nO escribe "ayuda" para ver todos los comandos disponibles.`,
-      timestamp: new Date(),
-      metadata: { type: "general", confidence: 0.7 },
     }
   }
 
@@ -425,8 +305,8 @@ export function AIAssistantChat() {
   }
 
   return (
-    <Card className="border-2 h-[700px] flex flex-col">
-      <CardContent className="p-0 flex-1 flex flex-col">
+    <Card className="border-2 h-[800px] flex flex-col w-full overflow-hidden">
+      <CardContent className="p-0 flex-1 flex flex-col w-full">
         <div className="bg-gradient-to-r from-green-600 to-blue-600 text-white p-4 rounded-t-lg">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -436,10 +316,8 @@ export function AIAssistantChat() {
               <div>
                 <h3 className="font-semibold">Asistente IA de Datos</h3>
                 <div className="flex items-center gap-2 text-sm opacity-90">
-                  <div
-                    className={`w-2 h-2 ${isConnected ? "bg-green-400" : "bg-red-400"} rounded-full animate-pulse`}
-                  ></div>
-                  <span>{isConnected ? "Drive Conectado" : "Drive Desconectado"} • IA Conversacional</span>
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  <span>IA Conversacional • Datos en Tiempo Real</span>
                 </div>
               </div>
             </div>
@@ -458,15 +336,16 @@ export function AIAssistantChat() {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.map((message) => (
-            <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
+        <div className="flex-1 overflow-y-auto p-4 min-h-0" style={{ maxHeight: "calc(100% - 180px)" }}>
+          <div className="space-y-4">
+            {messages.map((message) => (
+              <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"} gap-2`}>
               <div
-                className={`flex items-start max-w-[90%] ${
+                className={`flex items-start max-w-[70%] ${
                   message.role === "user"
                     ? "bg-gradient-to-r from-green-600 to-blue-600 text-white"
-                    : "bg-gray-50 border"
-                } rounded-lg px-4 py-3`}
+                    : "bg-gradient-to-r from-teal-50 to-cyan-50 border border-teal-200 text-gray-900"
+                } rounded-lg px-4 py-3 break-words`}
               >
                 {message.role === "assistant" && (
                   <div className="w-8 h-8 bg-gradient-to-r from-green-600 to-blue-600 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
@@ -501,7 +380,7 @@ export function AIAssistantChat() {
           {/* Loading indicator */}
           {isLoading && (
             <div className="flex justify-start">
-              <div className="flex items-start bg-gray-50 border rounded-lg px-4 py-3 max-w-[90%]">
+              <div className="flex items-start bg-gradient-to-r from-teal-50 to-cyan-50 border border-teal-200 rounded-lg px-4 py-3 max-w-[70%]">
                 <div className="w-8 h-8 bg-gradient-to-r from-green-600 to-blue-600 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
                   <Bot className="h-4 w-4 text-white" />
                 </div>
@@ -522,23 +401,24 @@ export function AIAssistantChat() {
           )}
 
           <div ref={messagesEndRef} />
+          </div>
         </div>
 
         {/* Input Area */}
-        <div className="border-t p-4">
-          <div className="flex gap-2">
+        <div className="border-t p-4 w-full flex-shrink-0">
+          <div className="flex gap-2 w-full">
             <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Pregunta sobre tus datos: carpetas, archivos, KMZ, documentos..."
               className="flex-1 min-h-[44px] max-h-32 resize-none"
-              disabled={isLoading || !isConnected}
+              disabled={isLoading}
             />
             <Button
               onClick={() => handleSendMessage()}
               size="sm"
-              disabled={isLoading || !input.trim() || !isConnected}
+              disabled={isLoading || !input.trim()}
               className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 px-4"
             >
               <Send className="h-4 w-4" />
@@ -549,7 +429,6 @@ export function AIAssistantChat() {
               <Database className="h-3 w-3" />
               <span>Consulta Conversacional • Datos en Tiempo Real</span>
             </div>
-            {!isConnected && <span className="text-red-600">⚠️ Conecta Google Drive primero</span>}
           </div>
         </div>
       </CardContent>
