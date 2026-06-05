@@ -294,61 +294,51 @@ export function AdminSidebar() {
 
       <Separator />
 
-      {/* Quick Actions */}
-      <div className="p-4 space-y-3">
-        <h3 className="text-sm font-semibold text-gray-700 px-3">Acciones Rápidas</h3>
-        <div className="space-y-2">
-          <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
-            <Link href="/admin/tags">
-              <Database className="h-4 w-4" />
-              Gestión de Tags
-              <Badge className="ml-auto bg-green-500 text-white text-xs">NEW</Badge>
-            </Link>
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
-            <Link href="/admin/google-drive-integration">
-              <Database className="h-4 w-4" />
-              Google Drive
-              <Badge className="ml-auto bg-green-500 text-white text-xs">API Ready</Badge>
-            </Link>
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
-            <Link href="/admin/migracion-data-real">
-              <Upload className="h-4 w-4" />
-              Migración Data
-              <Badge className="ml-auto bg-purple-500 text-white text-xs">Ready</Badge>
-            </Link>
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
-            <Link href="/busqueda">
-              <Search className="h-4 w-4" />
-              Búsqueda Unificada
-              <Badge className="ml-auto bg-green-500 text-white text-xs">New</Badge>
-            </Link>
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
-            <Link href="/campos">
-              <FolderOpen className="h-4 w-4" />
-              Vista CAMPOS
-              <Badge className="ml-auto bg-blue-500 text-white text-xs">New</Badge>
-            </Link>
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
-            <Link href="/admin/kmz-collection">
-              <MapPin className="h-4 w-4" />
-              Colección KMZ
-              <Badge className="ml-auto bg-blue-500 text-white text-xs">New</Badge>
-            </Link>
-          </Button>
-          <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
-            <Link href="/comunicaciones/email">
-              <Mail className="h-4 w-4" />
-              Comunicaciones
-              <Badge className="ml-auto bg-blue-500 text-white text-xs">Nuevo</Badge>
-            </Link>
-          </Button>
+      {/* Quick Actions / Navigation */}
+      {isKMZCollection ? (
+        <div className="p-4">
+          <Link href="/busqueda" className="block">
+            <Button className="w-full justify-start gap-2 h-10 bg-primary hover:bg-primary/90 text-white">
+              <ArrowLeft className="h-4 w-4" />
+              Volver al Sitio
+            </Button>
+          </Link>
         </div>
-      </div>
+      ) : (
+        <div className="p-4 space-y-3">
+          <h3 className="text-sm font-semibold text-muted-foreground px-3">Accesos Directos</h3>
+          <div className="space-y-2">
+            <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
+              <Link href="/admin/tags">
+                <Database className="h-4 w-4" />
+                Gestión de Tags
+                <Badge className="ml-auto bg-green-500 text-white text-xs">NEW</Badge>
+              </Link>
+            </Button>
+            <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
+              <Link href="/admin/google-drive-integration">
+                <Database className="h-4 w-4" />
+                Google Drive
+                <Badge className="ml-auto bg-green-500 text-white text-xs">API Ready</Badge>
+              </Link>
+            </Button>
+            <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
+              <Link href="/busqueda">
+                <Search className="h-4 w-4" />
+                Búsqueda
+                <Badge className="ml-auto bg-primary text-white text-xs">Inicio</Badge>
+              </Link>
+            </Button>
+            <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
+              <Link href="/campos">
+                <FolderOpen className="h-4 w-4" />
+                CAMPOS
+                <Badge className="ml-auto bg-accent text-white text-xs">Mapa</Badge>
+              </Link>
+            </Button>
+          </div>
+        </div>
+      )}
 
       <Separator />
 

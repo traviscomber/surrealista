@@ -746,23 +746,6 @@ export function KMZCollectionManager() {
                 )}
               </Button>
               <Button
-                onClick={scanGoogleDrive}
-                disabled={scanning || tableExists === false}
-                className="bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm"
-              >
-                {scanning ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Escaneando...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Escanear Drive
-                  </>
-                )}
-              </Button>
-              <Button
                 onClick={loadKMZCollection}
                 variant="secondary"
                 className="bg-white/20 hover:bg-white/30 text-white border-white/30 backdrop-blur-sm"
