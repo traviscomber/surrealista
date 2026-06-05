@@ -8,9 +8,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { KMZMapDisplay } from "@/components/kmz/kmz-map-display"
+import { OnboardingGuide } from "@/components/campos/onboarding-guide"
 import { createBrowserClient } from "@/lib/supabase/client"
 import {
   Folder,
@@ -131,6 +133,8 @@ export function CAMPOSFolderView() {
   const [isLoadingMetadata, setIsLoadingMetadata] = useState(false)
   const [isLoadingKMZ, setIsLoadingKMZ] = useState(false)
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
+  const [selectedRegions, setSelectedRegions] = useState<Set<string>>(new Set())
+  const [regionLoadingProgress, setRegionLoadingProgress] = useState<Record<string, number>>({})
   const [isFolderSheetOpen, setIsFolderSheetOpen] = useState(false)
   const [isDetailsSheetOpen, setIsDetailsSheetOpen] = useState(false)
   const [isLeftPanelOpen, setIsLeftPanelOpen] = useState(true)
@@ -369,6 +373,123 @@ export function CAMPOSFolderView() {
       setIsLoadingKMZ(false)
     }
   }
+
+  // Handle toggling region selection for multi-select
+  const handleRegionToggle = (regionName: string) => {
+    const newSelected = new Set(selectedRegions)
+    if (newSelected.has(regionName)) {
+      newSelected.delete(regionName)
+    } else {
+      newSelected.add(regionName)
+    }
+    setSelectedRegions(newSelected)
+    
+    // Clear old single region selection
+    setSelectedRegion(null)
+    setKmzFiles([])
+  }
+
+  // Load KMZ files progressively from multiple selected regions
+  const loadMultipleRegionsKMZ = useCallback(async () => {
+    if (selectedRegions.size === 0) {
+      setKmzFiles([])
+      return
+    }
+
+    setIsLoadingKMZ(true)
+    const allKmzFiles: any[] = []
+    const loadingProgress: Record<string, number> = {}
+
+    try {
+      // Create array of regions to load
+      const regionsToLoad = Array.from(selectedRegions)
+      
+      // Load KMZ files for each selected region progressively
+      for (const regionName of regionsToLoad) {
+        loadingProgress[regionName] = 0
+        setRegionLoadingProgress({...loadingProgress})
+
+        const { data, error } = await supabase
+          .from("kmz_collection")
+          .select("*")
+          .eq("is_active", true)
+          .eq("region", regionName)
+          .limit(1000)
+
+        if (!error && data) {
+          // Process each KMZ file in the region
+          for (let i = 0; i < data.length; i++) {
+            const kmzData = data[i]
+            
+            try {
+              // Read KMZ file content
+              const kmzContent = await kmzStorageService.readKMZ(kmzData.file_path)
+              const placemarks = await kmzReader.parseKMZContent(kmzContent)
+
+              const transformedKMZ = {
+                fileName: kmzData.file_name,
+                placemarks: placemarks,
+                bounds: kmzData.bounds,
+                metadata: {
+                  id: kmzData.id,
+                  category: kmzData.category,
+                  rolNumbers: kmzData.rol_numbers || [],
+                  placemarks_count: kmzData.placemarks_count,
+                  region: regionName,
+                },
+              }
+
+              allKmzFiles.push(transformedKMZ)
+              
+              // Update progress for this region
+              loadingProgress[regionName] = Math.round(((i + 1) / data.length) * 100)
+              setRegionLoadingProgress({...loadingProgress})
+            } catch (fileError) {
+              console.error(`Error loading KMZ file ${kmzData.file_name}:`, fileError)
+            }
+          }
+        }
+
+        // Mark region as complete
+        loadingProgress[regionName] = 100
+        setRegionLoadingProgress({...loadingProgress})
+      }
+
+      setKmzFiles(allKmzFiles)
+
+      if (allKmzFiles.length > 0) {
+        toast({
+          title: "Regiones Cargadas",
+          description: `Se cargaron ${allKmzFiles.length} archivos de ${selectedRegions.size} región(es)`,
+        })
+      } else {
+        toast({
+          title: "Sin resultados",
+          description: "No se encontraron archivos KMZ en las regiones seleccionadas",
+          variant: "default",
+        })
+      }
+    } catch (err) {
+      toast({
+        title: "Error",
+        description: "Error al cargar los archivos KMZ",
+        variant: "destructive",
+      })
+      setKmzFiles([])
+    } finally {
+      setIsLoadingKMZ(false)
+      setRegionLoadingProgress({})
+    }
+  }, [selectedRegions, toast])
+
+  // Trigger loading when regions are selected
+  useEffect(() => {
+    if (selectedRegions.size > 0) {
+      loadMultipleRegionsKMZ()
+    } else {
+      setKmzFiles([])
+    }
+  }, [selectedRegions, loadMultipleRegionsKMZ])
 
   const buildRegionFolders = (metadata: any[]) => {
     const regionMap = new Map<string, any[]>()
@@ -846,7 +967,29 @@ export function CAMPOSFolderView() {
           </Badge>
           {folders.length > 0 && <Badge variant="secondary">{folders.length} regiones</Badge>}
           {selectedRegion && kmzFiles.length > 0 && <Badge variant="outline">{kmzFiles.length} en mapa</Badge>}
+          {selectedRegions.size > 0 && <Badge variant="secondary">{selectedRegions.size} seleccionadas</Badge>}
+          {kmzFiles.length > 0 && selectedRegions.size > 0 && <Badge variant="outline">{kmzFiles.length} en mapa</Badge>}
         </div>
+
+        {/* Selected regions display */}
+        {selectedRegions.size > 0 && (
+          <div className="flex gap-2 flex-wrap p-3 bg-teal-50 border border-teal-200 rounded-lg">
+            {Array.from(selectedRegions).map((region) => (
+              <div key={region} className="flex items-center gap-2 bg-white px-3 py-1 rounded-full border border-teal-200">
+                <span className="text-sm">{getCleanRegionName(region)}</span>
+                {regionLoadingProgress[region] !== undefined && regionLoadingProgress[region] < 100 && (
+                  <span className="text-xs text-teal-600 font-medium">{regionLoadingProgress[region]}%</span>
+                )}
+                <button
+                  onClick={() => handleRegionToggle(region)}
+                  className="ml-2 text-teal-600 hover:text-teal-700 font-bold"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
         {(folders.find((f) => f.name === "Sin Región")?.fileCount || 0) > 0 && (
           <div className="p-3 bg-sage-50 border border-sage-200 rounded-lg space-y-2">
@@ -949,26 +1092,41 @@ export function CAMPOSFolderView() {
                 No hay regiones disponibles. Haz clic en actualizar para cargar.
               </p>
             )}
-          {filteredFolders.map((folder) => (
+          {filteredFolders.map((folder) => {
+            const isRegionSelected = selectedRegions.has(folder.name)
+            const regionProgress = regionLoadingProgress[folder.name]
+            
+            return (
             <div key={folder.id}>
-              <Button
-                variant={selectedItem?.id === folder.id ? "secondary" : "ghost"}
-                className="w-full justify-start"
-                onClick={() => handleItemClick(folder)}
-                disabled={isLoadingKMZ && folder.category === selectedRegion}
-              >
-                {folder.isOpen ? <ChevronDown className="h-4 w-4 mr-2" /> : <ChevronRight className="h-4 w-4 mr-2" />}
-                {folder.isOpen ? <FolderOpen className="h-4 w-4 mr-2" /> : <Folder className="h-4 w-4 mr-2" />}
-                <span className="flex-1 text-left truncate">{getCleanRegionName(folder.name)}</span>
-                <Badge variant="outline" className="text-xs ml-2">
-                  {folder.fileCount || 0}
-                </Badge>
-                {folder.location && <MapPin className="h-3 w-3 ml-2 text-muted-foreground" />}
-              </Button>
+              <div className="flex items-center gap-2 p-2 rounded-lg hover:bg-accent/50">
+                <Checkbox
+                  checked={isRegionSelected}
+                  onCheckedChange={() => handleRegionToggle(folder.name)}
+                  className="h-4 w-4"
+                  disabled={isLoadingMetadata}
+                />
+                <Button
+                  variant={selectedItem?.id === folder.id && !isRegionSelected ? "secondary" : "ghost"}
+                  className="flex-1 justify-start"
+                  onClick={() => handleItemClick(folder)}
+                  disabled={isLoadingKMZ && folder.category === selectedRegion}
+                >
+                  {folder.isOpen ? <ChevronDown className="h-4 w-4 mr-2" /> : <ChevronRight className="h-4 w-4 mr-2" />}
+                  {folder.isOpen ? <FolderOpen className="h-4 w-4 mr-2" /> : <Folder className="h-4 w-4 mr-2" />}
+                  <span className="flex-1 text-left truncate">{getCleanRegionName(folder.name)}</span>
+                  <Badge variant="outline" className="text-xs ml-2">
+                    {folder.fileCount || 0}
+                  </Badge>
+                  {regionProgress !== undefined && regionProgress < 100 && (
+                    <span className="text-xs text-teal-600 ml-2">{regionProgress}%</span>
+                  )}
+                  {folder.location && <MapPin className="h-3 w-3 ml-2 text-muted-foreground" />}
+                </Button>
+              </div>
 
               {folder.isOpen && folder.children && (
-                <div className="ml-6 mt-1 space-y-1">
-                  {isLoadingKMZ && folder.category === selectedRegion ? (
+                <div className="ml-8 mt-1 space-y-1">
+                  {isLoadingKMZ && (isRegionSelected || folder.category === selectedRegion) ? (
                     <div className="text-sm text-muted-foreground p-2 text-center">
                       <RefreshCw className="h-4 w-4 animate-spin inline mr-2" />
                       Cargando archivos...
@@ -995,7 +1153,8 @@ export function CAMPOSFolderView() {
                 </div>
               )}
             </div>
-          ))}
+            )
+          })}
             </div>
         )}
       </div>
@@ -1219,7 +1378,7 @@ export function CAMPOSFolderView() {
       <div
         className={`hidden md:flex flex-col bg-card overflow-hidden transition-all duration-300 ${
           isMapFullscreen ? "md:hidden" : ""
-        } ${isLeftPanelOpen ? "w-80 border-r" : "w-0"}`}
+        } ${isLeftPanelOpen ? "w-[420px] border-r" : "w-0"}`}
       >
         {/* Search input rendered outside FolderList to prevent focus loss */}
         <div className="p-4 border-b flex-shrink-0">
@@ -1229,7 +1388,12 @@ export function CAMPOSFolderView() {
             disabled={isLoadingFromURL}
           />
         </div>
-        <FolderList />
+        <div className="flex-1 overflow-y-auto">
+          <div className="p-4">
+            <OnboardingGuide />
+          </div>
+          <FolderList />
+        </div>
       </div>
 
       {/* Left panel toggle button */}

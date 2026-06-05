@@ -25,6 +25,7 @@ import { driveService } from "@/lib/google-drive/drive-service"
 import { kmzReader } from "@/lib/kmz/kmz-reader"
 import { NeighborhoodAnalysisModal } from "@/components/kmz/neighborhood-analysis-modal"
 import { KMZOwnerEditModal } from "@/components/kmz/kmz-owner-edit-modal"
+import { InfoBox } from "@/components/educational/educational-components"
 
 interface KMZRecord {
   id: string
@@ -649,6 +650,20 @@ export function KMZCollectionManager() {
         onSave={loadKMZCollection}
       />
       <div className="container mx-auto p-6 space-y-8">
+        {/* Educational Header */}
+        <div className="space-y-3">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground mb-1">Administración de Colección KMZ</h1>
+            <p className="text-base text-muted-foreground max-w-2xl">
+              Gestiona, organiza y visualiza toda tu colección de archivos geográficos. Aquí puedes cargar nuevos archivos KMZ, asignarlos a regiones y editarlos.
+            </p>
+          </div>
+          <InfoBox 
+            type="info"
+            title="¿Qué son los archivos KMZ?"
+            description="Son archivos de mapas comprimidos que contienen información geográfica de tus campos. Contienen ubicaciones, límites, polígonos y otros datos espaciales que Sur-Realista puede procesar y visualizar."
+          />
+        </div>
         {/* Unassigned KMZ Alert */}
         {showUnassignedAlert && unassignedKMZCount > 0 && (
           <div className="flex items-start gap-4 p-4 bg-yellow-50 border-l-4 border-yellow-400 rounded-lg shadow-sm">
