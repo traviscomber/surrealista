@@ -19,6 +19,12 @@ interface QuoteResult {
   recommendations: string[]
   data_sources?: string[]
   comparable_count?: number
+  internet_comparison?: {
+    price_per_sqm: number
+    source: string
+    difference_percentage: number
+    interpretation: string
+  } | null
 }
 
 export default function CotizadorPage() {
@@ -332,6 +338,61 @@ export default function CotizadorPage() {
                       </ul>
                       <p className="text-blue-300 text-xs mt-3 pt-3 border-t border-blue-700/30">
                         ✓ Datos verificables • ✓ Registro oficial • ✓ Actualizados a mercado vigente
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Internet Market Comparison */}
+                {result.internet_comparison && (
+                  <Card className={`border-l-4 ${
+                    result.internet_comparison.difference_percentage > 10 ? 'bg-amber-900/30 border-l-amber-500 border-amber-700/50' :
+                    result.internet_comparison.difference_percentage < -10 ? 'bg-orange-900/30 border-l-orange-500 border-orange-700/50' :
+                    'bg-green-900/30 border-l-green-500 border-green-700/50'
+                  }`}>
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-sm flex items-center gap-2">
+                        <TrendingUp className={`h-4 w-4 ${
+                          result.internet_comparison.difference_percentage > 10 ? 'text-amber-400' :
+                          result.internet_comparison.difference_percentage < -10 ? 'text-orange-400' :
+                          'text-green-400'
+                        }`} />
+                        Comparación con Mercado Vigente
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <p className="text-slate-400 text-xs mb-1">Tu Valuación</p>
+                          <p className="text-emerald-400 font-bold">${result.price_per_sqm.toLocaleString()}/m²</p>
+                        </div>
+                        <div>
+                          <p className="text-slate-400 text-xs mb-1">Mercado Actual</p>
+                          <p className={`font-bold ${
+                            result.internet_comparison.difference_percentage > 10 ? 'text-amber-400' :
+                            result.internet_comparison.difference_percentage < -10 ? 'text-orange-400' :
+                            'text-green-400'
+                          }`}>
+                            ${result.internet_comparison.price_per_sqm.toLocaleString()}/m²
+                          </p>
+                        </div>
+                      </div>
+                      <div className="p-2 bg-slate-900/50 rounded">
+                        <p className="text-slate-300 text-sm font-medium mb-1">Variación</p>
+                        <p className={`text-lg font-bold ${
+                          result.internet_comparison.difference_percentage > 10 ? 'text-amber-400' :
+                          result.internet_comparison.difference_percentage < -10 ? 'text-orange-400' :
+                          'text-green-400'
+                        }`}>
+                          {result.internet_comparison.difference_percentage > 0 ? '+' : ''}{result.internet_comparison.difference_percentage}%
+                        </p>
+                      </div>
+                      <div className="p-2 bg-slate-700/30 rounded border border-slate-600/50">
+                        <p className="text-slate-300 text-sm font-medium mb-1">Análisis</p>
+                        <p className="text-slate-400 text-sm">{result.internet_comparison.interpretation}</p>
+                      </div>
+                      <p className="text-slate-500 text-xs">
+                        Basado en: <strong>{result.internet_comparison.source}</strong>
                       </p>
                     </CardContent>
                   </Card>
