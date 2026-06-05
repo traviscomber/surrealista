@@ -74,27 +74,6 @@ const toolsItems = [
     description: "Consulta inteligente sobre propiedades",
     badge: "IA",
   },
-  {
-    title: "Agentes Documentales",
-    href: "/admin/agentes",
-    icon: Brain,
-    description: "Sistema agéntico para gestión documental automática",
-    badge: "Nuevo",
-  },
-  {
-    title: "Tecnología IA",
-    href: "/tecnologia-ia",
-    icon: Brain,
-    description: "Descubre nuestras capacidades de IA",
-    badge: "Nuevo",
-  },
-  {
-    title: "Organización Carpetas",
-    href: "/admin/organizacion-carpetas-demo",
-    icon: FolderOpen,
-    description: "Demo de organización profesional de carpetas",
-    badge: "Demo",
-  },
 ]
 
 const mvpItems = [
