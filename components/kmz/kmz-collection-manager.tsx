@@ -1073,14 +1073,6 @@ export function KMZCollectionManager() {
                       <Edit2 className="h-4 w-4 mr-2" />
                       Editar
                     </Button>
-                    <Button
-                      onClick={() => openNeighborhoodAnalysis(kmz)}
-                      variant="outline"
-                      className="flex-1 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-                    >
-                      <MapPin className="h-4 w-4 mr-2" />
-                      Analizar
-                    </Button>
                   </div>
 
                   <div className="text-xs text-slate-500">

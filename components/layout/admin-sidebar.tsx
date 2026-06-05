@@ -402,13 +402,6 @@ export function AdminSidebar() {
             </DropdownMenu>
           </div>
         </div>
-
-        <Button variant="ghost" size="sm" className="w-full justify-start gap-2 h-9" asChild>
-          <Link href="/">
-            <Home className="h-4 w-4" />
-            Volver al Sitio
-          </Link>
-        </Button>
       </div>
     </div>
   )
