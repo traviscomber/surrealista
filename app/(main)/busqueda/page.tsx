@@ -526,25 +526,6 @@ export default function UnifiedSearchPage() {
             <div className="space-y-6">
               <div className="grid md:grid-cols-2 gap-6">
                 {/* KMZ Search Access */}
-                <Link href="/kmz-search">
-                  <div className="h-full group cursor-pointer">
-                    <div className="relative bg-white rounded-2xl border border-slate-200 p-8 hover:border-emerald-400 transition-all hover:shadow-xl hover:-translate-y-1 h-full">
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-100 to-emerald-50 rounded-full -mr-16 -mt-16 opacity-50 group-hover:opacity-100 transition-opacity" />
-                      <div className="relative z-10">
-                        <div className="w-14 h-14 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                          <MapPin className="w-7 h-7 text-white" />
-                        </div>
-                        <h3 className="text-2xl font-bold text-slate-900 mb-2">Búsqueda de Ubicaciones</h3>
-                        <p className="text-slate-600 mb-6">
-                          Busca y explora ubicaciones indexadas de 338 archivos KMZ. Soporta búsqueda sin acentos en todas las regiones de Chile.
-                        </p>
-                        <div className="flex items-center gap-2 text-emerald-600 font-semibold group-hover:gap-4 transition-all">
-                          Acceder
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </Link>
 
                 {/* Admin KMZ Collection Access */}
                 <Link href="/admin/kmz-collection">
