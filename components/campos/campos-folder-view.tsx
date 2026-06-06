@@ -34,6 +34,7 @@ import {
 } from "lucide-react"
 import { kmzReader } from "@/lib/kmz/kmz-reader"
 import { kmzStorageService } from "@/lib/kmz/kmz-storage-service"
+import { kmzAdvancedFilterService } from "@/lib/kmz/kmz-advanced-filter-service"
 import { regionRescanService, type RescanProgress } from "@/lib/kmz/region-rescan-service"
 import { documentKMZLinker, type KMZDocumentLink } from "@/lib/documents/document-kmz-linker"
 import { useToast } from "@/hooks/use-toast"
@@ -155,6 +156,14 @@ export function CAMPOSFolderView() {
   const [loadingDocuments, setLoadingDocuments] = useState(false)
   const [isLoadingFromURL, setIsLoadingFromURL] = useState(false)
   const [selectedKmzId, setSelectedKmzId] = useState<string | null>(null)
+  const [advancedFilters, setAdvancedFilters] = useState({
+    priceMin: 0,
+    priceMax: 10000000,
+    areaMin: 0,
+    areaMax: 50000,
+    zones: [] as string[],
+    propertyTypes: [] as string[],
+  })
 
   const searchParams = useSearchParams()
   const kmzIdFromURL = searchParams?.get("kmz")
@@ -193,6 +202,41 @@ export function CAMPOSFolderView() {
       handleLoadKmzFromId(kmzIdFromURL)
     }
   }, [isLoadingFromURL, isLoadingMetadata, kmzIdFromURL])
+
+  // Load filtered KMZ when regions or filters change
+  useEffect(() => {
+    const loadFilteredData = async () => {
+      if (selectedRegions.size === 0) {
+        setKmzFiles([])
+        return
+      }
+
+      setIsLoadingKMZ(true)
+      try {
+        const regions = Array.from(selectedRegions)
+        const filtered = await kmzAdvancedFilterService.loadFilteredKMZ(
+          regions,
+          advancedFilters
+        )
+
+        setKmzFiles(
+          filtered.map((kmz) => ({
+            id: kmz.id,
+            fileName: kmz.fileName,
+            placemarks: kmz.placemarks,
+            bounds: kmz.bounds,
+            category: kmz.category,
+          }))
+        )
+      } catch (error) {
+        console.error("[v0] Error loading filtered KMZ:", error)
+      } finally {
+        setIsLoadingKMZ(false)
+      }
+    }
+
+    loadFilteredData()
+  }, [selectedRegions, advancedFilters])
 
   const loadRegionMetadata = async () => {
     setIsLoadingMetadata(true)
