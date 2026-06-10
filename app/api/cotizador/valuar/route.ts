@@ -234,7 +234,7 @@ function calculateMacrofiltersMultiplier(macrofiltros: any): { multiplier: numbe
 
 export async function POST(request: NextRequest) {
   try {
-    const { property_type, region, city, area_sqm, condition, features, additional_info } = await request.json()
+    const { property_type, region, city, area_sqm, condition, features, additional_info, macrofiltros, quickKeywords } = await request.json()
 
     if (!property_type || !region || !area_sqm) {
       return NextResponse.json(
