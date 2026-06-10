@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validation: File type
-    const allowedExtensions = [".pdf", ".doc", ".docx", ".kmz", ".kml", ".pptx", ".ppt", ".xlsx", ".xls", ".jpg", ".jpeg", ".png"]
+    const allowedExtensions = [".pdf", ".doc", ".docx", ".kmz", ".kml", ".zip", ".pptx", ".ppt", ".xlsx", ".xls", ".jpg", ".jpeg", ".png"]
     const fileExtension = "." + file.name.split(".").pop()?.toLowerCase()
 
     if (!allowedExtensions.includes(fileExtension)) {

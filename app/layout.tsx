@@ -6,6 +6,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import { PasswordGate } from "@/components/auth/password-gate"
 import { VisitReminders } from "@/components/visits/visit-reminders"
 import { Toaster } from "sonner"
+import { SentryInit } from "@/components/sentry-init"
 
 const lora = Lora({
   subsets: ["latin"],
@@ -35,6 +36,7 @@ export default function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning className="scroll-smooth">
       <body className={`${inter.variable} ${lora.variable} font-sans bg-background text-foreground`}>
+        <SentryInit />
         <ThemeProvider 
           attribute="class" 
           defaultTheme="system" 

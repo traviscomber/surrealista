@@ -142,9 +142,99 @@ const conditionMultipliers = {
   terreno: 1.0,
 }
 
+// Calcular multiplicador basado en macrofiltros rurales
+function calculateMacrofiltersMultiplier(macrofiltros: any): { multiplier: number; adjustments: string[] } {
+  const adjustments: string[] = []
+  let multiplier = 1.0
+
+  // Aptitud Agrícola - Aumenta valor si hay características premium
+  const agriculturalScore = macrofiltros?.aptitudAgricola?.length || 0
+  if (agriculturalScore >= 4) {
+    multiplier *= 1.15
+    adjustments.push('Aptitud agrícola excelente (+15%)')
+  } else if (agriculturalScore >= 2) {
+    multiplier *= 1.08
+    adjustments.push('Aptitud agrícola buena (+8%)')
+  }
+
+  // Recursos Hídricos - Muy importante para propiedades rurales
+  const waterScore = macrofiltros?.recursosHidricos?.length || 0
+  if (waterScore >= 5) {
+    multiplier *= 1.25
+    adjustments.push('Recursos hídricos abundantes (+25%)')
+  } else if (waterScore >= 3) {
+    multiplier *= 1.15
+    adjustments.push('Derechos de agua constituidos (+15%)')
+  } else if (waterScore >= 1) {
+    multiplier *= 1.08
+    adjustments.push('Acceso a agua (+8%)')
+  }
+
+  // Aptitud Frutícola
+  const fruitScore = macrofiltros?.aptitudFruticola?.length || 0
+  if (fruitScore >= 5) {
+    multiplier *= 1.20
+    adjustments.push('Alto potencial frutícola (+20%)')
+  }
+
+  // Aptitud Ganadera
+  const livestockScore = macrofiltros?.aptitudGanadera?.length || 0
+  if (livestockScore >= 5) {
+    multiplier *= 1.18
+    adjustments.push('Excelente para ganadería (+18%)')
+  }
+
+  // Aptitud Lechera - Prima adicional
+  const dairyScore = macrofiltros?.aptitudLechera?.length || 0
+  if (dairyScore >= 5) {
+    multiplier *= 1.22
+    adjustments.push('Capacidad lechera premium (+22%)')
+  }
+
+  // Potencial Forestal
+  const forestScore = macrofiltros?.potencialForestal?.length || 0
+  if (forestScore >= 4) {
+    multiplier *= 1.12
+    adjustments.push('Potencial forestal +12%)')
+  }
+
+  // Desarrollo Inmobiliario - Potencial de apreciación
+  const devScore = macrofiltros?.desarrolloInmobiliario?.length || 0
+  if (devScore >= 5) {
+    multiplier *= 1.30
+    adjustments.push('Alto potencial inmobiliario (+30%)')
+  } else if (devScore >= 3) {
+    multiplier *= 1.15
+    adjustments.push('Potencial de subdivisión (+15%)')
+  }
+
+  // Conservación y Turismo
+  const ecoScore = macrofiltros?.conservacionTurismo?.length || 0
+  if (ecoScore >= 5) {
+    multiplier *= 1.18
+    adjustments.push('Potencial ecoturismo (+18%)')
+  }
+
+  // Infraestructura
+  const infraScore = macrofiltros?.infraestructura?.length || 0
+  if (infraScore >= 5) {
+    multiplier *= 1.12
+    adjustments.push('Infraestructura completa (+12%)')
+  }
+
+  // Accesibilidad
+  const accessScore = macrofiltros?.accesibilidad?.length || 0
+  if (accessScore >= 5) {
+    multiplier *= 1.10
+    adjustments.push('Excelente accesibilidad (+10%)')
+  }
+
+  return { multiplier, adjustments }
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const { property_type, region, city, area_sqm, condition, features, additional_info } = await request.json()
+    const { property_type, region, city, area_sqm, condition, features, additional_info, macrofiltros, quickKeywords } = await request.json()
 
     if (!property_type || !region || !area_sqm) {
       return NextResponse.json(
@@ -277,6 +367,17 @@ export async function POST(request: NextRequest) {
     const multiplier = conditionMultipliers[condition as keyof typeof conditionMultipliers] || 1.0
     let adjusted_price_sqm = base_price_sqm * multiplier
 
+    // Calculate macrofilter multiplier if provided
+    let macrofilterMultiplier = 1.0
+    let macrofilterAdjustments: string[] = []
+    if (req.macrofiltros && Object.keys(req.macrofiltros).some(key => req.macrofiltros[key]?.length > 0)) {
+      const { multiplier: macro_mult, adjustments } = calculateMacrofiltersMultiplier(req.macrofiltros)
+      macrofilterMultiplier = macro_mult
+      macrofilterAdjustments = adjustments
+    }
+    
+    adjusted_price_sqm = adjusted_price_sqm * macrofilterMultiplier
+
     // Apply features bonus
     const featuresList = features ? features.split(',').map(f => f.trim().toLowerCase()) : []
     let featureBonus = 1.0
@@ -320,6 +421,7 @@ export async function POST(request: NextRequest) {
         `Número de propiedades similares analizadas: ${similarProperties.length}`,
         `Ajuste por estado: ${(multiplier * 100).toFixed(0)}%`,
         `Bonificación por características: +${((featureBonus - 1) * 100).toFixed(0)}%`,
+        ...macrofilterAdjustments,
         `Fuentes: ${data_sources.join(', ')}`
       ]
     } else if (siiAvaluos.length > 0) {
@@ -329,6 +431,7 @@ export async function POST(request: NextRequest) {
         `Promedio de avalúos SII: $${Math.round(base_price_sqm).toLocaleString()}/m²`,
         `Registros del SII analizados: ${siiAvaluos.length}`,
         `Ajuste por condición actual: ${(multiplier * 100).toFixed(0)}%`,
+        ...macrofilterAdjustments,
         `Fuentes: SII (Servicio de Impuestos Internos)`
       ]
     } else {

@@ -28,7 +28,7 @@ interface FolderDragDropProps {
 }
 
 const DEFAULT_ZONES = [
-  { id: "propuesta-comercial", name: "Propuesta Comercial" },
+  { id: "propuesta-comercial", name: "Documentos Administrativos" },
   { id: "presentacion", name: "Presentacion" },
   { id: "kmz", name: "KMZ" },
 ]

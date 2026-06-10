@@ -4,7 +4,7 @@
 
 This feature adds drag-and-drop functionality to the Comunicaciones module when creating new folders. Each newly created folder automatically includes three designated drop zones for organizing files:
 
-1. **Propuesta Comercial** - For commercial proposals
+1. **Documentos Administrativos** - For administrative documents
 2. **Presentacion** - For presentations  
 3. **KMZ** - For KMZ (geospatial) files
 
@@ -20,7 +20,7 @@ This feature adds drag-and-drop functionality to the Comunicaciones module when 
 
 ### Using the Drag and Drop Interface
 
-**For each zone (Propuesta Comercial, Presentacion, KMZ):**
+**For each zone (Documentos Administrativos, Presentacion, KMZ):**
 
 - **Drag files directly**: Click and drag files onto any zone
 - **Click to select**: Click "Seleccionar archivo" to browse and upload files
