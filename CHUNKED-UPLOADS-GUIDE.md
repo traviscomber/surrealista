@@ -122,7 +122,7 @@ export function MyPage() {
     <ChunkedFileUploader
       endpoint="/api/upload"
       maxFileSize={500} // MB
-      acceptedFileTypes=".pdf,.doc,.docx,.xls,.xlsx"
+      acceptedFileTypes=".pdf,.doc,.docx,.kmz,.kml,.zip,.xls,.xlsx"
       onSuccess={(uploadId, fileName) => {
         console.log(`Uploaded: ${fileName} (${uploadId})`)
       }}
@@ -203,7 +203,7 @@ export function FundoCamaricoPage() {
       <ChunkedFileUploader
         endpoint="/api/upload"
         maxFileSize={500}
-        acceptedFileTypes=".pdf,.doc,.docx"
+        acceptedFileTypes=".pdf,.doc,.docx,.kmz,.kml,.zip"
         onSuccess={handleUploadSuccess}
         onError={(error) => console.error(error)}
       />
@@ -222,6 +222,18 @@ export function FundoCamaricoPage() {
 ✅ Reutilizable en cualquier componente
 ✅ Soporta archivos hasta 500MB
 ✅ TypeScript completo
+✅ Soporte KMZ/KML (Google Earth)
+✅ Soporte ZIP (archivos comprimidos)
+
+## Supported File Types
+
+- **Documentos**: PDF, DOC, DOCX, PPTX, PPT
+- **Spreadsheets**: XLS, XLSX
+- **Geospatial**: KMZ, KML (Google Earth)
+- **Archives**: ZIP
+- **Imágenes**: JPG, JPEG, PNG
+
+Total extensiones soportadas: 14+ formatos
 
 ## Configuration
 
