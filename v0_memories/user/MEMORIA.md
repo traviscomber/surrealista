@@ -38,3 +38,34 @@ import { ChunkedFileUploader } from "@/components/upload/chunked-file-uploader"
 ✅ Build: 0 errors
 ✅ Production Ready
 ✅ Git Commit: 83ce51c
+
+## KMZ/KML/ZIP File Support (June 5, 2026)
+
+**Problem Fixed:** "Tipo de archivo no permitido: .zip" error
+
+**Solution:** Added .zip to allowed file extensions in upload endpoint
+
+### Files Modified
+- `app/api/upload/route.ts` - Added .zip to allowedExtensions array
+- `CHUNKED-UPLOADS-GUIDE.md` - Updated documentation with new file types
+
+### Supported File Types (14 total)
+- Documents: PDF, DOC, DOCX, PPTX, PPT
+- Spreadsheets: XLS, XLSX
+- Geospatial: KMZ, KML (Google Earth)
+- Archives: ZIP
+- Images: JPG, JPEG, PNG
+
+### Usage
+```typescript
+<ChunkedFileUploader
+  acceptedFileTypes=".pdf,.doc,.docx,.kmz,.kml,.zip"
+  maxFileSize={500}
+  onSuccess={(id, name) => console.log("Done:", name)}
+/>
+```
+
+### Build Status
+✅ 0 errors
+✅ Production Ready
+✅ Commit: 3286b93
