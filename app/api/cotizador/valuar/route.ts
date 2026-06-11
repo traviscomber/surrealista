@@ -9,7 +9,7 @@ import { createClient } from '@supabase/supabase-js'
 // 5. Market benchmarks - Comparables históricos
 
 // Función para obtener datos de mercado REALES de internet
-async function fetchInternetMarketData(region: string, property_type: string, area_sqm: number) {
+async function fetchInternetMarketData(region: string, property_type: string, area_hectareas: number) {
   try {
     // Buscar precios actuales de mercado en portales inmobiliarios chilenos
     const searchQueries = [
@@ -234,16 +234,17 @@ function calculateMacrofiltersMultiplier(macrofiltros: any): { multiplier: numbe
 
 export async function POST(request: NextRequest) {
   try {
-    const { property_type, region, city, area_sqm, condition, features, additional_info, macrofiltros, quickKeywords } = await request.json()
+    const { property_type, region, city, area_hectareas, condition, features, additional_info, macrofiltros, quickKeywords } = await request.json()
 
-    if (!property_type || !region || !area_sqm) {
+    if (!property_type || !region || !area_hectareas) {
       return NextResponse.json(
         { error: 'Datos incompletos' },
         { status: 400 }
       )
     }
 
-    const sqm = parseFloat(area_sqm)
+    const hectareas = parseFloat(area_hectareas)
+    const sqm = hectareas * 10000  // Convertir hectáreas a m²
     if (isNaN(sqm) || sqm <= 0) {
       return NextResponse.json(
         { error: 'Área inválida' },
@@ -303,7 +304,7 @@ export async function POST(request: NextRequest) {
     try {
       const { data: opps } = await supabase
         .from('opportunities')
-        .select('price, area_sqm, location, property_type, market_trend, investment_potential')
+        .select('price, area_hectareas, location, property_type, market_trend, investment_potential')
         .ilike('location', `%${city || region}%`)
         .limit(5)
       

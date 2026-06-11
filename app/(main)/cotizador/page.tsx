@@ -36,7 +36,7 @@ export default function CotizadorPage() {
     property_type: '',
     region: '',
     city: '',
-    area_sqm: '',
+    area_hectareas: '',
     condition: '',
     features: '',
     additional_info: '',
@@ -100,7 +100,7 @@ export default function CotizadorPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!formData.property_type || !formData.region || !formData.area_sqm) {
+    if (!formData.property_type || !formData.region || !formData.area_hectareas) {
       setError('Por favor completa al menos: tipo de propiedad, región y área')
       return
     }
@@ -223,12 +223,12 @@ export default function CotizadorPage() {
                       <div className="grid grid-cols-2 gap-4">
                         {/* Area */}
                         <div>
-                          <label className="block text-sm font-medium text-slate-200 mb-2">Área (m²) *</label>
+                          <label className="block text-sm font-medium text-slate-200 mb-2">Área (hectáreas) *</label>
                           <Input
                             type="number"
                             placeholder="e.g., 5000"
-                            value={formData.area_sqm}
-                            onChange={(e) => setFormData({ ...formData, area_sqm: e.target.value })}
+                            value={formData.area_hectareas}
+                            onChange={(e) => setFormData({ ...formData, area_hectareas: e.target.value })}
                             className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
                           />
                         </div>
