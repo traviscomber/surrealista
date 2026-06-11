@@ -1,6 +1,6 @@
 /**
- * Recalculate placemarks_count directly from kmz_location_index table
- * Processes ALL 2324 files in batches
+ * Recalculate placemarks_count directly from kmz_placemarks table
+ * This is where the actual placemarks are stored
  */
 
 const { createClient } = require('@supabase/supabase-js');
@@ -15,9 +15,9 @@ if (!supabaseUrl || !supabaseKey) {
 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-async function recalculatePlacemarksCountBatch() {
+async function recalculatePlacemarksCountFromPlacemarksTable() {
   try {
-    console.log('[v0] Starting batch DB recalculation for ALL KMZ...');
+    console.log('[v0] Starting batch DB recalculation from kmz_placemarks table...');
     
     const batchSize = 500;
     let offset = 0;
@@ -50,9 +50,9 @@ async function recalculatePlacemarksCountBatch() {
       // Process each KMZ in batch
       for (const kmz of kmzFiles) {
         try {
-          // Count locations for this KMZ from the index
+          // Count placemarks for this KMZ from kmz_placemarks table
           const { count, error: countError } = await supabase
-            .from('kmz_location_index')
+            .from('kmz_placemarks')
             .select('id', { count: 'exact', head: true })
             .eq('kmz_id', kmz.id);
 
@@ -103,4 +103,4 @@ async function recalculatePlacemarksCountBatch() {
   }
 }
 
-recalculatePlacemarksCountBatch();
+recalculatePlacemarksCountFromPlacemarksTable();
