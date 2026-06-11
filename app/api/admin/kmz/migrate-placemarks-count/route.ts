@@ -25,6 +25,8 @@ export async function POST(request: NextRequest) {
       .from('kmz_collection')
       .select('id, file_name, file_path')
       .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(100) // Process max 100 files per request to avoid timeout
 
     if (fetchError) {
       return NextResponse.json(
@@ -126,7 +128,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       {
-        message: 'KMZ migration completed',
+        message: `KMZ migration completed (processed first ${kmzFiles.length} most recent files - call endpoint again to process more)`,
         processed: kmzFiles.length,
         successful: successCount,
         failed: errorCount,
