@@ -195,7 +195,7 @@ function calculateMacrofiltersMultiplier(macrofiltros: any): { multiplier: numbe
   const forestScore = macrofiltros?.potencialForestal?.length || 0
   if (forestScore >= 4) {
     multiplier *= 1.12
-    adjustments.push('Potencial forestal +12%)')
+    adjustments.push('Potencial forestal (+12%)')
   }
 
   // Desarrollo Inmobiliario - Potencial de apreciación
@@ -442,6 +442,7 @@ export async function POST(request: NextRequest) {
         `Valor base mercado en ${region}: $${Math.round(base_price_sqm).toLocaleString()}/m²`,
         `Tipo de propiedad: ${property_type}`,
         `Ajuste por estado: ${(multiplier * 100).toFixed(0)}%`,
+        ...macrofilterAdjustments,
         `Fuentes: Benchmarks internos, datos de mercado regional`
       ]
     }

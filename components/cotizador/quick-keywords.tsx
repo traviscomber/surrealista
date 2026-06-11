@@ -16,7 +16,7 @@ export const QUICK_KEYWORDS: QuickKeyword[] = [
   { id: "agua", label: "#Agua", category: "resources" },
   { id: "riego", label: "#Riego", category: "resources" },
   { id: "derechos-agua", label: "#DerechosDeAgua", category: "resources" },
-  { id: "orilla-lago", label: "#OrillaDeL ago", category: "resources" },
+  { id: "orilla-lago", label: "#OrillaDeLago", category: "resources" },
   { id: "orilla-rio", label: "#OrillaDeRío", category: "resources" },
   { id: "pozo", label: "#Pozo", category: "resources" },
 
