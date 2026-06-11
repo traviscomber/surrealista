@@ -69,7 +69,11 @@ export async function POST(request: NextRequest) {
           .download(kmzFile.file_path)
 
         if (downloadError) {
-          throw new Error(`Download failed: ${downloadError.message}`)
+          throw new Error(`Download failed: ${downloadError?.message || JSON.stringify(downloadError)}`)
+        }
+        
+        if (!data) {
+          throw new Error(`No data returned from storage for file: ${kmzFile.file_path}`)
         }
 
         // Leer el ZIP
