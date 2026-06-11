@@ -2,7 +2,7 @@
 
 import React from "react"
 import { MacrofilterSection, MacrofilterOption } from "./macrofilter-section"
-import { Droplets, Leaf, Cow, TreePine, Building2, MapPin, Zap, Trees, Wheat, Home } from "lucide-react"
+import { Droplets, Leaf, GitBranch, TreePine, Building2, MapPin, Zap, Trees, Wheat, Home } from "lucide-react"
 
 export interface RuralMacrofilters {
   aptitudAgricola: string[]
@@ -123,7 +123,12 @@ export function RuralMacrofiltros({ values, onChange }: RuralMacrofiltrosProps) 
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 p-4">
+      <div className="text-center text-slate-600">
+        <p className="font-semibold">Sistema de 10 Macrofiltros Rurales</p>
+        <p className="text-sm">Selecciona los filtros aplicables a tu propiedad</p>
+      </div>
+
       <MacrofilterSection
         title="1. Aptitud Agrícola"
         description="Capacidad y características del suelo para cultivos"
@@ -155,7 +160,7 @@ export function RuralMacrofiltros({ values, onChange }: RuralMacrofiltrosProps) 
       <MacrofilterSection
         title="4. Aptitud Ganadera"
         description="Capacidad para ganadería extensiva"
-        icon={<Cow className="h-5 w-5 text-orange-600" />}
+        icon={<GitBranch className="h-5 w-5 text-orange-600" />}
         options={MACROFILTROS_OPTIONS.aptitudGanadera}
         selectedIds={values.aptitudGanadera}
         onChange={(selected) => handleChange("aptitudGanadera", selected)}
