@@ -226,7 +226,7 @@ export default function CotizadorPage() {
                           <label className="block text-sm font-medium text-slate-200 mb-2">Área (hectáreas) *</label>
                           <Input
                             type="number"
-                            placeholder="e.g., 5000"
+                            placeholder="e.g., 50"
                             value={formData.area_hectareas}
                             onChange={(e) => setFormData({ ...formData, area_hectareas: e.target.value })}
                             className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
