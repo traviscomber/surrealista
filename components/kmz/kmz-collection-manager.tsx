@@ -121,7 +121,7 @@ export function KMZCollectionManager() {
         .select("*", { count: 'exact' })
         .eq("is_active", true)
         .order("created_at", { ascending: false })
-        .range(0, 9999) // Override 1000-row default limit by requesting 0-9999 (supports up to 10,000 rows)
+        .range(0, 10000) // Fetch all rows up to 10,000 (exceeds our 2324 total)
 
       if (error) {
         if (error.message.includes("does not exist") || error.code === "42P01") {
