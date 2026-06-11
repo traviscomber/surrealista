@@ -103,13 +103,28 @@ export class KMZReader {
     const doc = parser.parseFromString(kmlContent, "text/xml")
 
     const placemarks: KMZPlacemark[] = []
-    const placemarksNodes = doc.getElementsByTagName("Placemark")
-
-    for (let i = 0; i < placemarksNodes.length; i++) {
-      const placemark = placemarksNodes[i]
+    
+    // Get placemarks at document level
+    const topLevelPlacemarks = doc.getElementsByTagName("Placemark")
+    for (let i = 0; i < topLevelPlacemarks.length; i++) {
+      const placemark = topLevelPlacemarks[i]
       const parsedPlacemark = this.parsePlacemark(placemark)
       if (parsedPlacemark) {
         placemarks.push(parsedPlacemark)
+      }
+    }
+
+    // ALSO get placemarks from inside Folders (recursive)
+    const folders = doc.getElementsByTagName("Folder")
+    for (let i = 0; i < folders.length; i++) {
+      const folder = folders[i]
+      const folderPlacemarks = folder.getElementsByTagName("Placemark")
+      for (let j = 0; j < folderPlacemarks.length; j++) {
+        const placemark = folderPlacemarks[j]
+        const parsedPlacemark = this.parsePlacemark(placemark)
+        if (parsedPlacemark) {
+          placemarks.push(parsedPlacemark)
+        }
       }
     }
 
