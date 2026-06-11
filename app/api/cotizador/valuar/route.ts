@@ -370,8 +370,8 @@ export async function POST(request: NextRequest) {
     // Calculate macrofilter multiplier if provided
     let macrofilterMultiplier = 1.0
     let macrofilterAdjustments: string[] = []
-    if (req.macrofiltros && Object.keys(req.macrofiltros).some(key => req.macrofiltros[key]?.length > 0)) {
-      const { multiplier: macro_mult, adjustments } = calculateMacrofiltersMultiplier(req.macrofiltros)
+    if (macrofiltros && Object.keys(macrofiltros).some(key => macrofiltros[key as keyof typeof macrofiltros]?.length > 0)) {
+      const { multiplier: macro_mult, adjustments } = calculateMacrofiltersMultiplier(macrofiltros)
       macrofilterMultiplier = macro_mult
       macrofilterAdjustments = adjustments
     }
