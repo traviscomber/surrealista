@@ -76,6 +76,7 @@ export function KMZCollectionManager() {
   const [fixingRegions, setFixingRegions] = useState(false)
   const [unassignedKMZCount, setUnassignedKMZCount] = useState(0)
   const [showUnassignedAlert, setShowUnassignedAlert] = useState(false)
+  const [migratingPlacemarks, setMigratingPlacemarks] = useState(false)
 
   useEffect(() => {
     loadKMZCollection()
@@ -628,6 +629,38 @@ export function KMZCollectionManager() {
     }
   }
 
+  const migratePlacemarksCount = async () => {
+    if (!confirm(`¿Re-procesar todos los ${kmzFiles.length} KMZ para recalcular placemarks_count?\n\nEsto extrae placemarks de dentro de Folders (nueva funcionalidad).\nPuede tomar algunos minutos.`)) return
+    
+    setMigratingPlacemarks(true)
+    try {
+      const response = await fetch("/api/admin/kmz/migrate-placemarks-count", {
+        method: "POST",
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to migrate placemarks")
+      }
+
+      const data = await response.json()
+      console.log("[v0] Migration complete:", data)
+      
+      const successDetails = data.details
+        .filter((d: any) => d.status === 'success')
+        .map((d: any) => `${d.fileName}: ${d.oldCount} → ${d.newCount}`)
+        .join('\n')
+      
+      alert(`✅ Migración completada!\n\nExitosos: ${data.successful}\nErrores: ${data.failed}\n\nDetalles:\n${successDetails.substring(0, 500)}${successDetails.length > 500 ? '...' : ''}`)
+      loadKMZCollection()
+    } catch (error) {
+      console.error("[v0] Error migrating placemarks:", error)
+      alert("Error al recalcular placemarks_count")
+    } finally {
+      setMigratingPlacemarks(false)
+    }
+  }
+
+
   const categories = ["all", ...new Set(kmzFiles.map((kmz) => kmz.category).filter(Boolean))]
 
   return (
@@ -801,6 +834,25 @@ export function KMZCollectionManager() {
                   <>
                     <MapPin className="h-4 w-4 mr-2" />
                     Re-indexar Todo
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={migratePlacemarksCount}
+                disabled={migratingPlacemarks}
+                variant="secondary"
+                className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-700 border-blue-300 backdrop-blur-sm"
+                title="Re-procesa KMZ para extraer placemarks de dentro de Folders (nueva funcionalidad)"
+              >
+                {migratingPlacemarks ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Migrando...
+                  </>
+                ) : (
+                  <>
+                    <Layers className="h-4 w-4 mr-2" />
+                    Migrar Placemarks
                   </>
                 )}
               </Button>
