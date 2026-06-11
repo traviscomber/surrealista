@@ -20,13 +20,18 @@ export async function POST(request: NextRequest) {
     
     const supabase = createClient(supabaseUrl, serviceRoleKey)
     
-    // Obtener todos los KMZ de la tabla kmz_collection
+    // Aceptar parámetro 'offset' del request body para pagination
+    const body = await request.json().catch(() => ({}))
+    const offset = (body.offset || 0) as number
+    const batchSize = 100
+    
+    // Obtener todos los KMZ de la tabla kmz_collection con pagination
     const { data: kmzFiles, error: fetchError } = await supabase
       .from('kmz_collection')
       .select('id, file_name, file_path')
       .eq('is_active', true)
       .order('created_at', { ascending: false })
-      .limit(100) // Process max 100 files per request to avoid timeout
+      .range(offset, offset + batchSize - 1) // Get batch of 100
 
     if (fetchError) {
       return NextResponse.json(
@@ -132,10 +137,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       {
-        message: `KMZ migration completed (processed first ${kmzFiles.length} most recent files - call endpoint again to process more)`,
+        message: `Processed batch at offset ${offset} (${kmzFiles.length} files). Total processed so far: ${offset + kmzFiles.length}. To process remaining, call again with offset: ${offset + batchSize}`,
+        offset,
+        batchSize,
         processed: kmzFiles.length,
         successful: successCount,
         failed: errorCount,
+        nextOffset: offset + batchSize,
         details: results
       },
       { status: 200 }
