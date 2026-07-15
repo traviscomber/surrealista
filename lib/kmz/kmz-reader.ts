@@ -1,5 +1,6 @@
 import JSZip from "jszip"
 import { DOMParser } from "@xmldom/xmldom"
+import { extractRolNumbersFromTargets } from "./rol-extraction"
 
 export interface KMZPlacemark {
   name: string
@@ -70,7 +71,7 @@ export class KMZReader {
         fileSize: file.size,
         skipped: false,
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error reading KMZ file:", error)
       throw new Error(`Error al leer archivo KMZ: ${error.message}`)
     }
@@ -230,10 +231,10 @@ export class KMZReader {
   ): { north: number; south: number; east: number; west: number } | undefined {
     if (placemarks.length === 0) return undefined
 
-    let north = -90,
-      south = 90,
-      east = -180,
-      west = 180
+    let north = -90
+    let south = 90
+    let east = -180
+    let west = 180
 
     placemarks.forEach((placemark) => {
       placemark.coordinates.forEach(([lng, lat]) => {
@@ -249,53 +250,19 @@ export class KMZReader {
 
   // Método para extraer números de rol de propiedades KMZ
   extractPropertyRoles(kmzData: KMZData): string[] {
-    const roles: string[] = []
-
-    kmzData.placemarks.forEach((placemark) => {
-      // Buscar en el nombre
-      const nameRoles = this.extractRolesFromText(placemark.name)
-      roles.push(...nameRoles)
-
-      // Buscar en la descripción
-      if (placemark.description) {
-        const descRoles = this.extractRolesFromText(placemark.description)
-        roles.push(...descRoles)
-      }
-
-      // Buscar en propiedades extendidas
-      if (placemark.properties) {
-        Object.values(placemark.properties).forEach((value) => {
-          if (typeof value === "string") {
-            const propRoles = this.extractRolesFromText(value)
-            roles.push(...propRoles)
-          }
-        })
-      }
-    })
-
-    return [...new Set(roles)] // Eliminar duplicados
-  }
-
-  private extractRolesFromText(text: string): string[] {
-    const roles: string[] = []
-
-    // Patrones para números de rol chilenos
-    const patterns = [
-      /\b\d{1,5}-\d{4}\b/g, // Formato: 140-2024
-      /\bROL\s*:?\s*(\d{1,5}-\d{4})\b/gi, // ROL: 140-2024
-      /\bFUNDO\s*:?\s*(\d{1,5}-\d{4})\b/gi, // FUNDO: 140-2024
-      /\bPARCELA\s*:?\s*(\d{1,5}-\d{4})\b/gi, // PARCELA: 140-2024
-    ]
-
-    patterns.forEach((pattern) => {
-      const matches = text.match(pattern)
-      if (matches) {
-        roles.push(...matches)
-      }
-    })
-
-    return roles
+    return extractRolNumbersFromTargets(
+      kmzData.placemarks.map((placemark) => ({
+        name: placemark.name,
+        description: placemark.description,
+        properties: placemark.properties || {},
+        metadata: placemark.properties || {},
+      })),
+    )
   }
 }
 
 export const kmzReader = new KMZReader()
+
+export async function parseKMZFile(file: File): Promise<KMZData> {
+  return kmzReader.readKMZFile(file)
+}

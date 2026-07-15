@@ -6,11 +6,34 @@ import { Card } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { REGIONS, COMMUNES_BY_REGION } from "@/lib/sii/chile-locations"
 
-type Role = { rol_manzana: string; rol_predio: string; direccion?: string }
+type Role = { rol_manzana: string; rol_predio: string; direccion?: string; destino?: string; source?: string }
+
+const KNOWN_SII_COMMUNE_CODES: Record<string, string> = {
+  Santiago: "13101",
+  Vitacura: "13132",
+  Providencia: "13123",
+  "Las Condes": "13114",
+  Nunoa: "13120",
+  "La Reina": "13113",
+  "Lo Barnechea": "13115",
+  "San Miguel": "13130",
+  Macul: "13118",
+  Maipu: "13119",
+}
+
+function normalizeCommuneName(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/Ã‘/g, "N")
+    .replace(/Ã±/g, "n")
+    .trim()
+}
 
 export default function SiiRolExplorer() {
   const [region, setRegion] = useState("")
   const [comuna, setComuna] = useState("")
+  const [comunaCode, setComunaCode] = useState("")
   const [calle, setCalle] = useState("")
   const [numero, setNumero] = useState("")
 
@@ -23,6 +46,20 @@ export default function SiiRolExplorer() {
   const handleRegionChange = (value: string) => {
     setRegion(value)
     setComuna("")
+    setComunaCode("")
+  }
+
+  const handleComunaChange = (value: string) => {
+    setComuna(value)
+    setComunaCode(KNOWN_SII_COMMUNE_CODES[normalizeCommuneName(value)] || "")
+  }
+
+  const loadExample = () => {
+    setRegion("13")
+    setComuna("Santiago")
+    setComunaCode("13101")
+    setCalle("ALAMEDA")
+    setNumero("3")
   }
 
   async function run() {
@@ -34,7 +71,7 @@ export default function SiiRolExplorer() {
       const r = await fetch("/api/sii/explore", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ region, comuna, calle, numero }),
+        body: JSON.stringify({ region, comuna: comunaCode, calle, numero }),
       })
 
       const data = await r.json()
@@ -77,7 +114,7 @@ export default function SiiRolExplorer() {
           </SelectContent>
         </Select>
 
-        <Select value={comuna} onValueChange={setComuna} disabled={!region}>
+        <Select value={comuna} onValueChange={handleComunaChange} disabled={!region}>
           <SelectTrigger className="bg-white">
             <SelectValue placeholder="Selecciona Comuna" />
           </SelectTrigger>
@@ -90,13 +127,23 @@ export default function SiiRolExplorer() {
           </SelectContent>
         </Select>
 
+        <Input
+          placeholder="Codigo comuna SII, ej: 13101"
+          value={comunaCode}
+          onChange={(e) => setComunaCode(e.target.value)}
+          className="bg-white"
+        />
         <Input placeholder="Calle" value={calle} onChange={(e) => setCalle(e.target.value)} className="bg-white" />
         <Input placeholder="Número" value={numero} onChange={(e) => setNumero(e.target.value)} className="bg-white" />
       </div>
 
+      <Button type="button" variant="outline" onClick={loadExample} className="mt-3 w-full bg-white">
+        Cargar ejemplo: Santiago, Alameda 3
+      </Button>
+
       <Button
         onClick={run}
-        disabled={status === "running" || !region || !comuna || !calle || !numero}
+        disabled={status === "running" || !comunaCode || !calle || !numero}
         className="mt-4 w-full"
       >
         {status === "running" ? "Buscando…" : "Explorador terreno (SII)"}
@@ -117,6 +164,8 @@ export default function SiiRolExplorer() {
                 <strong>Rol:</strong> {role.rol_manzana}-{role.rol_predio}
               </p>
               {role.direccion && <p className="text-xs text-slate-600">{role.direccion}</p>}
+              {role.destino && <p className="text-xs text-slate-500">Destino: {role.destino}</p>}
+              {role.source && <p className="text-xs text-slate-400">Fuente: {role.source}</p>}
             </Card>
           ))}
         </div>
