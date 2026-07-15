@@ -27,6 +27,11 @@ type AvaluoResult = RoleResult & {
   periodo?: string
 }
 
+type CommuneResult = {
+  codigo: string
+  nombre: string
+}
+
 const EXAMPLES = [
   {
     label: "Santiago, Alameda 3",
@@ -42,6 +47,27 @@ const EXAMPLES = [
     numero: "1",
     rol: "13101-29-59",
   },
+  {
+    label: "Valdivia, Picarte 500",
+    comunaCode: "10101",
+    calle: "PICARTE",
+    numero: "500",
+    rol: "10101-74-31",
+  },
+  {
+    label: "Puerto Montt, Urmeneta 500",
+    comunaCode: "10301",
+    calle: "URMENETA",
+    numero: "500",
+    rol: "10301-84-7",
+  },
+  {
+    label: "Vitacura, Av Nueva Vitacura 3296",
+    comunaCode: "15160",
+    calle: "VITACURA",
+    numero: "3296",
+    rol: "15160-465-165",
+  },
 ]
 
 function formatMoney(value?: number) {
@@ -55,6 +81,9 @@ function getDisplayRol(role: RoleResult) {
 
 export default function SiiRolExplorer() {
   const [comunaCode, setComunaCode] = useState("13101")
+  const [comunaQuery, setComunaQuery] = useState("Santiago")
+  const [communeResults, setCommuneResults] = useState<CommuneResult[]>([])
+  const [communeStatus, setCommuneStatus] = useState<"idle" | "running" | "done" | "error">("idle")
   const [calle, setCalle] = useState("ALAMEDA")
   const [numero, setNumero] = useState("3")
   const [rol, setRol] = useState("13101-42-998")
@@ -67,6 +96,9 @@ export default function SiiRolExplorer() {
 
   const loadExample = (example: (typeof EXAMPLES)[number]) => {
     setComunaCode(example.comunaCode)
+    setComunaQuery("")
+    setCommuneResults([])
+    setCommuneStatus("idle")
     setCalle(example.calle)
     setNumero(example.numero)
     setRol(example.rol)
@@ -75,6 +107,33 @@ export default function SiiRolExplorer() {
     setAvaluo(null)
     setSource("")
     setStatus("idle")
+  }
+
+  async function searchCommunes() {
+    setCommuneStatus("running")
+    setCommuneResults([])
+
+    try {
+      const response = await fetch(`/api/sii/communes/search?q=${encodeURIComponent(comunaQuery)}`)
+      const data = await response.json()
+
+      if (!response.ok || !data?.success) {
+        setCommuneStatus("error")
+        return
+      }
+
+      setCommuneResults(data.results || [])
+      setCommuneStatus("done")
+    } catch {
+      setCommuneStatus("error")
+    }
+  }
+
+  function selectCommune(commune: CommuneResult) {
+    setComunaCode(commune.codigo)
+    setComunaQuery(commune.nombre)
+    setCommuneResults([])
+    setCommuneStatus("idle")
   }
 
   async function searchAddress() {
@@ -170,6 +229,56 @@ export default function SiiRolExplorer() {
         <Card className="border-slate-700 bg-slate-900 p-5 text-slate-100">
           <h3 className="text-lg font-semibold text-white">Buscar roles por direccion</h3>
           <p className="mt-1 text-sm text-slate-400">El codigo de comuna SII es obligatorio. Ejemplo: Santiago = 13101.</p>
+          <div className="mt-4 rounded-2xl border border-slate-700 bg-slate-950 p-4">
+            <label className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+              Convertir comuna a codigo SII
+            </label>
+            <p className="mt-1 text-xs text-slate-500">
+              Fuente: catalogo oficial SII Mapas. Algunos codigos no coinciden con codigos INE; por ejemplo Vitacura es 15160 en SII Mapas.
+            </p>
+            <div className="mt-3 grid gap-2 md:grid-cols-[1fr_auto]">
+              <Input
+                aria-label="Buscar comuna"
+                value={comunaQuery}
+                onChange={(event) => setComunaQuery(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault()
+                    searchCommunes()
+                  }
+                }}
+                className="border-slate-600 bg-slate-900 text-white placeholder:text-slate-500"
+                placeholder="Escribe una comuna: Vitacura, Caldera, Santiago..."
+              />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={searchCommunes}
+                disabled={communeStatus === "running" || !comunaQuery.trim()}
+                className="border-slate-600 bg-slate-900 text-slate-100 hover:bg-slate-800 hover:text-white"
+              >
+                {communeStatus === "running" ? "Buscando..." : "Buscar codigo"}
+              </Button>
+            </div>
+            {communeStatus === "error" && (
+              <p className="mt-2 text-xs text-red-300">No se pudo consultar el catalogo de comunas SII.</p>
+            )}
+            {communeResults.length > 0 && (
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                {communeResults.map((commune) => (
+                  <button
+                    key={`${commune.codigo}-${commune.nombre}`}
+                    type="button"
+                    onClick={() => selectCommune(commune)}
+                    className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-left text-sm text-slate-100 transition hover:border-emerald-400 hover:bg-emerald-950"
+                  >
+                    <span className="font-semibold">{commune.nombre}</span>
+                    <span className="ml-2 font-mono text-emerald-300">{commune.codigo}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-3">
             <Input
               aria-label="Codigo comuna SII"
