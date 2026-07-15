@@ -42,6 +42,14 @@ type RankedAddressCandidate = {
   textScore: number
 }
 
+type EvaluatedNameCandidate = {
+  rol: string
+  distanceKm: number
+  coordinateSource?: "direct" | "projected-ah" | "projected-csa"
+  textScore: number
+  record: NonNullable<Awaited<ReturnType<SiiMapasPublicProvider["getByRol"]>>>
+}
+
 const GENERIC_NAME_TOKENS = new Set([
   "ARCHIVO",
   "CAMPO",
@@ -69,7 +77,7 @@ const GENERIC_NAME_TOKENS = new Set([
   "TERRENO",
 ])
 
-const MIN_NAME_MATCH_DISTANCE_KM = 12
+const MIN_NAME_MATCH_DISTANCE_KM = 9
 const MIN_PROJECTED_AH_MATCH_DISTANCE_KM = 6
 const MIN_PROJECTED_CSA_MATCH_DISTANCE_KM = 8
 
@@ -523,6 +531,7 @@ export async function POST(request: Request) {
           candidates: candidates.length,
           inspected: rankedCandidates.length,
         }
+        let bestCandidate: EvaluatedNameCandidate | null = null
 
         for (const rankedCandidate of rankedCandidates) {
           const parsed = parseRolParts(rankedCandidate.rol)
@@ -541,12 +550,30 @@ export async function POST(request: Request) {
             continue
           }
 
-          attempt.matchedRol = detailedCandidate.rol
-          attempt.matchedDistanceKm = Number(distanceKm.toFixed(3))
-          attempt.matchedCoordinateSource = detailedCandidate.coordinateSource
-          record = detailedCandidate
+          const evaluatedCandidate: EvaluatedNameCandidate = {
+            rol: detailedCandidate.rol,
+            distanceKm,
+            coordinateSource: detailedCandidate.coordinateSource,
+            textScore: rankedCandidate.textScore,
+            record: detailedCandidate,
+          }
+
+          if (
+            !bestCandidate ||
+            evaluatedCandidate.textScore > bestCandidate.textScore ||
+            (evaluatedCandidate.textScore === bestCandidate.textScore &&
+              evaluatedCandidate.distanceKm < bestCandidate.distanceKm)
+          ) {
+            bestCandidate = evaluatedCandidate
+          }
+        }
+
+        if (bestCandidate) {
+          attempt.matchedRol = bestCandidate.rol
+          attempt.matchedDistanceKm = Number(bestCandidate.distanceKm.toFixed(3))
+          attempt.matchedCoordinateSource = bestCandidate.coordinateSource
+          record = bestCandidate.record
           resolutionMethod = "name-search"
-          break
         }
 
         nameSearchAttempts.push(attempt)
