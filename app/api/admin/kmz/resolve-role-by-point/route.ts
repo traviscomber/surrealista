@@ -458,6 +458,7 @@ export async function POST(request: Request) {
       span: number
       found: boolean
     }> = []
+    const providerErrors: string[] = []
     const textAttempts: TextResolutionAttempt[] = []
     const nameSearchAttempts: NameSearchAttempt[] = []
     let matchedPoint: SamplePoint | null = null
@@ -491,7 +492,13 @@ export async function POST(request: Request) {
         continue
       }
 
-      const candidate = await provider.getByRol(parsed)
+      let candidate = null
+      try {
+        candidate = await provider.getByRol(parsed)
+      } catch (error: any) {
+        providerErrors.push(`text:${normalizedRol}:${error?.message || "unknown error"}`)
+      }
+
       textAttempts.push({ rol: extractedRole, normalizedRol, found: Boolean(candidate) })
 
       if (candidate) {
@@ -512,7 +519,19 @@ export async function POST(request: Request) {
       )
 
       for (const query of nameSearchQueries) {
-        const candidates = await provider.searchByAddress({ comuna: body.comuna, calle: query })
+        let candidates: Awaited<ReturnType<SiiMapasPublicProvider["searchByAddress"]>> = []
+        try {
+          candidates = await provider.searchByAddress({ comuna: body.comuna, calle: query })
+        } catch (error: any) {
+          providerErrors.push(`name-search:${query}:${error?.message || "unknown error"}`)
+          nameSearchAttempts.push({
+            query,
+            candidates: 0,
+            inspected: 0,
+          })
+          continue
+        }
+
         const rankedCandidates = candidates
           .map(
             (candidate) =>
@@ -539,7 +558,14 @@ export async function POST(request: Request) {
             continue
           }
 
-          const detailedCandidate = await provider.getByRol(parsed)
+          let detailedCandidate = null
+          try {
+            detailedCandidate = await provider.getByRol(parsed)
+          } catch (error: any) {
+            providerErrors.push(`name-detail:${rankedCandidate.rol}:${error?.message || "unknown error"}`)
+            continue
+          }
+
           if (!detailedCandidate?.coordinates) {
             continue
           }
@@ -587,7 +613,13 @@ export async function POST(request: Request) {
     if (!record) {
       for (const point of samplePoints) {
         for (const span of spanSequence) {
-          const candidate = await provider.getByPoint({ comuna: body.comuna, lat: point.lat, lng: point.lng, span })
+          let candidate = null
+          try {
+            candidate = await provider.getByPoint({ comuna: body.comuna, lat: point.lat, lng: point.lng, span })
+          } catch (error: any) {
+            providerErrors.push(`point:${point.label}:${span}:${error?.message || "unknown error"}`)
+          }
+
           attempts.push({ ...point, span, found: Boolean(candidate) })
 
           if (candidate) {
@@ -623,6 +655,7 @@ export async function POST(request: Request) {
         textAttempts,
         nameSearchAttempts,
         attempts,
+        providerErrors,
         source: "SII Mapas getFeatureInfo",
       })
     }
@@ -685,6 +718,7 @@ export async function POST(request: Request) {
       nameSearchAttempts,
       matchedPoint,
       attempts,
+      providerErrors,
       roles,
       record,
       source: "SII Mapas getFeatureInfo",
