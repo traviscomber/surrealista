@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation" // Added router for navigation
 import { ClientRepositoryDashboard } from "@/components/client-management/client-repository-dashboard"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import SiiRolExplorer from "@/components/sii-rol-explorer"
 
 const KMZMapDisplay = dynamicImport(() => import("@/components/kmz/kmz-map-display").then((mod) => mod.KMZMapDisplay), {
   ssr: false,
@@ -459,7 +460,7 @@ export default function UnifiedSearchPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-6 mb-4 h-auto gap-1 bg-transparent p-0">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-7 mb-4 h-auto gap-1 bg-transparent p-0">
             <TabsTrigger
               value="campos"
               className="flex flex-col items-center gap-2 py-3 px-2 data-[state=active]:bg-teal-100 data-[state=active]:text-teal-900 rounded-lg transition-colors"
@@ -501,6 +502,13 @@ export default function UnifiedSearchPage() {
             >
               <MapPin className="h-5 w-5" />
               <span className="text-xs font-semibold">Mapas</span>
+            </TabsTrigger>
+            <TabsTrigger
+              value="sii-roles"
+              className="flex flex-col items-center gap-2 py-3 px-2 cursor-pointer data-[state=active]:bg-emerald-100 data-[state=active]:text-emerald-950 rounded-lg transition-colors"
+            >
+              <Database className="h-5 w-5" />
+              <span className="text-xs font-semibold">SII Roles</span>
             </TabsTrigger>
           </TabsList>
 
@@ -551,6 +559,10 @@ export default function UnifiedSearchPage() {
                 </Link>
               </div>
             </div>
+          </TabsContent>
+
+          <TabsContent value="sii-roles" className="min-h-[600px]">
+            <SiiRolExplorer />
           </TabsContent>
         </Tabs>
 
