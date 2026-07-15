@@ -137,6 +137,65 @@ export class SiiMapasPublicProvider implements SiiProvider {
     return buildAvaluo(data, input)
   }
 
+  async getServiceForComuna(comuna: string): Promise<Record<string, unknown> | null> {
+    const services = await this.post<Record<string, unknown>[]>("getServicioPredio", {
+      comuna,
+      eac: -1,
+      tokenARSII: null,
+    })
+
+    return services.find((service) => service.aliasServicio === "P" || service.tipoServicio === 2) || services[0] || null
+  }
+
+  async getByPoint(input: { comuna: string; lat: number; lng: number; span?: number }): Promise<SiiAvaluoRecord | null> {
+    const service = await this.getServiceForComuna(input.comuna)
+    const layer = getText(service || {}, ["layer"])
+    const style = getText(service || {}, ["style"])
+    const eac = getNumber(service?.eac) || 0
+    const eacano = getNumber(service?.eacano) || 0
+    const span = input.span || 0.02
+
+    if (!layer || !style) {
+      return null
+    }
+
+    const data = await this.post<Record<string, unknown> | null>("getFeatureInfo", {
+      clickInfo: {
+        x: 500,
+        y: 500,
+        southwestx: input.lat - span,
+        southwesty: input.lng - span,
+        northeastx: input.lat + span,
+        northeasty: input.lng + span,
+        layer,
+        width: 1000,
+        height: 1000,
+        servicios: [
+          {
+            comuna: Number(input.comuna),
+            layer,
+            style,
+            eac,
+            eacano,
+          },
+        ],
+      },
+      tokenARSII: null,
+    })
+
+    if (!data || typeof data !== "object" || data.existePredio === -1) {
+      return null
+    }
+
+    const manzana = getText(data, ["manzana", "manzanaCnp"])
+    const predio = getText(data, ["predio", "predioCnp"])
+    if (!manzana || !predio) {
+      return null
+    }
+
+    return buildAvaluo(data, { comuna: input.comuna, manzana, predio })
+  }
+
   private async post<T>(operation: string, data: unknown): Promise<T> {
     const namespace = `cl.sii.sdi.lob.bbrr.mapas.data.api.interfaces.MapasFacadeService/${operation}`
     const response = await fetch(`${this.baseUrl}/${operation}`, {

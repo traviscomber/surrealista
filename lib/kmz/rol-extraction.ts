@@ -36,6 +36,22 @@ function normalizeRol(rol: string): string {
     .toUpperCase()
 }
 
+function isLikelyDateOrVersion(rol: string): boolean {
+  const [left, right] = normalizeRol(rol).split("-")
+  const leftNumber = Number(left)
+  const rightNumber = Number(right)
+
+  if (leftNumber >= 1900 && leftNumber <= 2099 && rightNumber >= 1 && rightNumber <= 12) {
+    return true
+  }
+
+  if (rightNumber >= 1900 && rightNumber <= 2099 && leftNumber >= 1 && leftNumber <= 12) {
+    return true
+  }
+
+  return false
+}
+
 function pushHit(
   hits: RolExtractionHit[],
   seen: Set<string>,
@@ -45,7 +61,7 @@ function pushHit(
   context: string,
 ) {
   const normalized = normalizeRol(rol)
-  if (!normalized || seen.has(normalized)) {
+  if (!normalized || seen.has(normalized) || isLikelyDateOrVersion(normalized)) {
     return
   }
 
