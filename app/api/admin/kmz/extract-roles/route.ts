@@ -7,6 +7,7 @@ export const maxDuration = 300
 
 type BackfillRequest = {
   limit?: number
+  offset?: number
   dryRun?: boolean
   onlyMissing?: boolean
 }
@@ -30,16 +31,19 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json().catch(() => ({}))) as BackfillRequest
     const limit = Math.min(Math.max(body.limit || 50, 1), 500)
+    const offset = Math.max(body.offset || 0, 0)
     const dryRun = body.dryRun === true
     const onlyMissing = body.onlyMissing !== false
     const supabase = getSupabaseAdmin()
+    const fetchLimit = onlyMissing ? Math.min(limit * 3, 1500) : limit
+    const fetchEnd = offset + fetchLimit - 1
 
     let query = supabase
       .from("kmz_collection")
       .select("id, file_name, description, metadata, rol_numbers")
       .eq("is_active", true)
       .order("updated_at", { ascending: false })
-      .limit(onlyMissing ? Math.min(limit * 3, 1500) : limit)
+      .range(offset, fetchEnd)
 
     const { data: kmzFiles, error } = await query
     if (error) throw error
@@ -128,6 +132,8 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       dryRun,
+      offset,
+      scanned: kmzFiles?.length || 0,
       processed: results.length,
       updated: results.filter((result) => result.status === "updated").length,
       results,
