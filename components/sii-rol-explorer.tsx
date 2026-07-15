@@ -36,11 +36,11 @@ const EXAMPLES = [
     rol: "13101-42-998",
   },
   {
-    label: "Vitacura, Alonso de Cordova",
-    comunaCode: "13132",
-    calle: "ALONSO DE CORDOVA",
-    numero: "5870",
-    rol: "",
+    label: "Santiago, Ahumada 1",
+    comunaCode: "13101",
+    calle: "AHUMADA",
+    numero: "1",
+    rol: "13101-29-59",
   },
 ]
 
@@ -144,6 +144,7 @@ export default function SiiRolExplorer() {
           <h2 className="mt-2 text-3xl font-bold text-white">Explorador predial real</h2>
           <p className="mt-2 max-w-2xl text-sm text-slate-300">
             Usa endpoints publicos de SII Mapas. No usa mocks ni BaseAPI cuando no hay `BASEAPI_API_KEY`.
+            La busqueda por direccion depende del nombre exacto que publica SII; si devuelve 0, verifica por rol exacto.
           </p>
         </div>
         <div className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-xs font-semibold text-emerald-200">
