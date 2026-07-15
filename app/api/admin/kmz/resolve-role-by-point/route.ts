@@ -73,6 +73,20 @@ function getCenterFromPoints(points: Array<{ lat: number; lng: number }>): { lat
   }
 }
 
+function getBoundsSpanSequence(bounds: any) {
+  const north = Number(bounds?.north)
+  const south = Number(bounds?.south)
+  const east = Number(bounds?.east)
+  const west = Number(bounds?.west)
+
+  const latDelta = Number.isFinite(north) && Number.isFinite(south) ? Math.abs(north - south) : 0
+  const lngDelta = Number.isFinite(east) && Number.isFinite(west) ? Math.abs(east - west) : 0
+  const naturalSpan = Math.max(latDelta, lngDelta)
+  const baseSpan = Math.min(Math.max(naturalSpan * 1.5, 0.02), 0.12)
+
+  return Array.from(new Set([baseSpan, Math.min(baseSpan * 2, 0.12), Math.min(baseSpan * 4, 0.12)].map((value) => Number(value.toFixed(4)))))
+}
+
 function expandRolForComuna(rol: string, comuna: string): string | null {
   const parsed = parseRolParts(rol)
   if (!parsed) return null
@@ -264,7 +278,15 @@ export async function POST(request: Request) {
     }
 
     const provider = new SiiMapasPublicProvider()
-    const attempts: Array<{ label: string; source: "coordinates" | "bounds"; lat: number; lng: number; found: boolean }> = []
+    const spanSequence = getBoundsSpanSequence(kmz.bounds)
+    const attempts: Array<{
+      label: string
+      source: "coordinates" | "bounds"
+      lat: number
+      lng: number
+      span: number
+      found: boolean
+    }> = []
     const textAttempts: TextResolutionAttempt[] = []
     let matchedPoint: SamplePoint | null = null
     let record = null
@@ -309,13 +331,19 @@ export async function POST(request: Request) {
 
     if (!record) {
       for (const point of samplePoints) {
-        const candidate = await provider.getByPoint({ comuna: body.comuna, lat: point.lat, lng: point.lng })
-        attempts.push({ ...point, found: Boolean(candidate) })
+        for (const span of spanSequence) {
+          const candidate = await provider.getByPoint({ comuna: body.comuna, lat: point.lat, lng: point.lng, span })
+          attempts.push({ ...point, span, found: Boolean(candidate) })
 
-        if (candidate) {
-          matchedPoint = point
-          record = candidate
-          resolutionMethod = "point"
+          if (candidate) {
+            matchedPoint = point
+            record = candidate
+            resolutionMethod = "point"
+            break
+          }
+        }
+
+        if (record) {
           break
         }
       }
@@ -334,6 +362,7 @@ export async function POST(request: Request) {
           total: samplePoints.length,
           coordinateSamples,
           boundsSamples,
+          spans: spanSequence,
         },
         extractedRoles,
         textAttempts,
@@ -361,6 +390,7 @@ export async function POST(request: Request) {
                 total: samplePoints.length,
                 coordinateSamples,
                 boundsSamples,
+                spans: spanSequence,
               },
               extractedRoles,
               textAttempts,
@@ -390,6 +420,7 @@ export async function POST(request: Request) {
         total: samplePoints.length,
         coordinateSamples,
         boundsSamples,
+        spans: spanSequence,
       },
       resolutionMethod,
       extractedRoles,
