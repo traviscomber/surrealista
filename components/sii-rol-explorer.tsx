@@ -13,6 +13,7 @@ type RoleResult = {
   destino?: string
   comuna?: string
   comuna_codigo?: string
+  comunaCodigo?: string
   source?: string
   confidence?: number
 }
@@ -30,6 +31,24 @@ type AvaluoResult = RoleResult & {
 type CommuneResult = {
   codigo: string
   nombre: string
+}
+
+type CbrRouteResult = {
+  source: string
+  conservatorName: string
+  communeName: string
+  communeCode?: string
+  rol?: string
+  supportsOnlineIndex: boolean
+  supportsOnlineDomainRequest: boolean
+  searchUrl: string
+  domainUrl?: string
+  notes: string[]
+  references: Array<{
+    label: string
+    url: string
+    verified: boolean
+  }>
 }
 
 const EXAMPLES = [
@@ -93,6 +112,13 @@ export default function SiiRolExplorer() {
   const [source, setSource] = useState("")
   const [roles, setRoles] = useState<RoleResult[]>([])
   const [avaluo, setAvaluo] = useState<AvaluoResult | null>(null)
+  const [cbrStatus, setCbrStatus] = useState<"idle" | "running" | "done" | "error">("idle")
+  const [cbrRoute, setCbrRoute] = useState<CbrRouteResult | null>(null)
+  const [ownerName, setOwnerName] = useState("")
+  const [companyName, setCompanyName] = useState("")
+  const [documentUrl, setDocumentUrl] = useState("")
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "done" | "error">("idle")
+  const [saveMessage, setSaveMessage] = useState("")
 
   const loadExample = (example: (typeof EXAMPLES)[number]) => {
     setComunaCode(example.comunaCode)
@@ -107,6 +133,10 @@ export default function SiiRolExplorer() {
     setAvaluo(null)
     setSource("")
     setStatus("idle")
+    setCbrRoute(null)
+    setCbrStatus("idle")
+    setSaveStatus("idle")
+    setSaveMessage("")
   }
 
   async function searchCommunes() {
@@ -188,10 +218,81 @@ export default function SiiRolExplorer() {
       setStatus("done")
       setSource(data?.provider?.source || "")
       setAvaluo(data?.rol ?? null)
+      setCbrRoute(null)
+      setCbrStatus("idle")
       setMsg(data?.rol ? "Rol verificado contra SII Mapas." : "SII no devolvio datos para ese rol.")
     } catch (error: any) {
       setStatus("error")
       setMsg(error?.message ?? "Error desconocido")
+    }
+  }
+
+  async function prepareCbrRoute() {
+    const activeRol = avaluo ? getDisplayRol(avaluo) : rol
+    const activeComunaCode = avaluo?.comunaCodigo || avaluo?.comuna_codigo || comunaCode
+    const activeComunaName = avaluo?.comuna || comunaQuery
+
+    if (!activeRol && !activeComunaCode && !activeComunaName) return
+
+    setCbrStatus("running")
+    setCbrRoute(null)
+
+    try {
+      const response = await fetch("/api/cbr/resolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rol: activeRol,
+          comunaCode: activeComunaCode,
+          comunaName: activeComunaName,
+        }),
+      })
+      const data = await response.json()
+
+      if (!response.ok || !data?.success) {
+        setCbrStatus("error")
+        return
+      }
+
+      setCbrRoute(data.route || null)
+      setCbrStatus("done")
+    } catch {
+      setCbrStatus("error")
+    }
+  }
+
+  async function saveOwnerRecord() {
+    const activeRol = avaluo ? getDisplayRol(avaluo) : rol
+    if (!activeRol || (!ownerName.trim() && !companyName.trim())) return
+
+    setSaveStatus("saving")
+    setSaveMessage("")
+
+    try {
+      const response = await fetch("/api/cbr/owner-record", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rol: activeRol,
+          ownerName: ownerName.trim() || undefined,
+          companyName: companyName.trim() || undefined,
+          documentType: "dominio_vigente",
+          documentUrl: documentUrl.trim() || undefined,
+        }),
+      })
+      const data = await response.json()
+
+      if (!response.ok || !data?.success) {
+        setSaveStatus("error")
+        setSaveMessage(data?.error || "No se pudo guardar el respaldo del CBR.")
+        return
+      }
+
+      setSaveStatus("done")
+      setSaveMessage(`Respaldo guardado para ${data.updated} KMZ asociado(s) al rol.`)
+    } catch (error: any) {
+      setSaveStatus("error")
+      setSaveMessage(error?.message || "Error al guardar respaldo CBR.")
     }
   }
 
@@ -394,6 +495,129 @@ export default function SiiRolExplorer() {
           </div>
         </Card>
       )}
+
+      <Card className="mt-5 border-slate-700 bg-slate-900 p-5 text-slate-100">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-sm uppercase tracking-[0.2em] text-amber-300">CBR / Dominio</p>
+            <h3 className="mt-1 text-xl font-bold text-white">Ruta para conocer dueño o sociedad</h3>
+            <p className="mt-2 max-w-3xl text-sm text-slate-400">
+              El SII no acredita dominio. Este bloque prepara el conservador correcto para buscar indice de propiedad y
+              solicitar dominio vigente, y permite guardar el resultado respaldado por rol.
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={prepareCbrRoute}
+            disabled={cbrStatus === "running" || (!rol && !avaluo)}
+            className="border-amber-400/40 bg-amber-500/10 text-amber-100 hover:bg-amber-500/20 hover:text-white"
+          >
+            {cbrStatus === "running" ? "Preparando..." : "Preparar consulta CBR"}
+          </Button>
+        </div>
+
+        {cbrStatus === "error" && (
+          <p className="mt-3 text-sm text-red-300">No se pudo resolver la ruta CBR para este rol/comuna.</p>
+        )}
+
+        {cbrRoute && (
+          <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
+              <p className="text-sm font-semibold text-white">{cbrRoute.conservatorName}</p>
+              <p className="mt-1 text-sm text-slate-400">
+                Comuna: {cbrRoute.communeName}
+                {cbrRoute.communeCode ? ` (${cbrRoute.communeCode})` : ""}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <a
+                  href={cbrRoute.searchUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-full bg-sky-500 px-3 py-1 text-xs font-semibold text-slate-950"
+                >
+                  Ir a indice / consultas
+                </a>
+                {cbrRoute.domainUrl && (
+                  <a
+                    href={cbrRoute.domainUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-full bg-emerald-500 px-3 py-1 text-xs font-semibold text-slate-950"
+                  >
+                    Ir a dominio vigente
+                  </a>
+                )}
+              </div>
+              <div className="mt-4 space-y-2">
+                {cbrRoute.notes.map((note) => (
+                  <p key={note} className="text-sm text-slate-300">
+                    {note}
+                  </p>
+                ))}
+              </div>
+              <div className="mt-4 space-y-2">
+                {cbrRoute.references.map((reference) => (
+                  <a
+                    key={reference.url}
+                    href={reference.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="block text-sm text-amber-300 underline underline-offset-4"
+                  >
+                    {reference.label}
+                    {reference.verified ? " (verificado)" : ""}
+                  </a>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
+              <p className="text-sm font-semibold text-white">Guardar dueño / sociedad con respaldo</p>
+              <p className="mt-1 text-sm text-slate-400">
+                Guarda el nombre respaldado por dominio vigente para todos los KMZ que tengan este rol.
+              </p>
+              <div className="mt-3 space-y-3">
+                <Input
+                  value={ownerName}
+                  onChange={(event) => setOwnerName(event.target.value)}
+                  className="border-slate-600 bg-slate-900 text-white placeholder:text-slate-500"
+                  placeholder="Nombre de persona natural"
+                />
+                <Input
+                  value={companyName}
+                  onChange={(event) => setCompanyName(event.target.value)}
+                  className="border-slate-600 bg-slate-900 text-white placeholder:text-slate-500"
+                  placeholder="Nombre de sociedad / SpA / Ltda"
+                />
+                <Input
+                  value={documentUrl}
+                  onChange={(event) => setDocumentUrl(event.target.value)}
+                  className="border-slate-600 bg-slate-900 text-white placeholder:text-slate-500"
+                  placeholder="Link al respaldo: PDF, Drive, CBR..."
+                />
+                <Button
+                  type="button"
+                  onClick={saveOwnerRecord}
+                  disabled={saveStatus === "saving" || (!ownerName.trim() && !companyName.trim())}
+                  className="w-full bg-amber-400 text-slate-950 hover:bg-amber-300"
+                >
+                  {saveStatus === "saving" ? "Guardando..." : "Guardar respaldo CBR"}
+                </Button>
+                {saveMessage && (
+                  <p
+                    className={`text-sm ${
+                      saveStatus === "error" ? "text-red-300" : saveStatus === "done" ? "text-emerald-300" : "text-slate-300"
+                    }`}
+                  >
+                    {saveMessage}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </Card>
     </section>
   )
 }
