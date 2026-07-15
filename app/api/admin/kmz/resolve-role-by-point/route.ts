@@ -27,6 +27,63 @@ type TextResolutionAttempt = {
   found: boolean
 }
 
+type NameSearchAttempt = {
+  query: string
+  candidates: number
+  inspected: number
+  matchedRol?: string
+  matchedDistanceKm?: number
+  matchedCoordinateSource?: "direct" | "projected-ah" | "projected-csa"
+}
+
+type RankedAddressCandidate = {
+  rol: string
+  query: string
+  textScore: number
+}
+
+const GENERIC_NAME_TOKENS = new Set([
+  "ARCHIVO",
+  "CAMPO",
+  "COMPRA",
+  "FUNDO",
+  "KMZ",
+  "KML",
+  "LOTE",
+  "LOTES",
+  "PARCELA",
+  "PARCELAS",
+  "PREDIO",
+  "PREDIAL",
+  "PROPIEDAD",
+  "REFUGIO",
+  "ROL",
+  "RURAL",
+  "RURAI",
+  "SITIO",
+  "SOC",
+  "SOCIEDAD",
+  "SUCURSAL",
+  "SUB",
+  "SUBDIVISION",
+  "TERRENO",
+])
+
+const MIN_NAME_MATCH_DISTANCE_KM = 12
+const MIN_PROJECTED_AH_MATCH_DISTANCE_KM = 6
+const MIN_PROJECTED_CSA_MATCH_DISTANCE_KM = 8
+
+function getAllowedNameMatchDistanceKm(coordinateSource?: "direct" | "projected-ah" | "projected-csa") {
+  switch (coordinateSource) {
+    case "projected-ah":
+      return MIN_PROJECTED_AH_MATCH_DISTANCE_KM
+    case "projected-csa":
+      return MIN_PROJECTED_CSA_MATCH_DISTANCE_KM
+    default:
+      return MIN_NAME_MATCH_DISTANCE_KM
+  }
+}
+
 function getSupabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -101,6 +158,112 @@ function expandRolForComuna(rol: string, comuna: string): string | null {
 
 function isFiniteCoordinatePair(lat: number, lng: number) {
   return Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180
+}
+
+function normalizeSearchText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\.[A-Z0-9]+$/gi, " ")
+    .replace(/[()_[\]{}]/g, " ")
+    .replace(/[,;:]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase()
+}
+
+function tokenizeSearchText(value: string) {
+  return normalizeSearchText(value)
+    .split(/[\s/-]+/)
+    .map((token) => token.trim())
+    .filter(Boolean)
+}
+
+function toSearchPhrases(value: string) {
+  const tokens = tokenizeSearchText(value)
+  if (tokens.length === 0) return []
+
+  const phrases = new Set<string>()
+  const filteredTokens = tokens.filter((token) => {
+    if (/^\d+$/.test(token)) return false
+    if (GENERIC_NAME_TOKENS.has(token)) return false
+    return token.length >= 3
+  })
+
+  if (filteredTokens.length > 0) {
+    phrases.add(filteredTokens.join(" "))
+
+    if (filteredTokens.length >= 2) {
+      phrases.add(filteredTokens.slice(-2).join(" "))
+      phrases.add(filteredTokens.slice(0, 2).join(" "))
+    }
+
+    if (filteredTokens.length >= 3) {
+      phrases.add(filteredTokens.slice(-3).join(" "))
+    }
+
+    for (const token of filteredTokens) {
+      if (token.length >= 5) {
+        phrases.add(token)
+      }
+    }
+  }
+
+  if (tokens.length >= 2) {
+    phrases.add(tokens.slice(0, Math.min(tokens.length, 3)).join(" "))
+  }
+
+  return Array.from(phrases)
+    .map((phrase) => phrase.replace(/\s+/g, " ").trim())
+    .filter((phrase) => phrase.length >= 4)
+}
+
+function getNameSearchQueries(targets: string[]) {
+  const queries = new Set<string>()
+
+  for (const target of targets) {
+    for (const phrase of toSearchPhrases(target)) {
+      queries.add(phrase)
+    }
+  }
+
+  return Array.from(queries).slice(0, 8)
+}
+
+function getTextMatchScore(query: string, candidate: { direccion?: string; destino?: string; rol?: string }) {
+  const queryTokens = tokenizeSearchText(query)
+  const haystack = normalizeSearchText([candidate.direccion, candidate.destino, candidate.rol].filter(Boolean).join(" "))
+
+  if (!haystack) return 0
+
+  let score = 0
+  for (const token of queryTokens) {
+    if (token.length < 3) continue
+    if (haystack.includes(token)) {
+      score += token.length >= 6 ? 3 : 2
+    }
+  }
+
+  if (haystack.includes(normalizeSearchText(query))) {
+    score += 4
+  }
+
+  return score
+}
+
+function getDistanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+  const earthRadiusKm = 6371
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180
+  const lat1 = (a.lat * Math.PI) / 180
+  const lat2 = (b.lat * Math.PI) / 180
+
+  const sinLat = Math.sin(dLat / 2)
+  const sinLng = Math.sin(dLng / 2)
+  const haversine = sinLat * sinLat + Math.cos(lat1) * Math.cos(lat2) * sinLng * sinLng
+  const arc = 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine))
+
+  return earthRadiusKm * arc
 }
 
 function pushCoordinatePoints(value: any, bucket: Array<{ lat: number; lng: number }>) {
@@ -288,9 +451,10 @@ export async function POST(request: Request) {
       found: boolean
     }> = []
     const textAttempts: TextResolutionAttempt[] = []
+    const nameSearchAttempts: NameSearchAttempt[] = []
     let matchedPoint: SamplePoint | null = null
     let record = null
-    let resolutionMethod: "text" | "point" | null = null
+    let resolutionMethod: "text" | "name-search" | "point" | null = null
 
     const extractedRoles = extractRolNumbersFromTargets([
       {
@@ -326,6 +490,70 @@ export async function POST(request: Request) {
         record = candidate
         resolutionMethod = "text"
         break
+      }
+    }
+
+    if (!record) {
+      const nameSearchQueries = getNameSearchQueries(
+        [
+          kmz.file_name,
+          kmz.description,
+          typeof kmz.metadata?.name === "string" ? kmz.metadata.name : null,
+          ...(placemarks || []).flatMap((placemark: any) => [placemark.name, placemark.description]),
+        ].filter((value): value is string => typeof value === "string" && value.trim().length > 0),
+      )
+
+      for (const query of nameSearchQueries) {
+        const candidates = await provider.searchByAddress({ comuna: body.comuna, calle: query })
+        const rankedCandidates = candidates
+          .map(
+            (candidate) =>
+              ({
+                rol: candidate.rol,
+                query,
+                textScore: getTextMatchScore(query, candidate),
+              }) satisfies RankedAddressCandidate,
+          )
+          .filter((candidate) => candidate.textScore > 0)
+          .sort((left, right) => right.textScore - left.textScore)
+          .slice(0, 12)
+
+        const attempt: NameSearchAttempt = {
+          query,
+          candidates: candidates.length,
+          inspected: rankedCandidates.length,
+        }
+
+        for (const rankedCandidate of rankedCandidates) {
+          const parsed = parseRolParts(rankedCandidate.rol)
+          if (!parsed?.comuna || !parsed.manzana || !parsed.predio) {
+            continue
+          }
+
+          const detailedCandidate = await provider.getByRol(parsed)
+          if (!detailedCandidate?.coordinates) {
+            continue
+          }
+
+          const distanceKm = getDistanceKm(center, detailedCandidate.coordinates)
+          const allowedDistanceKm = getAllowedNameMatchDistanceKm(detailedCandidate.coordinateSource)
+          if (distanceKm > allowedDistanceKm) {
+            continue
+          }
+
+          attempt.matchedRol = detailedCandidate.rol
+          attempt.matchedDistanceKm = Number(distanceKm.toFixed(3))
+          attempt.matchedCoordinateSource = detailedCandidate.coordinateSource
+          record = detailedCandidate
+          resolutionMethod = "name-search"
+          break
+        }
+
+        nameSearchAttempts.push(attempt)
+
+        if (record) {
+          break
+        }
       }
     }
 
@@ -366,6 +594,7 @@ export async function POST(request: Request) {
         },
         extractedRoles,
         textAttempts,
+        nameSearchAttempts,
         attempts,
         source: "SII Mapas getFeatureInfo",
       })
@@ -394,6 +623,7 @@ export async function POST(request: Request) {
               },
               extractedRoles,
               textAttempts,
+              nameSearchAttempts,
               matchedPoint,
               attempts,
               record,
@@ -425,6 +655,7 @@ export async function POST(request: Request) {
       resolutionMethod,
       extractedRoles,
       textAttempts,
+      nameSearchAttempts,
       matchedPoint,
       attempts,
       roles,

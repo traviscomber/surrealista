@@ -16,7 +16,15 @@ function getNumber(value: unknown): number | undefined {
   if (typeof value === "number" && Number.isFinite(value)) return value
   if (typeof value !== "string") return undefined
 
-  const parsed = Number(value.replace(/[^\d.-]/g, ""))
+  const normalized = value.trim()
+  if (!normalized) return undefined
+
+  const withoutSpaces = normalized.replace(/\s+/g, "")
+  const decimalNormalized = withoutSpaces.includes(",") && !withoutSpaces.includes(".")
+    ? withoutSpaces.replace(",", ".")
+    : withoutSpaces.replace(/,/g, "")
+
+  const parsed = Number(decimalNormalized)
   return Number.isFinite(parsed) ? parsed : undefined
 }
 
@@ -51,8 +59,7 @@ function buildCandidate(record: Record<string, unknown>, fallbackComuna?: string
 
   if (!rol) return null
 
-  const lat = getNumber(record.ubicacionX)
-  const lng = getNumber(record.ubicacionY)
+  const coordinateInfo = extractCoordinateInfo(record)
 
   return {
     rol,
@@ -62,11 +69,134 @@ function buildCandidate(record: Record<string, unknown>, fallbackComuna?: string
     predio,
     direccion: getText(record, ["direccion"]),
     destino: getText(record, ["destinoDescripcion"]),
-    coordinates: lat !== undefined && lng !== undefined ? { lat, lng } : undefined,
+    coordinates: coordinateInfo?.coordinates,
+    coordinateSource: coordinateInfo?.source,
     source: "sii-public",
     confidence: 0.92,
     raw: record,
   }
+}
+
+type CoordinateInfo = {
+  coordinates: { lat: number; lng: number }
+  source: "direct" | "projected-ah" | "projected-csa"
+}
+
+function utmToLatLng(easting: number, northing: number, zone: number): { lat: number; lng: number } {
+  const a = 6378137
+  const eccSquared = 0.00669438
+  const k0 = 0.9996
+  const eccPrimeSquared = eccSquared / (1 - eccSquared)
+
+  const x = easting - 500000
+  const y = northing - 10000000
+  const longOrigin = (zone - 1) * 6 - 180 + 3
+  const M = y / k0
+  const mu =
+    M /
+    (a *
+      (1 -
+        eccSquared / 4 -
+        (3 * eccSquared * eccSquared) / 64 -
+        (5 * eccSquared * eccSquared * eccSquared) / 256))
+
+  const e1 = (1 - Math.sqrt(1 - eccSquared)) / (1 + Math.sqrt(1 - eccSquared))
+  const j1 = (3 * e1) / 2 - (27 * Math.pow(e1, 3)) / 32
+  const j2 = (21 * e1 * e1) / 16 - (55 * Math.pow(e1, 4)) / 32
+  const j3 = (151 * Math.pow(e1, 3)) / 96
+  const j4 = (1097 * Math.pow(e1, 4)) / 512
+  const fp =
+    mu +
+    j1 * Math.sin(2 * mu) +
+    j2 * Math.sin(4 * mu) +
+    j3 * Math.sin(6 * mu) +
+    j4 * Math.sin(8 * mu)
+
+  const sinFp = Math.sin(fp)
+  const cosFp = Math.cos(fp)
+  const tanFp = Math.tan(fp)
+  const C1 = eccPrimeSquared * cosFp * cosFp
+  const T1 = tanFp * tanFp
+  const N1 = a / Math.sqrt(1 - eccSquared * sinFp * sinFp)
+  const R1 = (a * (1 - eccSquared)) / Math.pow(1 - eccSquared * sinFp * sinFp, 1.5)
+  const D = x / (N1 * k0)
+
+  const lat =
+    fp -
+    (N1 * tanFp * (D * D / 2 -
+      ((5 + 3 * T1 + 10 * C1 - 4 * C1 * C1 - 9 * eccPrimeSquared) * Math.pow(D, 4)) / 24 +
+      ((61 + 90 * T1 + 298 * C1 + 45 * T1 * T1 - 252 * eccPrimeSquared - 3 * C1 * C1) * Math.pow(D, 6)) /
+        720)) /
+      R1
+
+  const lng =
+    (D -
+      ((1 + 2 * T1 + C1) * Math.pow(D, 3)) / 6 +
+      ((5 - 2 * C1 + 28 * T1 - 3 * C1 * C1 + 8 * eccPrimeSquared + 24 * T1 * T1) * Math.pow(D, 5)) / 120) /
+    cosFp
+
+  return {
+    lat: (lat * 180) / Math.PI,
+    lng: longOrigin + (lng * 180) / Math.PI,
+  }
+}
+
+function isValidLatLng(lat: number | undefined, lng: number | undefined) {
+  return lat !== undefined && lng !== undefined && Math.abs(lat) <= 90 && Math.abs(lng) <= 180
+}
+
+function isProjectedCoordinatePair(x: number | undefined, y: number | undefined) {
+  return (
+    x !== undefined &&
+    y !== undefined &&
+    Number.isFinite(x) &&
+    Number.isFinite(y) &&
+    x >= 100000 &&
+    x <= 900000 &&
+    y >= 1000000 &&
+    y <= 10000000
+  )
+}
+
+function extractProjectedCoordinateInfo(record: Record<string, unknown>): CoordinateInfo | undefined {
+  const ahRecord = Array.isArray(record.datosAh) ? record.datosAh[0] : record.datosAh
+  if (ahRecord && typeof ahRecord === "object") {
+    const x = getNumber((ahRecord as Record<string, unknown>).ubicacionX)
+    const y = getNumber((ahRecord as Record<string, unknown>).ubicacionY)
+    if (isProjectedCoordinatePair(x, y)) {
+      return {
+        coordinates: utmToLatLng(x!, y!, 19),
+        source: "projected-ah",
+      }
+    }
+  }
+
+  const csaRecord = Array.isArray(record.datosCsa) ? record.datosCsa[0] : record.datosCsa
+  if (csaRecord && typeof csaRecord === "object") {
+    const x = getNumber((csaRecord as Record<string, unknown>).ubicacionX)
+    const y = getNumber((csaRecord as Record<string, unknown>).ubicacionY)
+    if (isProjectedCoordinatePair(x, y)) {
+      return {
+        coordinates: utmToLatLng(x!, y!, 19),
+        source: "projected-csa",
+      }
+    }
+  }
+
+  return undefined
+}
+
+function extractCoordinateInfo(record: Record<string, unknown>): CoordinateInfo | undefined {
+  const lat = getNumber(record.ubicacionX)
+  const lng = getNumber(record.ubicacionY)
+  if (isValidLatLng(lat, lng)) {
+    return {
+      coordinates: { lat: lat!, lng: lng! },
+      source: "direct",
+    }
+  }
+
+  return extractProjectedCoordinateInfo(record)
 }
 
 function buildAvaluo(record: Record<string, unknown>, input: SiiRolInput): SiiAvaluoRecord {

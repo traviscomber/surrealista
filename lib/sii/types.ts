@@ -22,6 +22,7 @@ export interface SiiRoleCandidate {
     lat: number
     lng: number
   }
+  coordinateSource?: "direct" | "projected-ah" | "projected-csa"
   source: "kmz" | "baseapi" | "manual" | "sii-public"
   confidence: number
   raw?: unknown
