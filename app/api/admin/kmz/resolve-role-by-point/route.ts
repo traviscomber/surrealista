@@ -9,6 +9,7 @@ type ResolvePointRequest = {
   kmzId: string
   comuna: string
   persist?: boolean
+  maxSamples?: number
 }
 
 function getSupabaseAdmin() {
@@ -38,6 +39,50 @@ function getCenter(bounds: any): { lat: number; lng: number } | null {
   }
 }
 
+function getSamplePoints(bounds: any, maxSamples = 9): Array<{ lat: number; lng: number; label: string }> {
+  const north = Number(bounds?.north)
+  const south = Number(bounds?.south)
+  const east = Number(bounds?.east)
+  const west = Number(bounds?.west)
+
+  if (![north, south, east, west].every(Number.isFinite)) {
+    return []
+  }
+
+  const center = {
+    lat: (north + south) / 2,
+    lng: (east + west) / 2,
+    label: "center",
+  }
+
+  const lat25 = south + (north - south) * 0.25
+  const lat75 = south + (north - south) * 0.75
+  const lng25 = west + (east - west) * 0.25
+  const lng75 = west + (east - west) * 0.75
+
+  const candidates = [
+    center,
+    { lat: lat75, lng: lng25, label: "north-west" },
+    { lat: lat75, lng: lng75, label: "north-east" },
+    { lat: lat25, lng: lng25, label: "south-west" },
+    { lat: lat25, lng: lng75, label: "south-east" },
+    { lat: lat75, lng: center.lng, label: "north" },
+    { lat: lat25, lng: center.lng, label: "south" },
+    { lat: center.lat, lng: lng25, label: "west" },
+    { lat: center.lat, lng: lng75, label: "east" },
+  ]
+
+  const seen = new Set<string>()
+  return candidates
+    .filter((point) => {
+      const key = `${point.lat.toFixed(8)},${point.lng.toFixed(8)}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    .slice(0, Math.min(Math.max(maxSamples, 1), candidates.length))
+}
+
 export async function POST(request: Request) {
   try {
     const body = (await request.json()) as ResolvePointRequest
@@ -64,13 +109,27 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "KMZ not found" }, { status: 404 })
     }
 
+    const samplePoints = getSamplePoints(kmz.bounds, body.maxSamples || 9)
     const center = getCenter(kmz.bounds)
-    if (!center) {
+    if (!center || samplePoints.length === 0) {
       return NextResponse.json({ success: false, error: "KMZ has no valid bounds" }, { status: 400 })
     }
 
     const provider = new SiiMapasPublicProvider()
-    const record = await provider.getByPoint({ comuna: body.comuna, lat: center.lat, lng: center.lng })
+    const attempts: Array<{ label: string; lat: number; lng: number; found: boolean }> = []
+    let matchedPoint: { lat: number; lng: number; label: string } | null = null
+    let record = null
+
+    for (const point of samplePoints) {
+      const candidate = await provider.getByPoint({ comuna: body.comuna, lat: point.lat, lng: point.lng })
+      attempts.push({ ...point, found: Boolean(candidate) })
+
+      if (candidate) {
+        matchedPoint = point
+        record = candidate
+        break
+      }
+    }
 
     if (!record) {
       return NextResponse.json({
@@ -81,6 +140,7 @@ export async function POST(request: Request) {
           fileName: kmz.file_name,
           center,
         },
+        attempts,
         source: "SII Mapas getFeatureInfo",
       })
     }
@@ -99,6 +159,8 @@ export async function POST(request: Request) {
               source: "SII Mapas getFeatureInfo",
               comuna: body.comuna,
               center,
+              matchedPoint,
+              attempts,
               record,
             },
           },
@@ -119,6 +181,8 @@ export async function POST(request: Request) {
         fileName: kmz.file_name,
         center,
       },
+      matchedPoint,
+      attempts,
       roles,
       record,
       source: "SII Mapas getFeatureInfo",
