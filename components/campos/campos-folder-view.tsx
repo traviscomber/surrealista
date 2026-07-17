@@ -40,6 +40,7 @@ import {
   CheckCircle2,
   AlertCircle,
   Clock3,
+  Copy,
 } from "lucide-react"
 import { kmzReader } from "@/lib/kmz/kmz-reader"
 import { kmzStorageService } from "@/lib/kmz/kmz-storage-service"
@@ -201,6 +202,7 @@ const detailsPanelClass = "rounded-xl border border-white/10 bg-white/[0.04] p-3
 const detailsSubtlePanelClass = "rounded-xl border border-white/10 bg-white/[0.03] p-3"
 const detailsLabelClass = "text-[11px] uppercase tracking-wide text-slate-400"
 const detailsValueClass = "mt-1 text-sm font-medium text-slate-100"
+const lightDetailsCardClass = "border-slate-200 bg-white shadow-none"
 
 const extractOwnerResearchSummary = (metadata?: Record<string, any>) => {
   const queue = metadata?.owner_research_queue
@@ -329,6 +331,27 @@ export function CAMPOSFolderView() {
 
   const searchParams = useSearchParams()
   const kmzIdFromURL = searchParams?.get("kmz")
+
+  const handleCopyValue = useCallback(
+    async (value: string | null | undefined, label: string) => {
+      const text = `${value ?? ""}`.trim()
+      if (!text) return
+
+      try {
+        await navigator.clipboard.writeText(text)
+        toast({
+          title: `${label} copiado`,
+          description: text.length > 96 ? `${text.slice(0, 93)}...` : text,
+        })
+      } catch {
+        toast({
+          title: `No se pudo copiar ${label.toLowerCase()}`,
+          variant: "destructive",
+        })
+      }
+    },
+    [toast],
+  )
 
   const DetailsPanel = () => {
     if (!selectedItem) {
@@ -466,7 +489,21 @@ export function CAMPOSFolderView() {
                 <div className="min-w-0">
                   <p className="text-sm font-medium opacity-90">{roleStatus.label}</p>
                   <div className="mt-3 rounded-3xl border border-white/15 bg-black/15 p-4">
-                    <p className="text-[11px] uppercase tracking-[0.24em] text-current/70">Rol</p>
+                    <div className="flex items-start justify-between gap-3">
+                      <p className="text-[11px] uppercase tracking-[0.24em] text-current/70">Rol</p>
+                      {primaryRole ? (
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="h-8 rounded-full border border-white/10 bg-black/10 px-3 text-current hover:bg-black/20"
+                          onClick={() => handleCopyValue(primaryRole, "Rol")}
+                        >
+                          <Copy className="mr-2 h-3.5 w-3.5" />
+                          Copiar
+                        </Button>
+                      ) : null}
+                    </div>
                     <p className="mt-2 break-words text-3xl font-black tracking-tight sm:text-4xl">
                       {primaryRole || "Pendiente"}
                     </p>
@@ -483,6 +520,17 @@ export function CAMPOSFolderView() {
                   </div>
                   <h3 className="mt-4 text-3xl font-bold leading-tight tracking-tight">{selectedItem.name}</h3>
                   <p className="mt-2 text-sm opacity-80">{selectedItem.region || "Sin region"}</p>
+                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-current/80">
+                    <span className="rounded-full border border-white/10 bg-black/10 px-3 py-1">
+                      {confirmedOwner ? "Dueno confirmado" : candidateOwner ? "Candidato publico" : "Dueno pendiente"}
+                    </span>
+                    <span className="rounded-full border border-white/10 bg-black/10 px-3 py-1">
+                      {documentCount} documento{documentCount === 1 ? "" : "s"}
+                    </span>
+                    <span className="rounded-full border border-white/10 bg-black/10 px-3 py-1">
+                      {selectedItem.category || "Sin categoria"}
+                    </span>
+                  </div>
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   {selectedItem.placemarksCount ? (
@@ -493,33 +541,29 @@ export function CAMPOSFolderView() {
                 </div>
               </div>
 
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                <div className="rounded-2xl border border-white/10 bg-black/10 p-3">
-                  <p className="text-[11px] uppercase tracking-wide text-current/70">Dueno</p>
-                  <p className="mt-1 text-base font-semibold">{confirmedOwner || "En investigacion"}</p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-black/10 p-3">
-                  <p className="text-[11px] uppercase tracking-wide text-current/70">Documentos</p>
-                  <p className="mt-1 text-base font-semibold">{documentCount} asociados</p>
-                </div>
-                {candidateOwner ? (
-                  <div className="rounded-2xl border border-white/10 bg-black/10 p-3">
-                    <p className="text-[11px] uppercase tracking-wide text-current/70">Candidato publico</p>
-                    <p className="mt-1 text-base font-semibold">{candidateOwner}</p>
-                  </div>
-                ) : null}
-              </div>
             </div>
           </div>
 
           <Card className={detailsCardClass}>
             <CardContent className="space-y-4 p-4">
-              <div className="flex items-center gap-2">
-                <Database className="h-4 w-4 text-slate-300" />
-                <p className="text-sm font-semibold text-slate-50">Predio</p>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Database className="h-4 w-4 text-slate-300" />
+                  <p className="text-sm font-semibold text-slate-50">Predio</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="h-8 rounded-full bg-white/10 px-3 text-slate-100 hover:bg-white/15"
+                  onClick={() => handleCopyValue(selectedItem.name, "Nombre de KMZ")}
+                >
+                  <Copy className="mr-2 h-3.5 w-3.5" />
+                  Copiar nombre
+                </Button>
               </div>
 
-              <div className="grid gap-4 xl:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-3">
                 <div className={detailsPanelClass}>
                   <p className={detailsLabelClass}>Region</p>
                   <p className="mt-2 text-lg font-semibold text-slate-100">{selectedItem.region || "Sin region"}</p>
@@ -527,6 +571,10 @@ export function CAMPOSFolderView() {
                 <div className={detailsPanelClass}>
                   <p className={detailsLabelClass}>Categoria</p>
                   <p className="mt-2 text-lg font-semibold text-slate-100">{selectedItem.category || "Sin categoria"}</p>
+                </div>
+                <div className={detailsPanelClass}>
+                  <p className={detailsLabelClass}>Documentos</p>
+                  <p className="mt-2 text-lg font-semibold text-slate-100">{documentCount}</p>
                 </div>
               </div>
 
@@ -557,12 +605,26 @@ export function CAMPOSFolderView() {
 
               {siiRecord ? (
                 <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-4">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheck className="h-4 w-4 text-sky-200" />
-                    <p className="text-sm font-semibold text-sky-50">Ficha SII</p>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="h-4 w-4 text-sky-200" />
+                      <p className="text-sm font-semibold text-sky-50">Ficha SII</p>
+                    </div>
+                    {siiRecord.direccion ? (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="h-8 rounded-full border border-sky-400/20 bg-black/10 px-3 text-sky-50 hover:bg-black/20"
+                        onClick={() => handleCopyValue(siiRecord.direccion, "Direccion SII")}
+                      >
+                        <Copy className="mr-2 h-3.5 w-3.5" />
+                        Copiar direccion
+                      </Button>
+                    ) : null}
                   </div>
 
-                  <div className="mt-4 grid gap-4">
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
                     <div className="rounded-2xl border border-sky-500/20 bg-black/10 p-4">
                       <p className="text-[11px] uppercase tracking-wide text-sky-200">Direccion SII</p>
                       <p className="mt-2 text-base font-semibold text-slate-50">{siiRecord.direccion || "Sin direccion"}</p>
@@ -610,11 +672,31 @@ export function CAMPOSFolderView() {
               ) : null}
 
               {selectedItem.location ? (
-                <div className={detailsSubtlePanelClass}>
-                  <p className={detailsLabelClass}>Ubicacion del archivo</p>
-                  <div className="mt-2 space-y-1 text-sm text-slate-300">
-                    <p>Lat: {selectedItem.location.lat.toFixed(6)}</p>
-                    <p>Lng: {selectedItem.location.lng.toFixed(6)}</p>
+                <div className={detailsPanelClass}>
+                  <div className="flex items-center justify-between gap-3">
+                    <p className={detailsLabelClass}>Ubicacion del archivo</p>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-slate-300 hover:bg-white/10 hover:text-slate-100"
+                      onClick={() =>
+                        handleCopyValue(`${selectedItem.location?.lat.toFixed(6)}, ${selectedItem.location?.lng.toFixed(6)}`, "Coordenadas")
+                      }
+                    >
+                      <Copy className="mr-2 h-3.5 w-3.5" />
+                      Copiar
+                    </Button>
+                  </div>
+                  <div className="mt-2 grid gap-2 md:grid-cols-2">
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-slate-400">Latitud</p>
+                      <p className="mt-1 text-sm font-medium text-slate-100">{selectedItem.location.lat.toFixed(6)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-slate-400">Longitud</p>
+                      <p className="mt-1 text-sm font-medium text-slate-100">{selectedItem.location.lng.toFixed(6)}</p>
+                    </div>
                   </div>
                 </div>
               ) : null}
@@ -636,11 +718,118 @@ export function CAMPOSFolderView() {
             </CardContent>
           </Card>
 
+          <Card className={lightDetailsCardClass}>
+            <CardContent className="space-y-4 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <Building2 className="h-4 w-4 text-emerald-700" />
+                  <p className="text-sm font-semibold text-slate-900">Dueno / Sociedad</p>
+                </div>
+                {(confirmedOwner || candidateOwner) ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 rounded-full px-3"
+                    onClick={() => handleCopyValue(confirmedOwner || candidateOwner, "Nombre")}
+                  >
+                    <Copy className="mr-2 h-3.5 w-3.5" />
+                    Copiar nombre
+                  </Button>
+                ) : null}
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-[11px] uppercase tracking-wide text-slate-500">Nombre principal</p>
+                    <p className="mt-2 text-xl font-bold leading-tight text-slate-950">
+                      {confirmedOwner || candidateOwner || "Aun sin nombre identificado"}
+                    </p>
+                    <p className="mt-2 text-sm text-slate-600">
+                      {confirmedOwner
+                        ? "Dueno o sociedad confirmado."
+                        : candidateOwner
+                          ? "Existe candidato publico pendiente de validacion."
+                          : "Sin nombre confirmado todavia."}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant={confirmedOwner ? "default" : "secondary"} className={confirmedOwner ? "" : "bg-slate-200 text-slate-700"}>
+                      {confirmedOwner ? "Confirmado" : "Sin confirmar"}
+                    </Badge>
+                    {candidateOwner && !confirmedOwner ? (
+                      <Badge variant="secondary" className="bg-amber-100 text-amber-900">
+                        Candidato publico
+                      </Badge>
+                    ) : null}
+                  </div>
+                </div>
+
+                {!confirmedOwner && candidateOwner ? (
+                  <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3">
+                    <p className="text-[11px] uppercase tracking-wide text-amber-700">Candidato publico</p>
+                    <p className="mt-1 text-sm font-medium text-amber-950">{candidateOwner}</p>
+                  </div>
+                ) : null}
+
+                {(latestCbr?.documentType || latestEvidence?.documentType || publicCandidate?.confidence) ? (
+                  <div className="mt-4 grid gap-3 md:grid-cols-3">
+                    <div className="rounded-xl border border-slate-200 bg-white p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-slate-500">Respaldo</p>
+                      <p className="mt-1 text-sm font-medium text-slate-900">
+                        {latestCbr?.documentType || latestEvidence?.documentType || "Sin documento"}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-white p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-slate-500">Confianza</p>
+                      <p className="mt-1 text-sm font-medium text-slate-900">
+                        {publicCandidate?.confidence || latestEvidence?.confidence || (confirmedOwner ? "alta" : "pendiente")}
+                      </p>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-white p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-slate-500">Ultimo registro</p>
+                      <p className="mt-1 text-sm font-medium text-slate-900">
+                        {formatDateLabel(latestCbr?.savedAt || latestEvidence?.savedAt) || "Sin fecha"}
+                      </p>
+                    </div>
+                  </div>
+                ) : null}
+
+                {latestEvidence?.documentUrl ? (
+                  <a
+                    href={latestEvidence.documentUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-emerald-800 hover:underline"
+                  >
+                    <Link2 className="h-4 w-4" />
+                    Abrir respaldo publico
+                  </a>
+                ) : null}
+              </div>
+            </CardContent>
+          </Card>
+
           <Card className="border-slate-200 shadow-none">
             <CardContent className="space-y-4 p-4">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-sky-700" />
-                <p className="text-sm font-semibold text-slate-900">Trazabilidad SII</p>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-sky-700" />
+                  <p className="text-sm font-semibold text-slate-900">Trazabilidad SII</p>
+                </div>
+                {roles.length > 0 ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 rounded-full px-3"
+                    onClick={() => handleCopyValue(roles.join(", "), "Roles")}
+                  >
+                    <Copy className="mr-2 h-3.5 w-3.5" />
+                    Copiar roles
+                  </Button>
+                ) : null}
               </div>
 
               <div className="grid gap-3 xl:grid-cols-2">
@@ -688,37 +877,84 @@ export function CAMPOSFolderView() {
 
           <Card className="border-slate-200 shadow-none">
             <CardContent className="space-y-4 p-4">
-              <div className="flex items-center gap-2">
-                <Building2 className="h-4 w-4 text-emerald-700" />
-                <p className="text-sm font-semibold text-slate-900">Dueno / Sociedad</p>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-slate-700" />
+                  <p className="text-sm font-semibold text-slate-900">Documentos</p>
+                </div>
+                {selectedItem.google_docs_link ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 rounded-full px-3"
+                    onClick={() => handleCopyValue(selectedItem.google_docs_link, "Link de Google Docs")}
+                  >
+                    <Copy className="mr-2 h-3.5 w-3.5" />
+                    Copiar link
+                  </Button>
+                ) : null}
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
-                  <p className="text-[11px] uppercase tracking-wide text-emerald-700">Confirmado</p>
-                  <p className="mt-1 text-sm font-semibold text-emerald-950">{confirmedOwner || "Aun no confirmado"}</p>
-                  {latestCbr?.documentType ? <p className="mt-1 text-xs text-emerald-800">Documento: {latestCbr.documentType}</p> : null}
-                  {latestCbr?.savedAt ? <p className="mt-1 text-xs text-emerald-800">{formatDateLabel(latestCbr.savedAt)}</p> : null}
-                </div>
-
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
-                  <p className="text-[11px] uppercase tracking-wide text-amber-700">Candidato publico</p>
-                  <p className="mt-1 text-sm font-semibold text-amber-950">{candidateOwner || "Sin candidato todavia"}</p>
-                  {publicCandidate?.confidence ? <p className="mt-1 text-xs text-amber-800">Confianza: {publicCandidate.confidence}</p> : null}
-                  {latestEvidence?.documentType ? <p className="mt-1 text-xs text-amber-800">Documento: {latestEvidence.documentType}</p> : null}
-                  {latestEvidence?.documentUrl ? (
-                    <a
-                      href={latestEvidence.documentUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-amber-900 hover:underline"
-                    >
-                      <Link2 className="h-3 w-3" />
-                      Abrir respaldo
-                    </a>
-                  ) : null}
-                </div>
+              <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                {documentCount > 0
+                  ? `${documentCount} documento${documentCount === 1 ? "" : "s"} asociado${documentCount === 1 ? "" : "s"} al KMZ.`
+                  : "Sin documentos asociados por ahora."}
               </div>
+
+              {selectedItem.google_docs_link ? (
+                <a
+                  href={selectedItem.google_docs_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-800 transition-colors hover:bg-slate-100"
+                >
+                  <div className="min-w-0 pr-3">
+                    <p className="text-[11px] uppercase tracking-wide text-slate-500">Google Docs</p>
+                    <p className="mt-1 truncate font-medium">Abrir Google Docs del KMZ</p>
+                  </div>
+                  <ExternalLink className="h-4 w-4 flex-shrink-0" />
+                </a>
+              ) : null}
+
+              {loadingDocuments ? (
+                <div className="flex items-center justify-center py-4">
+                  <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-sage"></div>
+                </div>
+              ) : documentCount > 0 ? (
+                <div className="space-y-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-start bg-transparent"
+                    onClick={() => {
+                      const folderPath = documentKMZLinker.getDocumentFolderPath(selectedItem.name)
+                      window.location.href = folderPath
+                    }}
+                  >
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Ver carpeta de documentos ({documentCount})
+                  </Button>
+
+                  <ScrollArea className="h-28 rounded-xl border">
+                    <div className="space-y-1 p-2">
+                      {selectedItemDocuments.slice(0, 5).map((doc) => (
+                        <div key={doc.documentId} className="flex items-start gap-2 rounded-lg p-2 hover:bg-accent/50">
+                          <FileText className="mt-0.5 h-3 w-3 flex-shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs">{doc.documentTitle}</p>
+                            <p className="text-[10px] text-muted-foreground">{doc.documentType}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-muted-foreground">
+                  No hay documentos asociados a este campo.
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -784,8 +1020,17 @@ export function CAMPOSFolderView() {
                         <p className="text-[11px] uppercase tracking-wide text-slate-500">Consultas sugeridas</p>
                         <div className="mt-2 space-y-2">
                           {ownerQueue.searchQueries.map((query) => (
-                            <div key={query} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
-                              {query}
+                            <div key={query} className="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                              <span className="min-w-0 flex-1 break-words">{query}</span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2"
+                                onClick={() => handleCopyValue(query, "Consulta")}
+                              >
+                                <Copy className="h-3.5 w-3.5" />
+                              </Button>
                             </div>
                           ))}
                         </div>
@@ -799,66 +1044,6 @@ export function CAMPOSFolderView() {
                 )
               ) : (
                 <p className="text-sm text-muted-foreground">Aun no hay cola de investigacion registrada para este KMZ.</p>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="border-slate-200 shadow-none">
-            <CardContent className="space-y-4 p-4">
-              <div className="flex items-center gap-2">
-                <FileText className="h-4 w-4 text-slate-700" />
-                <p className="text-sm font-semibold text-slate-900">Documentos</p>
-              </div>
-
-              {selectedItem.google_docs_link ? (
-                <a
-                  href={selectedItem.google_docs_link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 transition-colors hover:bg-slate-100"
-                >
-                  <span className="truncate pr-3">Abrir Google Docs del KMZ</span>
-                  <ExternalLink className="h-4 w-4 flex-shrink-0" />
-                </a>
-              ) : null}
-
-              {loadingDocuments ? (
-                <div className="flex items-center justify-center py-4">
-                  <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-sage"></div>
-                </div>
-              ) : documentCount > 0 ? (
-                <div className="space-y-3">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full justify-start bg-transparent"
-                    onClick={() => {
-                      const folderPath = documentKMZLinker.getDocumentFolderPath(selectedItem.name)
-                      window.location.href = folderPath
-                    }}
-                  >
-                    <ExternalLink className="mr-2 h-4 w-4" />
-                    Ver carpeta de documentos ({documentCount})
-                  </Button>
-
-                  <ScrollArea className="h-28 rounded-xl border">
-                    <div className="space-y-1 p-2">
-                      {selectedItemDocuments.slice(0, 5).map((doc) => (
-                        <div key={doc.documentId} className="flex items-start gap-2 rounded-lg p-2 hover:bg-accent/50">
-                          <FileText className="mt-0.5 h-3 w-3 flex-shrink-0" />
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-xs">{doc.documentTitle}</p>
-                            <p className="text-[10px] text-muted-foreground">{doc.documentType}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                </div>
-              ) : (
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-muted-foreground">
-                  No hay documentos asociados a este campo.
-                </div>
               )}
             </CardContent>
           </Card>
