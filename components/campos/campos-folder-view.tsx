@@ -186,15 +186,21 @@ const getRoleStatus = (item: FolderItem | null) => {
 const getToneClasses = (tone: string) => {
   switch (tone) {
     case "emerald":
-      return "border-emerald-200 bg-emerald-50 text-emerald-900"
+      return "border-emerald-500/30 bg-emerald-500/12 text-emerald-50"
     case "amber":
-      return "border-amber-200 bg-amber-50 text-amber-900"
+      return "border-amber-500/30 bg-amber-500/12 text-amber-50"
     case "sky":
-      return "border-sky-200 bg-sky-50 text-sky-900"
+      return "border-sky-500/30 bg-sky-500/12 text-sky-50"
     default:
-      return "border-slate-200 bg-slate-50 text-slate-800"
+      return "border-white/10 bg-white/[0.04] text-slate-100"
   }
 }
+
+const detailsCardClass = "border-white/10 bg-[#0f1724]/92 text-slate-100 shadow-[0_18px_48px_rgba(2,6,23,0.28)]"
+const detailsPanelClass = "rounded-xl border border-white/10 bg-white/[0.04] p-3"
+const detailsSubtlePanelClass = "rounded-xl border border-white/10 bg-white/[0.03] p-3"
+const detailsLabelClass = "text-[11px] uppercase tracking-wide text-slate-400"
+const detailsValueClass = "mt-1 text-sm font-medium text-slate-100"
 
 const extractOwnerResearchSummary = (metadata?: Record<string, any>) => {
   const queue = metadata?.owner_research_queue
@@ -476,153 +482,124 @@ export function CAMPOSFolderView() {
                 </div>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-4">
-                <div className="rounded-2xl border border-current/10 bg-white/50 p-3">
-                  <p className="text-[11px] uppercase tracking-wide opacity-70">Rol</p>
-                  <p className="mt-1 text-sm font-semibold">{primaryRole || "Pendiente"}</p>
-                </div>
-                <div className="rounded-2xl border border-current/10 bg-white/50 p-3">
-                  <p className="text-[11px] uppercase tracking-wide opacity-70">Fuente</p>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                <div className="rounded-2xl border border-white/10 bg-black/10 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-current/70">Fuente</p>
                   <p className="mt-1 text-sm font-semibold">{evidenceLabel}</p>
                 </div>
-                <div className="rounded-2xl border border-current/10 bg-white/50 p-3">
-                  <p className="text-[11px] uppercase tracking-wide opacity-70">Dueno</p>
+                <div className="rounded-2xl border border-white/10 bg-black/10 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-current/70">Dueno</p>
                   <p className="mt-1 line-clamp-2 text-sm font-semibold">{confirmedOwner || "En investigacion"}</p>
                 </div>
-                <div className="rounded-2xl border border-current/10 bg-white/50 p-3">
-                  <p className="text-[11px] uppercase tracking-wide opacity-70">Documentos</p>
+                <div className="rounded-2xl border border-white/10 bg-black/10 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-current/70">Documentos</p>
                   <p className="mt-1 text-sm font-semibold">{documentCount} asociados</p>
-                </div>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl border border-current/10 bg-white/40 p-3">
-                  <p className="text-[11px] uppercase tracking-wide opacity-70">Total de roles</p>
-                  <p className="mt-1 text-sm font-semibold">{roleCount}</p>
-                </div>
-                <div className="rounded-2xl border border-current/10 bg-white/40 p-3">
-                  <p className="text-[11px] uppercase tracking-wide opacity-70">Ultima actualizacion</p>
-                  <p className="mt-1 text-sm font-semibold">{formatDateLabel(latestResolutionAt) || "Sin fecha"}</p>
                 </div>
               </div>
             </div>
           </div>
 
-          <Card className="border-slate-200 shadow-none">
+          <Card className={detailsCardClass}>
             <CardContent className="space-y-4 p-4">
               <div className="flex items-center gap-2">
-                <Database className="h-4 w-4 text-slate-700" />
-                <p className="text-sm font-semibold text-slate-900">Predio</p>
+                <Database className="h-4 w-4 text-slate-300" />
+                <p className="text-sm font-semibold text-slate-50">Predio</p>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Region</p>
-                  <p className="mt-1 text-sm font-medium text-slate-900">{selectedItem.region || "Sin region"}</p>
+                <div className={detailsPanelClass}>
+                  <p className={detailsLabelClass}>Region</p>
+                  <p className={detailsValueClass}>{selectedItem.region || "Sin region"}</p>
                 </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Categoria</p>
-                  <p className="mt-1 text-sm font-medium text-slate-900">{selectedItem.category || "Sin categoria"}</p>
+                <div className={detailsPanelClass}>
+                  <p className={detailsLabelClass}>Categoria</p>
+                  <p className={detailsValueClass}>{selectedItem.category || "Sin categoria"}</p>
                 </div>
               </div>
 
               {descriptionText ? (
-                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
                   <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-slate-700" />
-                    <p className="text-sm font-semibold text-slate-900">Descripcion del KMZ</p>
+                    <FileText className="h-4 w-4 text-slate-300" />
+                    <p className="text-sm font-semibold text-slate-50">Descripcion del KMZ</p>
                   </div>
                   {descriptionHighlights.length > 1 ? (
                     <div className="mt-3 flex flex-wrap gap-2">
                       {descriptionHighlights.map((line) => (
-                        <Badge key={line} variant="secondary" className="max-w-full bg-slate-100 text-slate-800">
+                        <Badge key={line} variant="secondary" className="max-w-full bg-white/10 text-slate-100">
                           <span className="truncate">{line}</span>
                         </Badge>
                       ))}
                     </div>
                   ) : null}
-                  <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-                    <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">{descriptionText}</p>
+                  <div className="mt-3 rounded-lg border border-white/10 bg-black/10 p-3">
+                    <p className="whitespace-pre-wrap text-sm leading-6 text-slate-200">{descriptionText}</p>
                   </div>
                 </div>
               ) : (
-                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-muted-foreground">
+                <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.03] p-4 text-sm text-slate-400">
                   Este KMZ no trae una descripcion legible en su metadata actual.
                 </div>
               )}
 
               {siiRecord ? (
-                <div className="rounded-xl border border-sky-200 bg-sky-50/70 p-4">
+                <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-4">
                   <div className="flex items-center gap-2">
-                    <ShieldCheck className="h-4 w-4 text-sky-700" />
-                    <p className="text-sm font-semibold text-sky-950">Ficha SII</p>
+                    <ShieldCheck className="h-4 w-4 text-sky-200" />
+                    <p className="text-sm font-semibold text-sky-50">Ficha SII</p>
                   </div>
 
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-lg border border-sky-200 bg-white/70 p-3">
-                      <p className="text-[11px] uppercase tracking-wide text-sky-700">Direccion SII</p>
-                      <p className="mt-1 text-sm font-medium text-slate-900">{siiRecord.direccion || "Sin direccion"}</p>
+                  <div className="mt-4 grid gap-3 xl:grid-cols-2">
+                    <div className="rounded-lg border border-sky-500/20 bg-black/10 p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-sky-200">Direccion SII</p>
+                      <p className="mt-1 text-sm font-medium text-slate-50">{siiRecord.direccion || "Sin direccion"}</p>
                     </div>
-                    <div className="rounded-lg border border-sky-200 bg-white/70 p-3">
-                      <p className="text-[11px] uppercase tracking-wide text-sky-700">Destino</p>
-                      <p className="mt-1 text-sm font-medium text-slate-900">{siiRecord.destino || "Sin destino"}</p>
+                    <div className="rounded-lg border border-sky-500/20 bg-black/10 p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-sky-200">Destino</p>
+                      <p className="mt-1 text-sm font-medium text-slate-50">{siiRecord.destino || "Sin destino"}</p>
                     </div>
-                    <div className="rounded-lg border border-sky-200 bg-white/70 p-3">
-                      <p className="text-[11px] uppercase tracking-wide text-sky-700">Avaluo total</p>
-                      <p className="mt-1 text-sm font-medium text-slate-900">{formatCurrencyCLP(siiRecord.avaluoTotal) || "Sin dato"}</p>
+                    <div className="rounded-lg border border-sky-500/20 bg-black/10 p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-sky-200">Avaluo total</p>
+                      <p className="mt-1 text-sm font-medium text-slate-50">{formatCurrencyCLP(siiRecord.avaluoTotal) || "Sin dato"}</p>
                     </div>
-                    <div className="rounded-lg border border-sky-200 bg-white/70 p-3">
-                      <p className="text-[11px] uppercase tracking-wide text-sky-700">Periodo</p>
-                      <p className="mt-1 text-sm font-medium text-slate-900">{siiRecord.periodo || "Sin periodo"}</p>
+                    <div className="rounded-lg border border-sky-500/20 bg-black/10 p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-sky-200">Periodo</p>
+                      <p className="mt-1 text-sm font-medium text-slate-50">{siiRecord.periodo || "Sin periodo"}</p>
                     </div>
                   </div>
 
-                  <div className="mt-3 grid gap-3 sm:grid-cols-4">
-                    <div className="rounded-lg border border-sky-200 bg-white/70 p-3">
-                      <p className="text-[11px] uppercase tracking-wide text-sky-700">Afecto</p>
-                      <p className="mt-1 text-sm font-medium text-slate-900">{formatCurrencyCLP(siiRecord.avaluoAfecto) || "Sin dato"}</p>
+                  <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    <div className="rounded-lg border border-sky-500/20 bg-black/10 p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-sky-200">Afecto</p>
+                      <p className="mt-1 text-sm font-medium text-slate-50">{formatCurrencyCLP(siiRecord.avaluoAfecto) || "Sin dato"}</p>
                     </div>
-                    <div className="rounded-lg border border-sky-200 bg-white/70 p-3">
-                      <p className="text-[11px] uppercase tracking-wide text-sky-700">Exento</p>
-                      <p className="mt-1 text-sm font-medium text-slate-900">{formatCurrencyCLP(siiRecord.avaluoExento) || "Sin dato"}</p>
+                    <div className="rounded-lg border border-sky-500/20 bg-black/10 p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-sky-200">Exento</p>
+                      <p className="mt-1 text-sm font-medium text-slate-50">{formatCurrencyCLP(siiRecord.avaluoExento) || "Sin dato"}</p>
                     </div>
-                    <div className="rounded-lg border border-sky-200 bg-white/70 p-3">
-                      <p className="text-[11px] uppercase tracking-wide text-sky-700">Sup. terreno</p>
-                      <p className="mt-1 text-sm font-medium text-slate-900">{formatMeasure(siiRecord.superficieTerreno) || "Sin dato"}</p>
+                    <div className="rounded-lg border border-sky-500/20 bg-black/10 p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-sky-200">Sup. terreno</p>
+                      <p className="mt-1 text-sm font-medium text-slate-50">{formatMeasure(siiRecord.superficieTerreno) || "Sin dato"}</p>
                     </div>
-                    <div className="rounded-lg border border-sky-200 bg-white/70 p-3">
-                      <p className="text-[11px] uppercase tracking-wide text-sky-700">Sup. construida</p>
-                      <p className="mt-1 text-sm font-medium text-slate-900">{formatMeasure(siiRecord.superficieConstruida) || "Sin dato"}</p>
+                    <div className="rounded-lg border border-sky-500/20 bg-black/10 p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-sky-200">Sup. construida</p>
+                      <p className="mt-1 text-sm font-medium text-slate-50">{formatMeasure(siiRecord.superficieConstruida) || "Sin dato"}</p>
                     </div>
                   </div>
 
                   {siiRecord.areaHomogenea ? (
-                    <div className="mt-3 rounded-lg border border-sky-200 bg-white/70 p-3">
-                      <p className="text-[11px] uppercase tracking-wide text-sky-700">Area homogenea</p>
-                      <p className="mt-1 text-sm font-medium text-slate-900">{siiRecord.areaHomogenea}</p>
+                    <div className="mt-3 rounded-lg border border-sky-500/20 bg-black/10 p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-sky-200">Area homogenea</p>
+                      <p className="mt-1 text-sm font-medium text-slate-50">{siiRecord.areaHomogenea}</p>
                     </div>
                   ) : null}
                 </div>
               ) : null}
 
-              <div>
-                <p className="text-[11px] uppercase tracking-wide text-slate-500">Roles SII</p>
-                {roles.length > 0 ? (
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {roles.map((role) => (
-                      <Badge key={role} variant="secondary" className="bg-sky-100 text-sky-900">
-                        {role}
-                      </Badge>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="mt-2 text-sm text-muted-foreground">Sin rol persistido todavia.</p>
-                )}
-              </div>
-
               {selectedItem.location ? (
-                <div className="rounded-xl border border-slate-200 p-3">
-                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Ubicacion del archivo</p>
-                  <div className="mt-2 space-y-1 text-sm text-muted-foreground">
+                <div className={detailsSubtlePanelClass}>
+                  <p className={detailsLabelClass}>Ubicacion del archivo</p>
+                  <div className="mt-2 space-y-1 text-sm text-slate-300">
                     <p>Lat: {selectedItem.location.lat.toFixed(6)}</p>
                     <p>Lng: {selectedItem.location.lng.toFixed(6)}</p>
                   </div>
@@ -653,7 +630,7 @@ export function CAMPOSFolderView() {
                 <p className="text-sm font-semibold text-slate-900">Trazabilidad SII</p>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 xl:grid-cols-2">
                 <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
                   <p className="text-[11px] uppercase tracking-wide text-slate-500">Fuente principal</p>
                   <p className="mt-1 text-sm font-medium text-slate-900">{evidenceLabel}</p>
@@ -663,6 +640,19 @@ export function CAMPOSFolderView() {
                   <p className="mt-1 text-sm font-medium text-slate-900">{formatDateLabel(latestResolutionAt) || "Sin registro"}</p>
                 </div>
               </div>
+
+              {roles.length > 1 ? (
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Roles relacionados</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {roles.map((role) => (
+                      <Badge key={role} variant="secondary" className="bg-slate-100 text-slate-800">
+                        {role}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
 
               {siiPointResolution?.matchedPoint ? (
                 <div className="rounded-xl border border-sky-200 bg-sky-50 p-3">
