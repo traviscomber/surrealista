@@ -4,6 +4,11 @@ import { formatRol } from "./types"
 
 const DEFAULT_SII_MAPAS_URL = "https://www4.sii.cl/mapasui/services/data/mapasFacadeService"
 const REFERER = "https://www4.sii.cl/mapasui/internet/"
+const MAX_RETRY_ATTEMPTS = 6
+const RETRYABLE_STATUS_CODES = new Set([429, 500, 502, 503, 504])
+const MIN_REQUEST_GAP_MS = 1100
+const DEFAULT_RETRY_DELAY_MS = 900
+const RATE_LIMIT_BACKOFF_BASE_MS = 5000
 
 type SiiMapasEnvelope<T> = {
   data?: T
@@ -226,6 +231,7 @@ function buildAvaluo(record: Record<string, unknown>, input: SiiRolInput): SiiAv
 
 export class SiiMapasPublicProvider implements SiiProvider {
   private readonly baseUrl: string
+  private static nextRequestAt = 0
 
   constructor(baseUrl = process.env.SII_MAPAS_BASE_URL || DEFAULT_SII_MAPAS_URL) {
     this.baseUrl = baseUrl.replace(/\/$/, "")
@@ -326,31 +332,89 @@ export class SiiMapasPublicProvider implements SiiProvider {
     return buildAvaluo(data, { comuna: input.comuna, manzana, predio })
   }
 
+  private async waitForTurn() {
+    const now = Date.now()
+    const delayMs = Math.max(0, SiiMapasPublicProvider.nextRequestAt - now)
+    if (delayMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs))
+    }
+
+    SiiMapasPublicProvider.nextRequestAt = Date.now() + MIN_REQUEST_GAP_MS
+  }
+
+  private getRetryDelayMs(response: Response, attempt: number) {
+    const retryAfterHeader = response.headers.get("retry-after")
+    const retryAfterSeconds = retryAfterHeader ? Number(retryAfterHeader) : NaN
+
+    if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
+      return Math.ceil(retryAfterSeconds * 1000)
+    }
+
+    if (response.status === 429) {
+      return RATE_LIMIT_BACKOFF_BASE_MS * attempt
+    }
+
+    return DEFAULT_RETRY_DELAY_MS * attempt
+  }
+
   private async post<T>(operation: string, data: unknown): Promise<T> {
     const namespace = `cl.sii.sdi.lob.bbrr.mapas.data.api.interfaces.MapasFacadeService/${operation}`
-    const response = await fetch(`${this.baseUrl}/${operation}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json, text/plain, */*",
-        Origin: "https://www4.sii.cl",
-        Referer: REFERER,
-        "User-Agent": "Mozilla/5.0",
-      },
-      body: JSON.stringify(makeEnvelope(namespace, data)),
-      cache: "no-store",
-    })
+    const payload = JSON.stringify(makeEnvelope(namespace, data))
+    let lastStatus: number | null = null
+    let lastErrorMessage: string | null = null
 
-    if (!response.ok) {
-      throw new Error(`SII Mapas ${operation} failed: ${response.status}`)
+    for (let attempt = 1; attempt <= MAX_RETRY_ATTEMPTS; attempt++) {
+      await this.waitForTurn()
+
+      const response = await fetch(`${this.baseUrl}/${operation}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json, text/plain, */*",
+          Origin: "https://www4.sii.cl",
+          Referer: REFERER,
+          "User-Agent": "Mozilla/5.0",
+        },
+        body: payload,
+        cache: "no-store",
+      })
+
+      lastStatus = response.status
+      if (!response.ok) {
+        lastErrorMessage = `SII Mapas ${operation} failed: ${response.status}`
+        if (attempt < MAX_RETRY_ATTEMPTS && RETRYABLE_STATUS_CODES.has(response.status)) {
+          const delayMs = this.getRetryDelayMs(response, attempt)
+          SiiMapasPublicProvider.nextRequestAt = Math.max(
+            SiiMapasPublicProvider.nextRequestAt,
+            Date.now() + delayMs,
+          )
+          await new Promise((resolve) => setTimeout(resolve, delayMs))
+          continue
+        }
+
+        throw new Error(lastErrorMessage)
+      }
+
+      const envelope = (await response.json()) as SiiMapasEnvelope<T>
+      const errors = envelope.metaData?.errors?.map((error) => error.descripcion).filter(Boolean)
+      if (errors?.length) {
+        lastErrorMessage = `SII Mapas ${operation} failed: ${errors.join("; ")}`
+        if (attempt < MAX_RETRY_ATTEMPTS) {
+          const delayMs = DEFAULT_RETRY_DELAY_MS * attempt
+          SiiMapasPublicProvider.nextRequestAt = Math.max(
+            SiiMapasPublicProvider.nextRequestAt,
+            Date.now() + delayMs,
+          )
+          await new Promise((resolve) => setTimeout(resolve, delayMs))
+          continue
+        }
+
+        throw new Error(lastErrorMessage)
+      }
+
+      return envelope.data as T
     }
 
-    const envelope = (await response.json()) as SiiMapasEnvelope<T>
-    const errors = envelope.metaData?.errors?.map((error) => error.descripcion).filter(Boolean)
-    if (errors?.length) {
-      throw new Error(`SII Mapas ${operation} failed: ${errors.join("; ")}`)
-    }
-
-    return envelope.data as T
+    throw new Error(lastErrorMessage || `SII Mapas ${operation} failed${lastStatus ? `: ${lastStatus}` : ""}`)
   }
 }

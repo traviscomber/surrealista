@@ -31,6 +31,15 @@ import {
   Sparkles,
   Maximize2,
   Minimize2,
+  Building2,
+  Globe2,
+  ShieldCheck,
+  SearchCode,
+  Link2,
+  Database,
+  CheckCircle2,
+  AlertCircle,
+  Clock3,
 } from "lucide-react"
 import { kmzReader } from "@/lib/kmz/kmz-reader"
 import { kmzStorageService } from "@/lib/kmz/kmz-storage-service"
@@ -46,6 +55,7 @@ interface FolderItem {
   name: string
   type: "folder" | "file"
   location?: { lat: number; lng: number }
+  description?: string | null
   area?: string
   owner?: string
   google_docs_link?: string
@@ -57,13 +67,155 @@ interface FolderItem {
   dbId?: number
   isDriveFile?: boolean
   driveFileId?: string
+  rolNumbers?: string[]
+  metadata?: Record<string, any>
+  placemarksCount?: number
+  region?: string
+}
+
+const formatDateLabel = (value?: string | null) => {
+  if (!value) return null
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return value
+
+  return new Intl.DateTimeFormat("es-CL", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(parsed)
+}
+
+const formatCurrencyCLP = (value?: number | null) => {
+  if (value === null || value === undefined || !Number.isFinite(value)) return null
+
+  return new Intl.NumberFormat("es-CL", {
+    style: "currency",
+    currency: "CLP",
+    maximumFractionDigits: 0,
+  }).format(value)
+}
+
+const formatMeasure = (value?: number | null, suffix = "m2") => {
+  if (value === null || value === undefined || !Number.isFinite(value)) return null
+  return `${new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 }).format(value)} ${suffix}`
+}
+
+const normalizeList = (values?: unknown[]) => {
+  if (!Array.isArray(values)) return []
+  return values
+    .map((value) => `${value ?? ""}`.trim())
+    .filter(Boolean)
+}
+
+const normalizeKmzDescription = (value?: string | null) => {
+  if (!value) return null
+
+  const cleaned = value
+    .replace(/<!\[CDATA\[|\]\]>/g, " ")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<\/div>/gi, "\n")
+    .replace(/<\/li>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/\r/g, "")
+    .replace(/\t/g, " ")
+    .replace(/[ ]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+
+  return cleaned || null
+}
+
+const extractDescriptionHighlights = (value?: string | null, limit = 4) => {
+  const normalized = normalizeKmzDescription(value)
+  if (!normalized) return []
+
+  const ignored = new Set(["DESCRIPCION", "DESCRIPCIÓN", "DESCRIPTION"])
+  return normalized
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => line.length > 6)
+    .filter((line) => !ignored.has(line.toUpperCase()))
+    .slice(0, limit)
+}
+
+const getPrimaryRole = (item: FolderItem | null) => {
+  if (!item) return null
+  const roles = normalizeList(item.rolNumbers)
+  return roles[0] || null
+}
+
+const getRoleStatus = (item: FolderItem | null) => {
+  const roles = normalizeList(item?.rolNumbers)
+  const metadata = item?.metadata || {}
+
+  if (roles.length > 0) {
+    if (metadata.latest_cbr_owner_record || item?.owner?.trim()) {
+      return {
+        label: "Rol y dueno confirmados",
+        tone: "emerald",
+        icon: CheckCircle2,
+      }
+    }
+
+    if (metadata.public_owner_candidate || metadata.latest_owner_evidence) {
+      return {
+        label: "Rol resuelto, dueno en investigacion",
+        tone: "amber",
+        icon: SearchCode,
+      }
+    }
+
+    return {
+      label: "Rol resuelto",
+      tone: "sky",
+      icon: ShieldCheck,
+    }
+  }
+
+  return {
+    label: "Rol pendiente",
+    tone: "slate",
+    icon: AlertCircle,
+  }
+}
+
+const getToneClasses = (tone: string) => {
+  switch (tone) {
+    case "emerald":
+      return "border-emerald-200 bg-emerald-50 text-emerald-900"
+    case "amber":
+      return "border-amber-200 bg-amber-50 text-amber-900"
+    case "sky":
+      return "border-sky-200 bg-sky-50 text-sky-900"
+    default:
+      return "border-slate-200 bg-slate-50 text-slate-800"
+  }
+}
+
+const extractOwnerResearchSummary = (metadata?: Record<string, any>) => {
+  const queue = metadata?.owner_research_queue
+  if (!queue) return null
+
+  return {
+    priorityTier: queue.priorityTier || null,
+    priorityScore: queue.priorityScore ?? null,
+    status: queue.status || null,
+    suggestedNextStep: queue.suggestedNextStep || null,
+    reasons: Array.isArray(queue.reasons) ? queue.reasons.slice(0, 4) : [],
+    searchQueries: Array.isArray(queue.searchQueries) ? queue.searchQueries.slice(0, 4) : [],
+    resolvedAt: queue.resolvedAt || null,
+  }
 }
 
 const getCleanRegionName = (fullName: string): string => {
   if (!fullName) return fullName
 
-  // Remove "Región de " or "Región del "
-  return fullName.replace(/^Región de /i, "").replace(/^Región del /i, "")
+  // Remove "Region de " or "Region del "
+  return fullName.replace(/^Region de /i, "").replace(/^Region del /i, "")
 }
 
 // Search input with internal state to prevent focus loss - only syncs to parent on debounce
@@ -107,6 +259,7 @@ const SearchInput = memo(function SearchInput({
       }
     }
   }, [])
+
 
   return (
     <div className="relative">
@@ -167,6 +320,601 @@ export function CAMPOSFolderView() {
 
   const searchParams = useSearchParams()
   const kmzIdFromURL = searchParams?.get("kmz")
+
+  const DetailsPanel = () => {
+    if (!selectedItem) {
+      return (
+        <>
+          <div className="border-b p-4">
+            <h2 className="text-lg font-semibold">Detalles</h2>
+          </div>
+          <div className="p-6 text-center text-muted-foreground">
+            <Folder className="mx-auto mb-3 h-12 w-12 opacity-50" />
+            <p className="text-sm">Selecciona una region o un KMZ para ver el detalle operativo.</p>
+          </div>
+        </>
+      )
+    }
+
+    const metadata = selectedItem.metadata || {}
+    const roles = normalizeList(selectedItem.rolNumbers)
+    const primaryRole = getPrimaryRole(selectedItem)
+    const roleStatus = getRoleStatus(selectedItem)
+    const toneClasses = getToneClasses(roleStatus.tone)
+    const StatusIcon = roleStatus.icon
+    const publicCandidate = metadata.public_owner_candidate || null
+    const latestEvidence = metadata.latest_owner_evidence || null
+    const latestCbr = metadata.latest_cbr_owner_record || null
+    const manualRoleAssignment = metadata.manual_role_assignment || null
+    const siiPointResolution = metadata.sii_point_resolution || null
+    const siiRecord = siiPointResolution?.record || null
+    const ownerQueue = extractOwnerResearchSummary(metadata)
+    const confirmedOwner = selectedItem.owner || latestCbr?.companyName || latestCbr?.ownerName || null
+    const candidateOwner =
+      publicCandidate?.owner ||
+      latestEvidence?.ownerLabel ||
+      latestEvidence?.companyName ||
+      latestEvidence?.ownerName ||
+      null
+    const roleCount = roles.length
+    const descriptionText = normalizeKmzDescription(selectedItem.description || metadata?.description || null)
+    const descriptionHighlights = extractDescriptionHighlights(descriptionText)
+    const evidenceLabel = manualRoleAssignment
+      ? "Asignacion manual validada"
+      : siiPointResolution
+        ? "Cruce geoespacial SII"
+        : roleCount > 0
+          ? "Rol persistido"
+          : "Sin evidencia todavia"
+    const latestResolutionAt =
+      manualRoleAssignment?.assigned_at ||
+      siiPointResolution?.resolved_at ||
+      ownerQueue?.resolvedAt ||
+      null
+
+    if (selectedItem.type === "folder") {
+      return (
+        <>
+          <div className="border-b p-4">
+            <h2 className="text-lg font-semibold">Detalles</h2>
+          </div>
+          <div className="flex-1 space-y-4 overflow-y-auto p-4">
+            <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-5 text-white shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-300">Estado</p>
+                  <h3 className="mt-2 text-2xl font-bold leading-tight">{selectedItem.name}</h3>
+                  <p className="mt-2 text-sm text-slate-300">Region activa en exploracion de campos.</p>
+                </div>
+                <Badge className="border-white/20 bg-white/10 text-white hover:bg-white/10">
+                  {selectedItem.fileCount || 0} archivos
+                </Badge>
+              </div>
+            </div>
+
+            {selectedItem.location ? (
+              <Card className="border-slate-200 shadow-none">
+                <CardContent className="space-y-3 p-4">
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-slate-700" />
+                    <p className="text-sm font-semibold text-slate-900">Predio</p>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                    <p>Centro de region</p>
+                    <p className="mt-1">Lat: {selectedItem.location.lat.toFixed(6)}</p>
+                    <p>Lng: {selectedItem.location.lng.toFixed(6)}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : null}
+
+            {selectedItem.children?.length ? (
+              <Card className="border-slate-200 shadow-none">
+                <CardContent className="space-y-3 p-4">
+                  <div className="flex items-center gap-2">
+                    <File className="h-4 w-4 text-slate-700" />
+                    <p className="text-sm font-semibold text-slate-900">Archivos de la region</p>
+                  </div>
+                  <ScrollArea className="h-[240px] rounded-xl border">
+                    <div className="space-y-1 p-2">
+                      {selectedItem.children.map((child) => (
+                        <div key={child.id} className="flex items-center gap-2 rounded-lg bg-muted/50 p-2 text-sm">
+                          <File className="h-3 w-3" />
+                          <span className="flex-1 truncate">{child.name}</span>
+                          {child.area ? (
+                            <Badge variant="outline" className="text-xs">
+                              {child.area}
+                            </Badge>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            ) : null}
+          </div>
+        </>
+      )
+    }
+
+    return (
+      <>
+        <div className="border-b p-4">
+          <h2 className="text-lg font-semibold">Detalles</h2>
+        </div>
+
+        <div className="flex-1 space-y-4 overflow-y-auto p-4">
+          <div className={`overflow-hidden rounded-3xl border shadow-sm ${toneClasses}`}>
+            <div className="border-b border-current/10 px-5 py-3">
+              <div className="flex items-center gap-2">
+                <StatusIcon className="h-4 w-4" />
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em]">Estado del KMZ</p>
+              </div>
+            </div>
+            <div className="space-y-4 p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <h3 className="text-2xl font-bold leading-tight">{selectedItem.name}</h3>
+                  <p className="mt-2 text-sm font-medium opacity-90">{roleStatus.label}</p>
+                  <p className="mt-1 text-xs opacity-80">
+                    {selectedItem.region || "Sin region"}
+                    {primaryRole ? ` | Rol principal ${primaryRole}` : " | Sin rol principal"}
+                  </p>
+                </div>
+                <div className="flex flex-col items-end gap-2">
+                  {selectedItem.area ? (
+                    <Badge variant="outline" className="border-current/20 bg-white/60 text-current">
+                      {selectedItem.area}
+                    </Badge>
+                  ) : null}
+                  {selectedItem.placemarksCount ? (
+                    <Badge variant="outline" className="border-current/20 bg-white/60 text-current">
+                      {selectedItem.placemarksCount} puntos
+                    </Badge>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-4">
+                <div className="rounded-2xl border border-current/10 bg-white/50 p-3">
+                  <p className="text-[11px] uppercase tracking-wide opacity-70">Rol</p>
+                  <p className="mt-1 text-sm font-semibold">{primaryRole || "Pendiente"}</p>
+                </div>
+                <div className="rounded-2xl border border-current/10 bg-white/50 p-3">
+                  <p className="text-[11px] uppercase tracking-wide opacity-70">Fuente</p>
+                  <p className="mt-1 text-sm font-semibold">{evidenceLabel}</p>
+                </div>
+                <div className="rounded-2xl border border-current/10 bg-white/50 p-3">
+                  <p className="text-[11px] uppercase tracking-wide opacity-70">Dueno</p>
+                  <p className="mt-1 line-clamp-2 text-sm font-semibold">{confirmedOwner || "En investigacion"}</p>
+                </div>
+                <div className="rounded-2xl border border-current/10 bg-white/50 p-3">
+                  <p className="text-[11px] uppercase tracking-wide opacity-70">Documentos</p>
+                  <p className="mt-1 text-sm font-semibold">{documentCount} asociados</p>
+                </div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-2xl border border-current/10 bg-white/40 p-3">
+                  <p className="text-[11px] uppercase tracking-wide opacity-70">Total de roles</p>
+                  <p className="mt-1 text-sm font-semibold">{roleCount}</p>
+                </div>
+                <div className="rounded-2xl border border-current/10 bg-white/40 p-3">
+                  <p className="text-[11px] uppercase tracking-wide opacity-70">Ultima actualizacion</p>
+                  <p className="mt-1 text-sm font-semibold">{formatDateLabel(latestResolutionAt) || "Sin fecha"}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <Card className="border-slate-200 shadow-none">
+            <CardContent className="space-y-4 p-4">
+              <div className="flex items-center gap-2">
+                <Database className="h-4 w-4 text-slate-700" />
+                <p className="text-sm font-semibold text-slate-900">Predio</p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Region</p>
+                  <p className="mt-1 text-sm font-medium text-slate-900">{selectedItem.region || "Sin region"}</p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Categoria</p>
+                  <p className="mt-1 text-sm font-medium text-slate-900">{selectedItem.category || "Sin categoria"}</p>
+                </div>
+              </div>
+
+              {descriptionText ? (
+                <div className="rounded-xl border border-slate-200 bg-white p-4">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4 text-slate-700" />
+                    <p className="text-sm font-semibold text-slate-900">Descripcion del KMZ</p>
+                  </div>
+                  {descriptionHighlights.length > 1 ? (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {descriptionHighlights.map((line) => (
+                        <Badge key={line} variant="secondary" className="max-w-full bg-slate-100 text-slate-800">
+                          <span className="truncate">{line}</span>
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : null}
+                  <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                    <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">{descriptionText}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-muted-foreground">
+                  Este KMZ no trae una descripcion legible en su metadata actual.
+                </div>
+              )}
+
+              {siiRecord ? (
+                <div className="rounded-xl border border-sky-200 bg-sky-50/70 p-4">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-sky-700" />
+                    <p className="text-sm font-semibold text-sky-950">Ficha SII</p>
+                  </div>
+
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-lg border border-sky-200 bg-white/70 p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-sky-700">Direccion SII</p>
+                      <p className="mt-1 text-sm font-medium text-slate-900">{siiRecord.direccion || "Sin direccion"}</p>
+                    </div>
+                    <div className="rounded-lg border border-sky-200 bg-white/70 p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-sky-700">Destino</p>
+                      <p className="mt-1 text-sm font-medium text-slate-900">{siiRecord.destino || "Sin destino"}</p>
+                    </div>
+                    <div className="rounded-lg border border-sky-200 bg-white/70 p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-sky-700">Avaluo total</p>
+                      <p className="mt-1 text-sm font-medium text-slate-900">{formatCurrencyCLP(siiRecord.avaluoTotal) || "Sin dato"}</p>
+                    </div>
+                    <div className="rounded-lg border border-sky-200 bg-white/70 p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-sky-700">Periodo</p>
+                      <p className="mt-1 text-sm font-medium text-slate-900">{siiRecord.periodo || "Sin periodo"}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid gap-3 sm:grid-cols-4">
+                    <div className="rounded-lg border border-sky-200 bg-white/70 p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-sky-700">Afecto</p>
+                      <p className="mt-1 text-sm font-medium text-slate-900">{formatCurrencyCLP(siiRecord.avaluoAfecto) || "Sin dato"}</p>
+                    </div>
+                    <div className="rounded-lg border border-sky-200 bg-white/70 p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-sky-700">Exento</p>
+                      <p className="mt-1 text-sm font-medium text-slate-900">{formatCurrencyCLP(siiRecord.avaluoExento) || "Sin dato"}</p>
+                    </div>
+                    <div className="rounded-lg border border-sky-200 bg-white/70 p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-sky-700">Sup. terreno</p>
+                      <p className="mt-1 text-sm font-medium text-slate-900">{formatMeasure(siiRecord.superficieTerreno) || "Sin dato"}</p>
+                    </div>
+                    <div className="rounded-lg border border-sky-200 bg-white/70 p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-sky-700">Sup. construida</p>
+                      <p className="mt-1 text-sm font-medium text-slate-900">{formatMeasure(siiRecord.superficieConstruida) || "Sin dato"}</p>
+                    </div>
+                  </div>
+
+                  {siiRecord.areaHomogenea ? (
+                    <div className="mt-3 rounded-lg border border-sky-200 bg-white/70 p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-sky-700">Area homogenea</p>
+                      <p className="mt-1 text-sm font-medium text-slate-900">{siiRecord.areaHomogenea}</p>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+
+              <div>
+                <p className="text-[11px] uppercase tracking-wide text-slate-500">Roles SII</p>
+                {roles.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {roles.map((role) => (
+                      <Badge key={role} variant="secondary" className="bg-sky-100 text-sky-900">
+                        {role}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-sm text-muted-foreground">Sin rol persistido todavia.</p>
+                )}
+              </div>
+
+              {selectedItem.location ? (
+                <div className="rounded-xl border border-slate-200 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Ubicacion del archivo</p>
+                  <div className="mt-2 space-y-1 text-sm text-muted-foreground">
+                    <p>Lat: {selectedItem.location.lat.toFixed(6)}</p>
+                    <p>Lng: {selectedItem.location.lng.toFixed(6)}</p>
+                  </div>
+                </div>
+              ) : null}
+
+              {manualRoleAssignment ? (
+                <div className="rounded-xl border border-sky-200 bg-sky-50 p-3">
+                  <p className="text-sm font-medium text-sky-950">Ultima asignacion manual</p>
+                  <p className="mt-1 text-sm text-sky-950">
+                    {manualRoleAssignment.assigned_role || primaryRole || "Sin rol"} | {manualRoleAssignment.evidenceType || "manual-review"}
+                  </p>
+                  {manualRoleAssignment.notes ? (
+                    <p className="mt-2 text-xs text-sky-900">{manualRoleAssignment.notes}</p>
+                  ) : null}
+                  {manualRoleAssignment.assigned_at ? (
+                    <p className="mt-1 text-xs text-sky-800">{formatDateLabel(manualRoleAssignment.assigned_at)}</p>
+                  ) : null}
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
+
+          <Card className="border-slate-200 shadow-none">
+            <CardContent className="space-y-4 p-4">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-4 w-4 text-sky-700" />
+                <p className="text-sm font-semibold text-slate-900">Trazabilidad SII</p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Fuente principal</p>
+                  <p className="mt-1 text-sm font-medium text-slate-900">{evidenceLabel}</p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Fecha util</p>
+                  <p className="mt-1 text-sm font-medium text-slate-900">{formatDateLabel(latestResolutionAt) || "Sin registro"}</p>
+                </div>
+              </div>
+
+              {siiPointResolution?.matchedPoint ? (
+                <div className="rounded-xl border border-sky-200 bg-sky-50 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-sky-700">Punto de cruce SII</p>
+                  <p className="mt-1 text-sm text-sky-950">
+                    {siiPointResolution.matchedPoint.label || "sample"} | lat {Number(siiPointResolution.matchedPoint.lat).toFixed(6)} | lng{" "}
+                    {Number(siiPointResolution.matchedPoint.lng).toFixed(6)}
+                  </p>
+                </div>
+              ) : null}
+
+              {manualRoleAssignment?.sourceKmzFileName ? (
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-amber-700">KMZ de referencia</p>
+                  <p className="mt-1 text-sm text-amber-950">{manualRoleAssignment.sourceKmzFileName}</p>
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
+
+          <Card className="border-slate-200 shadow-none">
+            <CardContent className="space-y-4 p-4">
+              <div className="flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-emerald-700" />
+                <p className="text-sm font-semibold text-slate-900">Dueno / Sociedad</p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-emerald-700">Confirmado</p>
+                  <p className="mt-1 text-sm font-semibold text-emerald-950">{confirmedOwner || "Aun no confirmado"}</p>
+                  {latestCbr?.documentType ? <p className="mt-1 text-xs text-emerald-800">Documento: {latestCbr.documentType}</p> : null}
+                  {latestCbr?.savedAt ? <p className="mt-1 text-xs text-emerald-800">{formatDateLabel(latestCbr.savedAt)}</p> : null}
+                </div>
+
+                <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-amber-700">Candidato publico</p>
+                  <p className="mt-1 text-sm font-semibold text-amber-950">{candidateOwner || "Sin candidato todavia"}</p>
+                  {publicCandidate?.confidence ? <p className="mt-1 text-xs text-amber-800">Confianza: {publicCandidate.confidence}</p> : null}
+                  {latestEvidence?.documentType ? <p className="mt-1 text-xs text-amber-800">Documento: {latestEvidence.documentType}</p> : null}
+                  {latestEvidence?.documentUrl ? (
+                    <a
+                      href={latestEvidence.documentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-amber-900 hover:underline"
+                    >
+                      <Link2 className="h-3 w-3" />
+                      Abrir respaldo
+                    </a>
+                  ) : null}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-slate-200 shadow-none">
+            <CardContent className="space-y-4 p-4">
+              <div className="flex items-center gap-2">
+                <SearchCode className="h-4 w-4 text-violet-700" />
+                <p className="text-sm font-semibold text-slate-900">Investigacion</p>
+              </div>
+
+              {ownerQueue ? (
+                <>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant="secondary" className="bg-violet-100 text-violet-900">
+                      {ownerQueue.priorityTier || "sin tier"}
+                    </Badge>
+                    {ownerQueue.priorityScore !== null ? (
+                      <Badge variant="outline" className="border-violet-300 text-violet-900">
+                        Score {ownerQueue.priorityScore}
+                      </Badge>
+                    ) : null}
+                    {ownerQueue.status ? (
+                      <Badge variant="outline" className="border-violet-300 text-violet-900">
+                        {ownerQueue.status}
+                      </Badge>
+                    ) : null}
+                  </div>
+
+                  {ownerQueue.suggestedNextStep ? (
+                    <div className="rounded-xl border border-violet-200 bg-violet-50 p-3">
+                      <p className="text-[11px] uppercase tracking-wide text-violet-700">Siguiente paso</p>
+                      <p className="mt-1 text-sm text-violet-950">{ownerQueue.suggestedNextStep}</p>
+                    </div>
+                  ) : null}
+
+                  {ownerQueue.reasons.length > 0 ? (
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wide text-slate-500">Motivos</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {ownerQueue.reasons.map((reason) => (
+                          <Badge key={reason} variant="secondary" className="bg-slate-100 text-slate-800">
+                            {reason}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {ownerQueue.searchQueries.length > 0 ? (
+                    <div>
+                      <p className="text-[11px] uppercase tracking-wide text-slate-500">Consultas sugeridas</p>
+                      <div className="mt-2 space-y-2">
+                        {ownerQueue.searchQueries.map((query) => (
+                          <div key={query} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                            {query}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">Aun no hay cola de investigacion registrada para este KMZ.</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-slate-200 shadow-none">
+            <CardContent className="space-y-4 p-4">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-slate-700" />
+                <p className="text-sm font-semibold text-slate-900">Documentos</p>
+              </div>
+
+              {selectedItem.google_docs_link ? (
+                <a
+                  href={selectedItem.google_docs_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex w-full items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 transition-colors hover:bg-slate-100"
+                >
+                  <span className="truncate pr-3">Abrir Google Docs del KMZ</span>
+                  <ExternalLink className="h-4 w-4 flex-shrink-0" />
+                </a>
+              ) : null}
+
+              {loadingDocuments ? (
+                <div className="flex items-center justify-center py-4">
+                  <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-sage"></div>
+                </div>
+              ) : documentCount > 0 ? (
+                <div className="space-y-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-start bg-transparent"
+                    onClick={() => {
+                      const folderPath = documentKMZLinker.getDocumentFolderPath(selectedItem.name)
+                      window.location.href = folderPath
+                    }}
+                  >
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    Ver carpeta de documentos ({documentCount})
+                  </Button>
+
+                  <ScrollArea className="h-28 rounded-xl border">
+                    <div className="space-y-1 p-2">
+                      {selectedItemDocuments.slice(0, 5).map((doc) => (
+                        <div key={doc.documentId} className="flex items-start gap-2 rounded-lg p-2 hover:bg-accent/50">
+                          <FileText className="mt-0.5 h-3 w-3 flex-shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-xs">{doc.documentTitle}</p>
+                            <p className="text-[10px] text-muted-foreground">{doc.documentType}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-muted-foreground">
+                  No hay documentos asociados a este campo.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-slate-200 shadow-none">
+            <CardContent className="space-y-4 p-4">
+              <div className="flex items-center gap-2">
+                <File className="h-4 w-4 text-slate-700" />
+                <p className="text-sm font-semibold text-slate-900">Edicion</p>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium">Propietario / Cliente</label>
+                <input
+                  type="text"
+                  value={editingOwner}
+                  onChange={(e) => setEditingOwner(e.target.value)}
+                  placeholder="Ingresa nombre del propietario o cliente"
+                  className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm text-foreground"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">Nombre del dueno confirmado o cliente asociado.</p>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium">Enlace Google Docs</label>
+                <input
+                  type="text"
+                  value={editingGoogleDocsLink}
+                  onChange={(e) => setEditingGoogleDocsLink(e.target.value)}
+                  placeholder="https://docs.google.com/document/d/..."
+                  className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm text-foreground"
+                />
+                <p className="mt-1 text-xs text-muted-foreground">Ficha comercial, minuta o carpeta editable del campo.</p>
+                {editingGoogleDocsLink ? (
+                  <a
+                    href={editingGoogleDocsLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                  >
+                    <ExternalLink className="h-3 w-3" />
+                    Abrir documento
+                  </a>
+                ) : null}
+              </div>
+
+              <Button onClick={handleSaveOwnerAndDocsLink} disabled={isSavingOwner} className="w-full">
+                {isSavingOwner ? "Guardando..." : "Guardar cambios"}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {selectedRegion && kmzFiles.length > 0 ? (
+            <Card className="border-slate-200 shadow-none">
+              <CardContent className="p-4">
+                <p className="mb-3 text-sm font-medium">Archivos cargados en mapa ({kmzFiles.length})</p>
+                <ScrollArea className="h-[160px] rounded-xl border">
+                  <div className="space-y-1 p-2">
+                    {kmzFiles.map((file) => (
+                      <div key={file.metadata.id} className="flex items-center gap-2 rounded-lg bg-muted/50 p-2 text-sm">
+                        <MapPin className="h-3 w-3 text-primary" />
+                        <span className="flex-1 truncate">{file.fileName}</span>
+                        <Badge variant="outline" className="text-xs">
+                          {file.placemarks.length}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </CardContent>
+            </Card>
+          ) : null}
+        </div>
+      </>
+    )
+  }
 
   const calculateCenterFromBounds = (bounds: any): { lat: number; lng: number } => {
     if (!bounds || !bounds.south || !bounds.north || !bounds.west || !bounds.east) {
@@ -255,7 +1003,7 @@ export function CAMPOSFolderView() {
         
         const { data, error, count } = await supabase
           .from("kmz_collection")
-          .select("id, file_name, region, placemarks_count, bounds, tags, file_path, owner, google_docs_link", { count: 'exact' })
+          .select("id, file_name, region, placemarks_count, bounds, tags, file_path, owner, google_docs_link, rol_numbers, metadata, category", { count: 'exact' })
           .eq("is_active", true)
           .order("region", { ascending: true })
           .range(start, end)
@@ -351,7 +1099,7 @@ export function CAMPOSFolderView() {
           }
 
           return {
-            name: `${data.file_name} - ${geometryType === "Polygon" ? "Polígono" : "Punto"} ${index + 1}`,
+            name: `${data.file_name} - ${geometryType === "Polygon" ? "Poligono" : "Punto"} ${index + 1}`,
             type: geometryType,
             coordinates: coordinates,
             description: data.description || "",
@@ -394,6 +1142,7 @@ export function CAMPOSFolderView() {
           type: "file",
           dbId: data.id,
           location: center,
+          description: data.description || data.metadata?.description || null,
           area: `${data.placemarks_count || 0} puntos`,
         }
         setSelectedItem(virtualItem)
@@ -539,7 +1288,7 @@ export function CAMPOSFolderView() {
     const regionMap = new Map<string, any[]>()
 
     metadata.forEach((record) => {
-      const region = record.region || "Sin Región"
+      const region = record.region || "Sin Region"
       if (!regionMap.has(region)) {
         regionMap.set(region, [])
       }
@@ -584,11 +1333,17 @@ export function CAMPOSFolderView() {
             id: `file-${folderId}-${idx}`,
             name: file.file_name,
             type: "file" as const,
+            description: file.description || file.metadata?.description || null,
             area: `${file.placemarks_count || 0} puntos`,
             location: fileCenter,
             dbId: file.id,
             owner: file.owner,
             google_docs_link: file.google_docs_link,
+            rolNumbers: file.rol_numbers || [],
+            metadata: file.metadata || {},
+            placemarksCount: file.placemarks_count || 0,
+            region: file.region || region,
+            category: file.category || undefined,
           }
         }),
         isOpen: false,
@@ -625,7 +1380,7 @@ export function CAMPOSFolderView() {
           dbId: record.id, // Add dbId at top level for filtering in KMZMapDisplay
           id: record.id, // Also add id for direct access
           placemarks: (record.coordinates || []).map((coordArray: any, index: number) => ({
-            name: `${record.file_name} - ${Array.isArray(coordArray) && coordArray.length > 3 ? "Polígono" : "Punto"} ${index + 1}`,
+            name: `${record.file_name} - ${Array.isArray(coordArray) && coordArray.length > 3 ? "Poligono" : "Punto"} ${index + 1}`,
             type: Array.isArray(coordArray) && coordArray.length > 3 ? "Polygon" : "Point",
             coordinates: coordArray,
             description: record.description || "",
@@ -655,11 +1410,17 @@ export function CAMPOSFolderView() {
                     id: `file-${folder.id}-${idx}`,
                     name: kmz.fileName,
                     type: "file" as const,
+                    description: uniqueData?.[idx]?.description || uniqueData?.[idx]?.metadata?.description || null,
                     area: `${kmz.metadata.placemarks_count || 0} puntos`,
                     location: kmz.bounds ? calculateCenterFromBounds(kmz.bounds) : undefined,
                     dbId: kmz.metadata.id,
-                    owner: undefined,
-                    google_docs_link: undefined,
+                    owner: uniqueData?.[idx]?.owner,
+                    google_docs_link: uniqueData?.[idx]?.google_docs_link,
+                    rolNumbers: uniqueData?.[idx]?.rol_numbers || [],
+                    metadata: uniqueData?.[idx]?.metadata || {},
+                    placemarksCount: uniqueData?.[idx]?.placemarks_count || 0,
+                    region: uniqueData?.[idx]?.region || region,
+                    category: uniqueData?.[idx]?.category || undefined,
                   })),
                 }
               : folder,
@@ -735,6 +1496,22 @@ export function CAMPOSFolderView() {
           .single()
 
         if (!error && data) {
+          setSelectedItem((prev) =>
+            prev
+              ? {
+                ...prev,
+                owner: data.owner || null,
+                google_docs_link: data.google_docs_link || null,
+                description: data.description || data.metadata?.description || prev.description || null,
+                rolNumbers: data.rol_numbers || [],
+                metadata: data.metadata || {},
+                placemarksCount: data.placemarks_count || 0,
+                  region: data.region || prev.region,
+                  category: data.category || prev.category,
+                }
+              : prev,
+          )
+
           const placemarks = (data.coordinates || []).map((coordArray: any, index: number) => {
             let geometryType = "Point"
             let coordinates = coordArray
@@ -747,7 +1524,7 @@ export function CAMPOSFolderView() {
             }
 
             return {
-              name: `${data.file_name} - ${geometryType === "Polygon" ? "Polígono" : "Punto"} ${index + 1}`,
+              name: `${data.file_name} - ${geometryType === "Polygon" ? "Poligono" : "Punto"} ${index + 1}`,
               type: geometryType,
               coordinates: coordinates,
               description: data.description || "",
@@ -906,7 +1683,7 @@ export function CAMPOSFolderView() {
   const handleRescanRegions = async () => {
     if (isRescanning) return
 
-    const sinRegionFolder = folders.find((f) => f.name === "Sin Región")
+    const sinRegionFolder = folders.find((f) => f.name === "Sin Region")
     const fileCount = sinRegionFolder?.fileCount || 0
 
     if (fileCount === 0) {
@@ -918,7 +1695,7 @@ export function CAMPOSFolderView() {
     }
 
     const confirmed = confirm(
-      `¿Deseas reanalizar ${fileCount} archivos KMZ en 'Sin Región' y asignarlos a sus regiones correctas?\n\n` +
+      `¿Deseas reanalizar ${fileCount} archivos KMZ en 'Sin Region' y asignarlos a sus regiones correctas?\n\n` +
         "Esto puede tomar varios minutos dependiendo de la cantidad de archivos.",
     )
 
@@ -1035,12 +1812,12 @@ export function CAMPOSFolderView() {
           </div>
         )}
 
-        {(folders.find((f) => f.name === "Sin Región")?.fileCount || 0) > 0 && (
+        {(folders.find((f) => f.name === "Sin Region")?.fileCount || 0) > 0 && (
           <div className="p-3 bg-sage-50 border border-sage-200 rounded-lg space-y-2">
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1">
                 <p className="text-sm font-medium text-sage-900">
-                  {folders.find((f) => f.name === "Sin Región")?.fileCount || 0} archivos sin región
+                  {folders.find((f) => f.name === "Sin Region")?.fileCount || 0} archivos sin región
                 </p>
                 <p className="text-xs text-sage-700 mt-1">Pueden reasignarse automáticamente según coordenadas</p>
               </div>
@@ -1205,212 +1982,6 @@ export function CAMPOSFolderView() {
     </>
   )
 
-  const DetailsPanel = () => (
-    <>
-      <div className="p-4 border-b">
-        <h2 className="text-lg font-semibold">Detalles</h2>
-      </div>
-
-      <div className="flex-1 overflow-y-auto min-h-0">
-        {selectedItem ? (
-          <div className="p-4 space-y-4">
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                {selectedItem.type === "folder" ? (
-                  <Folder className="h-5 w-5 text-primary" />
-                ) : (
-                  <File className="h-5 w-5 text-primary" />
-                )}
-                <h3 className="font-semibold">{selectedItem.name}</h3>
-              </div>
-              <p className="text-sm text-muted-foreground">
-                {selectedItem.type === "folder" ? "Región" : "Archivo KMZ"}
-              </p>
-            </div>
-
-            {selectedItem.area && (
-              <div>
-                <p className="text-sm font-medium mb-1">Información</p>
-                <Badge variant="secondary">{selectedItem.area}</Badge>
-              </div>
-            )}
-
-            {selectedItem.type === "file" && (
-              <div className="pt-2 space-y-3">
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Propietario / Cliente</label>
-                  <input
-                    type="text"
-                    value={editingOwner}
-                    onChange={(e) => setEditingOwner(e.target.value)}
-                    placeholder="Ingresa nombre del propietario o cliente"
-                    className="w-full px-2 py-1.5 border rounded-md text-sm bg-background text-foreground border-input"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">Nombre del dueño del predio o cliente asociado</p>
-                </div>
-
-                <div>
-                  <label className="text-sm font-medium mb-2 block">Enlace Google Docs</label>
-                  <input
-                    type="text"
-                    value={editingGoogleDocsLink}
-                    onChange={(e) => setEditingGoogleDocsLink(e.target.value)}
-                    placeholder="https://docs.google.com/document/d/..."
-                    className="w-full px-2 py-1.5 border rounded-md text-sm bg-background text-foreground border-input"
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">Enlace a la documentacion en Google Docs</p>
-                  {editingGoogleDocsLink && (
-                    <a
-                      href={editingGoogleDocsLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-primary hover:underline mt-1 inline-flex items-center gap-1"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                      Abrir documento
-                    </a>
-                  )}
-                </div>
-
-                <Button
-                  onClick={handleSaveOwnerAndDocsLink}
-                  disabled={isSavingOwner}
-                  className="w-full"
-                >
-                  {isSavingOwner ? "Guardando..." : "Guardar Cambios"}
-                </Button>
-              </div>
-            )}
-
-            {selectedItem.location && (
-              <div>
-                <p className="text-sm font-medium mb-1">
-                  {selectedItem.type === "folder" ? "Centro de Región" : "Ubicación del Archivo"}
-                </p>
-                <div className="text-sm text-muted-foreground space-y-1">
-                  <p>Lat: {selectedItem.location.lat.toFixed(6)}</p>
-                  <p>Lng: {selectedItem.location.lng.toFixed(6)}</p>
-                </div>
-              </div>
-            )}
-
-            {selectedItem.type === "file" && (
-              <div className="pt-4 border-t">
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="text-sm font-semibold flex items-center gap-2">
-                    <FileText className="h-4 w-4" />
-                    Documentos Asociados
-                  </h4>
-                  {documentCount > 0 && (
-                    <Badge variant="secondary" className="text-xs">
-                      {documentCount}
-                    </Badge>
-                  )}
-                </div>
-
-                {loadingDocuments && (
-                  <div className="flex items-center justify-center py-4">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-sage"></div>
-                  </div>
-                )}
-
-                {!loadingDocuments && documentCount > 0 && (
-                  <div className="space-y-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full justify-start bg-transparent"
-                      onClick={() => {
-                        const folderPath = documentKMZLinker.getDocumentFolderPath(selectedItem.name)
-                        window.location.href = folderPath
-                      }}
-                    >
-                      <ExternalLink className="h-4 w-4 mr-2" />
-                      Ver Carpeta de Documentos ({documentCount})
-                    </Button>
-
-                    <div className="text-xs text-muted-foreground">
-                      <p className="mb-1">Documentos recientes:</p>
-                      <ScrollArea className="h-24">
-                        <div className="space-y-1">
-                          {selectedItemDocuments.slice(0, 5).map((doc) => (
-                            <div
-                              key={doc.documentId}
-                              className="flex items-start gap-2 p-1.5 rounded hover:bg-accent/50"
-                            >
-                              <FileText className="h-3 w-3 mt-0.5 flex-shrink-0" />
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs truncate">{doc.documentTitle}</p>
-                                <p className="text-[10px] text-muted-foreground">{doc.documentType}</p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </ScrollArea>
-                    </div>
-                  </div>
-                )}
-
-                {!loadingDocuments && documentCount === 0 && (
-                  <div className="text-xs text-muted-foreground py-2 bg-muted/30 rounded p-3">
-                    <p>No hay documentos asociados a este campo.</p>
-                    <p className="mt-1">Puedes agregar documentos desde la sección de Documentación.</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {selectedItem.type === "folder" && selectedItem.fileCount && (
-              <div>
-                <p className="text-sm font-medium mb-2">Archivos en esta región ({selectedItem.fileCount})</p>
-                {selectedItem.children && (
-                  <ScrollArea className="h-[240px] rounded-md border">
-                    <div className="space-y-1 p-2">
-                      {selectedItem.children.map((child) => (
-                        <div key={child.id} className="text-sm p-2 rounded bg-muted/50 flex items-center gap-2">
-                          <File className="h-3 w-3" />
-                          <span className="flex-1 truncate">{child.name}</span>
-                          {child.area && (
-                            <Badge variant="outline" className="text-xs">
-                              {child.area}
-                            </Badge>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                )}
-              </div>
-            )}
-
-            {selectedRegion && kmzFiles.length > 0 && (
-              <div>
-                <p className="text-sm font-medium mb-2">Archivos cargados en mapa ({kmzFiles.length})</p>
-                <ScrollArea className="h-[160px] rounded-md border">
-                  <div className="space-y-1 p-2">
-                    {kmzFiles.map((file) => (
-                      <div key={file.metadata.id} className="text-sm p-2 rounded bg-muted/50 flex items-center gap-2">
-                        <MapPin className="h-3 w-3 text-primary" />
-                        <span className="flex-1 truncate">{file.fileName}</span>
-                        <Badge variant="outline" className="text-xs">
-                          {file.placemarks.length}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="p-4 text-center text-muted-foreground">
-            <Folder className="h-12 w-12 mx-auto mb-2 opacity-50" />
-            <p className="text-sm">Selecciona una región para ver detalles y cargar archivos KMZ</p>
-          </div>
-        )}
-      </div>
-    </>
-  )
 
   return (
     <div
@@ -1589,3 +2160,5 @@ export function CAMPOSFolderView() {
     </div>
   )
 }
+
+

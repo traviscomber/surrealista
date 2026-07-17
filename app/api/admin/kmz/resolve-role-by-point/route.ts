@@ -40,6 +40,9 @@ type RankedAddressCandidate = {
   rol: string
   query: string
   textScore: number
+  summary: Awaited<ReturnType<SiiMapasPublicProvider["searchByAddress"]>>[number]
+  distanceKm?: number
+  coordinateSource?: "direct" | "projected-ah" | "projected-csa"
 }
 
 type EvaluatedNameCandidate = {
@@ -51,35 +54,103 @@ type EvaluatedNameCandidate = {
 }
 
 const GENERIC_NAME_TOKENS = new Set([
+  "ALIGN",
   "ARCHIVO",
+  "BACKGROUND",
+  "BGCOLOR",
+  "BODY",
+  "BORDER",
   "CAMPO",
+  "CELLPADDING",
+  "CELLSPACING",
+  "CHARSET",
   "COMPRA",
+  "CONTENT",
+  "DOCTYPE",
+  "FONT",
   "FUNDO",
+  "HEAD",
+  "HEIGHT",
+  "HTML",
+  "HTTP",
+  "HTTPS",
+  "IMG",
+  "META",
   "KMZ",
   "KML",
   "LOTE",
   "LOTES",
+  "MARGIN",
+  "MSXSL",
+  "NAMESPACE",
+  "OVERFLOW",
   "PARCELA",
   "PARCELAS",
+  "PADDING",
   "PREDIO",
   "PREDIAL",
   "PROPIEDAD",
   "REFUGIO",
+  "RGB",
   "ROL",
   "RURAL",
   "RURAI",
   "SITIO",
   "SOC",
   "SOCIEDAD",
+  "SRC",
+  "STYLE",
   "SUCURSAL",
   "SUB",
   "SUBDIVISION",
+  "TABLE",
   "TERRENO",
+  "TEXT",
+  "TYPE",
+  "USER",
+  "UTF",
+  "VALIGN",
+  "VERDANA",
+  "WIDTH",
+  "WWW",
+  "XSL",
+  "XSLT",
 ])
 
 const MIN_NAME_MATCH_DISTANCE_KM = 9
 const MIN_PROJECTED_AH_MATCH_DISTANCE_KM = 6
 const MIN_PROJECTED_CSA_MATCH_DISTANCE_KM = 8
+const MAX_SEARCH_QUERY_TOKENS = 6
+const MAX_SEARCH_QUERY_LENGTH = 64
+const MAX_NAME_SEARCH_CANDIDATES = 6
+const MAX_POINT_RESOLVED_ROLES = 8
+const STRUCTURED_DESCRIPTION_VALUE_KEYS = new Set([
+  "NOMBRE",
+  "LOTE",
+  "SECTOR",
+  "FUNDO",
+  "ISLA",
+  "PREDIO",
+  "PARCELA",
+  "CAMPO",
+  "HIJUELA",
+  "LOCALIDAD",
+  "DIRECCION",
+  "DIRECCIÓN",
+])
+const STRUCTURED_DESCRIPTION_IGNORED_KEYS = new Set([
+  "FID",
+  "FID_PRPIED",
+  "FID_PRPIED_",
+  "FID_AREALO",
+  "ID",
+  "HA",
+  "HA_1",
+  "SHAPE_LENG",
+  "SHAPE_AREA",
+  "OBJECTID",
+  "CODIGO",
+])
 
 function getAllowedNameMatchDistanceKm(coordinateSource?: "direct" | "projected-ah" | "projected-csa") {
   switch (coordinateSource) {
@@ -172,12 +243,48 @@ function normalizeSearchText(value: string) {
   return value
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&[A-Z0-9#]+;/gi, " ")
+    .replace(/https?:\/\/\S+/gi, " ")
+    .replace(/www\.\S+/gi, " ")
     .replace(/\.[A-Z0-9]+$/gi, " ")
+    .replace(/[_=+*"'`|~^\\]/g, " ")
     .replace(/[()_[\]{}]/g, " ")
+    .replace(/[<>]/g, " ")
     .replace(/[,;:]+/g, " ")
     .replace(/\s+/g, " ")
     .trim()
     .toUpperCase()
+}
+
+function looksLikeGpsTrackSummary(value?: string | null) {
+  if (typeof value !== "string") return false
+
+  const normalized = normalizeSearchText(value)
+  if (!normalized) return false
+
+  const gpsMarkers = [
+    "DISTANCE",
+    "ELAPSED TIME",
+    "AVG SPEED",
+    "MAX SPEED",
+    "AVG PACE",
+    "START TIME",
+    "FINISH TIME",
+    "START LOCATION",
+    "FINISH LOCATION",
+    "LATITUDE",
+    "LONGITUDE",
+    "NAUTICAL MILES",
+    "METERS",
+    "KILOMETERS",
+    "ZONE",
+    "EASTING",
+    "NORTHING",
+  ]
+
+  const markerHits = gpsMarkers.filter((marker) => normalized.includes(marker)).length
+  return markerHits >= 3
 }
 
 function tokenizeSearchText(value: string) {
@@ -185,6 +292,82 @@ function tokenizeSearchText(value: string) {
     .split(/[\s/-]+/)
     .map((token) => token.trim())
     .filter(Boolean)
+}
+
+function decodeHtmlEntities(value: string) {
+  return value
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'")
+    .replace(/&ntilde;/gi, "ñ")
+    .replace(/&Ntilde;/g, "Ñ")
+    .replace(/&aacute;/gi, "á")
+    .replace(/&eacute;/gi, "é")
+    .replace(/&iacute;/gi, "í")
+    .replace(/&oacute;/gi, "ó")
+    .replace(/&uacute;/gi, "ú")
+}
+
+function extractStructuredDescriptionTargets(value?: string | null) {
+  if (typeof value !== "string" || !value.trim()) return []
+
+  const decoded = decodeHtmlEntities(value)
+  const targets = new Set<string>()
+  const rowMatches = Array.from(decoded.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)).map((match) => match[1] || "")
+
+  for (const rowHtml of rowMatches) {
+    const cells = Array.from(rowHtml.matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi))
+      .map((match) => normalizeSearchText(match[1] || ""))
+      .filter(Boolean)
+
+    if (cells.length === 1) {
+      const singleValueTokens = tokenizeSearchText(cells[0]).filter((token) => !STRUCTURED_DESCRIPTION_IGNORED_KEYS.has(token))
+      const singlePhrase = singleValueTokens.join(" ").trim()
+      if (singlePhrase.length >= 6) {
+        targets.add(singlePhrase)
+      }
+      continue
+    }
+
+    if (cells.length < 2) {
+      continue
+    }
+
+    const key = cells[0]
+    const rawValue = cells[1]
+    if (STRUCTURED_DESCRIPTION_IGNORED_KEYS.has(key)) continue
+
+    const keyTokens = tokenizeSearchText(key)
+    const keyLabel = keyTokens.join(" ")
+    const shouldIncludeValue =
+      STRUCTURED_DESCRIPTION_VALUE_KEYS.has(keyLabel) ||
+      keyTokens.some((token) => STRUCTURED_DESCRIPTION_VALUE_KEYS.has(token))
+
+    if (!shouldIncludeValue) continue
+
+    const normalizedValue = rawValue.replace(/\bLOTE\s+N\b/g, "LOTE")
+    const valueTokens = tokenizeSearchText(normalizedValue).filter((token) => !STRUCTURED_DESCRIPTION_IGNORED_KEYS.has(token))
+    if (valueTokens.length === 0) continue
+
+    const phrase = valueTokens.join(" ").trim()
+    if (phrase.length >= 4) {
+      targets.add(phrase)
+    }
+  }
+
+  if (targets.size === 0) {
+    const stripped = normalizeSearchText(decoded)
+      .replace(/\b(FID|ID|SHAPE|AREA|LENG|OBJECTID|HTTP|HTML|META)\b/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+
+    if (stripped.length >= 4) {
+      targets.add(stripped)
+    }
+  }
+
+  return Array.from(targets).slice(0, 6)
 }
 
 function toSearchPhrases(value: string) {
@@ -195,11 +378,12 @@ function toSearchPhrases(value: string) {
   const filteredTokens = tokens.filter((token) => {
     if (/^\d+$/.test(token)) return false
     if (GENERIC_NAME_TOKENS.has(token)) return false
+    if (/^\d{4,}$/.test(token)) return false
     return token.length >= 3
   })
 
   if (filteredTokens.length > 0) {
-    phrases.add(filteredTokens.join(" "))
+    phrases.add(filteredTokens.slice(0, MAX_SEARCH_QUERY_TOKENS).join(" "))
 
     if (filteredTokens.length >= 2) {
       phrases.add(filteredTokens.slice(-2).join(" "))
@@ -218,12 +402,18 @@ function toSearchPhrases(value: string) {
   }
 
   if (tokens.length >= 2) {
-    phrases.add(tokens.slice(0, Math.min(tokens.length, 3)).join(" "))
+    const compactTokens = tokens
+      .filter((token) => token.length >= 3 && !GENERIC_NAME_TOKENS.has(token) && !/^\d{4,}$/.test(token))
+      .slice(0, 3)
+
+    if (compactTokens.length >= 2) {
+      phrases.add(compactTokens.join(" "))
+    }
   }
 
   return Array.from(phrases)
     .map((phrase) => phrase.replace(/\s+/g, " ").trim())
-    .filter((phrase) => phrase.length >= 4)
+    .filter((phrase) => phrase.length >= 4 && phrase.length <= MAX_SEARCH_QUERY_LENGTH)
 }
 
 function getNameSearchQueries(targets: string[]) {
@@ -236,6 +426,16 @@ function getNameSearchQueries(targets: string[]) {
   }
 
   return Array.from(queries).slice(0, 8)
+}
+
+function isHtmlLike(value?: string | null) {
+  return typeof value === "string" && /<[^>]+>/.test(value)
+}
+
+function stripKmzFilename(value?: string | null) {
+  if (typeof value !== "string") return null
+  const cleaned = value.replace(/\.kmz$/i, "").trim()
+  return cleaned || null
 }
 
 function getTextMatchScore(query: string, candidate: { direccion?: string; destino?: string; rol?: string }) {
@@ -353,31 +553,59 @@ function getBoundsSamplePoints(bounds: any, maxSamples = 9): SamplePoint[] {
     return []
   }
 
-  const center = {
-    lat: (north + south) / 2,
-    lng: (east + west) / 2,
-    label: "center",
-    source: "bounds" as const,
+  const safeMaxSamples = Math.max(maxSamples, 1)
+  const latRange = north - south
+  const lngRange = east - west
+  const areaIndicator = Math.abs(latRange * lngRange)
+
+  const gridSize = safeMaxSamples >= 21 || areaIndicator >= 0.08 ? 5 : safeMaxSamples >= 13 || areaIndicator >= 0.02 ? 4 : 3
+  const latFractions = Array.from({ length: gridSize }, (_, index) =>
+    gridSize === 1 ? 0.5 : index / (gridSize - 1),
+  )
+  const lngFractions = latFractions
+
+  const preferredOrder = [
+    [0.5, 0.5, "center"],
+    [0.75, 0.25, "north-west"],
+    [0.75, 0.75, "north-east"],
+    [0.25, 0.25, "south-west"],
+    [0.25, 0.75, "south-east"],
+    [0.75, 0.5, "north"],
+    [0.25, 0.5, "south"],
+    [0.5, 0.25, "west"],
+    [0.5, 0.75, "east"],
+  ] as const
+
+  const seenLabels = new Set<string>()
+  const candidates: SamplePoint[] = []
+
+  for (const [latFraction, lngFraction, label] of preferredOrder) {
+    const point = {
+      lat: south + latRange * latFraction,
+      lng: west + lngRange * lngFraction,
+      label,
+      source: "bounds" as const,
+    }
+
+    candidates.push(point)
+    seenLabels.add(`${latFraction}:${lngFraction}`)
   }
 
-  const lat25 = south + (north - south) * 0.25
-  const lat75 = south + (north - south) * 0.75
-  const lng25 = west + (east - west) * 0.25
-  const lng75 = west + (east - west) * 0.75
+  for (const latFraction of latFractions) {
+    for (const lngFraction of lngFractions) {
+      const key = `${latFraction}:${lngFraction}`
+      if (seenLabels.has(key)) continue
 
-  const candidates = [
-    center,
-    { lat: lat75, lng: lng25, label: "north-west", source: "bounds" as const },
-    { lat: lat75, lng: lng75, label: "north-east", source: "bounds" as const },
-    { lat: lat25, lng: lng25, label: "south-west", source: "bounds" as const },
-    { lat: lat25, lng: lng75, label: "south-east", source: "bounds" as const },
-    { lat: lat75, lng: center.lng, label: "north", source: "bounds" as const },
-    { lat: lat25, lng: center.lng, label: "south", source: "bounds" as const },
-    { lat: center.lat, lng: lng25, label: "west", source: "bounds" as const },
-    { lat: center.lat, lng: lng75, label: "east", source: "bounds" as const },
-  ]
+      candidates.push({
+        lat: south + latRange * latFraction,
+        lng: west + lngRange * lngFraction,
+        label: `grid-${latFraction.toFixed(2)}-${lngFraction.toFixed(2)}`,
+        source: "bounds" as const,
+      })
+    }
+  }
 
-  return dedupeSamplePoints(candidates).slice(0, Math.min(Math.max(maxSamples, 1), candidates.length))
+  return dedupeSamplePoints(candidates).slice(0, Math.min(safeMaxSamples, candidates.length))
 }
 
 function getSamplePoints(
@@ -449,6 +677,7 @@ export async function POST(request: Request) {
     }
 
     const provider = new SiiMapasPublicProvider()
+    const detailedCandidateCache = new Map<string, Awaited<ReturnType<SiiMapasPublicProvider["getByRol"]>>>()
     const spanSequence = getBoundsSpanSequence(kmz.bounds)
     const attempts: Array<{
       label: string
@@ -461,9 +690,11 @@ export async function POST(request: Request) {
     const providerErrors: string[] = []
     const textAttempts: TextResolutionAttempt[] = []
     const nameSearchAttempts: NameSearchAttempt[] = []
+    const pointResolvedRecords = new Map<string, SiiAvaluoRecord>()
     let matchedPoint: SamplePoint | null = null
     let record = null
     let resolutionMethod: "text" | "name-search" | "point" | null = null
+    let rateLimited = false
 
     const extractedRoles = extractRolNumbersFromTargets([
       {
@@ -497,6 +728,9 @@ export async function POST(request: Request) {
         candidate = await provider.getByRol(parsed)
       } catch (error: any) {
         providerErrors.push(`text:${normalizedRol}:${error?.message || "unknown error"}`)
+        if (`${error?.message || ""}`.includes("429")) {
+          rateLimited = true
+        }
       }
 
       textAttempts.push({ rol: extractedRole, normalizedRol, found: Boolean(candidate) })
@@ -506,15 +740,34 @@ export async function POST(request: Request) {
         resolutionMethod = "text"
         break
       }
+
+      if (rateLimited) {
+        break
+      }
     }
 
-    if (!record) {
+    if (!record && !rateLimited) {
+      const kmzDescription = typeof kmz.description === "string" ? kmz.description : null
+      const metadataDescription = typeof kmz.metadata?.description === "string" ? kmz.metadata.description : null
+      const safeKmzDescription = looksLikeGpsTrackSummary(kmzDescription) ? null : kmzDescription
+      const safeMetadataDescription = looksLikeGpsTrackSummary(metadataDescription) ? null : metadataDescription
+      const placemarkFreeTextTargets = (placemarks || [])
+        .flatMap((placemark: any) => [placemark.name, placemark.description])
+        .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+        .filter((value) => !looksLikeGpsTrackSummary(value))
+      const placemarkStructuredTargets = (placemarks || []).flatMap((placemark: any) =>
+        extractStructuredDescriptionTargets(placemark.description),
+      )
       const nameSearchQueries = getNameSearchQueries(
         [
-          kmz.file_name,
-          kmz.description,
-          typeof kmz.metadata?.name === "string" ? kmz.metadata.name : null,
-          ...(placemarks || []).flatMap((placemark: any) => [placemark.name, placemark.description]),
+          stripKmzFilename(kmz.file_name),
+          typeof kmz.metadata?.name === "string" ? stripKmzFilename(kmz.metadata.name) : null,
+          ...extractStructuredDescriptionTargets(safeKmzDescription),
+          ...extractStructuredDescriptionTargets(safeMetadataDescription),
+          ...placemarkStructuredTargets,
+          isHtmlLike(safeKmzDescription) ? null : safeKmzDescription,
+          isHtmlLike(safeMetadataDescription) ? null : safeMetadataDescription,
+          ...placemarkFreeTextTargets,
         ].filter((value): value is string => typeof value === "string" && value.trim().length > 0),
       )
 
@@ -524,6 +777,9 @@ export async function POST(request: Request) {
           candidates = await provider.searchByAddress({ comuna: body.comuna, calle: query })
         } catch (error: any) {
           providerErrors.push(`name-search:${query}:${error?.message || "unknown error"}`)
+          if (`${error?.message || ""}`.includes("429")) {
+            rateLimited = true
+          }
           nameSearchAttempts.push({
             query,
             candidates: 0,
@@ -539,67 +795,80 @@ export async function POST(request: Request) {
                 rol: candidate.rol,
                 query,
                 textScore: getTextMatchScore(query, candidate),
+                summary: candidate,
+                distanceKm: candidate.coordinates ? getDistanceKm(center, candidate.coordinates) : undefined,
+                coordinateSource: candidate.coordinateSource,
               }) satisfies RankedAddressCandidate,
           )
-          .filter((candidate) => candidate.textScore > 0)
-          .sort((left, right) => right.textScore - left.textScore)
-          .slice(0, 12)
+          .filter((candidate) => {
+            if (candidate.textScore <= 0) return false
+            if (candidate.distanceKm === undefined) return true
+            return candidate.distanceKm <= getAllowedNameMatchDistanceKm(candidate.coordinateSource)
+          })
+          .sort((left, right) => {
+            if (right.textScore !== left.textScore) return right.textScore - left.textScore
+            if (left.distanceKm !== undefined && right.distanceKm !== undefined) {
+              return left.distanceKm - right.distanceKm
+            }
+            if (left.distanceKm !== undefined) return -1
+            if (right.distanceKm !== undefined) return 1
+            return 0
+          })
+          .slice(0, MAX_NAME_SEARCH_CANDIDATES)
 
         const attempt: NameSearchAttempt = {
           query,
           candidates: candidates.length,
           inspected: rankedCandidates.length,
         }
-        let bestCandidate: EvaluatedNameCandidate | null = null
-
         for (const rankedCandidate of rankedCandidates) {
+          if (
+            rankedCandidate.distanceKm !== undefined &&
+            rankedCandidate.distanceKm > getAllowedNameMatchDistanceKm(rankedCandidate.coordinateSource)
+          ) {
+            continue
+          }
+
           const parsed = parseRolParts(rankedCandidate.rol)
           if (!parsed?.comuna || !parsed.manzana || !parsed.predio) {
             continue
           }
 
-          let detailedCandidate = null
-          try {
-            detailedCandidate = await provider.getByRol(parsed)
-          } catch (error: any) {
-            providerErrors.push(`name-detail:${rankedCandidate.rol}:${error?.message || "unknown error"}`)
-            continue
+          let detailedCandidate = detailedCandidateCache.get(rankedCandidate.rol)
+          if (detailedCandidate === undefined) {
+            try {
+              detailedCandidate = await provider.getByRol(parsed)
+              detailedCandidateCache.set(rankedCandidate.rol, detailedCandidate)
+            } catch (error: any) {
+              providerErrors.push(`name-detail:${rankedCandidate.rol}:${error?.message || "unknown error"}`)
+              if (`${error?.message || ""}`.includes("429")) {
+                rateLimited = true
+              }
+              break
+            }
           }
 
           if (!detailedCandidate?.coordinates) {
             continue
           }
 
-          const distanceKm = getDistanceKm(center, detailedCandidate.coordinates)
-          const allowedDistanceKm = getAllowedNameMatchDistanceKm(detailedCandidate.coordinateSource)
+          const distanceKm =
+            rankedCandidate.distanceKm !== undefined
+              ? rankedCandidate.distanceKm
+              : getDistanceKm(center, detailedCandidate.coordinates)
+          const allowedDistanceKm = getAllowedNameMatchDistanceKm(
+            detailedCandidate.coordinateSource || rankedCandidate.coordinateSource,
+          )
           if (distanceKm > allowedDistanceKm) {
             continue
           }
 
-          const evaluatedCandidate: EvaluatedNameCandidate = {
-            rol: detailedCandidate.rol,
-            distanceKm,
-            coordinateSource: detailedCandidate.coordinateSource,
-            textScore: rankedCandidate.textScore,
-            record: detailedCandidate,
-          }
-
-          if (
-            !bestCandidate ||
-            evaluatedCandidate.textScore > bestCandidate.textScore ||
-            (evaluatedCandidate.textScore === bestCandidate.textScore &&
-              evaluatedCandidate.distanceKm < bestCandidate.distanceKm)
-          ) {
-            bestCandidate = evaluatedCandidate
-          }
-        }
-
-        if (bestCandidate) {
-          attempt.matchedRol = bestCandidate.rol
-          attempt.matchedDistanceKm = Number(bestCandidate.distanceKm.toFixed(3))
-          attempt.matchedCoordinateSource = bestCandidate.coordinateSource
-          record = bestCandidate.record
+          attempt.matchedRol = detailedCandidate.rol
+          attempt.matchedDistanceKm = Number(distanceKm.toFixed(3))
+          attempt.matchedCoordinateSource = detailedCandidate.coordinateSource || rankedCandidate.coordinateSource
+          record = detailedCandidate
           resolutionMethod = "name-search"
+          break
         }
 
         nameSearchAttempts.push(attempt)
@@ -607,10 +876,14 @@ export async function POST(request: Request) {
         if (record) {
           break
         }
+
+        if (rateLimited) {
+          break
+        }
       }
     }
 
-    if (!record) {
+    if (!record && !rateLimited) {
       for (const point of samplePoints) {
         for (const span of spanSequence) {
           let candidate = null
@@ -618,19 +891,29 @@ export async function POST(request: Request) {
             candidate = await provider.getByPoint({ comuna: body.comuna, lat: point.lat, lng: point.lng, span })
           } catch (error: any) {
             providerErrors.push(`point:${point.label}:${span}:${error?.message || "unknown error"}`)
+            if (`${error?.message || ""}`.includes("429")) {
+              rateLimited = true
+            }
           }
 
           attempts.push({ ...point, span, found: Boolean(candidate) })
 
           if (candidate) {
-            matchedPoint = point
-            record = candidate
-            resolutionMethod = "point"
+            pointResolvedRecords.set(candidate.rol, candidate)
+            if (!record) {
+              matchedPoint = point
+              record = candidate
+              resolutionMethod = "point"
+            }
+            break
+          }
+
+          if (rateLimited) {
             break
           }
         }
 
-        if (record) {
+        if (pointResolvedRecords.size >= MAX_POINT_RESOLVED_ROLES || rateLimited) {
           break
         }
       }
@@ -660,7 +943,9 @@ export async function POST(request: Request) {
       })
     }
 
-    const roles = Array.from(new Set([...(kmz.rol_numbers || []), record.rol].filter(Boolean)))
+    const roles = Array.from(
+      new Set([...(kmz.rol_numbers || []), ...pointResolvedRecords.keys(), record.rol].filter(Boolean)),
+    )
 
     if (persist) {
       const { error: updateError } = await supabase

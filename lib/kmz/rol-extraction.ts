@@ -36,6 +36,32 @@ function normalizeRol(rol: string): string {
     .toUpperCase()
 }
 
+function looksLikeGpsTrackSummary(value: string): boolean {
+  const compact = normalizeText(value).toUpperCase()
+  if (!compact) return false
+
+  const gpsMarkers = [
+    "DATE:",
+    "DISTANCE:",
+    "ELAPSED TIME:",
+    "AVG SPEED:",
+    "MAX SPEED:",
+    "AVG PACE:",
+    "START TIME:",
+    "FINISH TIME:",
+    "START LOCATION:",
+    "FINISH LOCATION:",
+    "LATITUDE:",
+    "LONGITUDE:",
+    "NAUTICAL MILES",
+    "EASTING",
+    "NORTHING",
+  ]
+
+  const hits = gpsMarkers.filter((marker) => compact.includes(marker)).length
+  return hits >= 3
+}
+
 function isLikelyDateOrVersion(rol: string): boolean {
   const [left, right] = normalizeRol(rol).split("-")
   const leftNumber = Number(left)
@@ -46,6 +72,14 @@ function isLikelyDateOrVersion(rol: string): boolean {
   }
 
   if (rightNumber >= 1900 && rightNumber <= 2099 && leftNumber >= 1 && leftNumber <= 12) {
+    return true
+  }
+
+  if (leftNumber >= 1900 && leftNumber <= 2099 && rightNumber >= 1900 && rightNumber <= 2099) {
+    return true
+  }
+
+  if (leftNumber >= 1 && leftNumber <= 31 && rightNumber >= 1 && rightNumber <= 12) {
     return true
   }
 
@@ -82,7 +116,7 @@ function extractFromText(
   seen: Set<string>,
 ) {
   const compact = normalizeText(text)
-  if (!compact) return
+  if (!compact || looksLikeGpsTrackSummary(compact)) return
 
   for (const match of compact.matchAll(LABELLED_ROL_PATTERN)) {
     const rol = match[1]

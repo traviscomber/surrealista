@@ -1,9 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 
 type RoleResult = {
   rol?: string
@@ -49,6 +50,49 @@ type CbrRouteResult = {
     url: string
     verified: boolean
   }>
+}
+
+type EvidenceConfidence = "candidate" | "probable" | "strong"
+
+type PublicSearchLink = {
+  label: string
+  url: string
+  note: string
+  query: string
+}
+
+type QueueTier = "critical" | "high" | "medium" | "low"
+type QueueStatus = "pending" | "evidence-found" | "confirmed" | "skipped"
+
+type OwnerResearchQueueItem = {
+  rol: string
+  priorityScore: number
+  priorityTier: QueueTier
+  status: QueueStatus
+  southFocus: boolean
+  resolvedAt?: string | null
+  resolvedRecently?: boolean
+  affectedKmzCount: number
+  evidenceCount: number
+  confirmedCount: number
+  regions: string[]
+  sampleKmz: Array<{
+    id: string
+    file_name: string
+    region: string | null
+  }>
+  reasons: string[]
+  suggestedNextStep: string
+  searchQueries: string[]
+}
+
+type OwnerResearchQueueSummary = {
+  critical: number
+  high: number
+  medium: number
+  low: number
+  evidenceFound?: number
+  pending?: number
 }
 
 const EXAMPLES = [
@@ -98,6 +142,107 @@ function getDisplayRol(role: RoleResult) {
   return role.rol || [role.comuna_codigo, role.rol_manzana, role.rol_predio].filter(Boolean).join("-")
 }
 
+function buildPublicSearchLinks(input: { rol: string; comunaCode?: string; comunaName?: string; direccion?: string }) {
+  const terms = [input.rol, input.comunaName, input.direccion].filter(Boolean).join(" ")
+  const pdfTerms = [input.rol, input.comunaName, "filetype:pdf"].filter(Boolean).join(" ")
+  const legalTerms = [input.rol, input.comunaName, "propiedad OR dominio OR inscripción"].filter(Boolean).join(" ")
+
+  return [
+    {
+      label: "Google exacto",
+      url: `https://www.google.com/search?q=${encodeURIComponent(`"${input.rol}" ${terms}`)}`,
+      note: "Busca coincidencias exactas del rol con comuna o direccion.",
+    },
+    {
+      label: "Google PDF",
+      url: `https://www.google.com/search?q=${encodeURIComponent(pdfTerms)}`,
+      note: "Prioriza expedientes, PDFs y documentos descargables.",
+    },
+    {
+      label: "Bing legal",
+      url: `https://www.bing.com/search?q=${encodeURIComponent(legalTerms)}`,
+      note: "A veces indexa mejor fallos, SEA y municipalidades.",
+    },
+    {
+      label: "DuckDuckGo",
+      url: `https://duckduckgo.com/?q=${encodeURIComponent(`${input.rol} ${input.comunaName || ""} propietario`)}`,
+      note: "Sirve como contraste cuando Google no muestra nada util.",
+    },
+  ]
+}
+
+function buildInvestigationLinks(input: { rol: string; comunaCode?: string; comunaName?: string; direccion?: string }): PublicSearchLink[] {
+  const terms = [input.rol, input.comunaName, input.direccion].filter(Boolean).join(" ")
+  const pdfTerms = [input.rol, input.comunaName, "filetype:pdf"].filter(Boolean).join(" ")
+  const legalTerms = [input.rol, input.comunaName, "propiedad OR dominio OR inscripcion"].filter(Boolean).join(" ")
+  const publicRecordTerms = [input.rol, input.comunaName, "site:sea.gob.cl OR site:pjud.cl OR site:mercadopublico.cl"].filter(Boolean).join(" ")
+
+  return [
+    {
+      label: "Google exacto",
+      url: `https://www.google.com/search?q=${encodeURIComponent(`"${input.rol}" ${terms}`)}`,
+      note: "Busca coincidencias exactas del rol con comuna o direccion.",
+      query: `"${input.rol}" ${terms}`.trim(),
+    },
+    {
+      label: "Google PDF",
+      url: `https://www.google.com/search?q=${encodeURIComponent(pdfTerms)}`,
+      note: "Prioriza expedientes, PDFs y documentos descargables.",
+      query: pdfTerms.trim(),
+    },
+    {
+      label: "Bing legal",
+      url: `https://www.bing.com/search?q=${encodeURIComponent(legalTerms)}`,
+      note: "A veces indexa mejor fallos, SEA y municipalidades.",
+      query: legalTerms.trim(),
+    },
+    {
+      label: "DuckDuckGo",
+      url: `https://duckduckgo.com/?q=${encodeURIComponent(`${input.rol} ${input.comunaName || ""} propietario`)}`,
+      note: "Sirve como contraste cuando Google no muestra nada util.",
+      query: `${input.rol} ${input.comunaName || ""} propietario`.trim(),
+    },
+    {
+      label: "Fuentes publicas",
+      url: `https://www.google.com/search?q=${encodeURIComponent(publicRecordTerms)}`,
+      note: "Cruza Poder Judicial, SEA y Mercado Publico.",
+      query: publicRecordTerms.trim(),
+    },
+  ]
+}
+
+function getResultStage(input: { hasAddressResults: boolean; hasVerifiedRol: boolean; hasCbrRoute: boolean }) {
+  if (input.hasCbrRoute) {
+    return {
+      label: "Ruta formal lista",
+      tone: "border-amber-400/30 bg-amber-500/10 text-amber-100",
+      detail: "Ya tienes la ruta del conservador para confirmar dominio vigente.",
+    }
+  }
+
+  if (input.hasVerifiedRol) {
+    return {
+      label: "Rol confirmado por SII",
+      tone: "border-emerald-400/30 bg-emerald-500/10 text-emerald-100",
+      detail: "La ficha tributaria visible ya viene del endpoint oficial de SII Mapas.",
+    }
+  }
+
+  if (input.hasAddressResults) {
+    return {
+      label: "Coincidencias por direccion",
+      tone: "border-sky-400/30 bg-sky-500/10 text-sky-100",
+      detail: "Son candidatos utiles, pero todavia conviene pasar a verificacion exacta por rol.",
+    }
+  }
+
+  return {
+    label: "Sin verificacion aun",
+    tone: "border-slate-700 bg-slate-900 text-slate-100",
+    detail: "Primero busca por direccion o verifica un rol exacto.",
+  }
+}
+
 export default function SiiRolExplorer() {
   const [comunaCode, setComunaCode] = useState("13101")
   const [comunaQuery, setComunaQuery] = useState("Santiago")
@@ -119,6 +264,26 @@ export default function SiiRolExplorer() {
   const [documentUrl, setDocumentUrl] = useState("")
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "done" | "error">("idle")
   const [saveMessage, setSaveMessage] = useState("")
+  const [evidenceOwnerName, setEvidenceOwnerName] = useState("")
+  const [evidenceCompanyName, setEvidenceCompanyName] = useState("")
+  const [evidenceUrl, setEvidenceUrl] = useState("")
+  const [evidenceNotes, setEvidenceNotes] = useState("")
+  const [evidenceSourceType, setEvidenceSourceType] = useState("public-web")
+  const [evidenceConfidence, setEvidenceConfidence] = useState<EvidenceConfidence>("candidate")
+  const [evidenceStatus, setEvidenceStatus] = useState<"idle" | "saving" | "done" | "error">("idle")
+  const [evidenceMessage, setEvidenceMessage] = useState("")
+  const [copyMessage, setCopyMessage] = useState("")
+  const [queueItems, setQueueItems] = useState<OwnerResearchQueueItem[]>([])
+  const [queueSummary, setQueueSummary] = useState<OwnerResearchQueueSummary | null>(null)
+  const [queueTierFilter, setQueueTierFilter] = useState<"all" | QueueTier>("all")
+  const [queueStatus, setQueueStatus] = useState<"idle" | "loading" | "done" | "error">("idle")
+  const [queueRefreshStatus, setQueueRefreshStatus] = useState<"idle" | "loading" | "done" | "error">("idle")
+  const [queueMessage, setQueueMessage] = useState("")
+  const [queueRefreshMessage, setQueueRefreshMessage] = useState("")
+
+  useEffect(() => {
+    loadOwnerResearchQueue()
+  }, [queueTierFilter])
 
   const loadExample = (example: (typeof EXAMPLES)[number]) => {
     setComunaCode(example.comunaCode)
@@ -137,6 +302,76 @@ export default function SiiRolExplorer() {
     setCbrStatus("idle")
     setSaveStatus("idle")
     setSaveMessage("")
+    setEvidenceStatus("idle")
+    setEvidenceMessage("")
+  }
+
+  async function loadOwnerResearchQueue() {
+    setQueueStatus("loading")
+    setQueueMessage("")
+
+    try {
+      const tierQuery = queueTierFilter === "all" ? "" : `&tier=${queueTierFilter}`
+      const response = await fetch(`/api/admin/kmz/owner-research-queue?groupBy=role&limit=40${tierQuery}`)
+      const data = await response.json()
+
+      if (!response.ok || !data?.success) {
+        setQueueStatus("error")
+        setQueueMessage(data?.error || "No se pudo cargar la cola de investigacion.")
+        return
+      }
+
+      const items = (data.results || []) as OwnerResearchQueueItem[]
+      const nextSummary = (data.counts || {
+        critical: 0,
+        high: 0,
+        medium: 0,
+        low: 0,
+        evidenceFound: 0,
+        pending: 0,
+      }) as OwnerResearchQueueSummary
+
+      setQueueItems(items)
+      setQueueSummary(nextSummary)
+      setQueueStatus("done")
+      setQueueMessage(items.length > 0 ? `Cola cargada: ${items.length} roles visibles.` : "Aun no hay cola generada.")
+    } catch (error: any) {
+      setQueueStatus("error")
+      setQueueMessage(error?.message || "No se pudo cargar la cola de investigacion.")
+    }
+  }
+
+  async function refreshOwnerResearchQueue() {
+    setQueueRefreshStatus("loading")
+    setQueueRefreshMessage("")
+
+    try {
+      const response = await fetch("/api/admin/kmz/owner-research-queue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          persist: true,
+          onlyMissingOwner: true,
+          onlyWithRole: true,
+        }),
+      })
+      const data = await response.json()
+
+      if (!response.ok || !data?.success) {
+        setQueueRefreshStatus("error")
+        setQueueRefreshMessage(data?.error || "No se pudo poblar la cola.")
+        return
+      }
+
+      setQueueRefreshStatus("done")
+      setQueueRefreshMessage(
+        `Cola actualizada sobre ${data.processed} KMZ con rol. Roles criticos: ${data.roleQueueCounts?.critical || 0}, altos: ${data.roleQueueCounts?.high || 0}.`,
+      )
+      await loadOwnerResearchQueue()
+    } catch (error: any) {
+      setQueueRefreshStatus("error")
+      setQueueRefreshMessage(error?.message || "No se pudo poblar la cola.")
+    }
   }
 
   async function searchCommunes() {
@@ -164,6 +399,32 @@ export default function SiiRolExplorer() {
     setComunaQuery(commune.nombre)
     setCommuneResults([])
     setCommuneStatus("idle")
+  }
+
+  async function copyText(value: string, label: string) {
+    try {
+      await navigator.clipboard.writeText(value)
+      setCopyMessage(`${label} copiado.`)
+      window.setTimeout(() => {
+        setCopyMessage((current) => (current === `${label} copiado.` ? "" : current))
+      }, 2200)
+    } catch {
+      setCopyMessage(`No se pudo copiar ${label.toLowerCase()}.`)
+    }
+  }
+
+  function useRoleFromResult(role: RoleResult) {
+    const nextRol = getDisplayRol(role)
+    if (!nextRol) return
+
+    setRol(nextRol)
+    if (role.comunaCodigo || role.comuna_codigo) {
+      setComunaCode(role.comunaCodigo || role.comuna_codigo || "")
+    }
+    if (role.comuna) {
+      setComunaQuery(role.comuna)
+    }
+    setMsg(`Rol ${nextRol} cargado para verificacion exacta.`)
   }
 
   async function searchAddress() {
@@ -295,6 +556,61 @@ export default function SiiRolExplorer() {
       setSaveMessage(error?.message || "Error al guardar respaldo CBR.")
     }
   }
+
+  async function savePublicEvidence() {
+    const activeRol = avaluo ? getDisplayRol(avaluo) : rol
+    if (!activeRol || (!evidenceOwnerName.trim() && !evidenceCompanyName.trim())) return
+
+    setEvidenceStatus("saving")
+    setEvidenceMessage("")
+
+    try {
+      const response = await fetch("/api/owner-evidence/record", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          rol: activeRol,
+          ownerName: evidenceOwnerName.trim() || undefined,
+          companyName: evidenceCompanyName.trim() || undefined,
+          documentType: "public-reference",
+          documentUrl: evidenceUrl.trim() || undefined,
+          notes: evidenceNotes.trim() || undefined,
+          sourceType: evidenceSourceType,
+          confidence: evidenceConfidence,
+          authoritative: false,
+        }),
+      })
+      const data = await response.json()
+
+      if (!response.ok || !data?.success) {
+        setEvidenceStatus("error")
+        setEvidenceMessage(data?.error || "No se pudo guardar la evidencia publica.")
+        return
+      }
+
+      setEvidenceStatus("done")
+      setEvidenceMessage(`Evidencia publica guardada para ${data.updated} KMZ asociado(s) al rol.`)
+    } catch (error: any) {
+      setEvidenceStatus("error")
+      setEvidenceMessage(error?.message || "Error al guardar evidencia publica.")
+    }
+  }
+
+  const activeRol = avaluo ? getDisplayRol(avaluo) : rol
+  const activeComunaCode = avaluo?.comunaCodigo || avaluo?.comuna_codigo || comunaCode
+  const activeComunaName = avaluo?.comuna || comunaQuery
+  const activeDireccion = avaluo?.direccion || roles[0]?.direccion || `${calle}${numero ? ` ${numero}` : ""}`.trim()
+  const publicSearchLinks = buildInvestigationLinks({
+    rol: activeRol,
+    comunaCode: activeComunaCode,
+    comunaName: activeComunaName,
+    direccion: activeDireccion,
+  })
+  const stage = getResultStage({
+    hasAddressResults: roles.length > 0,
+    hasVerifiedRol: Boolean(avaluo),
+    hasCbrRoute: Boolean(cbrRoute),
+  })
 
   return (
     <section className="w-full max-w-5xl rounded-3xl border border-slate-700 bg-slate-950 p-6 text-slate-100 shadow-2xl">
@@ -445,20 +761,45 @@ export default function SiiRolExplorer() {
         </Card>
       )}
 
+      <Card className={`mt-5 border p-4 ${stage.tone}`}>
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em]">Estado del dato</p>
+            <p className="mt-1 text-lg font-bold">{stage.label}</p>
+            <p className="mt-1 text-sm opacity-90">{stage.detail}</p>
+          </div>
+          <div className="grid gap-2 text-xs md:text-right">
+            <p>SII direccion: {roles.length > 0 ? `${roles.length} coincidencia(s)` : "sin resultados"}</p>
+            <p>SII rol exacto: {avaluo ? "confirmado" : "pendiente"}</p>
+            <p>Dominio / dueno: solo CBR o respaldo manual fuerte</p>
+          </div>
+        </div>
+      </Card>
+
       {roles.length > 0 && (
         <div className="mt-5 space-y-3">
           <h3 className="text-lg font-semibold text-white">Resultados por direccion</h3>
           {roles.slice(0, 20).map((role, index) => (
-            <Card key={`${getDisplayRol(role)}-${index}`} className="border-slate-700 bg-white p-4 text-slate-950">
+            <Card key={`${getDisplayRol(role)}-${index}`} className="border-slate-700 bg-slate-900 p-4 text-slate-100">
               <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                 <div>
-                  <p className="font-mono text-base font-bold text-slate-950">{getDisplayRol(role)}</p>
-                  {role.direccion && <p className="mt-1 text-sm text-slate-700">{role.direccion}</p>}
-                  {role.destino && <p className="text-sm text-slate-600">Destino: {role.destino}</p>}
+                  <p className="font-mono text-base font-bold text-white">{getDisplayRol(role)}</p>
+                  {role.direccion && <p className="mt-1 text-sm text-slate-300">{role.direccion}</p>}
+                  {role.destino && <p className="text-sm text-slate-400">Destino: {role.destino}</p>}
                 </div>
-                <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">
-                  {role.source || "sii-public"}
-                </span>
+                <div className="flex flex-wrap gap-2">
+                  <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-200">
+                    {role.source || "sii-public"}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => useRoleFromResult(role)}
+                    className="border-slate-600 bg-slate-950 text-slate-100 hover:bg-slate-800 hover:text-white"
+                  >
+                    Usar este rol
+                  </Button>
+                </div>
               </div>
             </Card>
           ))}
@@ -617,6 +958,326 @@ export default function SiiRolExplorer() {
             </div>
           </div>
         )}
+      </Card>
+
+      <Card className="mt-5 border-slate-700 bg-slate-900 p-5 text-slate-100">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-sm uppercase tracking-[0.2em] text-sky-300">Evidencia publica por rol</p>
+            <h3 className="mt-1 text-xl font-bold text-white">Nombre candidato desde web abierta</h3>
+            <p className="mt-2 max-w-3xl text-sm text-slate-400">
+              Sirve para capturar nombres que aparecen indexados junto al rol en Google, Bing o PDFs publicos. No acredita
+              dominio y no reemplaza al CBR.
+            </p>
+          </div>
+          <div className="rounded-full border border-sky-400/30 bg-sky-400/10 px-4 py-2 text-xs font-semibold text-sky-100">
+            Rol activo: {activeRol || "-"}
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-2xl border border-slate-700 bg-slate-950 p-4">
+          <p className="text-sm font-semibold text-white">Atajos de busqueda</p>
+          <p className="mt-1 text-sm text-slate-400">
+            Usa el rol exacto con comuna y direccion. Si hay coincidencias, registra el nombre como evidencia, no como dominio.
+          </p>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {publicSearchLinks.map((link) => (
+              <div key={link.url} className="rounded-2xl border border-slate-700 bg-slate-900 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-sky-300">{link.label}</p>
+                    <p className="mt-1 text-sm text-slate-300">{link.note}</p>
+                  </div>
+                  <a
+                    href={link.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-full bg-sky-500 px-3 py-1 text-xs font-semibold text-slate-950"
+                  >
+                    Abrir
+                  </a>
+                </div>
+                <div className="mt-3 rounded-xl border border-slate-800 bg-slate-950 p-3">
+                  <p className="font-mono text-xs text-slate-300">{link.query}</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => copyText(link.query, link.label)}
+                  className="mt-3 border-slate-600 bg-slate-950 text-slate-100 hover:bg-slate-800 hover:text-white"
+                >
+                  Copiar consulta
+                </Button>
+              </div>
+            ))}
+          </div>
+          {copyMessage && <p className="mt-3 text-sm text-emerald-300">{copyMessage}</p>}
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="rounded-xl border border-slate-800 bg-slate-900 p-3">
+              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Comuna</p>
+              <p className="mt-1 text-sm text-white">
+                {activeComunaName || "-"}
+                {activeComunaCode ? ` (${activeComunaCode})` : ""}
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-800 bg-slate-900 p-3">
+              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Direccion</p>
+              <p className="mt-1 text-sm text-white">{activeDireccion || "-"}</p>
+            </div>
+            <div className="rounded-xl border border-slate-800 bg-slate-900 p-3">
+              <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Uso recomendado</p>
+              <p className="mt-1 text-sm text-white">Precalificar persona o sociedad antes del CBR.</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
+            <p className="text-sm font-semibold text-white">Registrar nombre candidato</p>
+            <p className="mt-1 text-sm text-slate-400">
+              Guarda el nombre encontrado, la URL y una nota corta sobre por que parece relacionado con este rol.
+            </p>
+            <div className="mt-3 space-y-3">
+              <Input
+                value={evidenceOwnerName}
+                onChange={(event) => setEvidenceOwnerName(event.target.value)}
+                className="border-slate-600 bg-slate-900 text-white placeholder:text-slate-500"
+                placeholder="Persona natural encontrada en evidencia publica"
+              />
+              <Input
+                value={evidenceCompanyName}
+                onChange={(event) => setEvidenceCompanyName(event.target.value)}
+                className="border-slate-600 bg-slate-900 text-white placeholder:text-slate-500"
+                placeholder="Sociedad / SpA / Ltda encontrada en evidencia publica"
+              />
+              <Input
+                value={evidenceUrl}
+                onChange={(event) => setEvidenceUrl(event.target.value)}
+                className="border-slate-600 bg-slate-900 text-white placeholder:text-slate-500"
+                placeholder="URL exacta del PDF, expediente, ficha municipal o resultado indexado"
+              />
+              <Input
+                value={evidenceSourceType}
+                onChange={(event) => setEvidenceSourceType(event.target.value)}
+                className="border-slate-600 bg-slate-900 text-white placeholder:text-slate-500"
+                placeholder="Tipo de fuente: judicial, municipal, ambiental, licitacion, prensa..."
+              />
+              <div className="grid gap-2 md:grid-cols-3">
+                {(["candidate", "probable", "strong"] as EvidenceConfidence[]).map((level) => (
+                  <button
+                    key={level}
+                    type="button"
+                    onClick={() => setEvidenceConfidence(level)}
+                    className={`rounded-xl border px-3 py-2 text-sm transition ${
+                      evidenceConfidence === level
+                        ? "border-sky-400 bg-sky-500/20 text-white"
+                        : "border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-500"
+                    }`}
+                  >
+                    {level === "candidate" ? "Candidato" : level === "probable" ? "Probable" : "Fuerte"}
+                  </button>
+                ))}
+              </div>
+              <Textarea
+                value={evidenceNotes}
+                onChange={(event) => setEvidenceNotes(event.target.value)}
+                className="min-h-[110px] border-slate-600 bg-slate-900 text-white placeholder:text-slate-500"
+                placeholder="Ejemplo: el PDF municipal menciona este rol junto al nombre de la sociedad en una solicitud de subdivision."
+              />
+              <Button
+                type="button"
+                onClick={savePublicEvidence}
+                disabled={evidenceStatus === "saving" || (!evidenceOwnerName.trim() && !evidenceCompanyName.trim())}
+                className="w-full bg-sky-400 text-slate-950 hover:bg-sky-300"
+              >
+                {evidenceStatus === "saving" ? "Guardando..." : "Guardar evidencia publica"}
+              </Button>
+              {evidenceMessage && (
+                <p
+                  className={`text-sm ${
+                    evidenceStatus === "error"
+                      ? "text-red-300"
+                      : evidenceStatus === "done"
+                        ? "text-emerald-300"
+                        : "text-slate-300"
+                  }`}
+                >
+                  {evidenceMessage}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
+            <p className="text-sm font-semibold text-white">Reglas de calidad</p>
+            <div className="mt-3 space-y-3 text-sm text-slate-300">
+              <p className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-3 text-emerald-100">
+                Solo el bloque <span className="font-semibold text-white">Avaluo confirmado</span> viene del SII oficial. Todo lo
+                demas es apoyo para investigacion.
+              </p>
+              <p>
+                <span className="font-semibold text-white">Candidato:</span> aparece una vez, sin contexto suficiente.
+              </p>
+              <p>
+                <span className="font-semibold text-white">Probable:</span> el rol y el nombre aparecen juntos en un documento serio.
+              </p>
+              <p>
+                <span className="font-semibold text-white">Fuerte:</span> el documento publico conecta rol, nombre y predio con claridad.
+              </p>
+              <p className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-amber-100">
+                Aunque la evidencia sea fuerte, este modulo no la sube a dueÃ±o confirmado. El campo `owner` debe quedar
+                reservado para respaldo CBR o confirmacion manual fuerte.
+              </p>
+              <p className="rounded-xl border border-slate-800 bg-slate-900 p-3">
+                Flujo recomendado: <span className="font-semibold text-white">rol exacto → busqueda web → candidato → CBR solo si vale la pena.</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      <Card className="mt-5 border-violet-400/30 bg-violet-500/10 p-5 text-slate-100">
+        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+          <div>
+            <p className="text-sm uppercase tracking-[0.2em] text-violet-300">Cola de investigacion</p>
+            <h3 className="mt-1 text-xl font-bold text-white">Dueño / sociedad por prioridad</h3>
+            <p className="mt-2 max-w-3xl text-sm text-slate-300">
+              Aprovecha los roles SII ya resueltos para ordenar que roles conviene investigar primero en web abierta y luego en CBR.
+            </p>
+          </div>
+          <Button
+            type="button"
+            onClick={refreshOwnerResearchQueue}
+            disabled={queueRefreshStatus === "loading"}
+            className="bg-violet-300 text-slate-950 hover:bg-violet-200"
+          >
+            {queueRefreshStatus === "loading" ? "Poblando cola..." : "Poblar desde roles resueltos"}
+          </Button>
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
+          <div className="rounded-2xl border border-violet-400/20 bg-slate-950 p-4">
+            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Criticos</p>
+            <p className="mt-2 text-2xl font-bold text-white">{queueSummary?.critical || 0}</p>
+          </div>
+          <div className="rounded-2xl border border-violet-400/20 bg-slate-950 p-4">
+            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Altos</p>
+            <p className="mt-2 text-2xl font-bold text-white">{queueSummary?.high || 0}</p>
+          </div>
+          <div className="rounded-2xl border border-violet-400/20 bg-slate-950 p-4">
+            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Evidencia</p>
+            <p className="mt-2 text-2xl font-bold text-white">{queueSummary?.evidenceFound || 0}</p>
+          </div>
+          <div className="rounded-2xl border border-violet-400/20 bg-slate-950 p-4">
+            <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Pendientes</p>
+            <p className="mt-2 text-2xl font-bold text-white">{queueSummary?.pending || 0}</p>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {(["all", "critical", "high", "medium", "low"] as const).map((tier) => (
+            <button
+              key={tier}
+              type="button"
+              onClick={() => setQueueTierFilter(tier)}
+              className={`rounded-full border px-3 py-2 text-sm transition ${
+                queueTierFilter === tier
+                  ? "border-violet-300 bg-violet-400/20 text-white"
+                  : "border-slate-700 bg-slate-950 text-slate-300 hover:border-slate-500"
+              }`}
+            >
+              {tier === "all" ? "Todos" : tier}
+            </button>
+          ))}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={loadOwnerResearchQueue}
+            disabled={queueStatus === "loading"}
+            className="border-slate-600 bg-slate-950 text-slate-100 hover:bg-slate-800 hover:text-white"
+          >
+            {queueStatus === "loading" ? "Cargando..." : "Recargar vista"}
+          </Button>
+        </div>
+
+        {queueRefreshMessage && (
+          <p
+            className={`mt-3 text-sm ${
+              queueRefreshStatus === "error" ? "text-red-300" : queueRefreshStatus === "done" ? "text-emerald-300" : "text-slate-300"
+            }`}
+          >
+            {queueRefreshMessage}
+          </p>
+        )}
+
+        {queueMessage && (
+          <p className={`mt-2 text-sm ${queueStatus === "error" ? "text-red-300" : "text-slate-300"}`}>{queueMessage}</p>
+        )}
+
+        <div className="mt-4 space-y-3">
+          {queueItems.map((item) => (
+            <div key={item.rol} className="rounded-2xl border border-slate-700 bg-slate-950 p-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <p className="text-base font-semibold text-white">{item.rol}</p>
+                  <p className="mt-1 text-sm text-slate-400">{item.affectedKmzCount} KMZ impactados por este rol</p>
+                  <p className="text-sm text-slate-500">{item.regions.join(", ") || "Sin region"}</p>
+                  {item.resolvedAt && (
+                    <p className="text-xs text-slate-500">Ultima resolucion SII: {new Date(item.resolvedAt).toLocaleString("es-CL")}</p>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <span className="rounded-full bg-violet-400/15 px-3 py-1 text-xs font-semibold text-violet-200">
+                    {item.priorityTier} · {item.priorityScore} pts
+                  </span>
+                  <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-200">
+                    {item.status}
+                  </span>
+                  {item.resolvedRecently && (
+                    <span className="rounded-full bg-sky-500/15 px-3 py-1 text-xs font-semibold text-sky-200">
+                      Rol reciente
+                    </span>
+                  )}
+                  {item.southFocus && (
+                    <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-200">
+                      Sur prioritario
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-3 grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Por que subio en prioridad</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {item.reasons.map((reason) => (
+                      <span key={reason} className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs text-slate-200">
+                        {reason}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="mt-3 text-sm text-slate-300">{item.suggestedNextStep}</p>
+                </div>
+
+                <div>
+                  <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Consultas sugeridas</p>
+                  <div className="mt-2 space-y-2">
+                    {item.searchQueries.slice(0, 3).map((query) => (
+                      <button
+                        key={query}
+                        type="button"
+                        onClick={() => copyText(query, "Consulta")}
+                        className="block w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-left font-mono text-xs text-slate-200 hover:border-slate-500"
+                      >
+                        {query}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </Card>
     </section>
   )
