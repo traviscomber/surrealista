@@ -33,7 +33,7 @@ const LABEL_SCORES: Array<{ pattern: RegExp; label: string; confidence: OwnerExt
 ]
 
 const FIELD_LABEL_PATTERN =
-  /(?:^|[\n;|])\s*([A-Za-zÁÉÍÓÚÜÑáéíóúüñ ._-]{3,40})\s*(?::|-|=|\t)\s*([^\n;|]{3,180})/g
+  /(?:^|[\n;|])\s*([A-Za-zÁÉÍÓÚÜÑáéíóúüñ ._-]{3,40})\s*(?::|-|=|\||\t)\s*([^\n;|]{3,180})/g
 
 function normalizeText(value?: string | null) {
   return `${value || ""}`
