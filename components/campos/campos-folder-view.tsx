@@ -450,7 +450,7 @@ export function CAMPOSFolderView() {
           <h2 className="text-lg font-semibold">Detalles</h2>
         </div>
 
-        <div className="flex-1 space-y-4 overflow-y-auto p-4">
+        <div className="flex-1 space-y-5 overflow-y-auto p-5">
           <div className={`overflow-hidden rounded-3xl border shadow-sm ${toneClasses}`}>
             <div className="border-b border-current/10 px-5 py-3">
               <div className="flex items-center gap-2">
@@ -458,24 +458,32 @@ export function CAMPOSFolderView() {
                 <p className="text-[11px] font-semibold uppercase tracking-[0.24em]">Estado del KMZ</p>
               </div>
             </div>
-            <div className="space-y-4 p-5">
+            <div className="space-y-6 p-5">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <h3 className="text-2xl font-bold leading-tight">{selectedItem.name}</h3>
-                  <p className="mt-2 text-sm font-medium opacity-90">{roleStatus.label}</p>
-                  <p className="mt-1 text-xs opacity-80">
-                    {selectedItem.region || "Sin region"}
-                    {primaryRole ? ` | Rol principal ${primaryRole}` : " | Sin rol principal"}
-                  </p>
+                  <p className="text-sm font-medium opacity-90">{roleStatus.label}</p>
+                  <div className="mt-3 rounded-3xl border border-white/15 bg-black/15 p-4">
+                    <p className="text-[11px] uppercase tracking-[0.24em] text-current/70">Rol</p>
+                    <p className="mt-2 break-words text-3xl font-black tracking-tight sm:text-4xl">
+                      {primaryRole || "Pendiente"}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs text-current/75">
+                      <span className="rounded-full border border-white/10 bg-black/10 px-3 py-1">
+                        {roleCount === 1 ? "Rol principal unico" : `${roleCount} roles asociados`}
+                      </span>
+                      {latestResolutionAt ? (
+                        <span className="rounded-full border border-white/10 bg-black/10 px-3 py-1">
+                          {formatDateLabel(latestResolutionAt)}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                  <h3 className="mt-4 text-3xl font-bold leading-tight tracking-tight">{selectedItem.name}</h3>
+                  <p className="mt-2 text-sm opacity-80">{selectedItem.region || "Sin region"}</p>
                 </div>
                 <div className="flex flex-col items-end gap-2">
-                  {selectedItem.area ? (
-                    <Badge variant="outline" className="border-current/20 bg-white/60 text-current">
-                      {selectedItem.area}
-                    </Badge>
-                  ) : null}
                   {selectedItem.placemarksCount ? (
-                    <Badge variant="outline" className="border-current/20 bg-white/60 text-current">
+                    <Badge variant="outline" className="border-current/20 bg-white/60 px-3 py-1 text-current">
                       {selectedItem.placemarksCount} puntos
                     </Badge>
                   ) : null}
@@ -484,16 +492,16 @@ export function CAMPOSFolderView() {
 
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 <div className="rounded-2xl border border-white/10 bg-black/10 p-3">
-                  <p className="text-[11px] uppercase tracking-wide text-current/70">Fuente</p>
-                  <p className="mt-1 text-sm font-semibold">{evidenceLabel}</p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-black/10 p-3">
                   <p className="text-[11px] uppercase tracking-wide text-current/70">Dueno</p>
-                  <p className="mt-1 line-clamp-2 text-sm font-semibold">{confirmedOwner || "En investigacion"}</p>
+                  <p className="mt-1 text-base font-semibold">{confirmedOwner || "En investigacion"}</p>
                 </div>
                 <div className="rounded-2xl border border-white/10 bg-black/10 p-3">
                   <p className="text-[11px] uppercase tracking-wide text-current/70">Documentos</p>
-                  <p className="mt-1 text-sm font-semibold">{documentCount} asociados</p>
+                  <p className="mt-1 text-base font-semibold">{documentCount} asociados</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/10 p-3">
+                  <p className="text-[11px] uppercase tracking-wide text-current/70">Fuente tecnica</p>
+                  <p className="mt-1 text-sm font-medium text-current/85">{evidenceLabel}</p>
                 </div>
               </div>
             </div>
@@ -506,14 +514,14 @@ export function CAMPOSFolderView() {
                 <p className="text-sm font-semibold text-slate-50">Predio</p>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-4 xl:grid-cols-2">
                 <div className={detailsPanelClass}>
                   <p className={detailsLabelClass}>Region</p>
-                  <p className={detailsValueClass}>{selectedItem.region || "Sin region"}</p>
+                  <p className="mt-2 text-lg font-semibold text-slate-100">{selectedItem.region || "Sin region"}</p>
                 </div>
                 <div className={detailsPanelClass}>
                   <p className={detailsLabelClass}>Categoria</p>
-                  <p className={detailsValueClass}>{selectedItem.category || "Sin categoria"}</p>
+                  <p className="mt-2 text-lg font-semibold text-slate-100">{selectedItem.category || "Sin categoria"}</p>
                 </div>
               </div>
 
@@ -549,48 +557,48 @@ export function CAMPOSFolderView() {
                     <p className="text-sm font-semibold text-sky-50">Ficha SII</p>
                   </div>
 
-                  <div className="mt-4 grid gap-3 xl:grid-cols-2">
-                    <div className="rounded-lg border border-sky-500/20 bg-black/10 p-3">
+                  <div className="mt-4 grid gap-4">
+                    <div className="rounded-2xl border border-sky-500/20 bg-black/10 p-4">
                       <p className="text-[11px] uppercase tracking-wide text-sky-200">Direccion SII</p>
-                      <p className="mt-1 text-sm font-medium text-slate-50">{siiRecord.direccion || "Sin direccion"}</p>
+                      <p className="mt-2 text-base font-semibold text-slate-50">{siiRecord.direccion || "Sin direccion"}</p>
                     </div>
-                    <div className="rounded-lg border border-sky-500/20 bg-black/10 p-3">
+                    <div className="rounded-2xl border border-sky-500/20 bg-black/10 p-4">
                       <p className="text-[11px] uppercase tracking-wide text-sky-200">Destino</p>
-                      <p className="mt-1 text-sm font-medium text-slate-50">{siiRecord.destino || "Sin destino"}</p>
+                      <p className="mt-2 text-base font-semibold text-slate-50">{siiRecord.destino || "Sin destino"}</p>
                     </div>
-                    <div className="rounded-lg border border-sky-500/20 bg-black/10 p-3">
+                    <div className="rounded-2xl border border-sky-500/20 bg-black/10 p-4">
                       <p className="text-[11px] uppercase tracking-wide text-sky-200">Avaluo total</p>
-                      <p className="mt-1 text-sm font-medium text-slate-50">{formatCurrencyCLP(siiRecord.avaluoTotal) || "Sin dato"}</p>
+                      <p className="mt-2 text-2xl font-bold text-slate-50">{formatCurrencyCLP(siiRecord.avaluoTotal) || "Sin dato"}</p>
                     </div>
-                    <div className="rounded-lg border border-sky-500/20 bg-black/10 p-3">
+                    <div className="rounded-2xl border border-sky-500/20 bg-black/10 p-4">
                       <p className="text-[11px] uppercase tracking-wide text-sky-200">Periodo</p>
-                      <p className="mt-1 text-sm font-medium text-slate-50">{siiRecord.periodo || "Sin periodo"}</p>
+                      <p className="mt-2 text-base font-semibold text-slate-50">{siiRecord.periodo || "Sin periodo"}</p>
                     </div>
                   </div>
 
-                  <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                    <div className="rounded-lg border border-sky-500/20 bg-black/10 p-3">
+                  <div className="mt-4 grid gap-4 md:grid-cols-2">
+                    <div className="rounded-2xl border border-sky-500/20 bg-black/10 p-4">
                       <p className="text-[11px] uppercase tracking-wide text-sky-200">Afecto</p>
-                      <p className="mt-1 text-sm font-medium text-slate-50">{formatCurrencyCLP(siiRecord.avaluoAfecto) || "Sin dato"}</p>
+                      <p className="mt-2 text-base font-semibold text-slate-50">{formatCurrencyCLP(siiRecord.avaluoAfecto) || "Sin dato"}</p>
                     </div>
-                    <div className="rounded-lg border border-sky-500/20 bg-black/10 p-3">
+                    <div className="rounded-2xl border border-sky-500/20 bg-black/10 p-4">
                       <p className="text-[11px] uppercase tracking-wide text-sky-200">Exento</p>
-                      <p className="mt-1 text-sm font-medium text-slate-50">{formatCurrencyCLP(siiRecord.avaluoExento) || "Sin dato"}</p>
+                      <p className="mt-2 text-base font-semibold text-slate-50">{formatCurrencyCLP(siiRecord.avaluoExento) || "Sin dato"}</p>
                     </div>
-                    <div className="rounded-lg border border-sky-500/20 bg-black/10 p-3">
+                    <div className="rounded-2xl border border-sky-500/20 bg-black/10 p-4">
                       <p className="text-[11px] uppercase tracking-wide text-sky-200">Sup. terreno</p>
-                      <p className="mt-1 text-sm font-medium text-slate-50">{formatMeasure(siiRecord.superficieTerreno) || "Sin dato"}</p>
+                      <p className="mt-2 text-base font-semibold text-slate-50">{formatMeasure(siiRecord.superficieTerreno) || "Sin dato"}</p>
                     </div>
-                    <div className="rounded-lg border border-sky-500/20 bg-black/10 p-3">
+                    <div className="rounded-2xl border border-sky-500/20 bg-black/10 p-4">
                       <p className="text-[11px] uppercase tracking-wide text-sky-200">Sup. construida</p>
-                      <p className="mt-1 text-sm font-medium text-slate-50">{formatMeasure(siiRecord.superficieConstruida) || "Sin dato"}</p>
+                      <p className="mt-2 text-base font-semibold text-slate-50">{formatMeasure(siiRecord.superficieConstruida) || "Sin dato"}</p>
                     </div>
                   </div>
 
                   {siiRecord.areaHomogenea ? (
-                    <div className="mt-3 rounded-lg border border-sky-500/20 bg-black/10 p-3">
+                    <div className="mt-4 rounded-2xl border border-sky-500/20 bg-black/10 p-4">
                       <p className="text-[11px] uppercase tracking-wide text-sky-200">Area homogenea</p>
-                      <p className="mt-1 text-sm font-medium text-slate-50">{siiRecord.areaHomogenea}</p>
+                      <p className="mt-2 text-base font-semibold text-slate-50">{siiRecord.areaHomogenea}</p>
                     </div>
                   ) : null}
                 </div>
@@ -2143,7 +2151,7 @@ export function CAMPOSFolderView() {
       <div
         className={`hidden md:flex flex-col bg-card overflow-hidden transition-all duration-300 ${
           isMapFullscreen ? "md:hidden" : ""
-        } ${isRightPanelOpen ? "w-80 border-l" : "w-0"}`}
+        } ${isRightPanelOpen ? "w-[30rem] xl:w-[36rem] border-l" : "w-0"}`}
       >
         <DetailsPanel />
       </div>
