@@ -315,6 +315,9 @@ export function CAMPOSFolderView() {
   const [loadingDocuments, setLoadingDocuments] = useState(false)
   const [isLoadingFromURL, setIsLoadingFromURL] = useState(false)
   const [selectedKmzId, setSelectedKmzId] = useState<string | null>(null)
+  const [isResearchExpanded, setIsResearchExpanded] = useState(false)
+  const [isEditExpanded, setIsEditExpanded] = useState(false)
+  const [isLoadedFilesExpanded, setIsLoadedFilesExpanded] = useState(false)
   const [advancedFilters, setAdvancedFilters] = useState({
     priceMin: 0,
     priceMax: 10000000,
@@ -499,10 +502,12 @@ export function CAMPOSFolderView() {
                   <p className="text-[11px] uppercase tracking-wide text-current/70">Documentos</p>
                   <p className="mt-1 text-base font-semibold">{documentCount} asociados</p>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-black/10 p-3">
-                  <p className="text-[11px] uppercase tracking-wide text-current/70">Fuente tecnica</p>
-                  <p className="mt-1 text-sm font-medium text-current/85">{evidenceLabel}</p>
-                </div>
+                {candidateOwner ? (
+                  <div className="rounded-2xl border border-white/10 bg-black/10 p-3">
+                    <p className="text-[11px] uppercase tracking-wide text-current/70">Candidato publico</p>
+                    <p className="mt-1 text-base font-semibold">{candidateOwner}</p>
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
@@ -719,62 +724,79 @@ export function CAMPOSFolderView() {
 
           <Card className="border-slate-200 shadow-none">
             <CardContent className="space-y-4 p-4">
-              <div className="flex items-center gap-2">
-                <SearchCode className="h-4 w-4 text-violet-700" />
-                <p className="text-sm font-semibold text-slate-900">Investigacion</p>
-              </div>
+              <button
+                type="button"
+                onClick={() => setIsResearchExpanded((value) => !value)}
+                className="flex w-full items-center justify-between gap-3 text-left"
+              >
+                <div className="flex items-center gap-2">
+                  <SearchCode className="h-4 w-4 text-violet-700" />
+                  <p className="text-sm font-semibold text-slate-900">Investigacion</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {ownerQueue?.priorityTier ? (
+                    <Badge variant="secondary" className="bg-violet-100 text-violet-900">
+                      {ownerQueue.priorityTier}
+                    </Badge>
+                  ) : null}
+                  <ChevronDown className={`h-4 w-4 text-slate-500 transition-transform ${isResearchExpanded ? "rotate-180" : ""}`} />
+                </div>
+              </button>
 
               {ownerQueue ? (
-                <>
-                  <div className="flex flex-wrap gap-2">
-                    <Badge variant="secondary" className="bg-violet-100 text-violet-900">
-                      {ownerQueue.priorityTier || "sin tier"}
-                    </Badge>
-                    {ownerQueue.priorityScore !== null ? (
-                      <Badge variant="outline" className="border-violet-300 text-violet-900">
-                        Score {ownerQueue.priorityScore}
-                      </Badge>
+                isResearchExpanded ? (
+                  <>
+                    <div className="flex flex-wrap gap-2">
+                      {ownerQueue.priorityScore !== null ? (
+                        <Badge variant="outline" className="border-violet-300 text-violet-900">
+                          Score {ownerQueue.priorityScore}
+                        </Badge>
+                      ) : null}
+                      {ownerQueue.status ? (
+                        <Badge variant="outline" className="border-violet-300 text-violet-900">
+                          {ownerQueue.status}
+                        </Badge>
+                      ) : null}
+                    </div>
+
+                    {ownerQueue.suggestedNextStep ? (
+                      <div className="rounded-xl border border-violet-200 bg-violet-50 p-3">
+                        <p className="text-[11px] uppercase tracking-wide text-violet-700">Siguiente paso</p>
+                        <p className="mt-1 text-sm text-violet-950">{ownerQueue.suggestedNextStep}</p>
+                      </div>
                     ) : null}
-                    {ownerQueue.status ? (
-                      <Badge variant="outline" className="border-violet-300 text-violet-900">
-                        {ownerQueue.status}
-                      </Badge>
+
+                    {ownerQueue.reasons.length > 0 ? (
+                      <div>
+                        <p className="text-[11px] uppercase tracking-wide text-slate-500">Motivos</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {ownerQueue.reasons.map((reason) => (
+                            <Badge key={reason} variant="secondary" className="bg-slate-100 text-slate-800">
+                              {reason}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
                     ) : null}
+
+                    {ownerQueue.searchQueries.length > 0 ? (
+                      <div>
+                        <p className="text-[11px] uppercase tracking-wide text-slate-500">Consultas sugeridas</p>
+                        <div className="mt-2 space-y-2">
+                          {ownerQueue.searchQueries.map((query) => (
+                            <div key={query} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                              {query}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                    {ownerQueue.suggestedNextStep || "Investigacion lista para abrir cuando se necesite."}
                   </div>
-
-                  {ownerQueue.suggestedNextStep ? (
-                    <div className="rounded-xl border border-violet-200 bg-violet-50 p-3">
-                      <p className="text-[11px] uppercase tracking-wide text-violet-700">Siguiente paso</p>
-                      <p className="mt-1 text-sm text-violet-950">{ownerQueue.suggestedNextStep}</p>
-                    </div>
-                  ) : null}
-
-                  {ownerQueue.reasons.length > 0 ? (
-                    <div>
-                      <p className="text-[11px] uppercase tracking-wide text-slate-500">Motivos</p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {ownerQueue.reasons.map((reason) => (
-                          <Badge key={reason} variant="secondary" className="bg-slate-100 text-slate-800">
-                            {reason}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-
-                  {ownerQueue.searchQueries.length > 0 ? (
-                    <div>
-                      <p className="text-[11px] uppercase tracking-wide text-slate-500">Consultas sugeridas</p>
-                      <div className="mt-2 space-y-2">
-                        {ownerQueue.searchQueries.map((query) => (
-                          <div key={query} className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
-                            {query}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : null}
-                </>
+                )
               ) : (
                 <p className="text-sm text-muted-foreground">Aun no hay cola de investigacion registrada para este KMZ.</p>
               )}
@@ -843,69 +865,93 @@ export function CAMPOSFolderView() {
 
           <Card className="border-slate-200 shadow-none">
             <CardContent className="space-y-4 p-4">
-              <div className="flex items-center gap-2">
-                <File className="h-4 w-4 text-slate-700" />
-                <p className="text-sm font-semibold text-slate-900">Edicion</p>
-              </div>
+              <button
+                type="button"
+                onClick={() => setIsEditExpanded((value) => !value)}
+                className="flex w-full items-center justify-between gap-3 text-left"
+              >
+                <div className="flex items-center gap-2">
+                  <File className="h-4 w-4 text-slate-700" />
+                  <p className="text-sm font-semibold text-slate-900">Edicion</p>
+                </div>
+                <ChevronDown className={`h-4 w-4 text-slate-500 transition-transform ${isEditExpanded ? "rotate-180" : ""}`} />
+              </button>
 
-              <div>
-                <label className="mb-2 block text-sm font-medium">Propietario / Cliente</label>
-                <input
-                  type="text"
-                  value={editingOwner}
-                  onChange={(e) => setEditingOwner(e.target.value)}
-                  placeholder="Ingresa nombre del propietario o cliente"
-                  className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm text-foreground"
-                />
-                <p className="mt-1 text-xs text-muted-foreground">Nombre del dueno confirmado o cliente asociado.</p>
-              </div>
+              {isEditExpanded ? (
+                <>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">Propietario / Cliente</label>
+                    <input
+                      type="text"
+                      value={editingOwner}
+                      onChange={(e) => setEditingOwner(e.target.value)}
+                      placeholder="Ingresa nombre del propietario o cliente"
+                      className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm text-foreground"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">Nombre del dueno confirmado o cliente asociado.</p>
+                  </div>
 
-              <div>
-                <label className="mb-2 block text-sm font-medium">Enlace Google Docs</label>
-                <input
-                  type="text"
-                  value={editingGoogleDocsLink}
-                  onChange={(e) => setEditingGoogleDocsLink(e.target.value)}
-                  placeholder="https://docs.google.com/document/d/..."
-                  className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm text-foreground"
-                />
-                <p className="mt-1 text-xs text-muted-foreground">Ficha comercial, minuta o carpeta editable del campo.</p>
-                {editingGoogleDocsLink ? (
-                  <a
-                    href={editingGoogleDocsLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                  >
-                    <ExternalLink className="h-3 w-3" />
-                    Abrir documento
-                  </a>
-                ) : null}
-              </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium">Enlace Google Docs</label>
+                    <input
+                      type="text"
+                      value={editingGoogleDocsLink}
+                      onChange={(e) => setEditingGoogleDocsLink(e.target.value)}
+                      placeholder="https://docs.google.com/document/d/..."
+                      className="w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm text-foreground"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">Ficha comercial, minuta o carpeta editable del campo.</p>
+                    {editingGoogleDocsLink ? (
+                      <a
+                        href={editingGoogleDocsLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        Abrir documento
+                      </a>
+                    ) : null}
+                  </div>
 
-              <Button onClick={handleSaveOwnerAndDocsLink} disabled={isSavingOwner} className="w-full">
-                {isSavingOwner ? "Guardando..." : "Guardar cambios"}
-              </Button>
+                  <Button onClick={handleSaveOwnerAndDocsLink} disabled={isSavingOwner} className="w-full">
+                    {isSavingOwner ? "Guardando..." : "Guardar cambios"}
+                  </Button>
+                </>
+              ) : (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                  Propietario y enlace documental disponibles para edicion manual.
+                </div>
+              )}
             </CardContent>
           </Card>
 
           {selectedRegion && kmzFiles.length > 0 ? (
             <Card className="border-slate-200 shadow-none">
-              <CardContent className="p-4">
-                <p className="mb-3 text-sm font-medium">Archivos cargados en mapa ({kmzFiles.length})</p>
-                <ScrollArea className="h-[160px] rounded-xl border">
-                  <div className="space-y-1 p-2">
-                    {kmzFiles.map((file) => (
-                      <div key={file.metadata.id} className="flex items-center gap-2 rounded-lg bg-muted/50 p-2 text-sm">
-                        <MapPin className="h-3 w-3 text-primary" />
-                        <span className="flex-1 truncate">{file.fileName}</span>
-                        <Badge variant="outline" className="text-xs">
-                          {file.placemarks.length}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </ScrollArea>
+              <CardContent className="space-y-4 p-4">
+                <button
+                  type="button"
+                  onClick={() => setIsLoadedFilesExpanded((value) => !value)}
+                  className="flex w-full items-center justify-between gap-3 text-left"
+                >
+                  <p className="text-sm font-medium text-slate-900">Archivos cargados en mapa ({kmzFiles.length})</p>
+                  <ChevronDown className={`h-4 w-4 text-slate-500 transition-transform ${isLoadedFilesExpanded ? "rotate-180" : ""}`} />
+                </button>
+                {isLoadedFilesExpanded ? (
+                  <ScrollArea className="h-[160px] rounded-xl border">
+                    <div className="space-y-1 p-2">
+                      {kmzFiles.map((file) => (
+                        <div key={file.metadata.id} className="flex items-center gap-2 rounded-lg bg-muted/50 p-2 text-sm">
+                          <MapPin className="h-3 w-3 text-primary" />
+                          <span className="flex-1 truncate">{file.fileName}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {file.placemarks.length}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                ) : null}
               </CardContent>
             </Card>
           ) : null}
