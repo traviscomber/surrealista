@@ -1232,7 +1232,7 @@ export function CAMPOSFolderView() {
         
         const { data, error, count } = await supabase
           .from("kmz_collection")
-          .select("id, file_name, region, placemarks_count, bounds, tags, file_path, owner, google_docs_link, rol_numbers, metadata, category", { count: 'exact' })
+          .select("id, file_name, description, region, placemarks_count, bounds, tags, file_path, owner, google_docs_link, rol_numbers, metadata, category", { count: 'exact' })
           .eq("is_active", true)
           .order("region", { ascending: true })
           .range(start, end)
