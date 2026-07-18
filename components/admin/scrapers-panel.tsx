@@ -141,7 +141,7 @@ const SOURCES = [
     label: "RE/MAX",
     url: "remax.cl",
     focus: "Propiedades Chile (Pancul, Los Lagos)",
-    type: "national",
+    type: "general",
     color: "blue",
   },
 ]
