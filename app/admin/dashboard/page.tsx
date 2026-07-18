@@ -24,6 +24,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { AppHeader } from "@/components/layout/app-header"
 import { ScrapersPanel } from "@/components/admin/scrapers-panel"
+import { ScrapedPropertiesDashboard } from "@/components/admin/scraped-properties-dashboard"
 
 // Componente para las tarjetas de estadísticas
 const StatCard = ({ title, value, trend, trendValue, icon: Icon, color }) => {
@@ -184,6 +185,8 @@ const ActivityItem = ({ user, action, property, time, image }) => {
           </TabsList>
 
           <TabsContent value="overview" className="mt-0">
+            <ScrapedPropertiesDashboard mode="summary" />
+            <div className="hidden" aria-hidden="true">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <StatCard
                 title="Total Propiedades"
@@ -433,33 +436,11 @@ const ActivityItem = ({ user, action, property, time, image }) => {
                 </CardContent>
               </Card>
             </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="properties" className="mt-0">
-            <Card>
-              <CardHeader>
-                <CardTitle>Gestión de Propiedades</CardTitle>
-                <CardDescription>Administra todas las propiedades de Sur-Realista</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-12">
-                  <Building className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Gestión de Propiedades</h3>
-                  <p className="text-gray-500 max-w-md mx-auto mb-6">
-                    Desde aquí puedes ver, editar, agregar y eliminar propiedades. También puedes gestionar imágenes,
-                    detalles y configurar propiedades destacadas.
-                  </p>
-                  <div className="flex flex-wrap gap-3 justify-center">
-                    <Button asChild>
-                      <Link href="/propiedades">Ver Todas las Propiedades</Link>
-                    </Button>
-                    <Button variant="outline" asChild>
-                      <Link href="/admin/propiedades/nueva">Agregar Nueva Propiedad</Link>
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <ScrapedPropertiesDashboard mode="full" />
           </TabsContent>
 
           <TabsContent value="users" className="mt-0">
