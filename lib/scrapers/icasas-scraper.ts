@@ -2,6 +2,7 @@
  * iCasas.com scraper — uses their REST API + HTML fallback.
  * iCasas exposes a JSON feed for property searches.
  */
+import * as cheerio from 'cheerio'
 import type { RawProperty, ScrapeResult } from './base-scraper'
 import { normaliseProperty, upsertProperties, logScrapeRun } from './base-scraper'
 
@@ -44,69 +45,43 @@ interface iCasasProperty {
   nuevo?: boolean | number
 }
 
-async function fetchICasasJSON(
-  operation: 'venta' | 'arriendo',
-  communeSlug: string,
-  page: number
-): Promise<iCasasProperty[]> {
-  const opParam = operation === 'venta' ? 'venta' : 'arriendo'
-  const url = `${BASE}/api/v2/properties?tipo=${opParam}&comuna=${communeSlug}&page=${page}&per_page=24&orden=fecha`
-
-  const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(12000) })
-  if (!res.ok) throw new Error(`iCasas API ${url} → ${res.status}`)
-  const json = await res.json()
-  return json?.properties ?? json?.data ?? json?.results ?? []
-}
-
 async function fetchICasasHTML(
   operation: 'venta' | 'arriendo',
   regionSlug: string,
-  page: number
+  page: number,
 ): Promise<iCasasProperty[]> {
-  const opSlug = operation === 'venta' ? 'venta' : 'arriendo'
-  const url = `${BASE}/${opSlug}/${regionSlug}?pagina=${page}`
-
+  const url = `${BASE}/${operation}/terrenos/${regionSlug}/list${page > 1 ? `?page=${page}` : ''}`
   const res = await fetch(url, {
     headers: { ...HEADERS, Accept: 'text/html,application/xhtml+xml' },
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(30_000),
   })
   if (!res.ok) throw new Error(`iCasas HTML ${url} → ${res.status}`)
-  const html = await res.text()
 
-  const results: iCasasProperty[] = []
+  const $ = cheerio.load(await res.text())
+  return $('.serp-snippet').map((_, element) => {
+    const card = $(element)
+    const detail = card.find('a.detail-redirection').first()
+    const href = detail.attr('href') ?? ''
+    const description = card.find('.description').text().replace(/\s+/g, ' ').trim()
+    const image = card.find('.slider-ad img').filter((_, img) => {
+      const src = $(img).attr('data-lazy') ?? $(img).attr('src') ?? ''
+      return !src.includes('loading-image')
+    }).first()
+    const imageUrl = image.attr('data-lazy') ?? image.attr('src')
+    const area = description.match(/[\d.,]+\s*(?:hect[aá]reas?|ha|m[²2])/i)?.[0]
 
-  // __NEXT_DATA__ extraction
-  const ndMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/)
-  if (ndMatch) {
-    try {
-      const nd = JSON.parse(ndMatch[1])
-      const listings: iCasasProperty[] =
-        nd?.props?.pageProps?.properties ||
-        nd?.props?.pageProps?.data ||
-        []
-      results.push(...listings)
-    } catch { /* skip */ }
-  }
-
-  // JSON-LD fallback
-  if (results.length === 0) {
-    const jsonLdRegex = /<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi
-    let m
-    while ((m = jsonLdRegex.exec(html)) !== null) {
-      try {
-        const d = JSON.parse(m[1])
-        if (d?.['@type'] === 'ItemList') {
-          for (const item of d.itemListElement ?? []) {
-            const listing = item?.item || item
-            const id = String(listing?.['@id'] || '').replace(/\D/g, '').slice(-10)
-            if (id) results.push({ id, titulo: listing?.name, precio: listing?.offers?.price, url: listing?.url })
-          }
-        }
-      } catch { /* skip */ }
+    return {
+      id: card.attr('id'),
+      titulo: detail.text().replace(/\s+/g, ' ').trim(),
+      precio: card.find('.price').text().replace(/\s+/g, ' ').trim(),
+      m2_total: area,
+      tipo: 'terreno',
+      tipo_operacion: operation,
+      descripcion: description,
+      fotos: imageUrl ? [imageUrl] : [],
+      url: href,
     }
-  }
-
-  return results
+  }).get()
 }
 
 function mapToRaw(p: iCasasProperty, operation: 'venta' | 'arriendo'): RawProperty | null {
@@ -144,11 +119,14 @@ function mapToRaw(p: iCasasProperty, operation: 'venta' | 'arriendo'): RawProper
 }
 
 const REGION_SLUGS: Record<string, string> = {
-  'Región Metropolitana': 'region-metropolitana',
-  'Región de Valparaíso': 'region-valparaiso',
-  'Región del Biobío': 'region-biobio',
-  'Región de La Araucanía': 'region-araucania',
-  'Región de Los Lagos': 'region-los-lagos',
+  'Región Metropolitana': 'metropolitana-de-santiago',
+  'Región de Valparaíso': 'valparaiso-region-v',
+  'Región del Biobío': 'bio-bio-region-viii',
+  'Región de La Araucanía': 'araucania-region-ix',
+  'Región de Los Lagos': 'lagos-region-x',
+  'Región de Los Ríos': 'rios-region-xiv',
+  'Región de Aysén': 'aysen-region-xi',
+  'Región de Magallanes': 'magallanes-antartica-chilena-region-xii',
 }
 
 export async function scrapeICasas(opts: {
@@ -157,7 +135,14 @@ export async function scrapeICasas(opts: {
   pages?: number
 } = {}): Promise<ScrapeResult> {
   const {
-    regions = ['Región Metropolitana', 'Región de Valparaíso', 'Región del Biobío'],
+    regions = [
+      'Región del Biobío',
+      'Región de La Araucanía',
+      'Región de Los Ríos',
+      'Región de Los Lagos',
+      'Región de Aysén',
+      'Región de Magallanes',
+    ],
     operation = 'venta',
     pages = 2,
   } = opts
@@ -165,21 +150,23 @@ export async function scrapeICasas(opts: {
   const start = Date.now()
   const allRaw: RawProperty[] = []
   const errors: string[] = []
+  const seen = new Set<string>()
 
   for (const region of regions) {
     const slug = REGION_SLUGS[region] ?? 'region-metropolitana'
     for (let page = 1; page <= pages; page++) {
       try {
-        let listings: iCasasProperty[] = []
-        try {
-          listings = await fetchICasasJSON(operation, slug, page)
-        } catch {
-          listings = await fetchICasasHTML(operation, slug, page)
-        }
+        const listings = await fetchICasasHTML(operation, slug, page)
+        if (listings.length === 0) break
         const batch = listings
-          .map((l) => mapToRaw(l, operation))
-          .filter((p): p is RawProperty => p !== null)
-        batch.forEach((p) => { p.region = p.region || region })
+          .map((listing) => mapToRaw(listing, operation))
+          .filter((property): property is RawProperty => property !== null)
+          .filter((property) => {
+            if (seen.has(property.externalId)) return false
+            seen.add(property.externalId)
+            return true
+          })
+        batch.forEach((property) => { property.region = property.region || region })
         allRaw.push(...batch)
         if (page < pages) await new Promise((r) => setTimeout(r, 700))
       } catch (err) {
