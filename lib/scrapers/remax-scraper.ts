@@ -15,6 +15,9 @@ const SOUTH_REGIONS = [
   { name: "Región de Magallanes",    searchTerm: "Magallanes" },
 ]
 
+// CDN base URL for Remax Chile images (CountryId 1028)
+const REMAX_IMAGE_CDN = "https://cdn.gryphtech.com/userimages/1028/LargeWM"
+
 interface RemaxApiResult {
   "@search.score": number
   content: {
@@ -38,7 +41,7 @@ interface RemaxApiResult {
     PropertyTypeUID:    number
     PropertyTypeDescription?: string
     ListingDescriptions?: { Description: string }[]
-    Multimedia?: { MediaURL: string; MediaCategory: string }[]
+    ListingImages?: { FileName: string; Order: string; HasLargeImage: string }[]
     AgentId:            number
   }
 }
@@ -167,10 +170,11 @@ export async function scrapeRemax(options: {
           const externalId = `remax-${c.MLSID ?? c.ListingKey}`
           const title      = c.TitleAddress || `${mapPropertyType(c.PropertyTypeUID)} en ${c.City}`
           const location   = [c.City, c.Province].filter(Boolean).join(", ")
-          const images     = (c.Multimedia ?? [])
-            .filter((m) => m.MediaCategory === "Photo" || m.MediaCategory === "photo")
-            .map((m) => m.MediaURL)
+          // Build full image URLs from ListingImages using Gryphtech CDN
+          const images = (c.ListingImages ?? [])
+            .sort((a, b) => Number(a.Order) - Number(b.Order))
             .slice(0, 5)
+            .map((img) => `${REMAX_IMAGE_CDN}/${img.FileName}`)
 
           const { error } = await supabase
             .from("properties_external")
