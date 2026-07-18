@@ -246,12 +246,3 @@ async function findNeighborContacts(supabase: any, kmz: any): Promise<string[]> 
     return []
   }
 }
-      }
-    }
-
-    return contacts
-  } catch (error) {
-    console.error("[v0] Neighbor contact search failed:", error)
-    return []
-  }
-}
