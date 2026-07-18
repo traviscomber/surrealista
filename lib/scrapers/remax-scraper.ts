@@ -1,243 +1,229 @@
-import puppeteer from "puppeteer"
 import { createClient } from "@/lib/supabase/server"
 
-export interface RemaxProperty {
-  external_id: string
-  title: string
-  price_clp: number | null
-  price_uf: number | null
-  bedrooms: number | null
-  bathrooms: number | null
-  area_m2: number | null
-  property_type: string
-  location: string
-  address: string
-  city: string
-  region: string
-  source_url: string
-  images: string[]
-}
+// ─── Remax Azure Cognitive Search API ────────────────────────────────────────
+// Discovered via network interception — no auth token required
+const REMAX_SEARCH_API = "https://www.remax.cl/search/listing-search/docs/search"
+const PAGE_SIZE = 50 // max per request
 
-// Southern regions for Remax scraping
+// Southern Chilean regions to scrape
 const SOUTH_REGIONS = [
-  { name: "Región del Biobío", searchTerm: "Biobio" },
-  { name: "Región de La Araucanía", searchTerm: "Araucania" },
-  { name: "Región de Los Ríos", searchTerm: "Los Rios" },
-  { name: "Región de Los Lagos", searchTerm: "Los Lagos" },
-  { name: "Región de Aysén", searchTerm: "Aysen" },
-  { name: "Región de Magallanes", searchTerm: "Magallanes" },
+  { name: "Región del Biobío",       searchTerm: "Biobio" },
+  { name: "Región de La Araucanía",  searchTerm: "Araucania" },
+  { name: "Región de Los Ríos",      searchTerm: "Los Rios" },
+  { name: "Región de Los Lagos",     searchTerm: "Los Lagos" },
+  { name: "Región de Aysén",         searchTerm: "Aysen" },
+  { name: "Región de Magallanes",    searchTerm: "Magallanes" },
 ]
 
+interface RemaxApiResult {
+  "@search.score": number
+  content: {
+    ListingKey:         string
+    MLSID:              string
+    ListingId:          number
+    ListingClass:       number        // 1=residential, 2=land, etc
+    TitleAddress:       string
+    FullAddress:        string
+    City:               string
+    Province:           string
+    RegionalZone:       string
+    ListingPrice:       number | null
+    ListingPriceEuro:   number | null
+    NumberOfBedrooms:   number | null
+    NumberOfBathrooms:  number | null
+    TotalArea:          number | null
+    LivingArea:         number | null
+    LotSize:            number | null
+    TransactionTypeUID: number        // 261=buy
+    PropertyTypeUID:    number
+    PropertyTypeDescription?: string
+    ListingDescriptions?: { Description: string }[]
+    Multimedia?: { MediaURL: string; MediaCategory: string }[]
+    AgentId:            number
+  }
+}
+
+// Build the POST body for Azure Cognitive Search
+function buildSearchBody(searchTerm: string, skip = 0) {
+  return {
+    count: true,
+    skip,
+    top: PAGE_SIZE,
+    searchMode: "any",
+    queryType: "full",
+    scoringProfile: "",
+    searchFields: [
+      "content/City",
+      "content/Province",
+      "content/GeoDatas/City",
+      "content/GeoDatas/Province",
+      "content/ListingDescriptions/Description",
+      "content/FullTextSearch",
+      "content/DevelopmentName",
+    ].join(","),
+    search: searchTerm,
+    facets: ["content/RegionalZone,count:500,sort:count"],
+    filter: [
+      "content/TenantId eq 6",
+      "content/CountryID eq 1028",
+      "content/OnHoldListing eq false",
+      "content/IsRegionalOffice eq false",
+      "content/IsViewable eq true",
+      "content/TransactionTypeUID eq 261", // Buy/Venta
+    ].join(" and "),
+    minimumCoverage: 90,
+    orderby: "",
+  }
+}
+
+// Map Remax PropertyTypeUID to a human-readable string
+function mapPropertyType(uid: number): string {
+  const types: Record<number, string> = {
+    1: "Casa",
+    2: "Departamento",
+    3: "Terreno",
+    4: "Oficina",
+    5: "Local Comercial",
+    6: "Bodega",
+    7: "Parcela",
+    8: "Fundo",
+    9: "Agrícola",
+    10: "Industrial",
+  }
+  return types[uid] ?? "Propiedad"
+}
+
+// Calculate price in UF (1 UF ≈ 38,000 CLP as reference rate)
+const UF_RATE = 38000
+function clpToUf(clp: number | null): number | null {
+  if (!clp || clp <= 0) return null
+  return Math.round((clp / UF_RATE) * 100) / 100
+}
+
+// ─── Main Scraper Function ────────────────────────────────────────────────────
 export async function scrapeRemax(options: {
-  searchUrl?: string
   pages?: number
   regions?: string[]
-  perPage?: number
 } = {}): Promise<{
   success: boolean
-  data: RemaxProperty[]
+  total_found: number
   inserted: number
-  total: number
   errors: string[]
+  regions_scraped: string[]
 }> {
   const {
-    searchUrl = "https://www.remax.cl/listings",
     pages = 1,
     regions = SOUTH_REGIONS.map((r) => r.searchTerm),
-    perPage = 12,
   } = options
 
   const supabase = await createClient()
   const errors: string[] = []
-  const allProperties: RemaxProperty[] = []
+  const regionsScraped: string[] = []
+  let totalFound = 0
+  let totalInserted = 0
 
-  let browser
+  for (const regionSearchTerm of regions) {
+    const regionName =
+      SOUTH_REGIONS.find((r) => r.searchTerm === regionSearchTerm)?.name ?? regionSearchTerm
 
-  try {
-    // Launch browser - Puppeteer will automatically download Chromium if not found
-    browser = await puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-gpu"],
-    })
+    try {
+      // Fetch all pages for this region
+      for (let pageNum = 0; pageNum < pages; pageNum++) {
+        const skip = pageNum * PAGE_SIZE
+        const body = buildSearchBody(regionSearchTerm, skip)
 
-    console.log(`[v0] [Remax] Scraping ${pages} page(s) for ${regions.length} south regions`)
-
-    // Iterate by region
-    for (const regionSearchTerm of regions) {
-      // Find region name for logging
-      const regionName =
-        SOUTH_REGIONS.find((r) => r.searchTerm === regionSearchTerm)?.name || regionSearchTerm
-
-      for (let pageNum = 1; pageNum <= pages; pageNum++) {
-        const url = new URL(searchUrl)
-        url.searchParams.set("FreeText", regionSearchTerm)
-        url.searchParams.set("Country", "Chile")
-        url.searchParams.set("CountryId", "1028")
-        url.searchParams.set("ListingClass", "-1")
-        url.searchParams.set("TransactionTypeUID", "261") // Buy
-        url.searchParams.set("page", pageNum.toString())
-
-      const page = await browser.newPage()
-      page.setDefaultTimeout(30000)
-
-      try {
-        console.log(`[v0] [Remax] Loading page ${pageNum}: ${url.toString()}`)
-        await page.goto(url.toString(), { waitUntil: "networkidle2" })
-
-        // Wait for property cards to load
-        await page.waitForSelector('[class*="card"]', { timeout: 5000 }).catch(() => {
-          console.warn("[v0] [Remax] Property cards selector not found, continuing anyway")
+        const resp = await fetch(REMAX_SEARCH_API, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "User-Agent":
+              "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+            Referer: "https://www.remax.cl/",
+          },
+          body: JSON.stringify(body),
         })
 
-        // Extract properties using page evaluation
-        const pageProperties = await page.evaluate((searchUrl) => {
-          const properties: any[] = []
+        if (!resp.ok) {
+          errors.push(`[${regionName}] HTTP ${resp.status}: ${await resp.text().catch(() => "")}`)
+          break
+        }
 
-          // Find all property card containers
-          const cardSelectors = ['[class*="card"]', '[class*="listing"]', 'a[href*="/listings/"]']
-          let cards: Element[] = []
+        const json = await resp.json()
+        const results: RemaxApiResult[] = json.value ?? []
+        const totalCount: number = json["@odata.count"] ?? 0
 
-          for (const selector of cardSelectors) {
-            cards = Array.from(document.querySelectorAll(selector))
-            if (cards.length > 0) break
+        totalFound += results.length
+
+        // Insert each property into DB
+        for (const item of results) {
+          const c = item.content
+
+          // Skip if no price at all
+          if (!c.ListingPrice) continue
+
+          const priceClp   = c.ListingPrice ? Math.round(c.ListingPrice) : null
+          const priceUf    = clpToUf(priceClp)
+          const areaM2     = c.LivingArea ?? c.TotalArea ?? c.LotSize ?? null
+          const externalId = `remax-${c.MLSID ?? c.ListingKey}`
+          const title      = c.TitleAddress || `${mapPropertyType(c.PropertyTypeUID)} en ${c.City}`
+          const location   = [c.City, c.Province].filter(Boolean).join(", ")
+          const images     = (c.Multimedia ?? [])
+            .filter((m) => m.MediaCategory === "Photo" || m.MediaCategory === "photo")
+            .map((m) => m.MediaURL)
+            .slice(0, 5)
+
+          const { error } = await supabase
+            .from("properties_external")
+            .upsert(
+              {
+                external_id:    externalId,
+                title,
+                source:         "remax",
+                source_url:     `https://www.remax.cl/listings/${c.ListingKey}`,
+                price:          priceClp,
+                price_clp:      priceClp,
+                price_uf:       priceUf,
+                currency:       "CLP",
+                area:           areaM2,
+                area_m2:        areaM2,
+                bedrooms:       c.NumberOfBedrooms ?? null,
+                bathrooms:      c.NumberOfBathrooms ?? null,
+                property_type:  mapPropertyType(c.PropertyTypeUID),
+                operation:      "venta",
+                location,
+                address:        c.FullAddress ?? location,
+                city:           c.City ?? "",
+                commune:        c.City ?? "",
+                region:         c.Province ?? regionName,
+                images,
+                scraped_at:     new Date().toISOString(),
+                is_active:      true,
+              },
+              { onConflict: "external_id" }
+            )
+
+          if (error) {
+            errors.push(`[${externalId}] ${error.message}`)
+          } else {
+            totalInserted++
           }
+        }
 
-          cards.forEach((card) => {
-            try {
-              const text = card.textContent || ""
-
-              // Extract price in CLP
-              const priceClpMatch = text.match(/([\d.,]+)\s*\$/)
-              const priceClp = priceClpMatch
-                ? parseInt(priceClpMatch[1].replace(/[.,]/g, ""), 10)
-                : null
-
-              // Extract price in UF
-              const priceUfMatch = text.match(/([\d.,]+)\s*UF/)
-              const priceUf = priceUfMatch ? parseFloat(priceUfMatch[1].replace(/[.,]/g, ".")) : null
-
-              // Extract bedrooms
-              const bedroomsMatch = text.match(/(\d+)\s*(?:bedroom|bd|dormitorio)/)
-              const bedrooms = bedroomsMatch ? parseInt(bedroomsMatch[1], 10) : null
-
-              // Extract bathrooms (look for icons or text)
-              const bathroomsMatch = text.match(/(\d+)\s*(?:bathroom|ba|ba?o)/)
-              const bathrooms = bathroomsMatch ? parseInt(bathroomsMatch[1], 10) : null
-
-              // Extract area in m²
-              const areaMatch = text.match(/([\d.,]+)\s*(?:m²|sqm|m2)/)
-              const area = areaMatch ? parseFloat(areaMatch[1].replace(/[.,]/g, ".")) : null
-
-              // Extract location
-              const locationMatch = text.match(/(?:For Sale|En Venta)-(.+?)(?:,|Chile|-$)/)
-              const location = locationMatch ? locationMatch[1].trim() : ""
-
-              // Try to find property type
-              const typeMatch = text.match(
-                /(?:country estate|apartment|house|casa|departamento|casa comercial|comercial)/i
-              )
-              const propertyType = typeMatch ? typeMatch[0] : "Property"
-
-              // Get URL if it's a link
-              const link = (card as HTMLAnchorElement).href || ""
-
-              // Extract external ID from URL
-              const idMatch = link.match(/\/listings\/(\d+)/)
-              const externalId = idMatch ? idMatch[1] : `remax-${Date.now()}`
-
-              if (priceClp || priceUf) {
-                properties.push({
-                  external_id: externalId,
-                  title: text.split("\n")[0].slice(0, 100),
-                  price_clp: priceClp,
-                  price_uf: priceUf,
-                  bedrooms,
-                  bathrooms,
-                  area_m2: area,
-                  property_type: propertyType,
-                  location,
-                  address: location,
-                  city: location.split(",")[0] || "",
-                  region: location.split(",")[1] || "Chile",
-                  source_url: link,
-                  images: [],
-                })
-              }
-            } catch (err) {
-              console.error("[Remax] Error parsing card:", err)
-            }
-          })
-
-          return properties
-        }, searchUrl)
-
-        allProperties.push(...pageProperties)
-        console.log(`[v0] [Remax] Page ${pageNum}: Found ${pageProperties.length} properties`)
-      } catch (err) {
-        const errMsg = `Error scraping page ${pageNum}: ${(err as Error).message}`
-        console.error("[v0]", errMsg)
-        errors.push(errMsg)
-      } finally {
-        await page.close()
+        // Stop paginating if we got all results
+        if (skip + results.length >= totalCount) break
       }
+
+      regionsScraped.push(regionName)
+    } catch (err) {
+      errors.push(`[${regionName}] ${(err as Error).message}`)
     }
   }
 
-    // Insert into database
-    let inserted = 0
-    for (const prop of allProperties) {
-      try {
-        const { error } = await supabase.from("properties_external").insert({
-          external_id: prop.external_id,
-          title: prop.title,
-          source: "remax",
-          source_url: prop.source_url,
-          price_clp: prop.price_clp,
-          price_uf: prop.price_uf,
-          area_m2: prop.area_m2,
-          bedrooms: prop.bedrooms,
-          bathrooms: prop.bathrooms,
-          property_type: prop.property_type,
-          location: prop.location,
-          address: prop.address,
-          city: prop.city,
-          region: prop.region,
-          images: prop.images,
-          status: "available",
-          operation: "venta", // Buy/Venta operation from URL
-          scraped_at: new Date().toISOString(),
-          is_active: true,
-        })
-
-        if (error && !error.message.includes("duplicate")) {
-          throw error
-        }
-        if (!error) inserted++
-      } catch (err) {
-        console.warn(`[v0] Failed to insert property ${prop.external_id}: ${(err as Error).message}`)
-      }
-    }
-
-    console.log(`[v0] [Remax] Scraping complete: ${allProperties.length} found, ${inserted} inserted`)
-
-    return {
-      success: true,
-      data: allProperties,
-      inserted,
-      total: allProperties.length,
-      errors,
-    }
-  } catch (err) {
-    const errMsg = `[v0] [Remax] Fatal scraper error: ${(err as Error).message}`
-    console.error(errMsg)
-    return {
-      success: false,
-      data: [],
-      inserted: 0,
-      total: 0,
-      errors: [errMsg],
-    }
-  } finally {
-    if (browser) await browser.close()
+  return {
+    success: errors.length === 0 || totalInserted > 0,
+    total_found:    totalFound,
+    inserted:       totalInserted,
+    errors:         errors.slice(0, 20), // cap to avoid huge payloads
+    regions_scraped: regionsScraped,
   }
 }

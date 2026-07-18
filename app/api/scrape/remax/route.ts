@@ -24,17 +24,19 @@ export async function POST(req: NextRequest) {
 
     console.log("[v0] Remax scraper result:", {
       success: result.success,
-      total: result.total,
+      total_found: result.total_found,
       inserted: result.inserted,
       errors: result.errors.length,
+      regions: result.regions_scraped,
     })
 
     return NextResponse.json({
       success: result.success,
-      message: `Found ${result.total} properties, inserted ${result.inserted}`,
-      total_found: result.total,
+      message: `Found ${result.total_found} properties, inserted ${result.inserted}`,
+      total_found: result.total_found,
       total_inserted: result.inserted,
       errors: result.errors,
+      regions_scraped: result.regions_scraped,
       source: "remax",
     })
   } catch (err) {
