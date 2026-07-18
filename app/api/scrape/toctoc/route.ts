@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { validateScraperAccess } from '@/lib/scrapers/route-auth'
 import { scrapeTocToc } from '@/lib/scrapers/toctoc-scraper'
 
 export const maxDuration = 60
 
 export async function POST(req: NextRequest) {
-  const internalKey = req.headers.get('x-internal-key')
-  if (internalKey !== process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const auth = await validateScraperAccess(req)
+  if (!auth.authorized) return auth.response
 
   try {
     const body = await req.json().catch(() => ({}))

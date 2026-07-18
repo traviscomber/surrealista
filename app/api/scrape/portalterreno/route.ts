@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { validateScraperAccess } from '@/lib/scrapers/route-auth'
 import { scrapePortalTerreno } from '@/lib/scrapers/terrachiloe-portalterreno-scraper'
 
 export const maxDuration = 300
 
 export async function POST(req: NextRequest) {
-  const key = req.headers.get('x-internal-key')
-  if (key !== process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const auth = await validateScraperAccess(req)
+  if (!auth.authorized) return auth.response
+  
   const body = await req.json().catch(() => ({}))
   try {
     const result = await scrapePortalTerreno({ pages: body.pages ?? 3, regions: body.regions })

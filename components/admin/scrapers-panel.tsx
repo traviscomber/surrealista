@@ -396,9 +396,17 @@ export function ScrapersPanel() {
     setRunningMap((p) => ({ ...p, [sourceKey]: true }))
     setRunErrors((p) => ({ ...p, [sourceKey]: "" }))
     try {
+      // Get auth token from Supabase session
+      const { data: { session } } = await supabase.auth.getSession()
+      const token = session?.access_token
+      if (!token) throw new Error("Not authenticated")
+
       const res = await fetch(`/api/scrape/${sourceKey}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
