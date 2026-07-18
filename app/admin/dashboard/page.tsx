@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -115,8 +116,19 @@ const ActivityItem = ({ user, action, property, time, image }) => {
   )
 }
 
-export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState("overview")
+  const VALID_TABS = ["overview", "properties", "users", "analytics", "settings", "scrapers"]
+
+  export default function AdminDashboard() {
+  const searchParams = useSearchParams()
+  const tabParam = searchParams.get("tab")
+  const [activeTab, setActiveTab] = useState(
+    VALID_TABS.includes(tabParam ?? "") ? (tabParam as string) : "overview"
+  )
+
+  useEffect(() => {
+    const t = searchParams.get("tab")
+    if (t && VALID_TABS.includes(t)) setActiveTab(t)
+  }, [searchParams])
 
   return (
     <>
