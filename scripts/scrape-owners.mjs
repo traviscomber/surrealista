@@ -211,8 +211,10 @@ async function loadCandidates() {
   
   console.log(`[debug] After filter: ${candidates.length} candidates (FORCE=${FORCE})`)
   
-  const final = candidates.slice(OFFSET, OFFSET + LIMIT || candidates.length)
-  console.log(`[debug] Sliced to ${final.length} (OFFSET=${OFFSET}, LIMIT=${LIMIT})`)
+  // LIMIT=0 means "process all remaining", not "process nothing"
+  const endIdx = LIMIT === 0 ? candidates.length : OFFSET + LIMIT
+  const final = candidates.slice(OFFSET, endIdx)
+  console.log(`[debug] Sliced to ${final.length} (OFFSET=${OFFSET}, LIMIT=${LIMIT}, endIdx=${endIdx})`)
   return final
 }
 
