@@ -8,9 +8,11 @@ import {
   CircleDollarSign,
   Database,
   ExternalLink,
+  Loader2,
   MapPin,
   RefreshCw,
   Search,
+  Star,
   X,
 } from "lucide-react"
 import { createBrowserClient } from "@/lib/supabase/client"
@@ -38,6 +40,7 @@ type ScrapedProperty = {
   source_url: string | null
   scraped_at: string
   is_active: boolean
+  is_favorite?: boolean
 }
 
 async function fetchScrapedProperties(): Promise<ScrapedProperty[]> {
@@ -93,6 +96,32 @@ export function ScrapedPropertiesDashboard({ mode = "full" }: { mode?: "summary"
   const [sourceFilter, setSourceFilter] = useState("all")
   const [regionFilter, setRegionFilter] = useState("all")
   const [typeFilter, setTypeFilter] = useState("all")
+  const [favoriteLoading, setFavoriteLoading] = useState<string | null>(null)
+  const [favorites, setFavorites] = useState<Set<string>>(new Set())
+
+  const toggleFavorite = async (propertyId: string) => {
+    setFavoriteLoading(propertyId)
+    try {
+      const res = await fetch("/api/admin/favorites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Site-Access-Token": "srmagica" },
+        body: JSON.stringify({ property_id: propertyId, action: "toggle" }),
+      })
+      if (res.ok) {
+        const result = await res.json()
+        setFavorites((prev) => {
+          const next = new Set(prev)
+          if (result.is_favorite) next.add(propertyId)
+          else next.delete(propertyId)
+          return next
+        })
+      }
+    } catch (err) {
+      console.error("[v0] Favorite toggle error:", err)
+    } finally {
+      setFavoriteLoading(null)
+    }
+  }
   const externalProperties = useMemo(
     () => properties.filter((property) => property.source !== "surealista"),
     [properties],
@@ -282,13 +311,28 @@ export function ScrapedPropertiesDashboard({ mode = "full" }: { mode?: "summary"
                           <span className="text-sm capitalize text-muted-foreground">{property.property_type || "Propiedad"}</span>
                         </div>
                       </div>
-                      {property.source_url && (
-                        <Button asChild variant="outline" size="sm" className="shrink-0 self-start">
-                          <Link href={property.source_url} target="_blank" rel="noreferrer">
-                            Ver original <ExternalLink className="ml-2 h-4 w-4" />
-                          </Link>
+                      <div className="flex items-center gap-2 shrink-0 self-start">
+                        <Button
+                          variant={favorites.has(property.id) ? "default" : "outline"}
+                          size="sm"
+                          className={favorites.has(property.id) ? "bg-amber-500 hover:bg-amber-600" : ""}
+                          onClick={() => toggleFavorite(property.id)}
+                          disabled={favoriteLoading === property.id}
+                        >
+                          {favoriteLoading === property.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Star className={`h-4 w-4 ${favorites.has(property.id) ? "fill-current" : ""}`} />
+                          )}
                         </Button>
-                      )}
+                        {property.source_url && (
+                          <Button asChild variant="outline" size="sm">
+                            <Link href={property.source_url} target="_blank" rel="noreferrer">
+                              Ver original <ExternalLink className="ml-2 h-4 w-4" />
+                            </Link>
+                          </Button>
+                        )}
+                      </div>
                     </div>
                     <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
                       <div className="min-w-0">
