@@ -1,6 +1,11 @@
 import JSZip from "jszip"
 import { DOMParser } from "@xmldom/xmldom"
 import { extractRolNumbersFromTargets } from "./rol-extraction"
+import {
+  extractOwnerCandidateFromTargets,
+  toOwnerEvidenceRecord,
+  toPublicOwnerCandidate,
+} from "./owner-extraction"
 
 export interface KMZPlacemark {
   name: string
@@ -20,11 +25,7 @@ export interface KMZData {
     east: number
     west: number
   }
-  metadata?: {
-    name?: string
-    description?: string
-    author?: string
-  }
+  metadata?: Record<string, any>
   fileSize?: number
   skipped?: boolean
   skipReason?: string
@@ -117,6 +118,27 @@ export class KMZReader {
     // Extraer metadatos del documento
     const documentNode = doc.getElementsByTagName("Document")[0]
     const metadata = this.extractMetadata(documentNode)
+    const ownerCandidate = extractOwnerCandidateFromTargets([
+      {
+        name: metadata.name || fileName,
+        description: metadata.description,
+        metadata,
+        source: "document-description",
+      },
+      ...placemarks.map((placemark) => ({
+        name: placemark.name,
+        description: placemark.description,
+        properties: placemark.properties || {},
+        source: "placemark-description" as const,
+      })),
+    ])
+
+    if (ownerCandidate) {
+      const evidence = toOwnerEvidenceRecord(ownerCandidate)
+      metadata.public_owner_candidate = toPublicOwnerCandidate(ownerCandidate)
+      metadata.latest_owner_evidence = evidence
+      metadata.owner_evidence_records = [evidence]
+    }
 
     // Calcular bounds
     const bounds = this.calculateBounds(placemarks)
