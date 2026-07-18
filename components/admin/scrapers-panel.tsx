@@ -140,9 +140,9 @@ const SOURCES = [
     key: "remax",
     label: "RE/MAX",
     url: "remax.cl",
-    focus: "Propiedades Chile (Pancul, Los Lagos)",
-    type: "general",
-    color: "blue",
+    focus: "Propiedades Biobío → Magallanes",
+    type: "south",
+    color: "emerald",
   },
 ]
 

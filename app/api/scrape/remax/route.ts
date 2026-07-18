@@ -10,17 +10,16 @@ export async function POST(req: NextRequest) {
     if (!auth.authorized) return auth.response
 
     const body = await req.json()
-    const { pages = 1, freeText = "pancul", searchUrl } = body
+    const { pages = 1, searchUrl } = body
 
-    console.log("[v0] POST /api/scrape/remax - Starting scraper", {
+    console.log("[v0] POST /api/scrape/remax - Starting scraper for all south regions", {
       pages,
-      freeText,
     })
 
     const result = await scrapeRemax({
       pages,
-      freeText,
       searchUrl,
+      // Defaults to all south regions
     })
 
     console.log("[v0] Remax scraper result:", {

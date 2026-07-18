@@ -18,10 +18,20 @@ export interface RemaxProperty {
   images: string[]
 }
 
+// Southern regions for Remax scraping
+const SOUTH_REGIONS = [
+  { name: "Región del Biobío", searchTerm: "Biobio" },
+  { name: "Región de La Araucanía", searchTerm: "Araucania" },
+  { name: "Región de Los Ríos", searchTerm: "Los Rios" },
+  { name: "Región de Los Lagos", searchTerm: "Los Lagos" },
+  { name: "Región de Aysén", searchTerm: "Aysen" },
+  { name: "Región de Magallanes", searchTerm: "Magallanes" },
+]
+
 export async function scrapeRemax(options: {
   searchUrl?: string
   pages?: number
-  freeText?: string
+  regions?: string[]
   perPage?: number
 } = {}): Promise<{
   success: boolean
@@ -33,7 +43,7 @@ export async function scrapeRemax(options: {
   const {
     searchUrl = "https://www.remax.cl/listings",
     pages = 1,
-    freeText = "pancul",
+    regions = SOUTH_REGIONS.map((r) => r.searchTerm),
     perPage = 12,
   } = options
 
@@ -50,16 +60,22 @@ export async function scrapeRemax(options: {
       args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-gpu"],
     })
 
-    console.log(`[v0] [Remax] Scraping ${pages} page(s) with keyword: ${freeText}`)
+    console.log(`[v0] [Remax] Scraping ${pages} page(s) for ${regions.length} south regions`)
 
-    for (let pageNum = 1; pageNum <= pages; pageNum++) {
-      const url = new URL(searchUrl)
-      url.searchParams.set("FreeText", freeText)
-      url.searchParams.set("Country", "Chile")
-      url.searchParams.set("CountryId", "1028")
-      url.searchParams.set("ListingClass", "-1")
-      url.searchParams.set("TransactionTypeUID", "261") // Buy
-      url.searchParams.set("page", pageNum.toString())
+    // Iterate by region
+    for (const regionSearchTerm of regions) {
+      // Find region name for logging
+      const regionName =
+        SOUTH_REGIONS.find((r) => r.searchTerm === regionSearchTerm)?.name || regionSearchTerm
+
+      for (let pageNum = 1; pageNum <= pages; pageNum++) {
+        const url = new URL(searchUrl)
+        url.searchParams.set("FreeText", regionSearchTerm)
+        url.searchParams.set("Country", "Chile")
+        url.searchParams.set("CountryId", "1028")
+        url.searchParams.set("ListingClass", "-1")
+        url.searchParams.set("TransactionTypeUID", "261") // Buy
+        url.searchParams.set("page", pageNum.toString())
 
       const page = await browser.newPage()
       page.setDefaultTimeout(30000)
@@ -165,6 +181,7 @@ export async function scrapeRemax(options: {
         await page.close()
       }
     }
+  }
 
     // Insert into database
     let inserted = 0
