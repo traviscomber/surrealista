@@ -151,11 +151,33 @@ async function sbFetch(path, opts = {}) {
   return res
 }
 
+/** Extract commune code and name from ROL (format: XXXX-YYY-ZZ where XXXX is commune code).
+ * Returns { code, name } or { code: null, name: null } if not found.
+ */
+function getCommuneFromRol(rol) {
+  if (!rol || typeof rol !== "string") return { code: null, name: null }
+  const match = rol.match(/^(\d{4,5})(-|$)/)
+  if (!match) return { code: null, name: null }
+  return { code: match[1], name: null } // name comes from SII lookup
+}
+
 function getCommune(metadata) {
   const m = metadata || {}
+  // Priority 1: Direct commune field
+  if (m.commune) return m.commune
+  
+  // Priority 2: ROL code (most reliable - embedded in ROL structure)
+  const rol = m?.sii_point_resolution?.record?.rol
+  if (rol) {
+    const { code } = getCommuneFromRol(rol)
+    if (code) {
+      // Return the nome name if available, otherwise just the code
+      return m?.sii_point_resolution?.record?.nombreComuna || `Comuna-${code}`
+    }
+  }
+  
+  // Priority 3: SII resolution data
   return (
-    m.commune ||
-    m?.sii_point_resolution?.record?.comuna ||
     m?.sii_point_resolution?.record?.nombreComuna ||
     ""
   )
