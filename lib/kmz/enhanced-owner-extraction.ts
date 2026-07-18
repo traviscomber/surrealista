@@ -164,6 +164,38 @@ export class EnhancedOwnerExtraction {
       allCandidates.push(...this.extractFromDescription(description))
     }
 
+    // If no candidates found, try fallback: extract ANY capitalized phrase
+    if (allCandidates.length === 0) {
+      const cleanName = filename
+        .replace(/\.(kmz|KMZ|zip|ZIP)$/, "")
+        .replace(/\(\d+\)/g, "")
+        .replace(/\-\s*\d+\s*ha/gi, "")
+        .trim()
+      
+      // Extract capitalized words/phrases (2+ words or specific patterns)
+      const capitalizedMatch = cleanName.match(/([A-Z][a-záéíóú]+(?:\s+[A-Z][a-záéíóú]+)*)/)
+      if (capitalizedMatch && capitalizedMatch[1].length > 2) {
+        allCandidates.push({
+          name: capitalizedMatch[1],
+          type: "property_name",
+          confidence: 0.50,
+          source: "filename_fallback",
+          pattern: "capitalized_phrase",
+        })
+      }
+      
+      // Also try extracting the whole cleaned name if it looks like a place
+      if (cleanName.length > 3 && cleanName.length < 80 && /[A-Z]/.test(cleanName)) {
+        allCandidates.push({
+          name: cleanName,
+          type: "property_name",
+          confidence: 0.48,
+          source: "filename_full",
+          pattern: "full_name",
+        })
+      }
+    }
+
     // Rank and return
     return this.rankCandidates(allCandidates)
   }
