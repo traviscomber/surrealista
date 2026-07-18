@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import useSWR from "swr"
 import Link from "next/link"
 import {
@@ -96,8 +96,27 @@ export function ScrapedPropertiesDashboard({ mode = "full" }: { mode?: "summary"
   const [sourceFilter, setSourceFilter] = useState("all")
   const [regionFilter, setRegionFilter] = useState("all")
   const [typeFilter, setTypeFilter] = useState("all")
+  const [favoriteFilter, setFavoriteFilter] = useState(false)
   const [favoriteLoading, setFavoriteLoading] = useState<string | null>(null)
   const [favorites, setFavorites] = useState<Set<string>>(new Set())
+
+  // Load favorites on mount
+  useEffect(() => {
+    const loadFavorites = async () => {
+      try {
+        const res = await fetch("/api/admin/favorites", {
+          headers: { "X-Site-Access-Token": "srmagica" },
+        })
+        if (res.ok) {
+          const result = await res.json()
+          setFavorites(new Set(result.favorites || []))
+        }
+      } catch (err) {
+        console.error("[v0] Load favorites error:", err)
+      }
+    }
+    loadFavorites()
+  }, [])
 
   const toggleFavorite = async (propertyId: string) => {
     setFavoriteLoading(propertyId)
@@ -151,14 +170,16 @@ export function ScrapedPropertiesDashboard({ mode = "full" }: { mode?: "summary"
         && (sourceFilter === "all" || property.source === sourceFilter)
         && (regionFilter === "all" || property.region === regionFilter)
         && (typeFilter === "all" || property.property_type === typeFilter)
+        && (!favoriteFilter || favorites.has(property.id))
     })
-  }, [externalProperties, query, sourceFilter, regionFilter, typeFilter])
-  const hasFilters = Boolean(query || sourceFilter !== "all" || regionFilter !== "all" || typeFilter !== "all")
+  }, [externalProperties, query, sourceFilter, regionFilter, typeFilter, favoriteFilter, favorites])
+  const hasFilters = Boolean(query || sourceFilter !== "all" || regionFilter !== "all" || typeFilter !== "all" || favoriteFilter)
   const clearFilters = () => {
     setQuery("")
     setSourceFilter("all")
     setRegionFilter("all")
     setTypeFilter("all")
+    setFavoriteFilter(false)
   }
 
   const sources = new Set(filteredProperties.map((property) => property.source)).size
@@ -254,11 +275,14 @@ export function ScrapedPropertiesDashboard({ mode = "full" }: { mode?: "summary"
             </div>
           </div>
           <div className="flex flex-wrap gap-2" aria-label="Filtrar por scraper">
-            <Button size="sm" variant={sourceFilter === "all" ? "default" : "outline"} onClick={() => setSourceFilter("all")}>
+            <Button size="sm" variant={sourceFilter === "all" && !favoriteFilter ? "default" : "outline"} onClick={() => { setSourceFilter("all"); setFavoriteFilter(false) }}>
               Todos <Badge variant="secondary" className="ml-2">{externalProperties.length}</Badge>
             </Button>
+            <Button size="sm" variant={favoriteFilter ? "default" : "outline"} onClick={() => { setSourceFilter("all"); setFavoriteFilter(!favoriteFilter) }}>
+              <Star className="mr-1.5 h-4 w-4" /> Favoritos <Badge variant="secondary" className="ml-2">{favorites.size}</Badge>
+            </Button>
             {sourceOptions.map((source) => (
-              <Button key={source.key} size="sm" variant={sourceFilter === source.key ? "default" : "outline"} onClick={() => setSourceFilter(source.key)}>
+              <Button key={source.key} size="sm" variant={sourceFilter === source.key && !favoriteFilter ? "default" : "outline"} onClick={() => { setSourceFilter(source.key); setFavoriteFilter(false) }}>
                 {source.label} <Badge variant="secondary" className="ml-2">{source.count}</Badge>
               </Button>
             ))}
