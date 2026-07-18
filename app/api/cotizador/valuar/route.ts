@@ -1,500 +1,355 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-// FUENTES DE DATOS REALES:
-// 1. SII (Servicio de Impuestos Internos) - Avalúos fiscales reales de propiedades en Chile
-// 2. Properties Enhanced - Base de datos de propiedades reales registradas
-// 3. Opportunities - Análisis de propiedades y análisis de mercado en Tu BD
-// 4. Internet Market Data - Datos actuales de portales inmobiliarios y mercado vigente
-// 5. Market benchmarks - Comparables históricos
+export const maxDuration = 30
 
-// Función para obtener datos de mercado REALES de internet
-async function fetchInternetMarketData(region: string, property_type: string, area_sqm: number) {
-  try {
-    // Buscar precios actuales de mercado en portales inmobiliarios chilenos
-    const searchQueries = [
-      `${property_type} ${region} Chile precio m2 2025`,
-      `valores mercado inmobiliario ${region} ${new Date().getFullYear()}`,
-      `análisis precios ${property_type} ${region} actualizado`
-    ]
-    
-    const marketInfo = {
-      avg_price_sqm: 0,
-      market_trend: 'estable',
-      data_points: 0,
-      sources: [] as string[]
-    }
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-    // Simulamos obtener datos de múltiples fuentes
-    // En producción, esto se conectaría a APIs de portales inmobiliarios
-    const internetData: Record<string, Record<string, { price_sqm: number, trend: string, source: string }>> = {
-      'Metropolitana': {
-        'terreno': { price_sqm: 8500, trend: 'alcista', source: 'Portalinmobiliario - Marzo 2025' },
-        'casa': { price_sqm: 6800, trend: 'estable', source: 'Vivanuncios - Marzo 2025' },
-        'departamento': { price_sqm: 5900, trend: 'alcista', source: 'Inmuebles24 - Marzo 2025' },
-        'agrícola': { price_sqm: 3200, trend: 'estable', source: 'Mercado Agrícola - Marzo 2025' }
-      },
-      'Valparaíso': {
-        'terreno': { price_sqm: 4800, trend: 'alcista', source: 'Portalinmobiliario - Marzo 2025' },
-        'casa': { price_sqm: 4300, trend: 'estable', source: 'Vivanuncios - Marzo 2025' },
-        'departamento': { price_sqm: 3900, trend: 'alcista', source: 'Inmuebles24 - Marzo 2025' },
-      },
-      'Los Lagos': {
-        'terreno': { price_sqm: 3200, trend: 'alcista', source: 'Portalinmobiliario - Marzo 2025' },
-        'casa': { price_sqm: 3100, trend: 'alcista', source: 'Vivanuncios - Marzo 2025' },
-        'campo': { price_sqm: 1800, trend: 'estable', source: 'Mercado Agrícola - Marzo 2025' },
-      },
-      'Biobío': {
-        'terreno': { price_sqm: 2800, trend: 'alcista', source: 'Portalinmobiliario - Marzo 2025' },
-        'casa': { price_sqm: 2600, trend: 'estable', source: 'Vivanuncios - Marzo 2025' },
-        'comercial': { price_sqm: 3200, trend: 'estable', source: 'Inmuebles24 - Marzo 2025' },
-      }
-    }
-
-    const regionData = internetData[region]
-    if (regionData && regionData[property_type]) {
-      const data = regionData[property_type]
-      marketInfo.avg_price_sqm = data.price_sqm
-      marketInfo.market_trend = data.trend
-      marketInfo.data_points = 1
-      marketInfo.sources = [data.source]
-    }
-
-    return marketInfo
-  } catch (error) {
-    console.log('[Cotizador] Internet data fetch failed:', error)
-    return { avg_price_sqm: 0, market_trend: 'desconocido', data_points: 0, sources: [] }
-  }
+interface MarketSnapshot {
+  sample_count: number
+  median_price_m2_clp: number | null
+  avg_price_m2_clp: number | null
+  p25_price_m2_clp: number | null
+  p75_price_m2_clp: number | null
+  avg_days_active: number | null
+  sources: string[]
+  computed_at: string
 }
 
-// Real estate market data for Chile by region and property type
-const marketData = {
-  Metropolitana: {
-    terreno: { price_sqm: 8000, range: [6000, 12000] },
-    casa: { price_sqm: 6500, range: [5000, 10000] },
-    departamento: { price_sqm: 5500, range: [4000, 8000] },
-    comercial: { price_sqm: 7000, range: [5000, 10000] },
-    industrial: { price_sqm: 4500, range: [3000, 7000] },
-    agrícola: { price_sqm: 3000, range: [2000, 5000] },
-    local: { price_sqm: 6000, range: [4000, 9000] },
-    oficina: { price_sqm: 5800, range: [4000, 8500] },
-  },
-  Valparaíso: {
-    terreno: { price_sqm: 4500, range: [3000, 7000] },
-    casa: { price_sqm: 4000, range: [3000, 6000] },
-    departamento: { price_sqm: 3800, range: [2500, 5500] },
-    comercial: { price_sqm: 4200, range: [3000, 6500] },
-    industrial: { price_sqm: 2500, range: [1500, 4000] },
-    agrícola: { price_sqm: 1800, range: [1200, 3000] },
-    local: { price_sqm: 4000, range: [2500, 6000] },
-    oficina: { price_sqm: 3500, range: [2500, 5000] },
-  },
-  'Los Lagos': {
-    terreno: { price_sqm: 3500, range: [2500, 5500] },
-    casa: { price_sqm: 3200, range: [2500, 5000] },
-    departamento: { price_sqm: 2800, range: [2000, 4500] },
-    comercial: { price_sqm: 3200, range: [2500, 5000] },
-    industrial: { price_sqm: 2000, range: [1500, 3500] },
-    agrícola: { price_sqm: 1500, range: [1000, 2500] },
-    local: { price_sqm: 3000, range: [2000, 4500] },
-    oficina: { price_sqm: 2800, range: [2000, 4000] },
-  },
-  'Los Ríos': {
-    terreno: { price_sqm: 2800, range: [2000, 4500] },
-    casa: { price_sqm: 2500, range: [2000, 4000] },
-    departamento: { price_sqm: 2200, range: [1500, 3500] },
-    comercial: { price_sqm: 2600, range: [2000, 4000] },
-    industrial: { price_sqm: 1500, range: [1000, 2500] },
-    agrícola: { price_sqm: 1200, range: [800, 2000] },
-    local: { price_sqm: 2400, range: [1500, 3500] },
-    oficina: { price_sqm: 2200, range: [1500, 3200] },
-  },
-  Biobío: {
-    terreno: { price_sqm: 3200, range: [2200, 5000] },
-    casa: { price_sqm: 2800, range: [2000, 4500] },
-    departamento: { price_sqm: 2500, range: [1800, 4000] },
-    comercial: { price_sqm: 3000, range: [2200, 4500] },
-    industrial: { price_sqm: 1800, range: [1200, 3000] },
-    agrícola: { price_sqm: 1400, range: [900, 2300] },
-    local: { price_sqm: 2800, range: [1800, 4000] },
-    oficina: { price_sqm: 2500, range: [1800, 3500] },
-  },
-  // Additional regions with market data
-  Araucanía: {
-    terreno: { price_sqm: 2200, range: [1500, 3500] },
-    casa: { price_sqm: 2000, range: [1500, 3200] },
-    departamento: { price_sqm: 1800, range: [1200, 2800] },
-    comercial: { price_sqm: 2100, range: [1500, 3200] },
-    industrial: { price_sqm: 1200, range: [800, 2000] },
-    agrícola: { price_sqm: 900, range: [600, 1500] },
-    local: { price_sqm: 1900, range: [1200, 2800] },
-    oficina: { price_sqm: 1700, range: [1200, 2500] },
-  },
+interface Comparable {
+  price_clp: number
+  price_uf: number | null
+  area_m2: number
+  price_per_m2_clp: number
+  commune: string | null
+  source: string
+  source_url: string | null
+  days_active: number | null
 }
 
-// Condition multipliers
-const conditionMultipliers = {
-  excelente: 1.2,
-  bueno: 1.0,
+// ─── Condition multipliers ────────────────────────────────────────────────────
+
+const CONDITION_MULTIPLIERS: Record<string, number> = {
+  excelente: 1.20,
+  bueno: 1.00,
   regular: 0.85,
   reparacion: 0.65,
-  construccion: 0.5,
-  terreno: 1.0,
+  construccion: 0.50,
+  terreno: 1.00,
 }
 
-// Calcular multiplicador basado en macrofiltros rurales
-function calculateMacrofiltersMultiplier(macrofiltros: any): { multiplier: number; adjustments: string[] } {
+// ─── Macrofilter multiplier (rural properties) ───────────────────────────────
+
+function calcMacroMultiplier(macro: Record<string, string[]>): {
+  multiplier: number
+  adjustments: string[]
+} {
   const adjustments: string[] = []
-  let multiplier = 1.0
+  let m = 1.0
 
-  // Aptitud Agrícola - Aumenta valor si hay características premium
-  const agriculturalScore = macrofiltros?.aptitudAgricola?.length || 0
-  if (agriculturalScore >= 4) {
-    multiplier *= 1.15
-    adjustments.push('Aptitud agrícola excelente (+15%)')
-  } else if (agriculturalScore >= 2) {
-    multiplier *= 1.08
-    adjustments.push('Aptitud agrícola buena (+8%)')
+  const boost = (score: number, thresholds: [number, number][], labels: [string, string][]) => {
+    for (let i = 0; i < thresholds.length; i++) {
+      if (score >= thresholds[i][0]) {
+        m *= 1 + thresholds[i][1] / 100
+        adjustments.push(labels[i][0] + ` (+${thresholds[i][1]}%)`)
+        break
+      }
+    }
   }
 
-  // Recursos Hídricos - Muy importante para propiedades rurales
-  const waterScore = macrofiltros?.recursosHidricos?.length || 0
-  if (waterScore >= 5) {
-    multiplier *= 1.25
-    adjustments.push('Recursos hídricos abundantes (+25%)')
-  } else if (waterScore >= 3) {
-    multiplier *= 1.15
-    adjustments.push('Derechos de agua constituidos (+15%)')
-  } else if (waterScore >= 1) {
-    multiplier *= 1.08
-    adjustments.push('Acceso a agua (+8%)')
-  }
+  boost(macro?.recursosHidricos?.length ?? 0, [[5, 25], [3, 15], [1, 8]], [
+    ['Recursos hídricos abundantes', ''],
+    ['Derechos de agua constituidos', ''],
+    ['Acceso a agua', ''],
+  ])
+  boost(macro?.aptitudAgricola?.length ?? 0, [[4, 15], [2, 8]], [
+    ['Aptitud agrícola excelente', ''], ['Aptitud agrícola buena', ''],
+  ])
+  boost(macro?.desarrolloInmobiliario?.length ?? 0, [[5, 30], [3, 15]], [
+    ['Alto potencial inmobiliario', ''], ['Potencial de subdivisión', ''],
+  ])
+  boost(macro?.aptitudLechera?.length ?? 0, [[5, 22]], [['Capacidad lechera premium', '']])
+  boost(macro?.aptitudFruticola?.length ?? 0, [[5, 20]], [['Alto potencial frutícola', '']])
+  boost(macro?.aptitudGanadera?.length ?? 0, [[5, 18]], [['Excelente para ganadería', '']])
+  boost(macro?.conservacionTurismo?.length ?? 0, [[5, 18]], [['Potencial ecoturismo', '']])
+  boost(macro?.potencialForestal?.length ?? 0, [[4, 12]], [['Potencial forestal', '']])
+  boost(macro?.infraestructura?.length ?? 0, [[5, 12]], [['Infraestructura completa', '']])
+  boost(macro?.accesibilidad?.length ?? 0, [[5, 10]], [['Excelente accesibilidad', '']])
 
-  // Aptitud Frutícola
-  const fruitScore = macrofiltros?.aptitudFruticola?.length || 0
-  if (fruitScore >= 5) {
-    multiplier *= 1.20
-    adjustments.push('Alto potencial frutícola (+20%)')
-  }
-
-  // Aptitud Ganadera
-  const livestockScore = macrofiltros?.aptitudGanadera?.length || 0
-  if (livestockScore >= 5) {
-    multiplier *= 1.18
-    adjustments.push('Excelente para ganadería (+18%)')
-  }
-
-  // Aptitud Lechera - Prima adicional
-  const dairyScore = macrofiltros?.aptitudLechera?.length || 0
-  if (dairyScore >= 5) {
-    multiplier *= 1.22
-    adjustments.push('Capacidad lechera premium (+22%)')
-  }
-
-  // Potencial Forestal
-  const forestScore = macrofiltros?.potencialForestal?.length || 0
-  if (forestScore >= 4) {
-    multiplier *= 1.12
-    adjustments.push('Potencial forestal +12%)')
-  }
-
-  // Desarrollo Inmobiliario - Potencial de apreciación
-  const devScore = macrofiltros?.desarrolloInmobiliario?.length || 0
-  if (devScore >= 5) {
-    multiplier *= 1.30
-    adjustments.push('Alto potencial inmobiliario (+30%)')
-  } else if (devScore >= 3) {
-    multiplier *= 1.15
-    adjustments.push('Potencial de subdivisión (+15%)')
-  }
-
-  // Conservación y Turismo
-  const ecoScore = macrofiltros?.conservacionTurismo?.length || 0
-  if (ecoScore >= 5) {
-    multiplier *= 1.18
-    adjustments.push('Potencial ecoturismo (+18%)')
-  }
-
-  // Infraestructura
-  const infraScore = macrofiltros?.infraestructura?.length || 0
-  if (infraScore >= 5) {
-    multiplier *= 1.12
-    adjustments.push('Infraestructura completa (+12%)')
-  }
-
-  // Accesibilidad
-  const accessScore = macrofiltros?.accesibilidad?.length || 0
-  if (accessScore >= 5) {
-    multiplier *= 1.10
-    adjustments.push('Excelente accesibilidad (+10%)')
-  }
-
-  return { multiplier, adjustments }
+  return { multiplier: m, adjustments }
 }
+
+// ─── Feature bonus ────────────────────────────────────────────────────────────
+
+const PREMIUM_KEYWORDS = [
+  'piscina', 'sauna', 'gimnasio', 'estacionamiento', 'parking', 'jardín',
+  'patio', 'terraza', 'vista al mar', 'vista privilegiada', 'acceso metro',
+  'seguridad', 'vigilancia', 'portería', 'conserje', 'bodega', 'parrilla',
+]
+
+function calcFeatureBonus(featuresStr: string | undefined): number {
+  if (!featuresStr) return 1.0
+  const list = featuresStr.split(',').map((f) => f.trim().toLowerCase())
+  const matched = list.filter((f) => PREMIUM_KEYWORDS.some((k) => f.includes(k) || k.includes(f)))
+  return 1 + matched.length * 0.05
+}
+
+// ─── Live UF value ────────────────────────────────────────────────────────────
+
+async function getUF(): Promise<number> {
+  try {
+    const res = await fetch('https://mindicador.cl/api/uf', { signal: AbortSignal.timeout(4000) })
+    const json = await res.json()
+    return json?.serie?.[0]?.valor ?? 39_500
+  } catch {
+    return 39_500
+  }
+}
+
+// ─── Route ────────────────────────────────────────────────────────────────────
 
 export async function POST(request: NextRequest) {
   try {
-    const { property_type, region, city, area_sqm, condition, features, additional_info, macrofiltros, quickKeywords } = await request.json()
+    const body = await request.json()
+    const { property_type, region, city, area_sqm, condition, features, macrofiltros } = body
 
     if (!property_type || !region || !area_sqm) {
-      return NextResponse.json(
-        { error: 'Datos incompletos' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Datos incompletos: property_type, region y area_sqm requeridos' }, { status: 400 })
     }
 
     const sqm = parseFloat(area_sqm)
     if (isNaN(sqm) || sqm <= 0) {
-      return NextResponse.json(
-        { error: 'Área inválida' },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: 'Área inválida' }, { status: 400 })
     }
 
-    // Initialize Supabase client at runtime, not build time
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false } }
     )
 
-    // STEP 1: Consultar datos reales del SII (Servicio de Impuestos Internos)
-    let siiData: any = null
-    let siiAvaluos: any[] = []
-    
-    try {
-      const { data: sii } = await supabase
-        .from('sii_coordinate_extractions')
-        .select('avaluo_total, built_area, surface_area, region, city, property_type')
+    // ── Fetch all data in parallel ──────────────────────────────────────────
+    const [ufValue, marketComparableRes, directComparableRes, siiRes] = await Promise.allSettled([
+      getUF(),
+
+      // 1. Precomputed market stats (most reliable, comes from scraped data)
+      supabase
+        .from('market_comparable_data')
+        .select('sample_count,median_price_m2_clp,avg_price_m2_clp,p25_price_m2_clp,p75_price_m2_clp,avg_days_active,sources,computed_at')
         .ilike('region', `%${region}%`)
-        .limit(50)
-      
-      if (sii && sii.length > 0) {
-        siiAvaluos = sii
-        siiData = sii[0]
-      }
-    } catch (err) {
-      console.log('[Cotizador] SII data not available')
+        .eq('property_type', property_type.toLowerCase())
+        .eq('operation', 'venta')
+        .order('period_date', { ascending: false })
+        .order('computed_at', { ascending: false })
+        .limit(3),
+
+      // 2. Direct comparable listings from scraped properties
+      supabase
+        .from('properties_external')
+        .select('price_clp,price_uf,area_m2,price_per_m2_clp,commune,source,source_url,days_active')
+        .ilike('region', `%${region}%`)
+        .eq('property_type', property_type.toLowerCase())
+        .eq('operation', 'venta')
+        .eq('is_active', true)
+        .gt('price_clp', 0)
+        .gt('area_m2', sqm * 0.4)
+        .lt('area_m2', sqm * 2.5)
+        .order('scraped_at', { ascending: false })
+        .limit(20),
+
+      // 3. SII fiscal valuations
+      supabase
+        .from('sii_coordinate_extractions')
+        .select('avaluo_total,built_area,surface_area')
+        .ilike('region', `%${region}%`)
+        .limit(30),
+    ])
+
+    const uf = ufValue.status === 'fulfilled' ? ufValue.value : 39_500
+    const marketRows: MarketSnapshot[] =
+      marketComparableRes.status === 'fulfilled' ? (marketComparableRes.value.data ?? []) : []
+    const directComps: Comparable[] =
+      directComparableRes.status === 'fulfilled' ? (directComparableRes.value.data ?? []) : []
+    const siiRows: { avaluo_total: number; surface_area: number }[] =
+      siiRes.status === 'fulfilled' ? (siiRes.value.data ?? []) : []
+
+    // ── Determine base price/m² ─────────────────────────────────────────────
+
+    let base_price_m2 = 0
+    let data_tier: 'live_market' | 'market_stats' | 'comparable_direct' | 'sii' | 'fallback' = 'fallback'
+    let data_sources: string[] = []
+    let confidence = 60
+    let sample_count = 0
+
+    // Tier 1: aggregated market stats from scraped data (most trusted)
+    if (marketRows.length > 0 && marketRows[0].median_price_m2_clp) {
+      const row = marketRows[0]
+      base_price_m2 = row.median_price_m2_clp
+      data_tier = 'market_stats'
+      data_sources = row.sources ?? []
+      sample_count = row.sample_count
+      confidence = Math.min(70 + Math.floor(sample_count / 5), 88)
     }
 
-    // STEP 2: Consultar propiedades similares reales de la BD (Properties Enhanced)
-    let similarProperties: any[] = []
-    
-    try {
-      const { data: props } = await supabase
-        .from('properties_enhanced')
-        .select('price, square_meters, property_type, region, city, bedrooms, bathrooms')
-        .eq('region', region)
-        .eq('property_type', property_type)
-        .gt('price', 0)
-        .gt('square_meters', sqm * 0.5)
-        .lt('square_meters', sqm * 2)
-        .limit(10)
-      
-      if (props && props.length > 0) {
-        similarProperties = props
-      }
-    } catch (err) {
-      console.log('[Cotizador] Properties data not available')
-    }
+    // Tier 2: direct comparable listings (very fresh, fewer samples)
+    if (directComps.length >= 3) {
+      const validComps = directComps.filter((c) => c.price_per_m2_clp > 0)
+      if (validComps.length >= 3) {
+        const sorted = [...validComps].sort((a, b) => a.price_per_m2_clp - b.price_per_m2_clp)
+        const p25 = sorted[Math.floor(sorted.length * 0.25)].price_per_m2_clp
+        const p75 = sorted[Math.floor(sorted.length * 0.75)].price_per_m2_clp
+        const filtered = sorted.filter((c) => c.price_per_m2_clp >= p25 && c.price_per_m2_clp <= p75)
+        const median = filtered[Math.floor(filtered.length / 2)].price_per_m2_clp
 
-    // STEP 3: Consultar análisis de oportunidades (market intelligence)
-    let opportunities: any[] = []
-    
-    try {
-      const { data: opps } = await supabase
-        .from('opportunities')
-        .select('price, area_sqm, location, property_type, market_trend, investment_potential')
-        .ilike('location', `%${city || region}%`)
-        .limit(5)
-      
-      if (opps && opps.length > 0) {
-        opportunities = opps
-      }
-    } catch (err) {
-      console.log('[Cotizador] Opportunities data not available')
-    }
-
-    // STEP 4: Obtener datos REALES de internet (portales inmobiliarios vigentes)
-    const internetData = await fetchInternetMarketData(region, property_type, sqm)
-
-    // CALCULATE: Usar datos reales si están disponibles, sino usar benchmarks
-    let base_price_sqm = 0
-    let data_sources = ['Benchmarks internos']
-    let confidence_boost = 0
-    let internet_comparison = { price_sqm: 0, source: '', difference_pct: 0 }
-
-    // Si hay datos similares reales, usarlos
-    if (similarProperties.length > 0) {
-      const avgPrice = similarProperties.reduce((sum, p) => sum + (p.price / p.square_meters), 0) / similarProperties.length
-      base_price_sqm = avgPrice
-      data_sources = ['Properties Enhanced (BD Real)', `${similarProperties.length} comparables similares`]
-      confidence_boost = Math.min(similarProperties.length * 5, 20)
-    } 
-    // Si hay datos del SII, usarlos
-    else if (siiAvaluos.length > 0) {
-      const avgAvaluo = siiAvaluos.reduce((sum, s) => {
-        const total = s.avaluo_total || 0
-        const area = s.surface_area || 1
-        return sum + (total / area)
-      }, 0) / siiAvaluos.length
-      base_price_sqm = avgAvaluo
-      data_sources = ['SII - Avalúos Fiscales', `${siiAvaluos.length} registros de Servicio de Impuestos Internos`]
-      confidence_boost = 15
-    }
-    // Sino, usar benchmarks
-    else {
-      const regionData = marketData[region as keyof typeof marketData] || marketData.Biobío
-      const propertyData = regionData[property_type as keyof typeof regionData] || regionData.terreno
-      base_price_sqm = propertyData.price_sqm
-      data_sources = ['Benchmarks de mercado regional']
-    }
-
-    // COMPARAR CON DATOS DE INTERNET (vigentes)
-    if (internetData.avg_price_sqm > 0) {
-      internet_comparison = {
-        price_sqm: internetData.avg_price_sqm,
-        source: internetData.sources[0] || 'Mercado vigente',
-        difference_pct: Math.round(((internetData.avg_price_sqm - base_price_sqm) / base_price_sqm) * 100)
-      }
-      
-      // Agregar fuente de internet a las sources
-      if (!data_sources.some(s => s.includes('internet') || s.includes('Portalinmobiliario'))) {
-        data_sources.push(`Datos de internet actualizado: ${internetData.sources[0] || 'Mercado vigente'}`)
+        // Use direct comps if no market stats or they have more samples
+        if (!base_price_m2 || validComps.length > sample_count) {
+          base_price_m2 = median
+          data_tier = 'comparable_direct'
+          data_sources = [...new Set(validComps.map((c) => c.source))]
+          sample_count = validComps.length
+          confidence = Math.min(72 + validComps.length * 2, 90)
+        }
       }
     }
 
-    // Get condition multiplier
-    const multiplier = conditionMultipliers[condition as keyof typeof conditionMultipliers] || 1.0
-    let adjusted_price_sqm = base_price_sqm * multiplier
-
-    // Calculate macrofilter multiplier if provided
-    let macrofilterMultiplier = 1.0
-    let macrofilterAdjustments: string[] = []
-    if (req.macrofiltros && Object.keys(req.macrofiltros).some(key => req.macrofiltros[key]?.length > 0)) {
-      const { multiplier: macro_mult, adjustments } = calculateMacrofiltersMultiplier(req.macrofiltros)
-      macrofilterMultiplier = macro_mult
-      macrofilterAdjustments = adjustments
-    }
-    
-    adjusted_price_sqm = adjusted_price_sqm * macrofilterMultiplier
-
-    // Apply features bonus
-    const featuresList = features ? features.split(',').map(f => f.trim().toLowerCase()) : []
-    let featureBonus = 1.0
-
-    if (featuresList.length > 0) {
-      const premiumFeatures = [
-        'piscina', 'sauna', 'gimnasio',
-        'estacionamiento', 'parking',
-        'jardín', 'patio', 'terraza',
-        'vista al mar', 'vista privilegiada',
-        'acceso metro', 'transporte público',
-        'seguridad', 'vigilancia', 'portería',
-        'conserje', 'bodega', 'parrilla'
-      ]
-
-      const matchedFeatures = featuresList.filter(f =>
-        premiumFeatures.some(pf => f.includes(pf) || pf.includes(f))
-      )
-
-      featureBonus = 1 + (matchedFeatures.length * 0.05)
+    // Tier 3: SII fiscal valuations
+    if (!base_price_m2 && siiRows.length > 0) {
+      const valid = siiRows.filter((r) => r.avaluo_total > 0 && (r.surface_area ?? 0) > 0)
+      if (valid.length > 0) {
+        const avgM2 = valid.reduce((s, r) => s + r.avaluo_total / (r.surface_area || 1), 0) / valid.length
+        base_price_m2 = Math.round(avgM2)
+        data_tier = 'sii'
+        data_sources = ['SII — Servicio de Impuestos Internos']
+        sample_count = valid.length
+        confidence = 70
+      }
     }
 
-    adjusted_price_sqm *= featureBonus
-
-    // Calculate prices
-    const estimated_price = Math.round(adjusted_price_sqm * sqm)
-    const price_range_margin = 0.15
-    const min_price = Math.round(estimated_price * (1 - price_range_margin))
-    const max_price = Math.round(estimated_price * (1 + price_range_margin))
-
-    // Determine methodology and confidence
-    let methodology = ''
-    let confidence = 65
-    let market_factors: string[] = []
-
-    if (similarProperties.length > 0) {
-      methodology = `Enfoque Comparativo Directo - Análisis de ${similarProperties.length} propiedades similares en ${region}`
-      confidence = 80 + confidence_boost
-      market_factors = [
-        `Precio promedio de comparables: $${Math.round(base_price_sqm).toLocaleString()}/m²`,
-        `Número de propiedades similares analizadas: ${similarProperties.length}`,
-        `Ajuste por estado: ${(multiplier * 100).toFixed(0)}%`,
-        `Bonificación por características: +${((featureBonus - 1) * 100).toFixed(0)}%`,
-        ...macrofilterAdjustments,
-        `Fuentes: ${data_sources.join(', ')}`
-      ]
-    } else if (siiAvaluos.length > 0) {
-      methodology = `Avalúo Fiscal del SII - Análisis de ${siiAvaluos.length} propiedades en registros del Servicio de Impuestos Internos`
-      confidence = 75 + confidence_boost
-      market_factors = [
-        `Promedio de avalúos SII: $${Math.round(base_price_sqm).toLocaleString()}/m²`,
-        `Registros del SII analizados: ${siiAvaluos.length}`,
-        `Ajuste por condición actual: ${(multiplier * 100).toFixed(0)}%`,
-        ...macrofilterAdjustments,
-        `Fuentes: SII (Servicio de Impuestos Internos)`
-      ]
-    } else {
-      methodology = 'Enfoque Comparativo - Benchmarks de mercado regional vigente'
-      confidence = 65
-      market_factors = [
-        `Valor base mercado en ${region}: $${Math.round(base_price_sqm).toLocaleString()}/m²`,
-        `Tipo de propiedad: ${property_type}`,
-        `Ajuste por estado: ${(multiplier * 100).toFixed(0)}%`,
-        `Fuentes: Benchmarks internos, datos de mercado regional`
-      ]
+    // Tier 4: static regional fallback (never hardcoded dates)
+    if (!base_price_m2) {
+      const FALLBACK: Record<string, Record<string, number>> = {
+        Metropolitana: { terreno: 8000, casa: 6500, departamento: 5500, comercial: 7000, agrícola: 3000, industrial: 4500 },
+        Valparaíso: { terreno: 4500, casa: 4000, departamento: 3800, comercial: 4200, agrícola: 1800, industrial: 2500 },
+        'Los Lagos': { terreno: 3500, casa: 3200, departamento: 2800, comercial: 3200, agrícola: 1500, industrial: 2000 },
+        'Los Ríos': { terreno: 2800, casa: 2500, departamento: 2200, comercial: 2600, agrícola: 1200, industrial: 1500 },
+        Biobío: { terreno: 3200, casa: 2800, departamento: 2500, comercial: 3000, agrícola: 1400, industrial: 1800 },
+        Araucanía: { terreno: 2200, casa: 2000, departamento: 1800, comercial: 2100, agrícola: 900, industrial: 1200 },
+      }
+      const regionKey = Object.keys(FALLBACK).find((k) => region.toLowerCase().includes(k.toLowerCase()))
+      const typeKey = property_type.toLowerCase()
+      const regionFallback = FALLBACK[regionKey ?? 'Biobío'] ?? FALLBACK['Biobío']
+      base_price_m2 = regionFallback[typeKey] ?? regionFallback['terreno'] ?? 2000
+      data_tier = 'fallback'
+      data_sources = ['Benchmarks regionales (sin datos de mercado aún)']
+      confidence = 55
     }
 
-    // Generate recommendations
+    // ── Apply multipliers ───────────────────────────────────────────────────
+
+    const condMultiplier = CONDITION_MULTIPLIERS[condition ?? 'bueno'] ?? 1.0
+    const featureMultiplier = calcFeatureBonus(features)
+    const { multiplier: macroMultiplier, adjustments: macroAdjustments } = macrofiltros
+      ? calcMacroMultiplier(macrofiltros)
+      : { multiplier: 1.0, adjustments: [] }
+
+    const adjusted_price_m2 = Math.round(base_price_m2 * condMultiplier * featureMultiplier * macroMultiplier)
+    const estimated_price = Math.round(adjusted_price_m2 * sqm)
+
+    // Price range: narrower when data quality is higher
+    const margin = data_tier === 'fallback' ? 0.22 : data_tier === 'sii' ? 0.18 : 0.12
+    const min_price = Math.round(estimated_price * (1 - margin))
+    const max_price = Math.round(estimated_price * (1 + margin))
+
+    // ── UF conversion ───────────────────────────────────────────────────────
+
+    const estimated_price_uf = parseFloat((estimated_price / uf).toFixed(2))
+    const min_price_uf = parseFloat((min_price / uf).toFixed(2))
+    const max_price_uf = parseFloat((max_price / uf).toFixed(2))
+
+    // ── Market context ──────────────────────────────────────────────────────
+
+    const marketRow = marketRows[0]
+    const market_context = marketRow
+      ? {
+          median_price_m2_clp: marketRow.median_price_m2_clp,
+          avg_days_active: marketRow.avg_days_active ? Math.round(marketRow.avg_days_active) : null,
+          sample_count: marketRow.sample_count,
+          last_updated: marketRow.computed_at,
+        }
+      : null
+
+    // ── Comparables summary ─────────────────────────────────────────────────
+
+    const comparables_summary = directComps.slice(0, 5).map((c) => ({
+      price_clp: c.price_clp,
+      price_uf: c.price_uf ?? parseFloat((c.price_clp / uf).toFixed(2)),
+      area_m2: c.area_m2,
+      price_per_m2_clp: c.price_per_m2_clp,
+      commune: c.commune,
+      source: c.source,
+      source_url: c.source_url,
+    }))
+
+    // ── Methodology & recommendations ───────────────────────────────────────
+
+    const TIER_LABELS: Record<string, string> = {
+      live_market: 'Análisis comparativo directo (datos de portales en tiempo real)',
+      market_stats: `Estadísticas de mercado (${sample_count} propiedades scraped en ${region})`,
+      comparable_direct: `Comparables directos (${sample_count} listings activos similares)`,
+      sii: `Avalúos fiscales SII (${sample_count} registros)`,
+      fallback: 'Benchmarks regionales (ejecutar scrapers para datos vivos)',
+    }
+
+    const market_factors = [
+      `Precio base mercado: $${base_price_m2.toLocaleString('es-CL')}/m²`,
+      `Condición (${condition ?? 'bueno'}): ${(condMultiplier * 100).toFixed(0)}%`,
+      featureMultiplier > 1 && `Características premium: +${((featureMultiplier - 1) * 100).toFixed(0)}%`,
+      ...macroAdjustments,
+      `Fuentes: ${data_sources.join(', ')}`,
+    ].filter(Boolean) as string[]
+
     const recommendations: string[] = []
-
-    if (condition === 'excelente' || condition === 'bueno') {
-      recommendations.push('Propiedad en buenas condiciones - lista para ocupación o inversión inmediata')
-    } else if (condition === 'reparacion') {
-      recommendations.push('Inversión de mejoras necesaria - requiere presupuesto adicional para restauración')
+    if (condition === 'reparacion' || condition === 'construccion') {
+      recommendations.push('Inversión de mejoras necesaria — el valor final dependerá del estándar de terminación')
     }
-
-    if (sqm > 10000 && (property_type === 'agrícola' || property_type === 'terreno')) {
-      recommendations.push('Propiedad de tamaño significativo - considerar análisis de divisibilidad')
+    if (data_tier === 'fallback') {
+      recommendations.push('Ejecute `npm run scraper:run` para obtener comparables de mercado actualizados y aumentar la precisión')
     }
-
-    if (region === 'Metropolitana') {
-      recommendations.push('Zona de alta demanda - potencial de revalorización en corto/mediano plazo')
-    } else if (['Los Lagos', 'Los Ríos'].includes(region)) {
-      recommendations.push('Zona con crecimiento inmobiliario - oportunidad de inversión en desarrollo')
+    if (sqm > 10_000 && (property_type === 'agrícola' || property_type === 'terreno')) {
+      recommendations.push('Propiedad de gran extensión — análisis de divisibilidad puede aumentar el valor total')
     }
-
-    recommendations.push('Realizar tasación oficial para trámites bancarios o venta')
+    if (region.includes('Metropolitana')) {
+      recommendations.push('Zona de alta liquidez — menor tiempo de venta que el promedio nacional')
+    }
+    recommendations.push('Para tasación oficial con fines bancarios o legales, solicite un perito tasador certificado')
 
     return NextResponse.json({
+      // Core valuation
       estimated_price,
-      price_range: { min: min_price, max: max_price },
-      price_per_sqm: Math.round(adjusted_price_sqm),
-      methodology,
-      confidence: Math.min(confidence + (condition ? 5 : 0), 95),
+      estimated_price_uf,
+      price_range: { min: min_price, max: max_price, min_uf: min_price_uf, max_uf: max_price_uf },
+      price_per_sqm: adjusted_price_m2,
+      price_per_sqm_uf: parseFloat((adjusted_price_m2 / uf).toFixed(4)),
+
+      // Quality indicators
+      confidence: Math.min(confidence, 95),
+      data_tier,
+      sample_count,
+      methodology: TIER_LABELS[data_tier],
+      comparable_analysis: `Valuación basada en ${TIER_LABELS[data_tier].toLowerCase()}. UF al día hoy: ${uf.toLocaleString('es-CL')}.`,
+
+      // Breakdown
       market_factors,
-      comparable_analysis: `Basado en análisis ${
-        similarProperties.length > 0 ? `directo de ${similarProperties.length} propiedades similares` :
-        siiAvaluos.length > 0 ? `de avalúos del SII` :
-        'de benchmarks de mercado'
-      } en ${city || region}. Datos actualizados a mercado vigente.`,
       recommendations,
-      data_sources: data_sources,
-      comparable_count: similarProperties.length,
-      internet_comparison: internet_comparison.price_sqm > 0 ? {
-        price_per_sqm: internet_comparison.price_sqm,
-        source: internet_comparison.source,
-        difference_percentage: internet_comparison.difference_pct,
-        interpretation: internet_comparison.difference_pct > 10 ? 'Tu propiedad está BAJO el mercado actual' :
-                       internet_comparison.difference_pct < -10 ? 'Tu propiedad está SOBRE el mercado actual' :
-                       'Precio alineado con mercado vigente'
-      } : null,
+      data_sources,
+
+      // Live market context
+      market_context,
+      comparables_summary,
+      uf_value: uf,
     })
-  } catch (error: any) {
-    console.error('Quotation error:', error)
-    return NextResponse.json(
-      { error: 'Error procesando valuación' },
-      { status: 500 }
-    )
+  } catch (error: unknown) {
+    console.error('[Cotizador] Error:', error)
+    return NextResponse.json({ error: 'Error procesando valuación' }, { status: 500 })
   }
 }
