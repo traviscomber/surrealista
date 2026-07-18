@@ -195,7 +195,8 @@ function getRol(metadata) {
 
 /** Load KMZ candidates not yet attempted with web+ai. */
 async function loadCandidates() {
-  const res = await sbFetch(`kmz_collection?select=id,file_name,metadata&order=id.asc`)
+  // Supabase REST API defaults to 1000 rows. Fetch ALL with explicit limit.
+  const res = await sbFetch(`kmz_collection?select=id,file_name,metadata&order=id.asc&limit=10000`)
   const all = await res.json()
   console.log(`[debug] Loaded ${all.length} total KMZ from DB`)
   
