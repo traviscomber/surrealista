@@ -2,6 +2,7 @@
  * Portal Inmobiliario scraper — HTTP-first, no Puppeteer required.
  * Uses the undocumented Elasticsearch JSON API that powers portal.
  */
+import * as cheerio from 'cheerio'
 import type { RawProperty, ScrapeResult } from './base-scraper'
 import {
   normaliseProperty,
@@ -126,6 +127,39 @@ function parsePortalHTML(
         }
       } catch { /* skip */ }
     }
+  }
+
+  if (results.length === 0) {
+    const $ = cheerio.load(html)
+    $('.poly-card').each((index, element) => {
+      const card = $(element)
+      const titleLink = card.find('a.poly-component__title, a[href*="MLC-"]').first()
+      const sourceUrl = titleLink.attr('href') || card.find('a').filter((_, link) => /MLC-\d+/.test($(link).attr('href') || '')).first().attr('href') || ''
+      const id = sourceUrl.match(/MLC-?(\d+)/i)?.[1]
+        ?? card.find('[data-id]').first().attr('data-id')?.replace(/\D/g, '')
+        ?? `${regionSlug}-${index}`
+      const text = card.text().replace(/\s+/g, ' ').trim()
+      const title = titleLink.text().replace(/\s+/g, ' ').trim()
+        || card.find('.poly-component__title').first().text().replace(/\s+/g, ' ').trim()
+        || card.find('img').first().attr('alt')
+        || 'Propiedad Portal Inmobiliario'
+      const price = text.match(/(?:UF\s*[\d.,]+|\$\s*[\d.,]+)/i)?.[0] ?? null
+      const area = text.match(/[\d.,]+\s*(?:m²|m2|ha(?:s)?)/i)?.[0] ?? null
+      const image = card.find('img.poly-component__picture, img').first().attr('src')
+      const location = card.find('.poly-component__location').first().text().replace(/\s+/g, ' ').trim()
+      results.push({
+        externalId: `portal-${id}`,
+        source: 'portal_inmobiliario',
+        title,
+        priceRaw: price,
+        areaRaw: area,
+        operation,
+        region: regionSlug,
+        address: location || null,
+        images: image ? [image] : [],
+        sourceUrl: sourceUrl || `${BASE_URL}/${operation}`,
+      })
+    })
   }
 
   return results

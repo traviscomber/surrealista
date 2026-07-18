@@ -57,36 +57,47 @@ async function fetchTocTocPage(
   return json?.data ?? json?.listings ?? json?.results ?? json ?? []
 }
 
-/** Fallback: parse HTML search page */
+/** Parse TocToc's current SearchResultsPage JSON-LD. */
 async function fetchTocTocHTML(
   operation: 'venta' | 'arriendo',
-  regionSlug: string,
+  _regionSlug: string,
   page: number
 ): Promise<RawProperty[]> {
-  const opSlug = operation === 'venta' ? 'venta' : 'arriendo'
-  const url = `${BASE}/${opSlug}/${regionSlug}?page=${page}`
-
+  const url = `${BASE}/${operation}/casa${page > 1 ? `?pagina=${page}` : ''}`
   const res = await fetch(url, {
     headers: { ...HEADERS, Accept: 'text/html,application/xhtml+xml' },
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(20_000),
   })
   if (!res.ok) throw new Error(`TocToc HTML ${url} → ${res.status}`)
   const html = await res.text()
+  const scripts = [...html.matchAll(/<script[^>]+type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi)]
 
-  const results: RawProperty[] = []
-  // Extract window.__INITIAL_DATA__ or __NEXT_DATA__
-  const nextDataMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/)
-  if (nextDataMatch) {
+  for (const script of scripts) {
     try {
-      const nextData = JSON.parse(nextDataMatch[1])
-      const listings: TocTocListing[] =
-        nextData?.props?.pageProps?.listings ||
-        nextData?.props?.pageProps?.data?.listings ||
-        []
-      results.push(...listings.map((l) => mapTocTocToRaw(l, operation, regionSlug)))
-    } catch { /* skip */ }
+      const structured = JSON.parse(script[1])
+      const listings = Array.isArray(structured.about) ? structured.about.flat(3) : []
+      if (!listings.length) continue
+      return listings.filter((item: Record<string, unknown>) => item?.url).map((item: any) => {
+        const sourceUrl = String(item.url)
+        const id = sourceUrl.split('/').filter(Boolean).pop() ?? sourceUrl
+        return {
+          externalId: `toctoc-${id}`,
+          source: 'toctoc',
+          title: item.name || 'Propiedad TocToc',
+          propertyType: item['@type'] === 'House' ? 'casa' : 'propiedad',
+          operation,
+          region: item.address?.addressRegion ?? null,
+          commune: item.address?.addressLocality ?? null,
+          address: item.address?.streetAddress ?? null,
+          bedrooms: Number(item.numberOfBedrooms) || null,
+          bathrooms: Number(item.numberOfBathroomsTotal) || null,
+          images: item.image ? [String(item.image)] : [],
+          sourceUrl,
+        } satisfies RawProperty
+      })
+    } catch { /* malformed publisher JSON-LD */ }
   }
-  return results.filter((p): p is RawProperty => !!p)
+  return []
 }
 
 function mapTocTocToRaw(
@@ -148,25 +159,20 @@ export async function scrapeTocToc(opts: {
   const allRaw: RawProperty[] = []
   const errors: string[] = []
 
-  for (const region of regions) {
-    const { slug, id: regionId } = REGION_SLUGS[region] ?? { slug: 'region-metropolitana', id: 13 }
-    for (let page = 1; page <= pages; page++) {
-      try {
-        // Try API first
-        let batch: RawProperty[] = []
-        try {
-          const listings = await fetchTocTocPage(operation, regionId, page, 24)
-          batch = listings.map((l) => mapTocTocToRaw(l, operation, slug))
-        } catch {
-          // Fallback to HTML
-          batch = await fetchTocTocHTML(operation, slug, page)
-        }
-        batch.forEach((p) => { p.region = region })
-        allRaw.push(...batch)
-        if (page < pages) await new Promise((r) => setTimeout(r, 600))
-      } catch (err) {
-        errors.push(`toctoc/${region}/p${page}: ${(err as Error).message}`)
-      }
+  // The current public listing is national and already carries each property's region.
+  // Fetch it once per page rather than repeating identical data for every selected region.
+  for (let page = 1; page <= pages; page++) {
+    try {
+      const batch = await fetchTocTocHTML(operation, 'chile', page)
+      const selected = batch.filter((property) => {
+        if (!property.region || regions.length === 0) return true
+        const value = property.region.toLowerCase()
+        return regions.some((region) => region.toLowerCase().includes(value) || value.includes(region.toLowerCase().replace('región de ', '').replace('región del ', '')))
+      })
+      allRaw.push(...selected.length ? selected : batch)
+      if (page < pages) await new Promise((resolve) => setTimeout(resolve, 600))
+    } catch (err) {
+      errors.push(`toctoc/p${page}: ${(err as Error).message}`)
     }
   }
 

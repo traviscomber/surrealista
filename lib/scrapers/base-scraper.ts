@@ -275,10 +275,14 @@ export async function upsertProperties(
   let updated = 0
   let skipped = 0
 
+  // A portal can repeat the same listing across categories/pages. PostgreSQL cannot
+  // update the same conflict target twice in one statement, so keep the richest last copy.
+  const unique = Array.from(new Map(normalised.map((property) => [property.external_id, property])).values())
+
   // Batch in chunks of 100
   const CHUNK = 100
-  for (let i = 0; i < normalised.length; i += CHUNK) {
-    const chunk = normalised.slice(i, i + CHUNK)
+  for (let i = 0; i < unique.length; i += CHUNK) {
+    const chunk = unique.slice(i, i + CHUNK)
     const { data, error } = await supabase
       .from('properties_external')
       .upsert(chunk, {

@@ -29,8 +29,10 @@ async function fetchYapoPage(
   operation: 'venta' | 'arriendo',
   page: number
 ): Promise<RawProperty[]> {
-  const cat = operation === 'venta' ? 'inmuebles' : 'arriendo'
-  const url = `${BASE}/${regionPath}/${cat}/propiedades?o=${page}`
+  const category = operation === 'venta'
+    ? 'bienes-raices-venta-de-propiedades-casas'
+    : 'bienes-raices-alquiler-casas'
+  const url = `${BASE}/${category}${page > 1 ? `.${page}` : ''}`
 
   const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(15000) })
   if (!res.ok) throw new Error(`Yapo ${url} → ${res.status}`)
@@ -47,53 +49,33 @@ function parseYapoHTML(
   const $ = cheerio.load(html)
   const results: RawProperty[] = []
 
-  // Yapo listing cards
-  $('li[class*="listing-item"], article[class*="listing"]').each((_, el) => {
+  $('.d3-ad-tile').each((_, element) => {
     try {
-      const $el = $(el)
-      const linkEl = $el.find('a[href*="/prop/"]').first()
-      const href = linkEl.attr('href') || ''
-      const idMatch = href.match(/\/(\d+)(?:\?|$)/)
-      if (!idMatch) return
-
-      const externalId = idMatch[1]
-      const title =
-        $el.find('[class*="title"], h2, h3').first().text().trim() || 'Propiedad Yapo'
-      const priceText = $el.find('[class*="price"], [class*="precio"]').first().text().trim()
-      const location = $el
-        .find('[class*="location"], [class*="address"], [class*="ubicacion"]')
-        .first()
-        .text()
-        .trim()
-      const description = $el
-        .find('[class*="description"], [class*="descripcion"]')
-        .first()
-        .text()
-        .trim()
-
-      // Room / area details from list items
-      const detailsText = $el.find('[class*="detail"], [class*="feature"]').text()
-      const bedroomsMatch = detailsText.match(/(\d+)\s*(?:dorm|hab|piezas)/i)
-      const bathroomsMatch = detailsText.match(/(\d+)\s*(?:ba[ñn])/i)
-      const areaMatch = detailsText.match(/(\d[\d.,]*)\s*m[²2]/i)
-
-      const img = $el.find('img[src*="yapo"]').attr('src') || ''
-
+      const card = $(element)
+      const href = card.find('a[href*="bienes-raices-"]').first().attr('href') || ''
+      const id = href.match(/\/(\d+)(?:\?|$)/)?.[1]
+      if (!id) return
+      const title = card.find('.d3-ad-tile__title').text().replace(/\s+/g, ' ').trim() || 'Propiedad Yapo'
+      const price = card.find('.d3-ad-tile__price').text().replace(/\s+/g, ' ').trim()
+      const location = card.find('.d3-ad-tile__location').text().replace(/\s+/g, ' ').trim()
+      const description = card.find('.d3-ad-tile__short-description').text().replace(/\s+/g, ' ').trim()
+      const details = card.find('.d3-ad-tile__details').text().replace(/\s+/g, ' ').trim()
+      const numbers = card.find('.d3-ad-tile__details-item').map((_, detail) => $(detail).text().trim()).get()
+      const image = card.find('img').first().attr('data-src') || card.find('img').first().attr('src')
       results.push({
-        externalId,
+        externalId: `yapo-${id}`,
         source: 'yapo',
         title: title.slice(0, 300),
-        priceRaw: priceText,
-        areaRaw: areaMatch?.[1] ?? null,
-        bedrooms: bedroomsMatch ? parseInt(bedroomsMatch[1]) : null,
-        bathrooms: bathroomsMatch ? parseInt(bathroomsMatch[1]) : null,
+        priceRaw: price || null,
+        areaRaw: details.match(/[\d.,]+\s*(?:m²|m2|ha)/i)?.[0] ?? null,
+        bedrooms: numbers.length > 1 ? parseInt(numbers[1], 10) || null : null,
+        bathrooms: numbers.length > 2 ? parseInt(numbers[2], 10) || null : null,
         operation,
-        region: null, // resolved later by normaliser from regionPath
-        commune: location.split(',')[0]?.trim() ?? null,
-        city: location.split(',')[1]?.trim() ?? null,
-        address: location,
-        sourceUrl: href.startsWith('http') ? href : `${BASE}${href}`,
-        images: img ? [img] : [],
+        region: regionPath,
+        commune: location.split(',')[0]?.trim() || null,
+        address: location || null,
+        sourceUrl: `${BASE}${href}`,
+        images: image && !image.startsWith('data:') ? [image] : [],
         description,
       })
     } catch { /* skip bad card */ }
@@ -117,7 +99,7 @@ function parseYapoHTML(
               priceRaw: listing?.offers?.price,
               currencyRaw: listing?.offers?.priceCurrency || 'CLP',
               operation,
-              region: regionPath,
+        region: null,
               sourceUrl: listing?.url || null,
             })
           }
@@ -144,19 +126,14 @@ export async function scrapeYapo(opts: {
   const allRaw: RawProperty[] = []
   const errors: string[] = []
 
-  for (const region of regions) {
-    const path = REGION_PATHS[region] ?? 'rm'
-    for (let page = 1; page <= pages; page++) {
-      try {
-        const batch = await fetchYapoPage(path, operation, page)
-        // Attach region so normaliser can pick it up
-        batch.forEach((p) => { p.region = region })
-        allRaw.push(...batch)
-        // Polite delay
-        if (page < pages) await new Promise((r) => setTimeout(r, 800))
-      } catch (err) {
-        errors.push(`yapo/${region}/p${page}: ${(err as Error).message}`)
-      }
+  // Yapo's current category URL is national; card locations remain authoritative.
+  for (let page = 1; page <= pages; page++) {
+    try {
+      const batch = await fetchYapoPage(REGION_PATHS[regions[0]] ?? 'chile', operation, page)
+      allRaw.push(...batch)
+      if (page < pages) await new Promise((resolve) => setTimeout(resolve, 800))
+    } catch (err) {
+      errors.push(`yapo/p${page}: ${(err as Error).message}`)
     }
   }
 

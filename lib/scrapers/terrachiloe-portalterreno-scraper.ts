@@ -6,67 +6,64 @@
  *
  * Both are exported independently so the coordinator can run them separately.
  */
+import * as cheerio from 'cheerio'
 import type { RawProperty, ScrapeResult } from './base-scraper'
 import { normaliseProperty, upsertProperties, logScrapeRun, normaliseRegion } from './base-scraper'
 
 // ─── TerraChiloe ──────────────────────────────────────────────────────────────
 
-const TC_BASE = 'https://www.terrachiloe.cl'
+const TC_BASE = 'https://www.terrachiloe.com'
 const TC_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/124.0 Safari/537.36',
   Accept: 'text/html,application/xhtml+xml',
   Referer: TC_BASE,
 }
 
-async function fetchTerraPage(page: number): Promise<string> {
-  const url = page === 1 ? `${TC_BASE}/propiedades/` : `${TC_BASE}/propiedades/page/${page}/`
-  const res = await fetch(url, { headers: TC_HEADERS, signal: AbortSignal.timeout(15_000) })
-  if (res.status === 404) return ''
+const TC_PAGES = ['/propiedades', '/terrenos', '/terrenos-02', '/terrenos-03']
+
+async function fetchTerraPage(page: number): Promise<{ html: string; url: string }> {
+  const path = TC_PAGES[page - 1]
+  if (!path) return { html: '', url: TC_BASE }
+  const url = `${TC_BASE}${path}`
+  const res = await fetch(url, { headers: TC_HEADERS, signal: AbortSignal.timeout(20_000) })
+  if (res.status === 404) return { html: '', url }
   if (!res.ok) throw new Error(`terrachiloe ${url} → ${res.status}`)
-  return res.text()
+  return { html: await res.text(), url }
 }
 
-function parseTerraCards(html: string): RawProperty[] {
+export function parseTerraCards(html: string, pageUrl: string): RawProperty[] {
   if (!html) return []
-  const results: RawProperty[] = []
+  const $ = cheerio.load(html)
+  const cards = $('div.UXutDq').filter((_, element) => /(?:UF\s*[\d.]|\$\s*[\d.])/i.test($(element).text()))
+  const propertyImages = $('img[src*="static.wixstatic.com/media/"]')
+    .map((_, image) => $(image).attr('src'))
+    .get()
+    .filter((src) => src && !src.includes('ecd4ccdabc074d3bac1477dd00c26dbe'))
 
-  const articleRe = /<article[^>]*>([\s\S]*?)<\/article>/gi
-  let m
-  while ((m = articleRe.exec(html)) !== null) {
-    const block = m[0]
-    const hrefM = block.match(/href="([^"]+)"/)
-    if (!hrefM) continue
-    const url = hrefM[1]
-    const id = url.split('/').filter(Boolean).pop() ?? ''
-    if (!id || id.length < 3) continue
-
-    const titleM = block.match(/<h\d[^>]*>([\s\S]*?)<\/h\d>/i)
-    const title = titleM ? titleM[1].replace(/<[^>]+>/g, '').trim() : 'Terreno Chiloé'
-
-    const priceM = block.match(/\$[\d.,\s]+|[\d.,]+\s*(?:UF|uf)/i)
-    const areaM = block.match(/([\d.,]+\s*(?:m[²2]|ha[s]?|hect[aá]rea[s]?))/i)
-    const imgM = block.match(/<img[^>]+src="([^"]+)"/i)
-
-    // Try to extract commune from title (TerraChiloe includes location in title)
-    const communeRe = /en\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ\s]+?)(?:\s*[-–,]|$)/i
-    const communeM = title.match(communeRe)
-
-    results.push({
-      externalId: `terrachiloe-${id}`,
+  return cards.map((index, element) => {
+    const card = $(element)
+    const lines = card.find('h1,h2,h3,h4,h5,h6,p').map((_, text) => $(text).text().replace(/\s+/g, ' ').trim()).get().filter(Boolean)
+    const title = lines[0] || 'Propiedad TerraChiloe'
+    const text = lines.join(' ')
+    const price = text.match(/(?:UF\s*[\d.,]+|\$\s*[\d.,]+)/i)?.[0] ?? null
+    const area = text.match(/[\d.,]+\s*(?:m(?:ts?|²|2)|ha(?:s)?|hect[aá]rea(?:s)?)/i)?.[0] ?? null
+    const slug = title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    const commune = title.match(/(?:EN|DE)\s+([A-ZÁÉÍÓÚÑ ]{3,})$/)?.[1]?.trim() ?? null
+    return {
+      externalId: `terrachiloe-${slug || index}`,
       source: 'terrachiloe',
       title: title.slice(0, 400),
-      priceRaw: priceM ? priceM[0] : null,
-      areaRaw: areaM ? areaM[1] : null,
-      propertyType: 'terreno',
+      description: lines.slice(1).filter((line) => line !== price && !line.match(/^(?:C|T):/)).join(' ').slice(0, 2000),
+      priceRaw: price,
+      areaRaw: area,
+      propertyType: pageUrl.includes('terreno') ? 'terreno' : 'propiedad',
       operation: 'venta',
       region: 'Región de Los Lagos',
-      commune: communeM ? communeM[1].trim() : null,
-      images: imgM ? [imgM[1]] : [],
-      sourceUrl: url.startsWith('http') ? url : `${TC_BASE}${url}`,
-    })
-  }
-
-  return results
+      commune,
+      images: propertyImages[index] ? [propertyImages[index]] : [],
+      sourceUrl: pageUrl,
+    } satisfies RawProperty
+  }).get()
 }
 
 export async function scrapeTerraChiloe(opts: { pages?: number } = {}): Promise<ScrapeResult> {
@@ -77,9 +74,9 @@ export async function scrapeTerraChiloe(opts: { pages?: number } = {}): Promise<
 
   for (let page = 1; page <= pages; page++) {
     try {
-      const html = await fetchTerraPage(page)
+      const { html, url } = await fetchTerraPage(page)
       if (!html) break
-      const cards = parseTerraCards(html)
+      const cards = parseTerraCards(html, url)
       if (cards.length === 0) break
       allRaw.push(...cards)
       await new Promise((r) => setTimeout(r, 600))
