@@ -116,9 +116,9 @@ const SOURCES = [
     key: "icasas",
     label: "iCasas",
     url: "icasas.cl",
-    focus: "Nacional",
-    type: "general",
-    color: "blue",
+    focus: "Terrenos Biobío → Magallanes",
+    type: "south",
+    color: "emerald",
   },
 ]
 
@@ -425,7 +425,10 @@ export function ScrapersPanel() {
 
   const southSources = SOURCES.filter((s) => s.type === "south")
   const generalSources = SOURCES.filter((s) => s.type === "general")
-  const southTotal = sourceStats.filter((s) => ["ichiloe", "camposchile", "terrachiloe", "portalterreno"].includes(s.source)).reduce((a, s) => a + s.total, 0)
+  const southSourceKeys = new Set(southSources.map((source) => source.key))
+  const southTotal = sourceStats
+    .filter((stat) => southSourceKeys.has(stat.source))
+    .reduce((total, stat) => total + stat.total, 0)
 
   return (
     <div className="space-y-6">
