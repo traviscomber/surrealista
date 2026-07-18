@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { AlertCircle, Eye, EyeOff, Loader2, MapPin, Maximize, Minimize } from "lucide-react"
+import { AlertCircle, ChevronDown, Eye, EyeOff, Layers3, Loader2, MapPin, Maximize, Minimize } from "lucide-react"
 import type { KMZData } from "@/lib/kmz/kmz-reader"
 import { reverseGeocoder, type ChileanLocationDetails } from "@/lib/geocoding/reverse-geocode"
 import { Button } from "@/components/ui/button"
@@ -41,7 +41,8 @@ export function KMZMapDisplay({
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [isLoadingLayers, setIsLoadingLayers] = useState(false)
   const [layerProgress, setLayerProgress] = useState(0)
-  const [selectedLayer, setSelectedLayer] = useState<LayerInfo | null>(null) // track selected layer
+  const [selectedLayer, setSelectedLayer] = useState<LayerInfo | null>(null)
+  const [isLayersOpen, setIsLayersOpen] = useState(true)
   const mapRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const clientMarkerRef = useRef<any>(null)
@@ -110,20 +111,14 @@ export function KMZMapDisplay({
     loadLeaflet()
   }, [])
 
-  // Auto-select layer when selectedKmzId changes
+  // A file selection replaces the map dataset, so the first rendered geometry
+  // is the active layer even when the database id is not part of its filename.
   useEffect(() => {
     if (!selectedKmzId || layers.length === 0) return
-    
-    const selectedIdStr = selectedKmzId.toString()
-    const matchedLayer = layers.find((layer) => {
-      const layerFileName = layer.fileName || layer.name || ""
-      return layerFileName.includes(selectedIdStr) || layerFileName === selectedIdStr
-    })
-    
-    if (matchedLayer) {
-      console.log("[v0] Auto-selecting layer:", matchedLayer.name)
-      setSelectedLayer(matchedLayer)
-    }
+
+    const activeLayer = layers[0]
+    setSelectedLayer(activeLayer)
+    setIsLayersOpen(true)
   }, [selectedKmzId, layers])
 
   useEffect(() => {
@@ -690,6 +685,17 @@ export function KMZMapDisplay({
     }
   }, [mapInstance])
 
+  useEffect(() => {
+    if (!mapInstance || !containerRef.current) return
+
+    const resizeObserver = new ResizeObserver(() => {
+      window.requestAnimationFrame(() => mapInstance.invalidateSize())
+    })
+
+    resizeObserver.observe(containerRef.current)
+    return () => resizeObserver.disconnect()
+  }, [mapInstance])
+
   const getColorForPlacemark = (fileName: string, placemarkName: string): string => {
     const colors = [
       "#e74c3c", // red
@@ -757,7 +763,7 @@ export function KMZMapDisplay({
 
       <div
         ref={containerRef}
-        className="flex w-full h-full relative pr-96"
+        className="relative h-full w-full overflow-hidden bg-muted"
         style={{ height: isFullscreen ? "100vh" : height || "100%" }}
       >
         <Button
@@ -770,16 +776,26 @@ export function KMZMapDisplay({
           {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
         </Button>
 
-        <div ref={mapRef} className="flex-1 h-full rounded-lg overflow-hidden border pointer-events-auto" />
+        <div ref={mapRef} className="h-full w-full overflow-hidden pointer-events-auto" />
 
-        <div className="absolute inset-y-0 right-0 w-96 flex flex-col pointer-events-none bg-card border-l shadow-lg z-[200]">
-          {/* Capas del Mapa section */}
-          <div className="flex-1 border-b overflow-y-auto pointer-events-auto">
-            <div className="p-4">
-              <h3 className="font-semibold flex items-center gap-2 text-sm mb-3 text-foreground">
-                <MapPin className="h-4 w-4" />
-                Capas del Mapa ({layers.length})
-              </h3>
+        <div className="absolute right-4 top-4 z-[1000] flex max-h-[calc(100%-2rem)] w-[min(22rem,calc(100%-2rem))] flex-col overflow-hidden rounded-xl border bg-card shadow-xl">
+          <button
+            type="button"
+            className="flex h-11 w-full items-center justify-between gap-3 px-3 text-left hover:bg-accent"
+            onClick={() => setIsLayersOpen((open) => !open)}
+            aria-expanded={isLayersOpen}
+          >
+            <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
+              <Layers3 className="h-4 w-4 flex-shrink-0" />
+              <span className="truncate">Capas del mapa</span>
+              <span className="rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">{layers.length}</span>
+            </span>
+            <ChevronDown className={`h-4 w-4 flex-shrink-0 transition-transform ${isLayersOpen ? "" : "rotate-180"}`} />
+          </button>
+
+          {isLayersOpen && (
+            <div className="min-h-0 overflow-y-auto border-t">
+              <div className="p-3">
 
               {isLoadingLayers && (
                 <div className="mb-2 p-2 bg-blue-50 dark:bg-blue-900/30 rounded text-xs text-blue-700 dark:text-blue-300">
@@ -860,11 +876,10 @@ export function KMZMapDisplay({
                 </div>
               )}
             </div>
-          </div>
 
           {/* Detalles del Pinpoint section */}
           {selectedLayer && (
-            <div className="h-64 p-4 overflow-y-auto bg-slate-50 border-t">
+            <div className="border-t bg-muted p-3">
               <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
                 <MapPin className="h-4 w-4" />
                 Detalles
@@ -903,6 +918,8 @@ export function KMZMapDisplay({
                   </>
                 )}
               </div>
+            </div>
+          )}
             </div>
           )}
         </div>
