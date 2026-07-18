@@ -135,12 +135,29 @@ export async function POST(request: NextRequest) {
 
     // Persist updates in batch if not dry_run
     if (!dry_run && updates.length > 0) {
+      let successCount = 0
+      let errorCount = 0
+      
       for (const update of updates) {
-        await supabase
-          .from("kmz_collection")
-          .update({ metadata: update.metadata })
-          .eq("id", update.id)
+        try {
+          const { error } = await supabase
+            .from("kmz_collection")
+            .update({ metadata: update.metadata })
+            .eq("id", update.id)
+          
+          if (error) {
+            console.error(`[v0] Failed to update KMZ ${update.id}:`, error.message)
+            errorCount++
+          } else {
+            successCount++
+          }
+        } catch (err) {
+          console.error(`[v0] Exception updating KMZ ${update.id}:`, err)
+          errorCount++
+        }
       }
+      
+      console.log(`[v0] Batch update: ${successCount} success, ${errorCount} errors out of ${updates.length}`)
     }
 
     return NextResponse.json({
