@@ -84,6 +84,8 @@ type OwnerResearchQueueItem = {
   reasons: string[]
   suggestedNextStep: string
   searchQueries: string[]
+  webOwner?: string | null
+  webOwnerConfidence?: number | null
 }
 
 type OwnerResearchQueueSummary = {
@@ -1220,6 +1222,14 @@ export default function SiiRolExplorer() {
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
                   <p className="text-base font-semibold text-white">{item.rol}</p>
+                  {item.webOwner && (
+                    <p className="mt-2 text-sm font-medium text-emerald-300">
+                      Dueño: <span className="text-emerald-100">{item.webOwner}</span>
+                      {item.webOwnerConfidence && (
+                        <span className="ml-2 text-xs text-emerald-400">({Math.round(item.webOwnerConfidence * 100)}% confianza)</span>
+                      )}
+                    </p>
+                  )}
                   <p className="mt-1 text-sm text-slate-400">{item.affectedKmzCount} KMZ impactados por este rol</p>
                   <p className="text-sm text-slate-500">{item.regions.join(", ") || "Sin region"}</p>
                   {item.resolvedAt && (

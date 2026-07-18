@@ -70,6 +70,8 @@ type RoleQueueItem = {
   reasons: string[]
   suggestedNextStep: string
   searchQueries: string[]
+  webOwner?: string | null
+  webOwnerConfidence?: number | null
 }
 
 const SOUTH_PRIORITY_REGION_KEYS = new Set([
@@ -379,7 +381,7 @@ function sortRoleQueue(a: RoleQueueItem, b: RoleQueueItem) {
   return a.rol.localeCompare(b.rol, "es")
 }
 
-function buildRoleQueue(records: QueueRecord[]) {
+async function buildRoleQueue(records: QueueRecord[], supabase: any) {
   const grouped = new Map<string, RoleQueueItem>()
 
   for (const record of records) {
@@ -466,6 +468,27 @@ function buildRoleQueue(records: QueueRecord[]) {
       sampleKmz: item.sampleKmz.sort((a, b) => a.file_name.localeCompare(b.file_name, "es")),
     }
   })
+
+  // Fetch owner information for each role's sample KMZ
+  for (const item of roleQueue) {
+    if (item.sampleKmz.length > 0) {
+      try {
+        const kmzIds = item.sampleKmz.map((k) => k.id)
+        const { data: kmzOwners } = await supabase
+          .from("kmz_collection")
+          .select("metadata->>'web_owner' as web_owner, metadata->>'web_owner_confidence' as web_owner_confidence")
+          .in("id", kmzIds)
+          .limit(1)
+
+        if (kmzOwners && kmzOwners.length > 0 && kmzOwners[0].web_owner) {
+          item.webOwner = kmzOwners[0].web_owner
+          item.webOwnerConfidence = kmzOwners[0].web_owner_confidence ? Number(kmzOwners[0].web_owner_confidence) : null
+        }
+      } catch (error) {
+        console.log("[buildRoleQueue] Could not fetch owner info:", error)
+      }
+    }
+  }
 
   roleQueue.sort(sortRoleQueue)
   return roleQueue
@@ -626,7 +649,7 @@ export async function GET(request: Request) {
     const filters = getQueryFilters(request)
     const supabase = getSupabaseAdmin()
     const { allRecords, candidateRecords, queueRecords } = await loadQueueRecords(supabase, filters)
-    const roleQueue = buildRoleQueue(queueRecords)
+    const roleQueue = await buildRoleQueue(queueRecords, supabase)
 
     if (filters.groupBy === "kmz") {
       const filtered = queueRecords
@@ -725,7 +748,7 @@ export async function POST(request: Request) {
     }
 
     results.sort(sortQueue)
-    const roleQueue = buildRoleQueue(results)
+    const roleQueue = await buildRoleQueue(results, supabase)
 
     return NextResponse.json({
       success: true,
