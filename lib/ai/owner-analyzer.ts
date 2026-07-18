@@ -1,5 +1,3 @@
-import { generateText } from "ai"
-import { openai } from "@ai-sdk/openai"
 import { OwnerResearchLead } from "@/lib/kmz/owner-discovery-service"
 
 export interface AnalysisResult {
@@ -18,12 +16,19 @@ export interface AnalysisResult {
  * Strict rules prevent hallucination or invention of data
  */
 export class OwnerAnalyzer {
-  private model = openai("gpt-4o-mini")
+  private apiKey: string
+
+  constructor() {
+    this.apiKey = process.env.OPENAI_API_KEY || ""
+    if (!this.apiKey) {
+      throw new Error("OPENAI_API_KEY environment variable is not set")
+    }
+  }
 
   /**
    * Analyze search results to identify owner information
    *
-   * Takes raw search results and uses GPT-4 to determine:
+   * Takes raw search results and uses GPT-4o mini to determine:
    * - Possible owner name (person or company)
    * - Confidence level (0-1)
    * - Reasoning
@@ -90,25 +95,47 @@ Extract ONLY explicitly stated owner information. Do not invent names.
 Respond with ONLY the JSON object, no markdown, no explanation.`
 
     try {
-      const result = await generateText({
-        model: this.model,
-        system: systemPrompt,
-        messages: [
-          {
-            role: "user",
-            content: userMessage,
-          },
-        ],
-        temperature: 0.3, // Low temperature for factual extraction
-        maxTokens: 500,
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: systemPrompt,
+            },
+            {
+              role: "user",
+              content: userMessage,
+            },
+          ],
+          temperature: 0.3,
+          max_tokens: 500,
+        }),
       })
 
-      // Parse response
-      const text = result.text.trim()
+      if (!response.ok) {
+        const error = await response.text()
+        console.error("[v0] OpenAI API error:", response.status, error)
+        return {
+          possibleOwner: null,
+          possibleCompany: null,
+          confidence: 0,
+          reason: "OpenAI API call failed",
+          evidence: "",
+        }
+      }
 
-      // Remove markdown code blocks if present
-      const jsonText = text.replace(/```json\n?|\n?```/g, "").trim()
+      const data = await response.json() as {
+        choices: Array<{ message: { content: string } }>
+      }
 
+      const content = data.choices[0]?.message?.content || ""
+      const jsonText = content.replace(/```json\n?|\n?```/g, "").trim()
       const parsed = JSON.parse(jsonText) as Partial<AnalysisResult>
 
       return {
@@ -255,4 +282,13 @@ Respond with ONLY the JSON object, no markdown, no explanation.`
   }
 }
 
-export const ownerAnalyzer = new OwnerAnalyzer()
+let analyzerInstance: OwnerAnalyzer | null = null
+
+export function getOwnerAnalyzer(): OwnerAnalyzer {
+  if (!analyzerInstance) {
+    analyzerInstance = new OwnerAnalyzer()
+  }
+  return analyzerInstance
+}
+
+export const ownerAnalyzer = getOwnerAnalyzer()
