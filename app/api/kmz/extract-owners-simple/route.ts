@@ -12,15 +12,20 @@ export async function POST(request: NextRequest) {
     const { batch_size = 50, dry_run = false } = await request.json()
 
     // Get pending KMZ files without owner data
-    const { data: kmzFiles, error: fetchError } = await supabase
+    // Use OR logic: either metadata is null OR public_owner_candidate field is missing/null
+    const { data: allKmz, error: fetchError } = await supabase
       .from("kmz_collection")
       .select("id, name, metadata")
-      .is("metadata->public_owner_candidate", null)
-      .limit(batch_size)
+      .limit(batch_size + 500) // Get more to account for filtering
 
     if (fetchError) {
       return NextResponse.json({ error: fetchError.message }, { status: 400 })
     }
+
+    // Filter for ones without owner data
+    const kmzFiles = (allKmz || [])
+      .filter((kmz) => !kmz.metadata || !kmz.metadata.public_owner_candidate)
+      .slice(0, batch_size)
 
     if (!kmzFiles || kmzFiles.length === 0) {
       return NextResponse.json({
