@@ -6,14 +6,34 @@ const REMAX_SEARCH_API = "https://www.remax.cl/search/listing-search/docs/search
 const PAGE_SIZE = 50 // max per request
 
 // Southern Chilean regions to scrape
+// searchTerm = what to send to Remax API search
+// displayName = human-friendly name for logging
 const SOUTH_REGIONS = [
-  { name: "Región del Biobío",       searchTerm: "Biobio" },
-  { name: "Región de La Araucanía",  searchTerm: "Araucania" },
-  { name: "Región de Los Ríos",      searchTerm: "Los Rios" },
-  { name: "Región de Los Lagos",     searchTerm: "Los Lagos" },
-  { name: "Región de Aysén",         searchTerm: "Aysen" },
-  { name: "Región de Magallanes",    searchTerm: "Magallanes" },
+  { searchTerm: "Biobio",     displayName: "Región del Biobío" },
+  { searchTerm: "Araucania",  displayName: "Región de La Araucanía" },
+  { searchTerm: "Los Rios",   displayName: "Región de Los Ríos" },
+  { searchTerm: "Los Lagos",  displayName: "Región de Los Lagos" },
+  { searchTerm: "Aysen",      displayName: "Región de Aysén" },
+  { searchTerm: "Magallanes", displayName: "Región de Magallanes" },
 ]
+
+// Valid province names as they appear in Remax API for SOUTH Chile only
+// These map to official regions: VIII Biobío, IX Araucanía, XIV Los Ríos, X Los Lagos, XI Aysén, XII Magallanes
+// Includes all provinces/sub-regions from these areas
+const SOUTH_PROVINCE_NAMES = new Set([
+  // Region VIII - Biobío
+  "Biobío", "Ñuble", "Concepción",
+  // Region IX - Araucanía
+  "Araucanía", "Cautín", "Malleco",
+  // Region XIV - Los Ríos
+  "Los Ríos", "Valdivia", "Ranco",
+  // Region X - Los Lagos
+  "Los Lagos", "Llanquihue", "Chiloé",
+  // Region XI - Aysén
+  "Aysén", "Aisén", "General Carrera", "Coihaique",
+  // Region XII - Magallanes
+  "Magallanes", "Punta Arenas",
+])
 
 // CDN base URL for Remax Chile images (CountryId 1028)
 const REMAX_IMAGE_CDN = "https://cdn.gryphtech.com/userimages/1028/LargeWM"
@@ -128,7 +148,7 @@ export async function scrapeRemax(options: {
 
   for (const regionSearchTerm of regions) {
     const regionName =
-      SOUTH_REGIONS.find((r) => r.searchTerm === regionSearchTerm)?.name ?? regionSearchTerm
+      SOUTH_REGIONS.find((r) => r.searchTerm === regionSearchTerm)?.displayName ?? regionSearchTerm
 
     try {
       // Fetch all pages for this region
@@ -161,6 +181,12 @@ export async function scrapeRemax(options: {
         // Insert each property into DB
         for (const item of results) {
           const c = item.content
+
+          // FILTER: Skip if not from a southern region (must be in our explicit south list)
+          if (!SOUTH_PROVINCE_NAMES.has(c.Province)) {
+            console.log(`[v0] [Remax] Skipping non-south province: "${c.Province}" (${c.City})`)
+            continue
+          }
 
           // Skip if no price at all
           if (!c.ListingPrice) continue
@@ -218,7 +244,7 @@ export async function scrapeRemax(options: {
                 address:        c.FullAddress ?? location,
                 city:           c.City ?? "",
                 commune:        c.City ?? "",
-                region:         c.Province ?? regionName,
+                region:         c.Province ?? "",
                 images,
                 scraped_at:     new Date().toISOString(),
                 is_active:      true,

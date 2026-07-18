@@ -402,6 +402,12 @@ export function ScrapedPropertiesDashboard({ mode = "full", initialShowFavorites
                         <dd className="mt-1 font-medium text-foreground">{formatPrice(property)}</dd>
                       </div>
                     </dl>
+                    {property.description && (
+                      <div className="mt-2 pt-3 border-t border-border">
+                        <dt className="text-xs text-muted-foreground mb-2">Descripción</dt>
+                        <dd className="text-sm leading-relaxed text-foreground whitespace-pre-wrap line-clamp-3">{property.description}</dd>
+                      </div>
+                    )}
                   </div>
                 </article>
               ))}
