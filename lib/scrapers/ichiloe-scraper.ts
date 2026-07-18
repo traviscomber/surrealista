@@ -103,8 +103,11 @@ export function parsePropertyCards(html: string, typeSlug: string): ParsedCard[]
     const cardArea = text.match(/Área\s*([\d.,]+)\s*(ha|has|hect[aá]rea[s]?|m[²2])/i)
     const areaMatch = titleArea ?? cardArea
 
+    const thumbnailStyle = card.find('.post_thumbnail').first().attr('style') ?? ''
+    const backgroundImage = thumbnailStyle.match(/url\(["']?([^"')]+)["']?\)/i)?.[1]
     const image = card.find('img').first().attr('data-src')
       ?? card.find('img').first().attr('src')
+      ?? backgroundImage
       ?? ''
     const location = card.find('[class*="location"], address').first().text().replace(/\s+/g, ' ').trim()
 

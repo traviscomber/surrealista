@@ -15,7 +15,6 @@ import { BasicImage } from "@/components/ui/basic-image"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 type ScrapedProperty = {
   id: string
@@ -151,46 +150,51 @@ export function ScrapedPropertiesDashboard({ mode = "full" }: { mode?: "summary"
           ) : visibleProperties.length === 0 ? (
             <div className="py-12 text-center text-sm text-muted-foreground">Todavía no hay propiedades activas.</div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Propiedad</TableHead>
-                  <TableHead>Fuente</TableHead>
-                  <TableHead>Ubicación</TableHead>
-                  <TableHead>Superficie</TableHead>
-                  <TableHead>Precio</TableHead>
-                  <TableHead className="text-right">Enlace</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {visibleProperties.map((property) => (
-                  <TableRow key={property.id}>
-                    <TableCell>
-                      <div className="flex min-w-64 items-center gap-3">
-                        <div className="h-14 w-20 shrink-0 overflow-hidden rounded-md bg-muted">
-                          <BasicImage src={property.images?.[0] || "/placeholder.svg"} alt={property.title} className="h-full w-full object-cover" />
-                        </div>
-                        <div className="min-w-0">
-                          <p className="max-w-80 truncate font-medium text-foreground">{property.title}</p>
-                          <p className="text-xs text-muted-foreground">{property.property_type || "Propiedad"}</p>
+            <div className="flex flex-col gap-4">
+              {visibleProperties.map((property) => (
+                <article key={property.id} className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4 md:flex-row">
+                  <div className="aspect-[4/3] w-full shrink-0 overflow-hidden rounded-md bg-muted md:w-44">
+                    <BasicImage
+                      src={property.images?.[0] || "/placeholder.svg"}
+                      alt={`Vista de ${property.title}`}
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                  <div className="flex min-w-0 flex-1 flex-col gap-3">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <h3 className="text-pretty font-medium leading-6 text-foreground">{property.title}</h3>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <Badge variant="secondary">{property.source}</Badge>
+                          <span className="text-sm capitalize text-muted-foreground">{property.property_type || "Propiedad"}</span>
                         </div>
                       </div>
-                    </TableCell>
-                    <TableCell><Badge variant="secondary">{property.source}</Badge></TableCell>
-                    <TableCell className="max-w-56"><span className="line-clamp-2 text-muted-foreground">{getLocation(property)}</span></TableCell>
-                    <TableCell>{getArea(property)}</TableCell>
-                    <TableCell className="font-medium">{formatPrice(property)}</TableCell>
-                    <TableCell className="text-right">
-                      {property.source_url ? (
-                        <Button asChild variant="ghost" size="sm">
-                          <Link href={property.source_url} target="_blank" rel="noreferrer">Ver original <ExternalLink className="ml-2 h-4 w-4" /></Link>
+                      {property.source_url && (
+                        <Button asChild variant="outline" size="sm" className="shrink-0 self-start">
+                          <Link href={property.source_url} target="_blank" rel="noreferrer">
+                            Ver original <ExternalLink className="ml-2 h-4 w-4" />
+                          </Link>
                         </Button>
-                      ) : <span className="text-xs text-muted-foreground">Sin enlace</span>}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                      )}
+                    </div>
+                    <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
+                      <div className="min-w-0">
+                        <dt className="text-xs text-muted-foreground">Ubicación</dt>
+                        <dd className="mt-1 break-words text-foreground">{getLocation(property)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Superficie</dt>
+                        <dd className="mt-1 text-foreground">{getArea(property)}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs text-muted-foreground">Precio</dt>
+                        <dd className="mt-1 font-medium text-foreground">{formatPrice(property)}</dd>
+                      </div>
+                    </dl>
+                  </div>
+                </article>
+              ))}
+            </div>
           )}
           {mode === "summary" && properties.length > 4 && (
             <div className="mt-4 flex justify-end">
