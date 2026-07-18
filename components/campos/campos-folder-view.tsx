@@ -66,7 +66,7 @@ interface FolderItem {
   isOpen?: boolean
   category?: string
   fileCount?: number
-  dbId?: number
+  dbId?: string | number
   isDriveFile?: boolean
   driveFileId?: string
   rolNumbers?: string[]
@@ -107,6 +107,51 @@ const normalizeList = (values?: unknown[]) => {
   return values
     .map((value) => `${value ?? ""}`.trim())
     .filter(Boolean)
+}
+
+const inferGeometryType = (coordinates: unknown): "Point" | "LineString" | "Polygon" => {
+  if (!Array.isArray(coordinates) || coordinates.length <= 1) return "Point"
+
+  const first = coordinates[0]
+  const last = coordinates[coordinates.length - 1]
+  const isClosedRing =
+    coordinates.length >= 4 &&
+    Array.isArray(first) &&
+    Array.isArray(last) &&
+    first[0] === last[0] &&
+    first[1] === last[1]
+
+  return isClosedRing ? "Polygon" : "LineString"
+}
+
+const buildMapPlacemarks = (record: any, storedPlacemarks: any[] = []) => {
+  if (storedPlacemarks.length > 0) {
+    return storedPlacemarks.map((placemark) => ({
+      name: placemark.name || "Capa sin nombre",
+      type: placemark.type || inferGeometryType(placemark.coordinates),
+      coordinates: placemark.coordinates || [],
+      description: placemark.description || record.description || "",
+      styleUrl: placemark.style_url || undefined,
+      properties: placemark.properties || {},
+    }))
+  }
+
+  return (record.coordinates || []).map((coordinates: any, index: number) => {
+    const type = inferGeometryType(coordinates)
+    const typeLabel = type === "Polygon" ? "Polígono" : type === "LineString" ? "Línea" : "Punto"
+
+    return {
+      name: `${record.file_name} - ${typeLabel} ${index + 1}`,
+      type,
+      coordinates,
+      description: record.description || "",
+      properties: {
+        rol: record.rol_numbers?.[index] || "",
+        category: record.category || "general",
+        recoveredFrom: "kmz_collection.coordinates",
+      },
+    }
+  })
 }
 
 const normalizeKmzDescription = (value?: string | null) => {
@@ -1618,21 +1663,23 @@ export function CAMPOSFolderView() {
         const uniqueData = data?.filter(
           (record, index, self) => index === self.findIndex((r) => r.file_name === record.file_name),
         )
+        const kmzIds = (uniqueData || []).map((record) => record.id)
+        const { data: storedPlacemarks } = kmzIds.length
+          ? await supabase.from("kmz_placemarks").select("*").in("kmz_id", kmzIds).limit(5000)
+          : { data: [] }
+        const placemarksByKmz = new Map<string, any[]>()
+
+        for (const placemark of storedPlacemarks || []) {
+          const current = placemarksByKmz.get(placemark.kmz_id) || []
+          current.push(placemark)
+          placemarksByKmz.set(placemark.kmz_id, current)
+        }
 
         const transformedKMZ = (uniqueData || []).map((record: any) => ({
           fileName: record.file_name,
-          dbId: record.id, // Add dbId at top level for filtering in KMZMapDisplay
-          id: record.id, // Also add id for direct access
-          placemarks: (record.coordinates || []).map((coordArray: any, index: number) => ({
-            name: `${record.file_name} - ${Array.isArray(coordArray) && coordArray.length > 3 ? "Poligono" : "Punto"} ${index + 1}`,
-            type: Array.isArray(coordArray) && coordArray.length > 3 ? "Polygon" : "Point",
-            coordinates: coordArray,
-            description: record.description || "",
-            properties: {
-              rol: record.rol_numbers?.[index] || "",
-              category: record.category || "general",
-            },
-          })),
+          dbId: record.id,
+          id: record.id,
+          placemarks: buildMapPlacemarks(record, placemarksByKmz.get(record.id)),
           bounds: record.bounds,
           metadata: {
             id: record.id,
@@ -1757,28 +1804,12 @@ export function CAMPOSFolderView() {
               : prev,
           )
 
-          const placemarks = (data.coordinates || []).map((coordArray: any, index: number) => {
-            let geometryType = "Point"
-            let coordinates = coordArray
-
-            if (Array.isArray(coordArray) && coordArray.length > 3) {
-              if (Array.isArray(coordArray[0]) && coordArray[0].length >= 2 && typeof coordArray[0][0] === "number") {
-                geometryType = "Polygon"
-                coordinates = coordArray
-              }
-            }
-
-            return {
-              name: `${data.file_name} - ${geometryType === "Polygon" ? "Poligono" : "Punto"} ${index + 1}`,
-              type: geometryType,
-              coordinates: coordinates,
-              description: data.description || "",
-              properties: {
-                rol: data.rol_numbers?.[index] || "",
-                category: data.category || "general",
-              },
-            }
-          })
+          const { data: storedPlacemarks } = await supabase
+            .from("kmz_placemarks")
+            .select("*")
+            .eq("kmz_id", data.id)
+            .limit(5000)
+          const placemarks = buildMapPlacemarks(data, storedPlacemarks || [])
 
           const transformedKMZ = {
             fileName: data.file_name,
@@ -1839,6 +1870,7 @@ export function CAMPOSFolderView() {
             rol_numbers: rolNumbers,
             bounds: kmzData.bounds,
             coordinates: kmzData.placemarks.map((p: any) => p.coordinates),
+            placemarks: kmzData.placemarks,
             tags: ["offline"],
             category: "offline",
             created_by: user?.id,
