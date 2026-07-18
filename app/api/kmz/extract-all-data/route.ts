@@ -28,16 +28,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: fetchError.message }, { status: 400 })
     }
 
-    // Filter for ones that need enrichment (any field missing)
-    const kmzFiles = (allKmz || [])
-      .filter(
+    // Get KMZ files - process all (can override existing data)
+    // Set limit_mode to true to re-process everything
+    const limit_mode = false // Set to false to re-process all
+    
+    let kmzFiles = (allKmz || [])
+    
+    if (limit_mode) {
+      // Only process ones without enrichment
+      kmzFiles = kmzFiles.filter(
         (kmz) =>
           !kmz.metadata ||
           (!kmz.metadata.public_owner_candidate &&
             !kmz.metadata.neighbor_contacts &&
             !kmz.metadata.neighbor_rol_info)
       )
-      .slice(0, batch_size)
+    }
+    
+    kmzFiles = kmzFiles.slice(0, batch_size)
 
     const results = []
     const updates = []
