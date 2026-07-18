@@ -4,6 +4,7 @@ import type React from "react"
 
 import { useState, useEffect, useRef, useMemo, useCallback, memo, useDeferredValue } from "react"
 import { useSearchParams } from "next/navigation"
+import { calculateCompletenessScore, getCompletenessIcon } from "@/utils/kmz-completeness"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -478,8 +479,8 @@ export function CAMPOSFolderView() {
           <h2 className="text-lg font-semibold">Detalles</h2>
         </div>
 
-        <div className="flex-1 space-y-5 overflow-y-auto p-5">
-          <div className={`overflow-hidden rounded-3xl border shadow-sm ${toneClasses}`}>
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className={`overflow-hidden rounded-lg border shadow-sm ${toneClasses}`}>
             <div className="border-b border-current/10 px-5 py-3">
               <div className="flex items-center gap-2">
                 <StatusIcon className="h-4 w-4" />
@@ -2196,23 +2197,24 @@ export function CAMPOSFolderView() {
                       Cargando archivos...
                     </div>
                   ) : (
-                    folder.children.map((child) => (
-                      <Button
-                        key={child.id}
-                        variant={selectedItem?.id === child.id ? "secondary" : "ghost"}
-                        size="sm"
-                        className="w-full justify-start"
-                        onClick={() => handleItemClick(child)}
-                      >
-                        <File className="h-3 w-3 mr-2" />
-                        <span className="flex-1 text-left text-sm truncate">{child.name}</span>
-                        {child.area && (
-                          <Badge variant="outline" className="text-xs">
-                            {child.area}
+                    folder.children.map((child) => {
+                      const completeness = calculateCompletenessScore(child)
+                      return (
+                        <Button
+                          key={child.id}
+                          variant={selectedItem?.id === child.id ? "secondary" : "ghost"}
+                          size="sm"
+                          className="w-full justify-start"
+                          onClick={() => handleItemClick(child)}
+                        >
+                          <File className="h-3 w-3 mr-2" />
+                          <span className="flex-1 text-left text-sm truncate">{child.name}</span>
+                          <Badge className={`text-xs ml-2 ${completeness.color}`} title={`${completeness.label}: ${completeness.score}%`}>
+                            {getCompletenessIcon(completeness.level)} {completeness.score}%
                           </Badge>
-                        )}
-                      </Button>
-                    ))
+                        </Button>
+                      )
+                    })
                   )}
                 </div>
               )}
@@ -2376,30 +2378,30 @@ export function CAMPOSFolderView() {
         </>
       </div>
 
-      {/* Right Panel - Details (Desktop) - Collapsible */}
-      <div
-        className={`hidden md:flex flex-col items-center pt-2 bg-card border-l ${
-          isMapFullscreen ? "md:hidden" : ""
-        }`}
-      >
-        <Button
-          size="icon"
-          variant="ghost"
-          className="h-8 w-8"
-          onClick={() => setIsRightPanelOpen(!isRightPanelOpen)}
-          title={isRightPanelOpen ? "Colapsar panel derecho" : "Expandir panel derecho"}
+      {/* Bottom Panel - Details (Horizontal Layout) */}
+      {selectedItem && (
+        <div
+          className={`hidden md:flex flex-col bg-card border-t overflow-hidden transition-all duration-300 ${
+            isMapFullscreen ? "md:hidden" : ""
+          } ${isRightPanelOpen ? "h-[340px]" : "h-0"}`}
         >
-          <ChevronRight className={`h-4 w-4 transition-transform ${!isRightPanelOpen ? "rotate-180" : ""}`} />
-        </Button>
-      </div>
-
-      <div
-        className={`hidden md:flex flex-col bg-card overflow-hidden transition-all duration-300 ${
-          isMapFullscreen ? "md:hidden" : ""
-        } ${isRightPanelOpen ? "w-[30rem] xl:w-[36rem] border-l" : "w-0"}`}
-      >
-        <DetailsPanel />
-      </div>
+          <div className="flex items-center justify-between px-4 py-3 border-b flex-shrink-0">
+            <h2 className="text-sm font-semibold">Detalles del KMZ</h2>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-6 w-6"
+              onClick={() => setIsRightPanelOpen(!isRightPanelOpen)}
+              title={isRightPanelOpen ? "Colapsar panel" : "Expandir panel"}
+            >
+              <ChevronDown className={`h-4 w-4 transition-transform ${!isRightPanelOpen ? "rotate-180" : ""}`} />
+            </Button>
+          </div>
+          <div className="flex-1 overflow-x-auto">
+            <DetailsPanel />
+          </div>
+        </div>
+      )}
     </div>
   )
 }
