@@ -128,6 +128,14 @@ const SOURCES = [
     type: "south",
     color: "emerald",
   },
+  {
+    key: "goplaceit",
+    label: "GoPlaceIt",
+    url: "goplaceit.com",
+    focus: "Terrenos Biobío → Magallanes",
+    type: "south",
+    color: "emerald",
+  },
 ]
 
 const STATUS_CONFIG = {

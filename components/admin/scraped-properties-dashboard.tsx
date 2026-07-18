@@ -76,6 +76,7 @@ const SCRAPER_SOURCES = [
   { key: "terrachiloe", label: "TerraChiloe" },
   { key: "portalterreno", label: "PortalTerreno" },
   { key: "rura", label: "Rura.cl" },
+  { key: "goplaceit", label: "GoPlaceIt" },
   { key: "portal_inmobiliario", label: "Portal Inmobiliario" },
   { key: "yapo", label: "Yapo" },
   { key: "toctoc", label: "TocToc" },

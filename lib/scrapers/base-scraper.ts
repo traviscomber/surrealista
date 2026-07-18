@@ -17,6 +17,7 @@ export type ScraperSource =
   | 'terrachiloe'
   | 'portalterreno'
   | 'rura'
+  | 'goplaceit'
   | 'other'
 
 export type PropertyOperation = 'venta' | 'arriendo' | 'otro'
