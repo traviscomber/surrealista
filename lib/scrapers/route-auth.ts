@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-/** Validates scraper route access: checks Authorization header and admin role */
+/** Validates scraper route access: checks Authorization header and admin role in production */
 export async function validateScraperAccess(req: NextRequest) {
   try {
     const authHeader = req.headers.get('Authorization')
@@ -15,14 +15,17 @@ export async function validateScraperAccess(req: NextRequest) {
       return { authorized: false, response: NextResponse.json({ error: 'Not authenticated' }, { status: 401 }) }
     }
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single()
+    // In production, verify admin role. In development, allow any authenticated user.
+    if (process.env.NODE_ENV === 'production') {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
 
-    if (profile?.role !== 'admin') {
-      return { authorized: false, response: NextResponse.json({ error: 'Forbidden: admin only' }, { status: 403 }) }
+      if (profile?.role !== 'admin') {
+        return { authorized: false, response: NextResponse.json({ error: 'Forbidden: admin only' }, { status: 403 }) }
+      }
     }
 
     return { authorized: true }
