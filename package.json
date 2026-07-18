@@ -83,6 +83,7 @@
     "openai": "^6.35.0",
     "path": "0.12.7",
     "playwright": "1.57.0",
+    "puppeteer": "22.8.0",
     "react": "^19",
     "react-day-picker": "9.8.0",
     "react-dom": "^19",

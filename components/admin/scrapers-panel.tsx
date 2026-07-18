@@ -136,6 +136,14 @@ const SOURCES = [
     type: "south",
     color: "emerald",
   },
+  {
+    key: "remax",
+    label: "RE/MAX",
+    url: "remax.cl",
+    focus: "Propiedades Chile (Pancul, Los Lagos)",
+    type: "national",
+    color: "blue",
+  },
 ]
 
 const STATUS_CONFIG = {
