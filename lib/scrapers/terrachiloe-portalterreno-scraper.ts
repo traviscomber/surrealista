@@ -104,8 +104,8 @@ export async function scrapeTerraChiloe(opts: { pages?: number } = {}): Promise<
 
 // ─── PortalTerreno ────────────────────────────────────────────────────────────
 
-const PT_BASE = 'https://www.portalterreno.com'
-const PT_API = 'https://www.portalterreno.com/api'
+const PT_BASE = 'https://portalterreno.cl'
+const PT_API = `${PT_BASE}/api/geolocation/terrenos/venta/properties`
 const PT_HEADERS = {
   'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/124.0 Safari/537.36',
   Accept: 'application/json, text/html',
@@ -121,85 +121,61 @@ const PT_SOUTH_REGIONS = [
 ]
 
 interface PTListing {
-  id?: string | number
-  slug?: string
-  titulo?: string
-  title?: string
-  precio?: string | number
-  precio_uf?: string | number
-  moneda?: string
-  superficie?: string | number
-  terreno?: string | number
-  tipo?: string
-  operacion?: string
-  region?: string
-  comuna?: string
-  ciudad?: string
-  lat?: number
-  lng?: number
-  descripcion?: string
-  imagen?: string | string[]
-  fotos?: string[]
-  url?: string
-}
-
-async function fetchPTListings(regionSlug: string, page: number): Promise<PTListing[]> {
-  // Try JSON API
-  const apiUrl = `${PT_API}/propiedades?region=${regionSlug}&tipo=terreno&page=${page}&per_page=20`
-  try {
-    const res = await fetch(apiUrl, { headers: PT_HEADERS, signal: AbortSignal.timeout(12_000) })
-    if (res.ok) {
-      const json = await res.json()
-      return json?.data ?? json?.propiedades ?? json?.results ?? []
-    }
-  } catch { /* fallback */ }
-
-  // HTML fallback
-  const url = `${PT_BASE}/terrenos/${regionSlug}?pagina=${page}`
-  const res = await fetch(url, {
-    headers: { ...PT_HEADERS, Accept: 'text/html' },
-    signal: AbortSignal.timeout(15_000),
-  })
-  if (!res.ok) throw new Error(`portalterreno ${url} → ${res.status}`)
-  const html = await res.text()
-
-  // __NEXT_DATA__
-  const ndM = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/)
-  if (ndM) {
-    try {
-      const nd = JSON.parse(ndM[1])
-      const p = nd?.props?.pageProps
-      return p?.propiedades ?? p?.listings ?? p?.properties ?? []
-    } catch { /* parse error */ }
+  id: number
+  slug: string
+  title: string
+  address?: string
+  currency?: 'CLP' | 'CLF'
+  formattedTotalSurface?: string
+  imageUrl?: string
+  locationName?: string
+  operationName?: string
+  pricing?: {
+    CLP?: { formatted?: string; value?: number }
+    CLF?: { formatted?: string; value?: number }
   }
-
-  return []
+  totalSurface?: number
+  surfaceUnit?: string
+  typeName?: string
+  latitude?: number
+  longitude?: number
+  project?: unknown
 }
 
-function ptToRaw(l: PTListing): RawProperty | null {
-  const id = String(l.id ?? l.slug ?? '').trim()
-  if (!id) return null
+async function fetchPTListings(page: number): Promise<PTListing[]> {
+  const apiUrl = `${PT_API}?page=${page}&limit=30`
+  const res = await fetch(apiUrl, {
+    headers: PT_HEADERS,
+    signal: AbortSignal.timeout(20_000),
+  })
+  if (!res.ok) throw new Error(`portalterreno ${apiUrl} → ${res.status}`)
+  const json = await res.json() as { properties?: PTListing[] }
+  return Array.isArray(json.properties) ? json.properties : []
+}
 
-  const images = Array.isArray(l.fotos) ? l.fotos :
-    Array.isArray(l.imagen) ? l.imagen :
-    l.imagen ? [l.imagen as string] : []
+function ptToRaw(listing: PTListing): RawProperty {
+  const [commune, region = ''] = (listing.locationName ?? '').split(',').map((part) => part.trim())
+  const isProject = Boolean(listing.project)
+  const path = isProject ? 'proyecto' : 'propiedad'
+  const price = listing.currency === 'CLP'
+    ? listing.pricing?.CLP?.formatted
+    : listing.pricing?.CLF?.formatted ?? listing.pricing?.CLP?.formatted
 
   return {
-    externalId: `portalterreno-${id}`,
+    externalId: `portalterreno-${listing.id}`,
     source: 'portalterreno',
-    title: String(l.titulo ?? l.title ?? 'Terreno Sur Chile').slice(0, 400),
-    priceRaw: l.precio_uf != null ? `${l.precio_uf} UF` : (l.precio ?? null),
-    areaRaw: l.terreno ?? l.superficie ?? null,
-    propertyType: String(l.tipo ?? 'terreno').toLowerCase(),
-    operation: String(l.operacion ?? 'venta').toLowerCase().includes('arriendo') ? 'arriendo' : 'venta',
-    region: normaliseRegion(l.region ?? ''),
-    commune: l.comuna ?? null,
-    city: l.ciudad ?? null,
-    description: String(l.descripcion ?? '').slice(0, 2000),
-    images: images.slice(0, 10),
-    sourceUrl: l.url ? (l.url.startsWith('http') ? l.url : `${PT_BASE}${l.url}`) : null,
-    lat: l.lat ?? null,
-    lng: l.lng ?? null,
+    title: listing.title.slice(0, 400),
+    priceRaw: price ?? null,
+    areaRaw: listing.formattedTotalSurface ?? listing.totalSurface ?? null,
+    propertyType: (listing.typeName ?? 'terreno').toLowerCase(),
+    operation: (listing.operationName ?? 'venta').toLowerCase().includes('arriendo') ? 'arriendo' : 'venta',
+    region: normaliseRegion(region),
+    commune: commune || null,
+    address: listing.address || null,
+    images: listing.imageUrl ? [listing.imageUrl] : [],
+    sourceUrl: `${PT_BASE}/${path}/${listing.id}-${listing.slug}`,
+    lat: listing.latitude ?? null,
+    lng: listing.longitude ?? null,
   }
 }
 
@@ -212,18 +188,27 @@ export async function scrapePortalTerreno(opts: {
   const allRaw: RawProperty[] = []
   const errors: string[] = []
 
-  for (const region of regions) {
-    for (let page = 1; page <= pages; page++) {
-      try {
-        const listings = await fetchPTListings(region, page)
-        if (listings.length === 0) break
-        const raws = listings.map(ptToRaw).filter((r): r is RawProperty => r !== null)
-        allRaw.push(...raws)
-        await new Promise((r) => setTimeout(r, 600 + Math.random() * 400))
-      } catch (err) {
-        errors.push(`portalterreno/${region}/p${page}: ${(err as Error).message}`)
-        break
-      }
+  const simplify = (value: string) => value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+  const requestedRegions = regions.map((region) => simplify(region
+    .replace(/^region-de-/, '')
+    .replaceAll('-', ' ')))
+
+  for (let page = 1; page <= pages; page++) {
+    try {
+      const listings = await fetchPTListings(page)
+      if (listings.length === 0) break
+      const selected = listings.filter((listing) => {
+        const location = simplify(listing.locationName ?? '')
+        return requestedRegions.length === 0 || requestedRegions.some((region) => location.includes(region))
+      })
+      allRaw.push(...selected.map(ptToRaw))
+      await new Promise((resolve) => setTimeout(resolve, 600 + Math.random() * 400))
+    } catch (err) {
+      errors.push(`portalterreno/p${page}: ${(err as Error).message}`)
+      break
     }
   }
 
