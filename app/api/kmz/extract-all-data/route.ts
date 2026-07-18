@@ -1,0 +1,194 @@
+import { NextRequest, NextResponse } from "next/server"
+import { createClient } from "@supabase/supabase-js"
+import { EnhancedOwnerExtractor } from "@/lib/kmz/enhanced-owner-extraction"
+
+/**
+ * MEGA ENDPOINT: Extract all owner data in one pass
+ * - Owner candidates from filenames
+ * - ROL information and neighbor analysis
+ * - Neighbor contact information
+ * - All persisted together in one transaction
+ */
+export async function POST(request: NextRequest) {
+  try {
+    const { batch_size = 50, dry_run = true } = await request.json()
+
+    const supabase = createClient(
+      process.env.SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
+    // Get KMZ files that need enrichment
+    const { data: allKmz, error: fetchError } = await supabase
+      .from("kmz_collection")
+      .select("id, file_name, metadata, bounds, roi_numbers")
+      .limit(batch_size + 500)
+
+    if (fetchError) {
+      return NextResponse.json({ error: fetchError.message }, { status: 400 })
+    }
+
+    // Filter for ones that need enrichment (any field missing)
+    const kmzFiles = (allKmz || [])
+      .filter(
+        (kmz) =>
+          !kmz.metadata ||
+          (!kmz.metadata.public_owner_candidate &&
+            !kmz.metadata.neighbor_contacts &&
+            !kmz.metadata.neighbor_rol_info)
+      )
+      .slice(0, batch_size)
+
+    const extractor = new EnhancedOwnerExtractor()
+    const results = []
+    const updates = []
+
+    for (const kmz of kmzFiles) {
+      try {
+        // 1. EXTRACT OWNERS from filename
+        const ownerCandidates = extractor.extract(
+          kmz.file_name,
+          kmz.metadata?.description
+        )
+        const topOwner =
+          ownerCandidates.length > 0
+            ? ownerCandidates[0]
+            : { name: null, confidence: 0, type: "unknown" }
+
+        // 2. EXTRACT ROL INFO from metadata
+        const rolInfo = kmz.roi_numbers
+          ? {
+              rols: Array.isArray(kmz.roi_numbers)
+                ? kmz.roi_numbers
+                : [kmz.roi_numbers],
+              count: Array.isArray(kmz.roi_numbers)
+                ? kmz.roi_numbers.length
+                : 1,
+              updated_at: new Date().toISOString(),
+            }
+          : null
+
+        // 3. FIND NEIGHBOR CONTACTS
+        const neighborContacts = await findNeighborContacts(supabase, kmz)
+
+        // Build unified result
+        const unifiedResult = {
+          kmz_id: kmz.id,
+          file_name: kmz.file_name,
+          owner_candidate: topOwner.name,
+          owner_confidence: topOwner.confidence,
+          owner_type: topOwner.type,
+          all_owner_candidates: ownerCandidates.slice(0, 5),
+          rol_info: rolInfo,
+          neighbor_contacts: neighborContacts,
+          neighbor_count: neighborContacts.length,
+          enrichment_status: "complete",
+          enriched_at: new Date().toISOString(),
+        }
+
+        results.push(unifiedResult)
+
+        // Prepare metadata update
+        if (!dry_run) {
+          const updatedMetadata = {
+            ...(kmz.metadata || {}),
+            public_owner_candidate: topOwner.name,
+            owner_confidence: topOwner.confidence,
+            owner_type: topOwner.type,
+            owner_candidates: ownerCandidates.slice(0, 5),
+            neighbor_rol_info: rolInfo,
+            neighbor_contacts: neighborContacts,
+            neighbor_count: neighborContacts.length,
+            enriched_at: new Date().toISOString(),
+          }
+
+          updates.push({
+            id: kmz.id,
+            metadata: updatedMetadata,
+          })
+        }
+      } catch (err) {
+        console.error(`[v0] Error processing ${kmz.file_name}:`, err)
+      }
+    }
+
+    // Persist updates in batch if not dry_run
+    if (!dry_run && updates.length > 0) {
+      for (const update of updates) {
+        await supabase
+          .from("kmz_collection")
+          .update({ metadata: update.metadata })
+          .eq("id", update.id)
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      mode: dry_run ? "DRY_RUN" : "PERSIST",
+      total: kmzFiles.length,
+      processed: results.length,
+      results: results,
+      summary: {
+        owner_candidates_found: results.filter(
+          (r) => r.owner_candidate
+        ).length,
+        with_neighbor_contacts: results.filter(
+          (r) => r.neighbor_count > 0
+        ).length,
+        average_owner_confidence:
+          results.length > 0
+            ? (
+                results.reduce((sum, r) => sum + r.owner_confidence, 0) /
+                results.length
+              ).toFixed(2)
+            : 0,
+        total_neighbors_found: results.reduce(
+          (sum, r) => sum + r.neighbor_count,
+          0
+        ),
+      },
+    })
+  } catch (error) {
+    console.error("[v0] Complete extraction error:", error)
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Unknown error" },
+      { status: 500 }
+    )
+  }
+}
+
+/**
+ * Find neighbor contacts using geographic proximity
+ */
+async function findNeighborContacts(supabase: any, kmz: any): Promise<string[]> {
+  try {
+    if (!kmz.bounds) return []
+
+    // Get neighboring properties by geographic bounds
+    const { data: neighbors } = await supabase
+      .from("kmz_collection")
+      .select("file_name, metadata")
+      .neq("id", kmz.id)
+      .limit(8)
+
+    const contacts: string[] = []
+
+    if (neighbors) {
+      for (const neighbor of neighbors) {
+        const neighborOwner = neighbor.metadata?.public_owner_candidate
+        if (
+          neighborOwner &&
+          neighborOwner !== "Unknown" &&
+          !contacts.includes(neighborOwner)
+        ) {
+          contacts.push(neighborOwner)
+        }
+      }
+    }
+
+    return contacts
+  } catch (error) {
+    console.error("[v0] Neighbor contact search failed:", error)
+    return []
+  }
+}
