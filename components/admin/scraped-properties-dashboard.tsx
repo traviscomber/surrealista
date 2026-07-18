@@ -26,6 +26,7 @@ type ScrapedProperty = {
   id: string
   external_id: string
   title: string
+  description: string | null
   location: string | null
   address: string | null
   city: string | null
@@ -49,7 +50,7 @@ async function fetchScrapedProperties(): Promise<ScrapedProperty[]> {
   const { data, error } = await supabase
     .from("properties_external")
     .select(
-      "id, external_id, title, location, address, city, region, price, price_clp, price_uf, area, area_m2, property_type, images, source, source_url, scraped_at, is_active",
+      "id, external_id, title, description, location, address, city, region, price, price_clp, price_uf, area, area_m2, property_type, images, source, source_url, scraped_at, is_active",
     )
     .eq("is_active", true)
     .order("scraped_at", { ascending: false })
@@ -402,12 +403,7 @@ export function ScrapedPropertiesDashboard({ mode = "full", initialShowFavorites
                         <dd className="mt-1 font-medium text-foreground">{formatPrice(property)}</dd>
                       </div>
                     </dl>
-                    {property.description && (
-                      <div className="mt-2 pt-3 border-t border-border">
-                        <dt className="text-xs text-muted-foreground mb-2">Descripción</dt>
-                        <dd className="text-sm leading-relaxed text-foreground whitespace-pre-wrap line-clamp-3">{property.description}</dd>
-                      </div>
-                    )}
+                    {property.description && <p className="mt-3 text-sm text-muted-foreground line-clamp-2">{property.description}</p>}
                   </div>
                 </article>
               ))}
