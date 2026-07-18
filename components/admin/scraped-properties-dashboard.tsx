@@ -1,5 +1,6 @@
 "use client"
 
+import { useMemo, useState } from "react"
 import useSWR from "swr"
 import Link from "next/link"
 import {
@@ -9,6 +10,8 @@ import {
   ExternalLink,
   MapPin,
   RefreshCw,
+  Search,
+  X,
 } from "lucide-react"
 import { createBrowserClient } from "@/lib/supabase/client"
 import { BasicImage } from "@/components/ui/basic-image"
@@ -73,11 +76,48 @@ export function ScrapedPropertiesDashboard({ mode = "full" }: { mode?: "summary"
     fetchScrapedProperties,
     { refreshInterval: 30_000, revalidateOnFocus: true },
   )
+  const [query, setQuery] = useState("")
+  const [sourceFilter, setSourceFilter] = useState("all")
+  const [regionFilter, setRegionFilter] = useState("all")
+  const [typeFilter, setTypeFilter] = useState("all")
 
-  const sources = new Set(properties.map((property) => property.source)).size
-  const regions = new Set(properties.map((property) => property.region).filter(Boolean)).size
-  const priced = properties.filter((property) => property.price_clp || property.price || property.price_uf)
-  const averageClp = priced.filter((property) => property.price_clp || property.price)
+  const sourceOptions = useMemo(() => {
+    const counts = new Map<string, number>()
+    properties.forEach((property) => counts.set(property.source, (counts.get(property.source) ?? 0) + 1))
+    return [...counts.entries()].sort((a, b) => b[1] - a[1])
+  }, [properties])
+  const regionOptions = useMemo(
+    () => [...new Set(properties.map((property) => property.region).filter((region): region is string => Boolean(region)))].sort(),
+    [properties],
+  )
+  const typeOptions = useMemo(
+    () => [...new Set(properties.map((property) => property.property_type).filter((type): type is string => Boolean(type)))].sort(),
+    [properties],
+  )
+  const filteredProperties = useMemo(() => {
+    const normalizedQuery = query.trim().toLocaleLowerCase("es")
+    return properties.filter((property) => {
+      const searchable = [property.title, property.location, property.address, property.city, property.region, property.property_type, property.source]
+        .filter(Boolean)
+        .join(" ")
+        .toLocaleLowerCase("es")
+      return (!normalizedQuery || searchable.includes(normalizedQuery))
+        && (sourceFilter === "all" || property.source === sourceFilter)
+        && (regionFilter === "all" || property.region === regionFilter)
+        && (typeFilter === "all" || property.property_type === typeFilter)
+    })
+  }, [properties, query, sourceFilter, regionFilter, typeFilter])
+  const hasFilters = Boolean(query || sourceFilter !== "all" || regionFilter !== "all" || typeFilter !== "all")
+  const clearFilters = () => {
+    setQuery("")
+    setSourceFilter("all")
+    setRegionFilter("all")
+    setTypeFilter("all")
+  }
+
+  const sources = new Set(filteredProperties.map((property) => property.source)).size
+  const regions = new Set(filteredProperties.map((property) => property.region).filter(Boolean)).size
+  const averageClp = filteredProperties.filter((property) => property.price_clp || property.price)
   const average = averageClp.length
     ? Math.round(averageClp.reduce((total, property) => total + Number(property.price_clp || property.price || 0), 0) / averageClp.length)
     : 0
@@ -100,7 +140,7 @@ export function ScrapedPropertiesDashboard({ mode = "full" }: { mode?: "summary"
     )
   }
 
-  const visibleProperties = mode === "summary" ? properties.slice(0, 4) : properties
+  const visibleProperties = mode === "summary" ? filteredProperties.slice(0, 4) : filteredProperties
 
   return (
     <div className="flex flex-col gap-6">
@@ -108,7 +148,7 @@ export function ScrapedPropertiesDashboard({ mode = "full" }: { mode?: "summary"
         <Card>
           <CardContent className="flex items-center gap-3 p-5">
             <Building2 className="h-5 w-5 text-primary" />
-            <div><p className="text-2xl font-semibold text-foreground">{properties.length}</p><p className="text-sm text-muted-foreground">Propiedades activas</p></div>
+            <div><p className="text-2xl font-semibold text-foreground">{filteredProperties.length}</p><p className="text-sm text-muted-foreground">Propiedades encontradas</p></div>
           </CardContent>
         </Card>
         <Card>
@@ -132,6 +172,58 @@ export function ScrapedPropertiesDashboard({ mode = "full" }: { mode?: "summary"
       </div>
 
       <Card>
+        <CardContent className="flex flex-col gap-4 p-4 sm:p-5">
+          <div className="flex flex-col gap-3 lg:flex-row">
+            <label className="relative min-w-0 flex-1">
+              <span className="sr-only">Buscar propiedades</span>
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Buscar por título, comuna, región..."
+                className="h-10 w-full rounded-md border border-input bg-background pl-9 pr-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-ring"
+              />
+            </label>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:flex">
+              <label>
+                <span className="sr-only">Filtrar por región</span>
+                <select value={regionFilter} onChange={(event) => setRegionFilter(event.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring lg:w-48">
+                  <option value="all">Todas las regiones</option>
+                  {regionOptions.map((region) => <option key={region} value={region}>{region}</option>)}
+                </select>
+              </label>
+              <label>
+                <span className="sr-only">Filtrar por tipo</span>
+                <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm capitalize text-foreground outline-none focus:border-primary focus:ring-2 focus:ring-ring lg:w-44">
+                  <option value="all">Todos los tipos</option>
+                  {typeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
+                </select>
+              </label>
+              {hasFilters && (
+                <Button variant="ghost" onClick={clearFilters} className="col-span-2 sm:col-span-1">
+                  <X className="mr-2 h-4 w-4" /> Limpiar
+                </Button>
+              )}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2" aria-label="Filtrar por scraper">
+            <Button size="sm" variant={sourceFilter === "all" ? "default" : "outline"} onClick={() => setSourceFilter("all")}>
+              Todos <Badge variant="secondary" className="ml-2">{properties.length}</Badge>
+            </Button>
+            {sourceOptions.map(([source, count]) => (
+              <Button key={source} size="sm" variant={sourceFilter === source ? "default" : "outline"} onClick={() => setSourceFilter(source)} className="capitalize">
+                {source.replaceAll("_", " ")} <Badge variant="secondary" className="ml-2">{count}</Badge>
+              </Button>
+            ))}
+          </div>
+          <p className="text-sm text-muted-foreground" aria-live="polite">
+            Mostrando <span className="font-medium text-foreground">{filteredProperties.length}</span> de {properties.length} propiedades
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
         <CardHeader className="flex flex-row items-start justify-between gap-4">
           <div>
             <CardTitle>{mode === "summary" ? "Propiedades scrapeadas recientes" : "Inventario scrapeado"}</CardTitle>
@@ -148,7 +240,11 @@ export function ScrapedPropertiesDashboard({ mode = "full" }: { mode?: "summary"
               <RefreshCw className="h-4 w-4 animate-spin" /> Cargando propiedades scrapeadas…
             </div>
           ) : visibleProperties.length === 0 ? (
-            <div className="py-12 text-center text-sm text-muted-foreground">Todavía no hay propiedades activas.</div>
+            <div className="flex flex-col items-center gap-3 py-12 text-center text-sm text-muted-foreground">
+              <Search className="h-8 w-8" />
+              <p>{hasFilters ? "No hay propiedades que coincidan con estos filtros." : "Todavía no hay propiedades activas."}</p>
+              {hasFilters && <Button variant="outline" size="sm" onClick={clearFilters}>Limpiar filtros</Button>}
+            </div>
           ) : (
             <div className="flex flex-col gap-4">
               {visibleProperties.map((property) => (
@@ -196,9 +292,9 @@ export function ScrapedPropertiesDashboard({ mode = "full" }: { mode?: "summary"
               ))}
             </div>
           )}
-          {mode === "summary" && properties.length > 4 && (
+          {mode === "summary" && filteredProperties.length > 4 && (
             <div className="mt-4 flex justify-end">
-              <Button asChild variant="outline"><Link href="/admin/dashboard?tab=properties">Ver las {properties.length} propiedades</Link></Button>
+              <Button asChild variant="outline"><Link href="/admin/dashboard?tab=properties">Ver las {filteredProperties.length} propiedades encontradas</Link></Button>
             </div>
           )}
         </CardContent>
