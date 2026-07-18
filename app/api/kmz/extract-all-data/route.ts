@@ -11,9 +11,14 @@ import { enhancedExtractor } from "@/lib/kmz/enhanced-owner-extraction"
  */
 export async function POST(request: NextRequest) {
   try {
-    const { batch_size = 50, dry_run = true } = await request.json()
+    let { batch_size = 50, dry_run = true } = await request.json()
     
-    console.log(`[v0] ENDPOINT CALLED: batch_size=${batch_size}, dry_run=${dry_run}, typeof=${typeof dry_run}`)
+    // Ensure dry_run is a boolean (might come as string from curl/script)
+    if (typeof dry_run === 'string') {
+      dry_run = dry_run.toLowerCase() !== 'false'
+    }
+    
+    console.log(`[v0] ENDPOINT CALLED: batch_size=${batch_size}, dry_run=${dry_run} (type: ${typeof dry_run})`)
 
     const supabase = createClient(
       process.env.SUPABASE_URL!,
