@@ -8,7 +8,15 @@
     "lint": "next lint",
     "start": "next start",
     "kmz:reindex:audit": "node scripts/reindex-all-kmz.mjs",
-    "kmz:reindex:apply": "node scripts/reindex-all-kmz.mjs --apply"
+    "kmz:reindex:apply": "node scripts/reindex-all-kmz.mjs --apply",
+    "scrape:all": "node scripts/run-scrapers.mjs --aggregate",
+    "scrape:south": "node scripts/run-scrapers.mjs --source=south --aggregate",
+    "scrape:general": "node scripts/run-scrapers.mjs --source=general --aggregate",
+    "scrape:ichiloe": "node scripts/run-scrapers.mjs --source=ichiloe",
+    "scrape:surealista": "node scripts/run-scrapers.mjs --source=surealista",
+    "scrape:camposchile": "node scripts/run-scrapers.mjs --source=camposchile",
+    "scrape:terrachiloe": "node scripts/run-scrapers.mjs --source=terrachiloe",
+    "scrape:portalterreno": "node scripts/run-scrapers.mjs --source=portalterreno"
   },
   "dependencies": {
     "@ai-sdk/openai": "latest",

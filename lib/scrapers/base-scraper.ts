@@ -12,6 +12,10 @@ export type ScraperSource =
   | 'toctoc'
   | 'icasas'
   | 'ichiloe'
+  | 'surealista'
+  | 'camposchile'
+  | 'terrachiloe'
+  | 'portalterreno'
   | 'other'
 
 export type PropertyOperation = 'venta' | 'arriendo' | 'otro'
@@ -135,11 +139,23 @@ export function parseChileanPrice(raw: string | number | null | undefined): {
   return { value: isNaN(value) ? null : value, currency }
 }
 
-/** Parse area strings like "150 m²", "150.5", "150,5 m2" */
+/** Parse area strings — supports m², hectáreas (ha), and plain numbers.
+ *  "0.5 hectáreas" → 5000 m²  |  "63 has" → 630000 m²  |  "150 m2" → 150 m²
+ */
 export function parseArea(raw: string | number | null | undefined): number | null {
   if (raw == null) return null
-  const str = String(raw).replace(/m[²2]/gi, '').replace(',', '.').trim()
-  const n = parseFloat(str)
+  const str = String(raw).trim().toLowerCase()
+  if (!str || str === '-') return null
+
+  // Hectáreas: "ha", "has", "hectárea", "hectáreas"
+  const haMatch = str.match(/^([\d.,]+)\s*(ha|has|hect[aá]rea[s]?)/)
+  if (haMatch) {
+    const n = parseFloat(haMatch[1].replace(',', '.'))
+    return isNaN(n) || n <= 0 ? null : Math.round(n * 10_000)
+  }
+
+  const cleaned = str.replace(/m[²2]/gi, '').replace(',', '.').trim()
+  const n = parseFloat(cleaned)
   return isNaN(n) || n <= 0 ? null : n
 }
 
@@ -164,6 +180,18 @@ export function normaliseRegion(raw: string | null | undefined): string | null {
   if (r.includes('aysén') || r.includes('aysen')) return 'Región de Aysén'
   if (r.includes('magallanes')) return 'Región de Magallanes'
   if (r.includes('la araucanía')) return 'Región de La Araucanía'
+  // Localidades del sur que no incluyen el nombre de región
+  if (r.includes('chiloé') || r.includes('chiloe') || r.includes('castro') || r.includes('ancud') ||
+      r.includes('quellón') || r.includes('quellon') || r.includes('dalcahue') || r.includes('chonchi') ||
+      r.includes('quemchi') || r.includes('curaco') || r.includes('quinchao') || r.includes('puqueldón') ||
+      r.includes('achao')) return 'Región de Los Lagos'
+  if (r.includes('panguipulli') || r.includes('valdivia') || r.includes('la unión') || r.includes('río bueno') ||
+      r.includes('osorno') || r.includes('puerto montt') || r.includes('frutillar') || r.includes('puerto varas') ||
+      r.includes('llanquihue') || r.includes('calbuco') || r.includes('maullín') || r.includes('maullin')) return 'Región de Los Lagos'
+  if (r.includes('coyhaique') || r.includes('cochrane') || r.includes('tortel') || r.includes('puerto aysén') ||
+      r.includes('chile chico') || r.includes('cisnes')) return 'Región de Aysén'
+  if (r.includes('punta arenas') || r.includes('puerto natales') || r.includes('porvenir') ||
+      r.includes('tierra del fuego') || r.includes('torres del paine')) return 'Región de Magallanes'
   return raw.trim()
 }
 

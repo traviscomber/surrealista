@@ -33,13 +33,23 @@ const PAGES = parseInt(getArg('pages') || '2', 10)
 const DO_AGGREGATE = hasFlag('aggregate')
 
 const ALL_REGIONS = [
+  // Sur Chile — máxima prioridad para este proyecto
+  'Región de Los Lagos',
+  'Región de Los Ríos',
+  'Región de La Araucanía',
+  'Región de Aysén',
+  'Región de Magallanes',
+  // Centro-norte como complemento
   'Región Metropolitana',
   'Región de Valparaíso',
   'Región del Biobío',
-  'Región de La Araucanía',
-  'Región de Los Lagos',
 ]
 const REGIONS = REGION_ARG ? [REGION_ARG] : ALL_REGIONS
+
+// Sources focalizadas en el sur de Chile
+const SOUTH_ONLY_SOURCES = ['ichiloe', 'surealista', 'camposchile', 'terrachiloe', 'portalterreno']
+const GENERAL_SOURCES = ['portal_inmobiliario', 'yapo', 'toctoc', 'icasas']
+const ALL_SOURCES = [...SOUTH_ONLY_SOURCES, ...GENERAL_SOURCES]
 
 // ─── Dynamic imports (ESM scrapers transpiled on-the-fly via tsx is not needed:
 //     we call the Next.js API routes directly via HTTP instead, which avoids
@@ -123,8 +133,10 @@ async function main() {
   console.log(`[coordinator] run-scrapers | operation=${OPERATION} regions=${REGIONS.length} pages=${PAGES}`)
 
   const SOURCES = SOURCE_ARG && SOURCE_ARG !== 'all'
-    ? [SOURCE_ARG]
-    : ['portal_inmobiliario', 'yapo', 'toctoc', 'icasas']
+    ? SOURCE_ARG === 'south' ? SOUTH_ONLY_SOURCES
+    : SOURCE_ARG === 'general' ? GENERAL_SOURCES
+    : [SOURCE_ARG]
+    : ALL_SOURCES
 
   const results = []
 
