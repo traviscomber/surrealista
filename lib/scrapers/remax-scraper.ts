@@ -40,7 +40,7 @@ interface RemaxApiResult {
     TransactionTypeUID: number        // 261=buy
     PropertyTypeUID:    number
     PropertyTypeDescription?: string
-    ListingDescriptions?: { Description: string }[]
+    ListingDescriptions?: { Description: string; DescriptionTypeUID: string; LanguageCode: string }[]
     ListingImages?: { FileName: string; Order: string; HasLargeImage: string }[]
     AgentId:            number
   }
@@ -96,11 +96,12 @@ function mapPropertyType(uid: number): string {
   return types[uid] ?? "Propiedad"
 }
 
-// Calculate price in UF (1 UF ≈ 38,000 CLP as reference rate)
-const UF_RATE = 38000
-function clpToUf(clp: number | null): number | null {
-  if (!clp || clp <= 0) return null
-  return Math.round((clp / UF_RATE) * 100) / 100
+// Remax Chile uses CLF (UF) as currency — ListingPrice IS already in UF
+// Convert UF to CLP for storage (1 UF ≈ 38,500 CLP, current rate)
+const UF_TO_CLP = 38500
+function ufToClp(uf: number | null): number | null {
+  if (!uf || uf <= 0) return null
+  return Math.round(uf * UF_TO_CLP)
 }
 
 // ─── Main Scraper Function ────────────────────────────────────────────────────
@@ -164,12 +165,30 @@ export async function scrapeRemax(options: {
           // Skip if no price at all
           if (!c.ListingPrice) continue
 
-          const priceClp   = c.ListingPrice ? Math.round(c.ListingPrice) : null
-          const priceUf    = clpToUf(priceClp)
-          const areaM2     = c.LivingArea ?? c.TotalArea ?? c.LotSize ?? null
+          // ListingCurrency = CLF (UF) normally, but some listings use CLP even when CLF is set.
+          // Heuristic: UF values for Chilean properties are typically between 500–100,000 UF.
+          // Values > 100,000 are almost certainly CLP — convert accordingly.
+          const rawPrice   = c.ListingPrice ?? null
+          const isInCLP    = rawPrice !== null && rawPrice > 100_000
+          const priceUf    = rawPrice ? (isInCLP ? Math.round((rawPrice / UF_TO_CLP) * 100) / 100 : Math.round(rawPrice * 100) / 100) : null
+          const priceClp   = rawPrice ? (isInCLP ? Math.round(rawPrice) : ufToClp(rawPrice)) : null
+          // Prefer LivingArea (built m²), fallback to TotalArea, then LotSize (can be hectares → skip if >50000)
+          const rawArea    = c.LivingArea ?? c.TotalArea ?? c.LotSize ?? null
+          const areaM2     = rawArea && rawArea <= 99999 ? rawArea : null
           const externalId = `remax-${c.MLSID ?? c.ListingKey}`
           const title      = c.TitleAddress || `${mapPropertyType(c.PropertyTypeUID)} en ${c.City}`
           const location   = [c.City, c.Province].filter(Boolean).join(", ")
+
+          // Pick best description: DescriptionTypeUID 629 = long, 3139 = short, 1113 = headline
+          const descriptions = c.ListingDescriptions ?? []
+          const longDesc  = descriptions.find((d) => d.DescriptionTypeUID === "629")
+          const shortDesc = descriptions.find((d) => d.DescriptionTypeUID === "3139")
+          const headline  = descriptions.find((d) => d.DescriptionTypeUID === "1113")
+          const description = (longDesc ?? shortDesc ?? headline ?? descriptions[0])
+            ?.Description
+            ?.replace(/<br\s*\/?>/gi, "\n")
+            ?.replace(/\r/g, "")
+            ?.trim() ?? null
           // Build full image URLs from ListingImages using Gryphtech CDN
           const images = (c.ListingImages ?? [])
             .sort((a, b) => Number(a.Order) - Number(b.Order))
@@ -182,12 +201,13 @@ export async function scrapeRemax(options: {
               {
                 external_id:    externalId,
                 title,
+                description,
                 source:         "remax",
                 source_url:     `https://www.remax.cl/listings/${c.ListingKey}`,
                 price:          priceClp,
                 price_clp:      priceClp,
                 price_uf:       priceUf,
-                currency:       "CLP",
+                currency:       "UF",
                 area:           areaM2,
                 area_m2:        areaM2,
                 bedrooms:       c.NumberOfBedrooms ?? null,
