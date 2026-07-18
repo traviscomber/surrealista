@@ -381,6 +381,8 @@ export function CAMPOSFolderView() {
     const siiPointResolution = metadata.sii_point_resolution || null
     const siiRecord = siiPointResolution?.record || null
     const ownerQueue = extractOwnerResearchSummary(metadata)
+    const webOwner = metadata.web_owner || null
+    const webOwnerConfidence = metadata.web_owner_confidence || null
     const confirmedOwner = selectedItem.owner || latestCbr?.companyName || latestCbr?.ownerName || null
     const candidateOwner =
       publicCandidate?.owner ||
@@ -770,6 +772,18 @@ export function CAMPOSFolderView() {
                   <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3">
                     <p className="text-[11px] uppercase tracking-wide text-amber-700">Candidato publico</p>
                     <p className="mt-1 text-sm font-medium text-amber-950">{candidateOwner}</p>
+                  </div>
+                ) : null}
+
+                {webOwner ? (
+                  <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                    <p className="text-[11px] uppercase tracking-wide text-emerald-700">Descubrimiento web</p>
+                    <p className="mt-1 text-sm font-medium text-emerald-950">{webOwner}</p>
+                    {webOwnerConfidence && (
+                      <p className="mt-2 text-xs text-emerald-700">
+                        Confianza: {Math.round(webOwnerConfidence * 100)}%
+                      </p>
+                    )}
                   </div>
                 ) : null}
 

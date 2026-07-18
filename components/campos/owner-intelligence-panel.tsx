@@ -62,6 +62,9 @@ export interface OwnerIntelligencePanelProps {
     confirmed_owner?: string | null
     cbr_document_url?: string | null
     owner_confidence?: number
+    web_owner?: string | null
+    web_owner_confidence?: number | null
+    web_owner_evidence_url?: string | null
   }
   onRefresh?: (kmzId: string) => Promise<void>
   onConfirm?: (kmzId: string, ownerName: string) => Promise<void>
@@ -253,6 +256,34 @@ export function OwnerIntelligencePanel({
                 <p className="text-xs text-blue-700">Evidence found</p>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Web Search Discovery */}
+        {metadata.web_owner && (
+          <div className="flex items-center justify-between rounded-lg bg-emerald-50 p-3">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+              <div>
+                <p className="text-sm font-medium text-emerald-900">Web Search Discovery</p>
+                <p className="text-xs text-emerald-700">{metadata.web_owner}</p>
+                {metadata.web_owner_confidence && (
+                  <p className="text-xs text-emerald-600">
+                    Confianza: {Math.round(metadata.web_owner_confidence * 100)}%
+                  </p>
+                )}
+              </div>
+            </div>
+            {metadata.web_owner_evidence_url && (
+              <a
+                href={metadata.web_owner_evidence_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-emerald-600 hover:text-emerald-700"
+              >
+                <ExternalLink className="h-4 w-4" />
+              </a>
+            )}
           </div>
         )}
 
