@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import {
+  buildPublicOwnerResearchLeads,
+  summarizePublicOwnerLeads,
+} from "@/lib/owners/public-owner-research"
 import { parseRolParts } from "@/lib/sii/types"
 
 export const runtime = "nodejs"
@@ -7,6 +11,8 @@ export const maxDuration = 180
 
 type QueueStatus = "pending" | "evidence-found" | "confirmed" | "skipped"
 type QueueTier = "critical" | "high" | "medium" | "low"
+type PublicOwnerLeads = ReturnType<typeof buildPublicOwnerResearchLeads>
+type PublicOwnerLeadsSummary = ReturnType<typeof summarizePublicOwnerLeads>
 
 type QueueRequest = {
   limit?: number
@@ -48,6 +54,8 @@ type QueueRecord = {
   owner?: string | null
   rol_numbers: string[]
   owner_research_queue: QueueEntry
+  owner_research_leads?: PublicOwnerLeads
+  owner_research_leads_summary?: PublicOwnerLeadsSummary
 }
 
 type RoleQueueItem = {
@@ -235,6 +243,26 @@ function getQueueStatus(record: KmzRecord): QueueStatus {
   }
 
   return "pending"
+}
+
+function getOwnerCandidate(metadata: Record<string, any>) {
+  return metadata.public_owner_candidate || metadata.latest_owner_evidence || null
+}
+
+function getSiiRecord(metadata: Record<string, any>) {
+  return metadata.sii_point_resolution?.record || null
+}
+
+function buildLeadsForRecord(record: KmzRecord) {
+  const metadata = record.metadata || {}
+  return buildPublicOwnerResearchLeads({
+    kmzId: record.id,
+    fileName: record.file_name,
+    region: record.region,
+    roles: record.rol_numbers || [],
+    ownerCandidate: getOwnerCandidate(metadata),
+    siiRecord: getSiiRecord(metadata),
+  })
 }
 
 function getPriorityTier(score: number): QueueTier {
@@ -599,6 +627,8 @@ function toQueueRecord(record: KmzRecord, roleFrequency: Map<string, number>, fo
       status: effectiveStatus,
       previousGeneratedAt: stored?.generatedAt || null,
     },
+    owner_research_leads: record.metadata?.owner_research_leads || [],
+    owner_research_leads_summary: record.metadata?.owner_research_leads_summary || undefined,
   }
 }
 
@@ -675,7 +705,6 @@ export async function POST(request: Request) {
     const persist = body.persist === true || body.dryRun !== true
     const onlyMissingOwner = body.onlyMissingOwner !== false
     const onlyWithRole = body.onlyWithRole !== false
-    const forceRefresh = body.forceRefresh === true
 
     const supabase = getSupabaseAdmin()
     const { allRecords, candidateRecords } = await loadQueueRecords(
@@ -694,9 +723,14 @@ export async function POST(request: Request) {
       const chunkResults = await Promise.all(
         chunk.map(async (record) => {
           const queueEntry = computeQueueEntry(record, roleFrequency)
+          const publicOwnerLeads = buildLeadsForRecord(record)
+          const publicOwnerLeadsSummary = summarizePublicOwnerLeads(publicOwnerLeads)
           const nextMetadata = {
             ...(record.metadata || {}),
             owner_research_queue: queueEntry,
+            owner_research_leads: publicOwnerLeads,
+            owner_research_leads_summary: publicOwnerLeadsSummary,
+            owner_research_leads_generated_at: new Date().toISOString(),
           }
 
           if (persist) {
@@ -717,6 +751,8 @@ export async function POST(request: Request) {
             owner: record.owner,
             rol_numbers: getResearchableRoles(record.rol_numbers),
             owner_research_queue: queueEntry,
+            owner_research_leads: publicOwnerLeads,
+            owner_research_leads_summary: publicOwnerLeadsSummary,
           } satisfies QueueRecord
         }),
       )
@@ -726,6 +762,10 @@ export async function POST(request: Request) {
 
     results.sort(sortQueue)
     const roleQueue = buildRoleQueue(results)
+    const publicLeadCounts = {
+      total: results.reduce((sum, item) => sum + (item.owner_research_leads?.length || 0), 0),
+      withLeads: results.filter((item) => (item.owner_research_leads?.length || 0) > 0).length,
+    }
 
     return NextResponse.json({
       success: true,
@@ -736,6 +776,7 @@ export async function POST(request: Request) {
       queueCounts: buildQueueCounts(results.map((item) => item.owner_research_queue)),
       roleQueueCounts: buildQueueCounts(roleQueue),
       roleQueueTotal: roleQueue.length,
+      publicLeadCounts,
       roleQueueTop: roleQueue.slice(0, 25),
       top: results.slice(0, 25),
     })
