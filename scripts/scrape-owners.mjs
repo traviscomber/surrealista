@@ -202,13 +202,23 @@ async function loadCandidates() {
   
   while (true) {
     const offset = page * pageSize
+    console.log(`[debug] Fetching page ${page} (offset=${offset}, limit=${pageSize})...`)
     const res = await sbFetch(
       `kmz_collection?select=id,file_name,metadata&order=id.asc&limit=${pageSize}&offset=${offset}`
     )
     const batch = await res.json()
-    if (!batch || batch.length === 0) break
+    console.log(`[debug] Got ${batch ? batch.length : 0} rows`)
+    if (!batch || batch.length === 0) {
+      console.log(`[debug] No more rows, stopping pagination`)
+      break
+    }
     all.push(...batch)
-    console.log(`[debug] Loaded page ${page + 1}: ${batch.length} rows (total: ${all.length})`)
+    console.log(`[debug] Loaded page ${page}: ${batch.length} rows (total: ${all.length})`)
+    // Stop if we got fewer rows than pageSize (means we're at the end)
+    if (batch.length < pageSize) {
+      console.log(`[debug] Got fewer than ${pageSize} rows, must be last page`)
+      break
+    }
     page++
   }
   console.log(`[debug] Loaded all ${all.length} total KMZ from DB`)
