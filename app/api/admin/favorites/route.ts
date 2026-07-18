@@ -1,16 +1,17 @@
-import { createServerClient } from '@/lib/supabase/server'
-import { validateAdminAccess } from '@/lib/scrapers/route-auth'
+import { createClient } from '@/lib/supabase/server'
+import { validateScraperAccess } from '@/lib/scrapers/route-auth'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
-  const authOk = await validateAdminAccess(req)
-  if (!authOk) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const auth = await validateScraperAccess(req)
+  if (!auth.authorized) return auth.response
 
   const { property_id, action } = await req.json() // action: 'add' | 'remove' | 'toggle'
   if (!property_id) return NextResponse.json({ error: 'Missing property_id' }, { status: 400 })
 
-  const supabase = await createServerClient()
-  const ADMIN_USER_ID = 'admin-cli' // Fixed user_id for admin
+  const supabase = await createClient()
+  // Fixed UUID for admin-cli (generated from consistent string)
+  const ADMIN_USER_ID = '00000000-0000-4000-8000-000000000000'
 
   if (action === 'toggle') {
     // Check if exists
@@ -54,17 +55,24 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  const authOk = await validateAdminAccess(req)
-  if (!authOk) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  try {
+    const auth = await validateScraperAccess(req)
+    console.log('[v0] GET favorites - auth:', auth)
+    if (!auth.authorized) return auth.response
 
-  const supabase = await createServerClient()
-  const ADMIN_USER_ID = 'admin-cli'
+    const supabase = await createClient()
+    const ADMIN_USER_ID = '00000000-0000-4000-8000-000000000000'
 
-  const { data, error } = await supabase
-    .from('property_favorites')
-    .select('property_id')
-    .eq('user_id', ADMIN_USER_ID)
+    const { data, error } = await supabase
+      .from('property_favorites')
+      .select('property_id')
+      .eq('user_id', ADMIN_USER_ID)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ favorites: data.map((f) => f.property_id) })
+    console.log('[v0] GET favorites - data:', data, 'error:', error?.message)
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    return NextResponse.json({ favorites: data.map((f) => f.property_id) })
+  } catch (err) {
+    console.error('[v0] GET favorites error:', err)
+    return NextResponse.json({ error: (err as Error).message }, { status: 500 })
+  }
 }
