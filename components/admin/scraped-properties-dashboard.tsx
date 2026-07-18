@@ -70,6 +70,17 @@ function getArea(property: ScrapedProperty) {
   return area ? `${new Intl.NumberFormat("es-CL").format(area)} m²` : "Sin superficie"
 }
 
+const SCRAPER_SOURCES = [
+  { key: "ichiloe", label: "iChiloe" },
+  { key: "camposchile", label: "CamposChile" },
+  { key: "terrachiloe", label: "TerraChiloe" },
+  { key: "portalterreno", label: "PortalTerreno" },
+  { key: "portal_inmobiliario", label: "Portal Inmobiliario" },
+  { key: "yapo", label: "Yapo" },
+  { key: "toctoc", label: "TocToc" },
+  { key: "icasas", label: "iCasas" },
+] as const
+
 export function ScrapedPropertiesDashboard({ mode = "full" }: { mode?: "summary" | "full" }) {
   const { data: properties = [], error, isLoading, mutate } = useSWR(
     "admin-scraped-properties",
@@ -80,23 +91,27 @@ export function ScrapedPropertiesDashboard({ mode = "full" }: { mode?: "summary"
   const [sourceFilter, setSourceFilter] = useState("all")
   const [regionFilter, setRegionFilter] = useState("all")
   const [typeFilter, setTypeFilter] = useState("all")
+  const externalProperties = useMemo(
+    () => properties.filter((property) => property.source !== "surealista"),
+    [properties],
+  )
 
   const sourceOptions = useMemo(() => {
     const counts = new Map<string, number>()
-    properties.forEach((property) => counts.set(property.source, (counts.get(property.source) ?? 0) + 1))
-    return [...counts.entries()].sort((a, b) => b[1] - a[1])
-  }, [properties])
+    externalProperties.forEach((property) => counts.set(property.source, (counts.get(property.source) ?? 0) + 1))
+    return SCRAPER_SOURCES.map((source) => ({ ...source, count: counts.get(source.key) ?? 0 }))
+  }, [externalProperties])
   const regionOptions = useMemo(
-    () => [...new Set(properties.map((property) => property.region).filter((region): region is string => Boolean(region)))].sort(),
-    [properties],
+    () => [...new Set(externalProperties.map((property) => property.region).filter((region): region is string => Boolean(region)))].sort(),
+    [externalProperties],
   )
   const typeOptions = useMemo(
-    () => [...new Set(properties.map((property) => property.property_type).filter((type): type is string => Boolean(type)))].sort(),
-    [properties],
+    () => [...new Set(externalProperties.map((property) => property.property_type).filter((type): type is string => Boolean(type)))].sort(),
+    [externalProperties],
   )
   const filteredProperties = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase("es")
-    return properties.filter((property) => {
+    return externalProperties.filter((property) => {
       const searchable = [property.title, property.location, property.address, property.city, property.region, property.property_type, property.source]
         .filter(Boolean)
         .join(" ")
@@ -106,7 +121,7 @@ export function ScrapedPropertiesDashboard({ mode = "full" }: { mode?: "summary"
         && (regionFilter === "all" || property.region === regionFilter)
         && (typeFilter === "all" || property.property_type === typeFilter)
     })
-  }, [properties, query, sourceFilter, regionFilter, typeFilter])
+  }, [externalProperties, query, sourceFilter, regionFilter, typeFilter])
   const hasFilters = Boolean(query || sourceFilter !== "all" || regionFilter !== "all" || typeFilter !== "all")
   const clearFilters = () => {
     setQuery("")
@@ -209,16 +224,16 @@ export function ScrapedPropertiesDashboard({ mode = "full" }: { mode?: "summary"
           </div>
           <div className="flex flex-wrap gap-2" aria-label="Filtrar por scraper">
             <Button size="sm" variant={sourceFilter === "all" ? "default" : "outline"} onClick={() => setSourceFilter("all")}>
-              Todos <Badge variant="secondary" className="ml-2">{properties.length}</Badge>
+              Todos <Badge variant="secondary" className="ml-2">{externalProperties.length}</Badge>
             </Button>
-            {sourceOptions.map(([source, count]) => (
-              <Button key={source} size="sm" variant={sourceFilter === source ? "default" : "outline"} onClick={() => setSourceFilter(source)} className="capitalize">
-                {source.replaceAll("_", " ")} <Badge variant="secondary" className="ml-2">{count}</Badge>
+            {sourceOptions.map((source) => (
+              <Button key={source.key} size="sm" variant={sourceFilter === source.key ? "default" : "outline"} onClick={() => setSourceFilter(source.key)}>
+                {source.label} <Badge variant="secondary" className="ml-2">{source.count}</Badge>
               </Button>
             ))}
           </div>
           <p className="text-sm text-muted-foreground" aria-live="polite">
-            Mostrando <span className="font-medium text-foreground">{filteredProperties.length}</span> de {properties.length} propiedades
+            Mostrando <span className="font-medium text-foreground">{filteredProperties.length}</span> de {externalProperties.length} propiedades externas
           </p>
         </CardContent>
       </Card>

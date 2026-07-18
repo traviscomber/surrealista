@@ -65,14 +65,6 @@ const SOURCES = [
     color: "emerald",
   },
   {
-    key: "surealista",
-    label: "Sur-Realista",
-    url: "surealista.cl",
-    focus: "Los Lagos → Magallanes",
-    type: "south",
-    color: "emerald",
-  },
-  {
     key: "camposchile",
     label: "CamposChile",
     url: "camposchile.cl",
@@ -433,7 +425,7 @@ export function ScrapersPanel() {
 
   const southSources = SOURCES.filter((s) => s.type === "south")
   const generalSources = SOURCES.filter((s) => s.type === "general")
-  const southTotal = sourceStats.filter((s) => ["ichiloe","surealista","camposchile","terrachiloe","portalterreno"].includes(s.source)).reduce((a, s) => a + s.total, 0)
+  const southTotal = sourceStats.filter((s) => ["ichiloe", "camposchile", "terrachiloe", "portalterreno"].includes(s.source)).reduce((a, s) => a + s.total, 0)
 
   return (
     <div className="space-y-6">
