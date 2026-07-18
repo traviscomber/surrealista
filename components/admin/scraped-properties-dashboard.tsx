@@ -58,10 +58,20 @@ async function fetchScrapedProperties(): Promise<ScrapedProperty[]> {
   return (data ?? []) as ScrapedProperty[]
 }
 
+const UF_RATE = 38_500 // 1 UF ≈ CLP 38.500 (referencia)
+
+function toUF(property: ScrapedProperty): number | null {
+  // price_uf stored directly (e.g. Remax uses UF natively) — valid range 1–100k UF
+  if (property.price_uf && property.price_uf >= 1 && property.price_uf <= 100_000) return property.price_uf
+  // Fall back to CLP conversion — only if CLP is in a realistic range (< 50 billion)
+  const clp = property.price_clp ?? property.price
+  if (clp && clp > 0 && clp < 50_000_000_000) return Math.round((clp / UF_RATE) * 10) / 10
+  return null
+}
+
 function formatPrice(property: ScrapedProperty) {
-  if (property.price_uf) return `UF ${new Intl.NumberFormat("es-CL").format(property.price_uf)}`
-  const clp = property.price_clp || property.price
-  if (clp) return new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(clp)
+  const uf = toUF(property)
+  if (uf) return `UF ${new Intl.NumberFormat("es-CL", { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(uf)}`
   return "Precio no informado"
 }
 
@@ -198,9 +208,10 @@ export function ScrapedPropertiesDashboard({ mode = "full", initialShowFavorites
 
   const sources = new Set(filteredProperties.map((property) => property.source)).size
   const regions = new Set(filteredProperties.map((property) => property.region).filter(Boolean)).size
-  const averageClp = filteredProperties.filter((property) => property.price_clp || property.price)
-  const average = averageClp.length
-    ? Math.round(averageClp.reduce((total, property) => total + Number(property.price_clp || property.price || 0), 0) / averageClp.length)
+  // Only include realistic UF values (1–100.000 UF) to avoid CLP-stored-as-UF outliers
+  const propsWithPrice = filteredProperties.filter((p) => { const uf = toUF(p); return uf !== null && uf >= 1 && uf <= 100_000 })
+  const averageUF = propsWithPrice.length
+    ? Math.round(propsWithPrice.reduce((sum, p) => sum + (toUF(p) ?? 0), 0) / propsWithPrice.length)
     : 0
 
   if (error) {
@@ -247,7 +258,12 @@ export function ScrapedPropertiesDashboard({ mode = "full", initialShowFavorites
         <Card>
           <CardContent className="flex items-center gap-3 p-5">
             <CircleDollarSign className="h-5 w-5 text-primary" />
-            <div><p className="text-lg font-semibold text-foreground">{average ? new Intl.NumberFormat("es-CL", { notation: "compact", style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(average) : "Sin datos"}</p><p className="text-sm text-muted-foreground">Precio promedio CLP</p></div>
+            <div>
+              <p className="text-lg font-semibold text-foreground">
+                {averageUF ? `UF ${new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 }).format(averageUF)}` : "Sin datos"}
+              </p>
+              <p className="text-sm text-muted-foreground">Precio promedio UF</p>
+            </div>
           </CardContent>
         </Card>
       </div>
