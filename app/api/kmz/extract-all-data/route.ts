@@ -12,6 +12,8 @@ import { enhancedExtractor } from "@/lib/kmz/enhanced-owner-extraction"
 export async function POST(request: NextRequest) {
   try {
     const { batch_size = 50, dry_run = true } = await request.json()
+    
+    console.log(`[v0] ENDPOINT CALLED: batch_size=${batch_size}, dry_run=${dry_run}, typeof=${typeof dry_run}`)
 
     const supabase = createClient(
       process.env.SUPABASE_URL!,
@@ -134,7 +136,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Persist updates in batch if not dry_run
+    console.log(`[v0] PERSIST DECISION: !dry_run=${!dry_run}, updates.length=${updates.length}, should_persist=${!dry_run && updates.length > 0}`)
+    
     if (!dry_run && updates.length > 0) {
+      console.log(`[v0] PERSISTING ${updates.length} updates to database...`)
       let successCount = 0
       let errorCount = 0
       
