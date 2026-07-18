@@ -21,12 +21,17 @@ interface RuraProperty {
   descripcion?: string
 }
 
-async function fetchRuraCatalog(): Promise<string> {
-  const res = await fetch(`${BASE}/venta/parcelas-y-terrenos`, {
+const CATALOG_PATHS = [
+  '/venta/parcelas-y-terrenos',
+  '/venta/campos',
+]
+
+async function fetchRuraCatalog(path: string): Promise<string> {
+  const res = await fetch(`${BASE}${path}`, {
     headers: HEADERS,
     signal: AbortSignal.timeout(60_000),
   })
-  if (!res.ok) throw new Error(`rura ${BASE}/venta/parcelas-y-terrenos → ${res.status}`)
+  if (!res.ok) throw new Error(`rura ${BASE}${path} → ${res.status}`)
   return res.text()
 }
 
@@ -35,34 +40,52 @@ function parseRuraProperties(html: string): RuraProperty[] {
   const $ = cheerio.load(html)
   const properties: RuraProperty[] = []
 
-  $('a[href*="/propiedad/"], a[href*="/proyecto/"]').each((_, element) => {
+  // Rura renders each listing as a card with stable data-testid hooks
+  $('[data-testid="property-card"]').each((_, element) => {
     const card = $(element)
-    const href = card.attr('href') ?? ''
-    if (!href.includes('/propiedad/')) return
+    const anchor = card.find('a[href*="/propiedad/"]').first()
+    const href = (anchor.attr('href') ?? '').split(/[?#]/)[0]
+    const title = card.find('[data-testid="property-card-title"]').text().replace(/\s+/g, ' ').trim()
+      || (anchor.attr('aria-label') ?? '').trim()
+    if (!href || !title) return
 
-    const parent = card.closest('[class*="p-4"], [class*="card"], article, [role="article"]')
-    const title = parent.find('h3, h2, [class*="title"]').first().text().trim() || card.text().trim()
-    const image = parent.find('img').first()
-    const imageUrl = image.attr('src') || image.attr('data-lazy')
-    const description = parent.find('p, [class*="description"]').first().text().trim()
+    const location = card.find('[data-testid="property-card-location"]').text().replace(/\s+/g, ' ').trim()
+    const price = card.find('[data-testid="property-card-price"]').text().replace(/\s+/g, ' ').trim()
 
-    const locationText = parent.find('[class*="location"], [class*="region"], svg + div, .text-sm').text()
-    const areaMatch = description.match(/([\d.,]+)\s*m²/) || title.match(/([\d.,]+)\s*m²/)
-    const priceMatch = parent.text().match(/\$\s*([\d.,]+)|Desde\s*\$?\s*([\d.,]+)/) || card.text().match(/\$\s*([\d.,]+)/)
-    const price = priceMatch ? `$${priceMatch[1] || priceMatch[2]}` : undefined
+    // A badge above the title states the property type ("Terreno Rural", "Campo", ...).
+    // Featured listings show a "Destacado" badge first, so scan all badges and fall back to the title.
+    const badges = card.find('.inline-flex.items-center')
+      .map((__, el) => $(el).text().replace(/\s+/g, ' ').trim().toLowerCase())
+      .get()
+    const typeSource = `${badges.join(' ')} ${title.toLowerCase()}`
+    const type = typeSource.includes('parcela')
+      ? 'parcela'
+      : typeSource.includes('terreno')
+        ? 'terreno'
+        : typeSource.includes('campo')
+          ? 'campo'
+          : 'parcela'
 
-    if (!title || !href) return
+    // Area appears as its own line near the price ("6 hectáreas", "5.000 m²")
+    const areaText = card.find('span, div')
+      .filter((__, el) => /^[\d.,]+\s*(?:hect[aá]reas?|has?|m²|m2)$/i.test($(el).text().trim()))
+      .first()
+      .text()
+      .trim()
+
+    const image = card.find('[data-testid="property-image"], img').first()
+    const imageUrl = image.attr('src') || image.attr('data-lazy') || image.attr('data-src')
 
     properties.push({
       id: href.split('/').pop() || `rura-${Math.random()}`,
       titulo: title.slice(0, 400),
       url: href.startsWith('http') ? href : `${BASE}${href}`,
-      precio: price,
-      area: areaMatch ? areaMatch[1] : undefined,
-      ubicacion: locationText || '',
+      precio: price || undefined,
+      area: areaText || undefined,
+      ubicacion: location,
       imagen: imageUrl && imageUrl.startsWith('http') ? imageUrl : undefined,
-      tipo: 'parcela',
-      descripcion: description,
+      tipo: type,
+      descripcion: '',
     })
   })
 
@@ -81,74 +104,51 @@ function mapToRaw(property: RuraProperty, operation: 'venta' | 'arriendo' = 'ven
     propertyType: property.tipo || 'parcela',
     operation,
     region: normaliseRegion(property.ubicacion),
-    commune: property.ubicacion ? property.ubicacion.split(',').pop()?.trim() ?? null : null,
+    commune: property.ubicacion ? property.ubicacion.split(',')[0]?.trim() || null : null,
     description: property.descripcion || null,
     images: property.imagen ? [property.imagen] : [],
     sourceUrl: property.url,
   }
 }
 
-export async function scrapeRura(opts?: { pages?: number; types?: string[] }): Promise<ScrapeResult> {
-  const { pages = 2 } = opts || {}
+export async function scrapeRura(_opts?: { pages?: number; types?: string[] }): Promise<ScrapeResult> {
+  const start = Date.now()
   const allRaw: RawProperty[] = []
   const errors: string[] = []
   const seen = new Set<string>()
 
-  try {
-    const html = await fetchRuraCatalog()
-    const properties = parseRuraProperties(html)
+  for (const path of CATALOG_PATHS) {
+    const operation: 'venta' | 'arriendo' = path.startsWith('/arriendo') ? 'arriendo' : 'venta'
+    try {
+      const html = await fetchRuraCatalog(path)
+      const batch = parseRuraProperties(html)
+        .map((property) => mapToRaw(property, operation))
+        .filter((property): property is RawProperty => property !== null)
+        .filter((property) => {
+          if (seen.has(property.externalId)) return false
+          seen.add(property.externalId)
+          return true
+        })
 
-    const batch = properties
-      .map((property) => mapToRaw(property, 'venta'))
-      .filter((property): property is RawProperty => property !== null)
-      .filter((property) => {
-        if (seen.has(property.externalId)) return false
-        seen.add(property.externalId)
-        return true
-      })
-
-    allRaw.push(...batch)
-
-    if (pages > 1) {
-      for (let page = 2; page <= pages; page++) {
-        try {
-          const pageUrl = `${BASE}/venta/parcelas-y-terrenos?pagina=${page}`
-          const res = await fetch(pageUrl, {
-            headers: HEADERS,
-            signal: AbortSignal.timeout(60_000),
-          })
-          if (!res.ok) break
-          const pageHtml = await res.text()
-          const pageProps = parseRuraProperties(pageHtml)
-            .map((p) => mapToRaw(p, 'venta'))
-            .filter((p): p is RawProperty => p !== null)
-            .filter((p) => {
-              if (seen.has(p.externalId)) return false
-              seen.add(p.externalId)
-              return true
-            })
-
-          if (pageProps.length === 0) break
-          allRaw.push(...pageProps)
-          await new Promise((r) => setTimeout(r, 600 + Math.random() * 400))
-        } catch (err) {
-          errors.push(`rura/page${page}: ${(err as Error).message}`)
-          break
-        }
-      }
+      allRaw.push(...batch)
+      await new Promise((resolve) => setTimeout(resolve, 600 + Math.random() * 400))
+    } catch (err) {
+      errors.push(`rura${path}: ${(err as Error).message}`)
     }
-  } catch (err) {
-    errors.push(`rura/catalogo: ${(err as Error).message}`)
   }
 
-  const normalized = allRaw.map(normaliseProperty).filter((p) => p !== null)
+  const normalised = await Promise.all(allRaw.map(normaliseProperty))
+  const dbResult = await upsertProperties(normalised)
+  errors.push(...dbResult.errors)
 
-  return {
-    scraperName: 'rura',
-    timestamp: new Date().toISOString(),
-    itemsScraped: allRaw.length,
-    itemsInserted: 0,
+  const result: Omit<ScrapeResult, 'source'> = {
+    found: allRaw.length,
+    inserted: dbResult.inserted,
+    updated: dbResult.updated,
+    skipped: dbResult.skipped,
     errors,
-    ...(await upsertProperties(normalized, 'rura')),
+    durationMs: Date.now() - start,
   }
+  await logScrapeRun('rura', result)
+  return { source: 'rura', ...result }
 }
