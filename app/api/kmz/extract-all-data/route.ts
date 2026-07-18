@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { EnhancedOwnerExtractor } from "@/lib/kmz/enhanced-owner-extraction"
+import { enhancedExtractor } from "@/lib/kmz/enhanced-owner-extraction"
 
 /**
  * MEGA ENDPOINT: Extract all owner data in one pass
@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     // Get KMZ files that need enrichment
     const { data: allKmz, error: fetchError } = await supabase
       .from("kmz_collection")
-      .select("id, file_name, metadata, bounds, roi_numbers")
+      .select("id, file_name, metadata")
       .limit(batch_size + 500)
 
     if (fetchError) {
@@ -39,14 +39,13 @@ export async function POST(request: NextRequest) {
       )
       .slice(0, batch_size)
 
-    const extractor = new EnhancedOwnerExtractor()
     const results = []
     const updates = []
 
     for (const kmz of kmzFiles) {
       try {
         // 1. EXTRACT OWNERS from filename
-        const ownerCandidates = extractor.extract(
+        const ownerCandidates = enhancedExtractor.extract(
           kmz.file_name,
           kmz.metadata?.description
         )
@@ -56,13 +55,13 @@ export async function POST(request: NextRequest) {
             : { name: null, confidence: 0, type: "unknown" }
 
         // 2. EXTRACT ROL INFO from metadata
-        const rolInfo = kmz.roi_numbers
+        const rolInfo = kmz.metadata?.rol
           ? {
-              rols: Array.isArray(kmz.roi_numbers)
-                ? kmz.roi_numbers
-                : [kmz.roi_numbers],
-              count: Array.isArray(kmz.roi_numbers)
-                ? kmz.roi_numbers.length
+              rols: Array.isArray(kmz.metadata.rol)
+                ? kmz.metadata.rol
+                : [kmz.metadata.rol],
+              count: Array.isArray(kmz.metadata.rol)
+                ? kmz.metadata.rol.length
                 : 1,
               updated_at: new Date().toISOString(),
             }
@@ -162,9 +161,7 @@ export async function POST(request: NextRequest) {
  */
 async function findNeighborContacts(supabase: any, kmz: any): Promise<string[]> {
   try {
-    if (!kmz.bounds) return []
-
-    // Get neighboring properties by geographic bounds
+    // Get neighboring properties by location
     const { data: neighbors } = await supabase
       .from("kmz_collection")
       .select("file_name, metadata")
