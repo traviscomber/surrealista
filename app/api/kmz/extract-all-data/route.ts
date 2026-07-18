@@ -140,13 +140,17 @@ export async function POST(request: NextRequest) {
       
       for (const update of updates) {
         try {
-          const { error } = await supabase
+          const { error, data } = await supabase
             .from("kmz_collection")
             .update({ metadata: update.metadata })
             .eq("id", update.id)
+            .select()
           
           if (error) {
             console.error(`[v0] Failed to update KMZ ${update.id}:`, error.message)
+            errorCount++
+          } else if (!data || data.length === 0) {
+            console.warn(`[v0] Update had no effect for KMZ ${update.id}`)
             errorCount++
           } else {
             successCount++
