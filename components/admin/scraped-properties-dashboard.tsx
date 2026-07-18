@@ -17,7 +17,7 @@ import {
   X,
 } from "lucide-react"
 import { createBrowserClient } from "@/lib/supabase/client"
-import { BasicImage } from "@/components/ui/basic-image"
+
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -351,7 +351,7 @@ export function ScrapedPropertiesDashboard({ mode = "full", initialShowFavorites
               {visibleProperties.map((property) => (
                 <article key={property.id} className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4 md:flex-row">
                   <div className="aspect-[4/3] w-full shrink-0 overflow-hidden rounded-md bg-muted md:w-44">
-                    <BasicImage
+                    <img
                       src={property.images?.[0] || "/placeholder.svg"}
                       alt={`Vista de ${property.title}`}
                       className="h-full w-full object-cover"
