@@ -471,6 +471,36 @@ export function ScrapersPanel() {
             Actualizar
           </Button>
           <Button
+            size="sm"
+            className="gap-2 bg-emerald-600 hover:bg-emerald-700"
+            onClick={async () => {
+              setRunningAll(true)
+              try {
+                const res = await fetch('/api/scrape/execute-south', {
+                  method: 'POST',
+                  headers: { 'X-Site-Access-Token': 'srmagica', 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ pages: 3 }),
+                })
+                const result = await res.json()
+                console.log('[v0] South complete result:', result)
+                await new Promise((r) => setTimeout(r, 1500))
+                await fetchStats()
+              } catch (err) {
+                console.error('[v0] South execute error:', err)
+              } finally {
+                setRunningAll(false)
+              }
+            }}
+            disabled={runningAll}
+          >
+            {runningAll ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <PlayCircle className="h-3.5 w-3.5" />
+            )}
+            Sur Completo (3 págs)
+          </Button>
+          <Button
             variant="outline"
             size="sm"
             className="gap-2"
@@ -478,7 +508,7 @@ export function ScrapersPanel() {
             disabled={runningAll}
           >
             <PlayCircle className="h-3.5 w-3.5 text-emerald-600" />
-            Ejecutar Sur
+            Ejecutar Sur (1 pág)
           </Button>
           <Button
             size="sm"
