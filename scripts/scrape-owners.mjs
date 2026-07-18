@@ -1,302 +1,372 @@
 #!/usr/bin/env node
 /**
- * Standalone Owner Scraper
+ * SEA Owner Scraper
+ * -----------------
+ * Enriches KMZ records with the real "Titular" (legal owner / company) by
+ * matching each property against Chile's SEA (Servicio de Evaluación Ambiental)
+ * public project database.
  *
- * Enriches KMZ properties with real owner leads by:
- *  1. Reading resolved SII data (ROL, direccion, comuna) already in metadata
- *  2. Running real web searches (Bing) with Playwright/Chromium
- *  3. Extracting owner candidates with OpenAI GPT-4o-mini (anti-hallucination)
- *  4. Writing leads back to metadata.owner_research_leads via Supabase REST
+ * SEA is one of the few public sources reachable from a datacenter IP that
+ * exposes real owner names (empresas / personas) tied to a project, comuna and
+ * region. We match KMZ property names + commune against SEA projects.
+ *
+ * Data source: https://seia.sea.gob.cl/busqueda/buscarProyectoResumenAction.php
  *
  * Usage:
- *   node --env-file-if-exists=/vercel/share/.env.project scripts/scrape-owners.mjs [--limit N] [--offset N] [--dry-run] [--force]
+ *   node --env-file-if-exists=/vercel/share/.env.project scripts/scrape-owners.mjs [options]
  *
- * Env required: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, OPENAI_API_KEY
+ * Options:
+ *   --limit N      Process at most N KMZ records (default: 50)
+ *   --offset N     Skip the first N candidates (default: 0)
+ *   --dry-run      Do not write to the database, just log what would happen
+ *   --force        Re-process records that already have a sea_titular
+ *   --delay MS     Delay between SEA queries in ms (default: 1500)
+ *   --min-score N  Minimum match score 0-1 to accept (default: 0.55)
  */
 
 import { chromium } from "playwright"
 
-// ---------- Config ----------
-const SUPABASE_URL = process.env.SUPABASE_URL
+// ----------------------------- Config ------------------------------------
+const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY
+const SEA_ENDPOINT = "https://seia.sea.gob.cl/busqueda/buscarProyectoResumenAction.php"
+const SEA_SESSION_URL = "https://seia.sea.gob.cl/busqueda/buscarProyecto.php"
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error("[scraper] Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY")
-  process.exit(1)
-}
-if (!OPENAI_API_KEY) {
-  console.error("[scraper] Missing OPENAI_API_KEY")
+  console.error("[scraper] Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY env vars")
   process.exit(1)
 }
 
-// ---------- CLI args ----------
-const args = process.argv.slice(2)
-function argValue(name, fallback) {
-  const idx = args.indexOf(name)
-  if (idx !== -1 && args[idx + 1]) return args[idx + 1]
-  return fallback
+// --------------------------- CLI args -------------------------------------
+function arg(name, def) {
+  const i = process.argv.indexOf(`--${name}`)
+  if (i === -1) return def
+  const next = process.argv[i + 1]
+  if (!next || next.startsWith("--")) return true // boolean flag
+  return next
 }
-const LIMIT = parseInt(argValue("--limit", "25"), 10)
-const OFFSET = parseInt(argValue("--offset", "0"), 10)
-const DRY_RUN = args.includes("--dry-run")
-const FORCE = args.includes("--force")
-const SEARCH_DELAY_MS = parseInt(argValue("--delay", "3500"), 10)
+const LIMIT = parseInt(arg("limit", "50"), 10)
+const OFFSET = parseInt(arg("offset", "0"), 10)
+const DRY_RUN = arg("dry-run", false) === true
+const FORCE = arg("force", false) === true
+const DELAY = parseInt(arg("delay", "1500"), 10)
+const MIN_SCORE = parseFloat(arg("min-score", "0.55"))
 
-// ---------- Helpers ----------
+// --------------------------- Helpers --------------------------------------
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
-function restHeaders() {
-  return {
-    apikey: SUPABASE_KEY,
-    Authorization: `Bearer ${SUPABASE_KEY}`,
-    "Content-Type": "application/json",
-  }
-}
-
-async function fetchCandidates() {
-  // Pull rows that have SII resolution but no confirmed owner leads yet
-  const select = "id,file_name,metadata"
-  const url = `${SUPABASE_URL}/rest/v1/kmz_collection?select=${select}&metadata->sii_point_resolution=not.is.null&order=id.asc&limit=${LIMIT}&offset=${OFFSET}`
-  const res = await fetch(url, { headers: restHeaders() })
-  if (!res.ok) {
-    throw new Error(`Supabase fetch failed: ${res.status} ${await res.text()}`)
-  }
-  const rows = await res.json()
-  if (FORCE) return rows
-  // Skip rows already scraped (unless --force)
-  return rows.filter((r) => {
-    const status = r.metadata?.owner_search_status
-    return status !== "done" && status !== "no_results"
-  })
-}
-
-async function updateMetadata(id, metadata) {
-  if (DRY_RUN) return true
-  const url = `${SUPABASE_URL}/rest/v1/kmz_collection?id=eq.${id}`
-  const res = await fetch(url, {
-    method: "PATCH",
-    headers: { ...restHeaders(), Prefer: "return=minimal" },
-    body: JSON.stringify({ metadata }),
-  })
-  if (!res.ok) {
-    console.error(`[scraper] Update failed for ${id}: ${res.status} ${await res.text()}`)
-    return false
-  }
-  return true
-}
-
-function buildQueries(row) {
-  const sii = row.metadata?.sii_point_resolution?.record || {}
-  const rol = sii.rol || ""
-  const comuna = sii.comuna || sii.nombreComuna || row.metadata?.commune || ""
-  const direccion = (sii.direccion || "").trim()
-  const cleanName = (row.file_name || "")
-    .replace(/\.(kmz|zip)$/i, "")
-    .replace(/\(\d+\)/g, "")
-    .replace(/puntos?\s+aterrizaje|aerodromo|aeródromo/gi, "")
+/** Normalize a string: lowercase, strip accents, remove noise words/symbols. */
+function normalize(str) {
+  if (!str) return ""
+  return str
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // strip accents
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
     .trim()
-
-  const queries = []
-  if (cleanName && comuna) queries.push(`"${cleanName}" ${comuna} propietario dueño`)
-  if (direccion && comuna) queries.push(`"${direccion}" ${comuna} rol propietario`)
-  if (rol && comuna) queries.push(`rol ${rol} ${comuna} propietario predio`)
-  if (cleanName) queries.push(`"${cleanName}" predio agrícola dueño sociedad`)
-  return { queries: queries.slice(0, 3), rol, comuna, direccion, cleanName }
 }
 
-async function searchBing(page, query) {
-  const url = `https://www.bing.com/search?q=${encodeURIComponent(query)}&setlang=es&cc=cl`
+const STOPWORDS = new Set([
+  "fundo", "hacienda", "estancia", "campo", "parcela", "lote", "sitio", "predio",
+  "hijuela", "retazo", "resto", "has", "ha", "hectareas", "hectarea", "sector",
+  "camino", "ruta", "km", "kmz", "de", "la", "el", "los", "las", "del", "san",
+  "santa", "cerro", "rio", "valle", "alto", "bajo", "norte", "sur", "alta",
+])
+
+/** Build clean search terms from a KMZ filename. */
+function buildSearchTerms(fileName) {
+  const clean = normalize(
+    fileName
+      .replace(/\.(kmz|kml|zip)$/i, "")
+      .replace(/\(\d+\)/g, "")
+      .replace(/\d+\s*(has?|hectareas?|ha)\b/gi, "")
+  )
+  const words = clean.split(" ").filter((w) => w.length > 2 && !STOPWORDS.has(w))
+  // Return the most meaningful token group (up to 3 words) plus the full clean string
+  const terms = []
+  if (words.length > 0) terms.push(words.slice(0, 3).join(" "))
+  if (words.length > 1) terms.push(words[0]) // single strongest token
+  // dedupe
+  return [...new Set(terms)].filter(Boolean)
+}
+
+/** Token overlap similarity between two normalized strings (0-1). */
+function similarity(a, b) {
+  const ta = new Set(normalize(a).split(" ").filter((w) => w.length > 2 && !STOPWORDS.has(w)))
+  const tb = new Set(normalize(b).split(" ").filter((w) => w.length > 2))
+  if (ta.size === 0 || tb.size === 0) return 0
+  let inter = 0
+  for (const t of ta) if (tb.has(t)) inter++
+  return inter / ta.size
+}
+
+// --------------------------- Supabase REST --------------------------------
+async function sbFetch(path, opts = {}) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    ...opts,
+    headers: {
+      apikey: SUPABASE_KEY,
+      Authorization: `Bearer ${SUPABASE_KEY}`,
+      "Content-Type": "application/json",
+      ...(opts.headers || {}),
+    },
+  })
+  if (!res.ok) {
+    const body = await res.text()
+    throw new Error(`Supabase ${res.status}: ${body.slice(0, 200)}`)
+  }
+  return res
+}
+
+/** Load KMZ candidates that have commune data but no confirmed SEA owner. */
+async function loadCandidates() {
+  const select = "id,file_name,metadata"
+  const res = await sbFetch(`kmz_collection?select=${select}&order=id.asc`)
+  const all = await res.json()
+  const candidates = all.filter((k) => {
+    const m = k.metadata || {}
+    const hasCommune =
+      m.commune ||
+      m?.sii_point_resolution?.record?.comuna ||
+      m?.sii_point_resolution?.record?.nombreComuna
+    if (!hasCommune) return false
+    if (!FORCE && m.sea_titular) return false // already done
+    return true
+  })
+  return candidates.slice(OFFSET, OFFSET + LIMIT)
+}
+
+function getCommune(metadata) {
+  const m = metadata || {}
+  return (
+    m.commune ||
+    m?.sii_point_resolution?.record?.comuna ||
+    m?.sii_point_resolution?.record?.nombreComuna ||
+    ""
+  )
+}
+
+async function updateKmz(id, patchMeta, existingMeta) {
+  const merged = { ...(existingMeta || {}), ...patchMeta }
+  await sbFetch(`kmz_collection?id=eq.${id}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=minimal" },
+    body: JSON.stringify({ metadata: merged }),
+  })
+}
+
+// --------------------------- SEA search -----------------------------------
+async function searchSEA(context, term) {
+  const resp = await context.request.get(
+    `${SEA_ENDPOINT}?nombre=${encodeURIComponent(term)}`,
+    { timeout: 20000 }
+  )
+  if (resp.status() !== 200) return []
+  // SEA responds in ISO-8859-1 (latin1); decode correctly to preserve ñ/á
+  const buf = await resp.body()
+  const text = new TextDecoder("latin1").decode(buf)
   try {
-    await page.goto(url, { waitUntil: "domcontentloaded", timeout: 25000 })
-    await page.waitForTimeout(1200)
-    const results = await page.evaluate(() => {
-      const items = []
-      const nodes = document.querySelectorAll("li.b_algo")
-      nodes.forEach((n) => {
-        const titleEl = n.querySelector("h2")
-        const linkEl = n.querySelector("h2 a")
-        const snippetEl = n.querySelector(".b_caption p, .b_algoSlug, p")
-        items.push({
-          title: titleEl?.textContent?.trim() || "",
-          url: linkEl?.getAttribute("href") || "",
-          snippet: snippetEl?.textContent?.trim() || "",
-        })
-      })
-      return items.slice(0, 6)
-    })
-    return results
-  } catch (err) {
-    console.error(`[scraper]   Bing search error: ${err.message}`)
+    const json = JSON.parse(text)
+    return Array.isArray(json.data) ? json.data : []
+  } catch {
     return []
   }
 }
 
-const SYSTEM_PROMPT = `You are an expert property owner researcher for Chilean agricultural land.
-Analyze the web search results and extract owner information (person or company).
-
-CRITICAL RULES:
-1. ONLY extract owner info explicitly present in the search results text.
-2. NEVER invent, hallucinate, or assume names. If unclear, return null.
-3. Company names often end with: SPA, S.A., LTDA, LIMITADA, EIRL, INMOBILIARIA, AGRICOLA, FORESTAL.
-4. Person names have 2-4 parts.
-
-CONFIDENCE:
-- 0.9+: official registry/government source explicitly naming owner
-- 0.7+: authoritative source (SEA, municipal, news) names owner tied to the property
-- 0.5+: plausible match in a document
-- <0.5: uncertain -> null
-
-Respond ONLY with valid JSON (no markdown):
-{"possibleOwner": string|null, "possibleCompany": string|null, "confidence": number, "reason": string, "evidence": string}`
-
-async function analyzeWithAI(searchText, context) {
-  try {
-    const res = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          {
-            role: "user",
-            content: `Property context: ${context}\n\nSearch results:\n${searchText}\n\nExtract ONLY explicitly stated owner info. Respond with JSON only.`,
-          },
-        ],
-        temperature: 0.2,
-        max_tokens: 400,
-      }),
-    })
-    if (!res.ok) {
-      console.error(`[scraper]   OpenAI error: ${res.status}`)
-      return null
-    }
-    const data = await res.json()
-    const content = data.choices?.[0]?.message?.content || ""
-    const jsonText = content.replace(/```json\n?|\n?```/g, "").trim()
-    const parsed = JSON.parse(jsonText)
-    return {
-      possibleOwner: parsed.possibleOwner || null,
-      possibleCompany: parsed.possibleCompany || null,
-      confidence: Math.max(0, Math.min(1, parsed.confidence || 0)),
-      reason: parsed.reason || "",
-      evidence: parsed.evidence || "",
-    }
-  } catch (err) {
-    console.error(`[scraper]   AI analyze error: ${err.message}`)
-    return null
+/** Score a SEA project against the KMZ (name similarity + commune match).
+ *
+ * Commune match is the decisive signal for a *confirmed* owner. A name-only
+ * overlap (common in SEA where generic geographic words repeat) is treated as a
+ * weak, unconfirmed lead so we don't record false positives like a government
+ * "SEREMI" as the private owner of a parcel in a different commune.
+ */
+function scoreMatch(kmzName, kmzCommune, project) {
+  const nameSim = similarity(kmzName, project.EXPEDIENTE_NOMBRE || "")
+  const communeMatch = Boolean(
+    kmzCommune && normalize(kmzCommune) === normalize(project.COMUNA_NOMBRE || "")
+  )
+  let score
+  if (communeMatch) {
+    // Confirmed tier: commune verified, name similarity refines it
+    score = 0.6 + nameSim * 0.4 // 0.60 - 1.00
+  } else {
+    // Weak tier: name only. Cap below the confirmed threshold so it never
+    // gets written as a confirmed owner, only as an unconfirmed lead.
+    score = nameSim * 0.45 // 0.00 - 0.45
   }
+  return { score, nameSim, communeMatch }
 }
 
-// ---------- Main ----------
+// ------------------------------- Main -------------------------------------
 async function main() {
-  console.log("========================================")
-  console.log("  OWNER SCRAPER (SII + Web/IA)")
-  console.log("========================================")
-  console.log(`Limit: ${LIMIT} | Offset: ${OFFSET} | DryRun: ${DRY_RUN} | Force: ${FORCE}`)
+  console.log("=".repeat(60))
+  console.log("SEA OWNER SCRAPER")
+  console.log("=".repeat(60))
+  console.log(`Mode: ${DRY_RUN ? "DRY-RUN" : "LIVE"} | limit=${LIMIT} offset=${OFFSET} force=${FORCE}`)
+  console.log(`Delay=${DELAY}ms | min-score=${MIN_SCORE}`)
+  console.log("")
 
-  const candidates = await fetchCandidates()
-  console.log(`Candidates to process: ${candidates.length}\n`)
+  console.log("[scraper] Loading candidates from Supabase...")
+  const candidates = await loadCandidates()
+  console.log(`[scraper] ${candidates.length} candidates to process`)
   if (candidates.length === 0) {
-    console.log("Nothing to do.")
+    console.log("[scraper] Nothing to do. Exiting.")
     return
   }
 
-  const browser = await chromium.launch({ headless: true, args: ["--no-sandbox", "--disable-dev-shm-usage"] })
+  const browser = await chromium.launch({
+    headless: true,
+    args: ["--no-sandbox", "--disable-dev-shm-usage"],
+  })
   const context = await browser.newContext({
     userAgent:
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     locale: "es-CL",
   })
+
+  // Establish SEA session (sets cookies needed for the JSON endpoint)
   const page = await context.newPage()
+  await page.goto(SEA_SESSION_URL, { waitUntil: "domcontentloaded", timeout: 30000 })
+  await page.waitForTimeout(800)
 
-  let processed = 0
-  let withLeads = 0
-  let noResults = 0
+  const stats = { processed: 0, matched: 0, weak: 0, noMatch: 0, errors: 0 }
+  const matches = []
 
-  for (const row of candidates) {
-    processed++
-    const { queries, rol, comuna, direccion, cleanName } = buildQueries(row)
-    const ctxLabel = `${cleanName || row.file_name} | ROL ${rol || "?"} | ${comuna || "?"}`
-    console.log(`[${processed}/${candidates.length}] ${ctxLabel}`)
+  for (const kmz of candidates) {
+    stats.processed++
+    const commune = getCommune(kmz.metadata)
+    const terms = buildSearchTerms(kmz.file_name)
+    const label = kmz.file_name.slice(0, 45).padEnd(45)
 
-    // Collect search results across queries
-    const allResults = []
-    for (const q of queries) {
-      const r = await searchBing(page, q)
-      allResults.push(...r)
-      await sleep(SEARCH_DELAY_MS)
-    }
-
-    // Dedup by url
-    const seen = new Set()
-    const deduped = allResults.filter((r) => {
-      if (!r.url || seen.has(r.url)) return false
-      seen.add(r.url)
-      return true
-    })
-
-    const metadata = { ...row.metadata }
-    metadata.owner_search_at = new Date().toISOString()
-
-    if (deduped.length === 0) {
-      metadata.owner_search_status = "no_results"
-      noResults++
-      await updateMetadata(row.id, metadata)
-      console.log("   -> no search results")
+    if (terms.length === 0) {
+      console.log(`[${stats.processed}/${candidates.length}] ${label} SKIP (no terms)`)
+      stats.noMatch++
       continue
     }
 
-    const searchText = deduped
-      .map((r, i) => `${i + 1}. ${r.title}\n   ${r.snippet}\n   ${r.url}`)
-      .join("\n")
-    const propContext = `Predio: ${cleanName}. Dirección: ${direccion}. Comuna: ${comuna}. ROL: ${rol}.`
-
-    const analysis = await analyzeWithAI(searchText, propContext)
-
-    if (analysis && (analysis.possibleOwner || analysis.possibleCompany) && analysis.confidence >= 0.5) {
-      const name = analysis.possibleCompany || analysis.possibleOwner
-      const lead = {
-        name,
-        type: analysis.possibleCompany ? "company" : "person",
-        confidence: analysis.confidence,
-        reason: analysis.reason,
-        evidence: analysis.evidence,
-        source: "web-ia-bing",
-        dateFound: new Date().toISOString(),
+    try {
+      let best = null
+      for (const term of terms) {
+        const projects = await searchSEA(context, term)
+        for (const proj of projects) {
+          const { score, nameSim, communeMatch } = scoreMatch(
+            kmz.file_name,
+            commune,
+            proj
+          )
+          if (!best || score > best.score) {
+            best = { score, nameSim, communeMatch, proj }
+          }
+        }
+        await sleep(DELAY)
+        if (best && best.score >= 0.85) break // strong enough, stop early
       }
-      const existing = Array.isArray(metadata.owner_research_leads) ? metadata.owner_research_leads : []
-      // Avoid duplicate names
-      const merged = [lead, ...existing.filter((l) => l.name?.toLowerCase() !== name.toLowerCase())]
-      metadata.owner_research_leads = merged
-      metadata.confirmed_owner = name
-      metadata.owner_search_status = "done"
-      withLeads++
-      await updateMetadata(row.id, metadata)
-      console.log(`   -> LEAD: ${name} (${(analysis.confidence * 100).toFixed(0)}%) [${lead.type}]`)
-    } else {
-      metadata.owner_search_status = "no_owner_found"
-      metadata.owner_search_snippets = deduped.slice(0, 5)
-      await updateMetadata(row.id, metadata)
-      console.log("   -> results found but no clear owner")
+
+      // Count meaningful tokens in the KMZ name (guards single-word leads)
+      const kmzTokenCount = normalize(kmz.file_name)
+        .split(" ")
+        .filter((w) => w.length > 2 && !STOPWORDS.has(w)).length
+
+      const isConfirmed = best && best.communeMatch && best.score >= MIN_SCORE
+      const isWeakLead =
+        best && !best.communeMatch && best.nameSim >= 0.99 && kmzTokenCount >= 2
+
+      if (isConfirmed) {
+        stats.matched++
+        const titular = (best.proj.TITULAR || "").trim()
+        console.log(
+          `[${stats.processed}/${candidates.length}] ${label} -> ${titular} (score ${best.score.toFixed(2)}, comuna OK)`
+        )
+        matches.push({ file: kmz.file_name, titular, score: best.score, tier: "confirmed" })
+        if (!DRY_RUN) {
+          await updateKmz(
+            kmz.id,
+            {
+              sea_titular: titular,
+              sea_expediente_nombre: best.proj.EXPEDIENTE_NOMBRE,
+              sea_expediente_url: best.proj.EXPEDIENTE_URL_PPAL,
+              sea_comuna: best.proj.COMUNA_NOMBRE,
+              sea_region: best.proj.REGION_NOMBRE,
+              sea_match_score: Number(best.score.toFixed(3)),
+              sea_commune_match: true,
+              sea_scraped_at: new Date().toISOString(),
+              confirmed_owner: titular,
+              owner_source: "SEA",
+            },
+            kmz.metadata
+          )
+        }
+      } else if (isWeakLead) {
+        stats.weak++
+        const titular = (best.proj.TITULAR || "").trim()
+        console.log(
+          `[${stats.processed}/${candidates.length}] ${label} ~ ${titular} (weak lead, name only, no comuna)`
+        )
+        matches.push({ file: kmz.file_name, titular, score: best.score, tier: "weak" })
+        if (!DRY_RUN) {
+          await updateKmz(
+            kmz.id,
+            {
+              // Unconfirmed lead only - NOT written as confirmed_owner
+              sea_lead_titular: titular,
+              sea_lead_expediente_url: best.proj.EXPEDIENTE_URL_PPAL,
+              sea_lead_comuna: best.proj.COMUNA_NOMBRE,
+              sea_lead_name_sim: Number(best.nameSim.toFixed(3)),
+              sea_scraped_at: new Date().toISOString(),
+              owner_source_attempted: "SEA",
+            },
+            kmz.metadata
+          )
+        }
+      } else {
+        stats.noMatch++
+        console.log(
+          `[${stats.processed}/${candidates.length}] ${label} -> no match${best ? ` (best ${best.score.toFixed(2)})` : ""}`
+        )
+        if (!DRY_RUN) {
+          await updateKmz(
+            kmz.id,
+            { sea_scraped_at: new Date().toISOString(), owner_source_attempted: "SEA" },
+            kmz.metadata
+          )
+        }
+      }
+    } catch (err) {
+      stats.errors++
+      console.log(`[${stats.processed}/${candidates.length}] ${label} ERROR: ${err.message}`)
     }
   }
 
   await browser.close()
 
-  console.log("\n========================================")
-  console.log("  DONE")
-  console.log("========================================")
-  console.log(`Processed:   ${processed}`)
-  console.log(`With leads:  ${withLeads}`)
-  console.log(`No results:  ${noResults}`)
+  console.log("")
+  console.log("=".repeat(60))
+  console.log("RESULTS")
+  console.log("=".repeat(60))
+  console.log(`Processed:       ${stats.processed}`)
+  console.log(`Confirmed owner: ${stats.matched} (${((stats.matched / stats.processed) * 100).toFixed(1)}%)  [commune verified]`)
+  console.log(`Weak leads:      ${stats.weak}  [name-only, unconfirmed]`)
+  console.log(`No match:        ${stats.noMatch}`)
+  console.log(`Errors:          ${stats.errors}`)
+  console.log("")
+  const confirmed = matches.filter((m) => m.tier === "confirmed")
+  const weak = matches.filter((m) => m.tier === "weak")
+  if (confirmed.length > 0) {
+    console.log("Confirmed owners (commune verified):")
+    for (const m of confirmed.slice(0, 15)) {
+      console.log(`  ${m.titular}  [${m.score.toFixed(2)}]  <- ${m.file}`)
+    }
+  }
+  if (weak.length > 0) {
+    console.log("\nWeak leads (name only, verify manually):")
+    for (const m of weak.slice(0, 10)) {
+      console.log(`  ${m.titular}  <- ${m.file}`)
+    }
+  }
 }
 
-main().catch((err) => {
-  console.error("[scraper] Fatal:", err)
+main().catch((e) => {
+  console.error("[scraper] FATAL:", e)
   process.exit(1)
 })
