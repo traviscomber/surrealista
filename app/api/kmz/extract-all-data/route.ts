@@ -116,6 +116,20 @@ export async function POST(request: NextRequest) {
         }
       } catch (err) {
         console.error(`[v0] Error processing ${kmz.file_name}:`, err)
+        results.push({
+          kmz_id: kmz.id,
+          file_name: kmz.file_name,
+          owner_candidate: null,
+          owner_confidence: 0,
+          owner_type: "unknown",
+          all_owner_candidates: [],
+          rol_info: null,
+          neighbor_contacts: [],
+          neighbor_count: 0,
+          enrichment_status: "error",
+          enriched_at: new Date().toISOString(),
+          error: err instanceof Error ? err.message : "Unknown error",
+        })
       }
     }
 
@@ -169,25 +183,69 @@ export async function POST(request: NextRequest) {
  */
 async function findNeighborContacts(supabase: any, kmz: any): Promise<string[]> {
   try {
-    // Get neighboring properties by location
-    const { data: neighbors } = await supabase
-      .from("kmz_collection")
-      .select("file_name, metadata")
-      .neq("id", kmz.id)
-      .limit(8)
-
     const contacts: string[] = []
-
-    if (neighbors) {
-      for (const neighbor of neighbors) {
-        const neighborOwner = neighbor.metadata?.public_owner_candidate
-        if (
-          neighborOwner &&
-          neighborOwner !== "Unknown" &&
-          !contacts.includes(neighborOwner)
-        ) {
-          contacts.push(neighborOwner)
+    
+    // Extract commune from current KMZ metadata
+    const commune = kmz.metadata?.commune
+    const rol = kmz.metadata?.rol
+    
+    // Strategy 1: Search by same commune
+    if (commune) {
+      const { data: neighborsByCommune } = await supabase
+        .from("kmz_collection")
+        .select("file_name, metadata")
+        .eq("metadata->>'commune'", commune)
+        .neq("id", kmz.id)
+        .limit(12)
+      
+      if (neighborsByCommune) {
+        for (const neighbor of neighborsByCommune) {
+          const neighborOwner = neighbor.metadata?.public_owner_candidate || neighbor.file_name
+          if (neighborOwner && !contacts.includes(neighborOwner)) {
+            contacts.push(neighborOwner)
+          }
         }
+      }
+    }
+    
+    // Strategy 2: Search by ROL prefix (same zone)
+    if (rol && contacts.length < 8) {
+      const rolPrefix = rol.split("-").slice(0, 2).join("-") // Get first 2 parts: "12-34"
+      const { data: neighborsByRol } = await supabase
+        .from("kmz_collection")
+        .select("file_name, metadata")
+        .ilike("metadata->>'rol'", `${rolPrefix}%`)
+        .neq("id", kmz.id)
+        .limit(12)
+      
+      if (neighborsByRol) {
+        for (const neighbor of neighborsByRol) {
+          const neighborOwner = neighbor.metadata?.public_owner_candidate || neighbor.file_name
+          if (neighborOwner && !contacts.includes(neighborOwner)) {
+            contacts.push(neighborOwner)
+          }
+        }
+      }
+    }
+    
+    // Strategy 3: Extract from filename if still need more
+    if (contacts.length < 5) {
+      const nameOwner = kmz.file_name
+        .replace(/\.(kmz|KMZ)$/, "")
+        .replace(/\(\d+\)/g, "")
+        .trim()
+      
+      if (nameOwner && !contacts.includes(nameOwner)) {
+        contacts.push(nameOwner)
+      }
+    }
+    
+    return contacts.slice(0, 10) // Return top 10 neighbors
+  } catch (error) {
+    console.error("[v0] Neighbor contact search failed:", error)
+    return []
+  }
+}
       }
     }
 
