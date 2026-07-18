@@ -204,6 +204,7 @@ export async function scrapeRemax(options: {
           region: prop.region,
           images: prop.images,
           status: "available",
+          operation: "venta", // Buy/Venta operation from URL
           scraped_at: new Date().toISOString(),
           is_active: true,
         })
