@@ -197,12 +197,23 @@ function getRol(metadata) {
 async function loadCandidates() {
   const res = await sbFetch(`kmz_collection?select=id,file_name,metadata&order=id.asc`)
   const all = await res.json()
+  console.log(`[debug] Loaded ${all.length} total KMZ from DB`)
+  
   const candidates = all.filter((k) => {
     const m = k.metadata || {}
-    if (!FORCE && m.web_owner_scraped_at) return false
+    // Skip already-scraped unless FORCE is set
+    const alreadyScraped = m.web_owner_scraped_at || m.web_owner_search_run_at
+    if (!FORCE && alreadyScraped) {
+      return false
+    }
     return true
   })
-  return candidates.slice(OFFSET, OFFSET + LIMIT)
+  
+  console.log(`[debug] After filter: ${candidates.length} candidates (FORCE=${FORCE})`)
+  
+  const final = candidates.slice(OFFSET, OFFSET + LIMIT || candidates.length)
+  console.log(`[debug] Sliced to ${final.length} (OFFSET=${OFFSET}, LIMIT=${LIMIT})`)
+  return final
 }
 
 async function updateKmz(id, patchMeta, existingMeta) {
