@@ -1663,23 +1663,13 @@ export function CAMPOSFolderView() {
         const uniqueData = data?.filter(
           (record, index, self) => index === self.findIndex((r) => r.file_name === record.file_name),
         )
-        const kmzIds = (uniqueData || []).map((record) => record.id)
-        const { data: storedPlacemarks } = kmzIds.length
-          ? await supabase.from("kmz_placemarks").select("*").in("kmz_id", kmzIds).limit(5000)
-          : { data: [] }
-        const placemarksByKmz = new Map<string, any[]>()
-
-        for (const placemark of storedPlacemarks || []) {
-          const current = placemarksByKmz.get(placemark.kmz_id) || []
-          current.push(placemark)
-          placemarksByKmz.set(placemark.kmz_id, current)
-        }
-
+        // Keep regional navigation light: detailed placemarks are loaded only when
+        // a KMZ is selected. The compact collection geometry is enough for previews.
         const transformedKMZ = (uniqueData || []).map((record: any) => ({
           fileName: record.file_name,
           dbId: record.id,
           id: record.id,
-          placemarks: buildMapPlacemarks(record, placemarksByKmz.get(record.id)),
+          placemarks: buildMapPlacemarks(record),
           bounds: record.bounds,
           metadata: {
             id: record.id,
