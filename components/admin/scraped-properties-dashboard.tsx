@@ -17,7 +17,7 @@ import {
   X,
 } from "lucide-react"
 import { createBrowserClient } from "@/lib/supabase/client"
-import { BasicImage } from "@/components/ui/basic-image"
+
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -26,6 +26,7 @@ type ScrapedProperty = {
   id: string
   external_id: string
   title: string
+  description: string | null
   location: string | null
   address: string | null
   city: string | null
@@ -49,7 +50,7 @@ async function fetchScrapedProperties(): Promise<ScrapedProperty[]> {
   const { data, error } = await supabase
     .from("properties_external")
     .select(
-      "id, external_id, title, location, address, city, region, price, price_clp, price_uf, area, area_m2, property_type, images, source, source_url, scraped_at, is_active",
+      "id, external_id, title, description, location, address, city, region, price, price_clp, price_uf, area, area_m2, property_type, images, source, source_url, scraped_at, is_active",
     )
     .eq("is_active", true)
     .order("scraped_at", { ascending: false })
@@ -58,10 +59,20 @@ async function fetchScrapedProperties(): Promise<ScrapedProperty[]> {
   return (data ?? []) as ScrapedProperty[]
 }
 
+const UF_RATE = 38_500 // 1 UF ≈ CLP 38.500 (referencia)
+
+function toUF(property: ScrapedProperty): number | null {
+  // price_uf stored directly (e.g. Remax uses UF natively) — valid range 1–100k UF
+  if (property.price_uf && property.price_uf >= 1 && property.price_uf <= 100_000) return property.price_uf
+  // Fall back to CLP conversion — only if CLP is in a realistic range (< 50 billion)
+  const clp = property.price_clp ?? property.price
+  if (clp && clp > 0 && clp < 50_000_000_000) return Math.round((clp / UF_RATE) * 10) / 10
+  return null
+}
+
 function formatPrice(property: ScrapedProperty) {
-  if (property.price_uf) return `UF ${new Intl.NumberFormat("es-CL").format(property.price_uf)}`
-  const clp = property.price_clp || property.price
-  if (clp) return new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(clp)
+  const uf = toUF(property)
+  if (uf) return `UF ${new Intl.NumberFormat("es-CL", { minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(uf)}`
   return "Precio no informado"
 }
 
@@ -198,9 +209,10 @@ export function ScrapedPropertiesDashboard({ mode = "full", initialShowFavorites
 
   const sources = new Set(filteredProperties.map((property) => property.source)).size
   const regions = new Set(filteredProperties.map((property) => property.region).filter(Boolean)).size
-  const averageClp = filteredProperties.filter((property) => property.price_clp || property.price)
-  const average = averageClp.length
-    ? Math.round(averageClp.reduce((total, property) => total + Number(property.price_clp || property.price || 0), 0) / averageClp.length)
+  // Only include realistic UF values (1–100.000 UF) to avoid CLP-stored-as-UF outliers
+  const propsWithPrice = filteredProperties.filter((p) => { const uf = toUF(p); return uf !== null && uf >= 1 && uf <= 100_000 })
+  const averageUF = propsWithPrice.length
+    ? Math.round(propsWithPrice.reduce((sum, p) => sum + (toUF(p) ?? 0), 0) / propsWithPrice.length)
     : 0
 
   if (error) {
@@ -247,7 +259,12 @@ export function ScrapedPropertiesDashboard({ mode = "full", initialShowFavorites
         <Card>
           <CardContent className="flex items-center gap-3 p-5">
             <CircleDollarSign className="h-5 w-5 text-primary" />
-            <div><p className="text-lg font-semibold text-foreground">{average ? new Intl.NumberFormat("es-CL", { notation: "compact", style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(average) : "Sin datos"}</p><p className="text-sm text-muted-foreground">Precio promedio CLP</p></div>
+            <div>
+              <p className="text-lg font-semibold text-foreground">
+                {averageUF ? `UF ${new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 }).format(averageUF)}` : "Sin datos"}
+              </p>
+              <p className="text-sm text-muted-foreground">Precio promedio UF</p>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -334,7 +351,7 @@ export function ScrapedPropertiesDashboard({ mode = "full", initialShowFavorites
               {visibleProperties.map((property) => (
                 <article key={property.id} className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4 md:flex-row">
                   <div className="aspect-[4/3] w-full shrink-0 overflow-hidden rounded-md bg-muted md:w-44">
-                    <BasicImage
+                    <img
                       src={property.images?.[0] || "/placeholder.svg"}
                       alt={`Vista de ${property.title}`}
                       className="h-full w-full object-cover"
@@ -386,6 +403,7 @@ export function ScrapedPropertiesDashboard({ mode = "full", initialShowFavorites
                         <dd className="mt-1 font-medium text-foreground">{formatPrice(property)}</dd>
                       </div>
                     </dl>
+                    {property.description && <p className="mt-3 text-sm text-muted-foreground line-clamp-2">{property.description}</p>}
                   </div>
                 </article>
               ))}

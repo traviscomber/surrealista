@@ -136,6 +136,14 @@ const SOURCES = [
     type: "south",
     color: "emerald",
   },
+  {
+    key: "remax",
+    label: "RE/MAX",
+    url: "remax.cl",
+    focus: "Propiedades Biobío → Magallanes",
+    type: "south",
+    color: "emerald",
+  },
 ]
 
 const STATUS_CONFIG = {
