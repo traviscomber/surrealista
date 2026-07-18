@@ -44,6 +44,7 @@ import {
   Tag,
   Sparkles,
   HelpCircle,
+  Globe,
 } from "lucide-react"
 import { GlobalCommandPalette } from "@/components/search/global-command-palette"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
@@ -73,6 +74,13 @@ const toolsItems = [
     icon: Bot,
     description: "Consulta inteligente sobre propiedades",
     badge: "IA",
+  },
+  {
+    title: "Scrapers",
+    href: "/admin/dashboard?tab=scrapers",
+    icon: Globe,
+    description: "Fuentes de datos del mercado inmobiliario",
+    badge: "Activo",
   },
 ]
 
@@ -210,6 +218,11 @@ export function Header() {
                       <div className="flex items-center gap-2">
                         <item.icon className="h-4 w-4" />
                         <div className="text-sm font-medium leading-none">{item.title}</div>
+                        {item.badge && (
+                          <Badge className={cn("ml-auto text-white text-xs", badgeColorMap[item.badge] ?? "bg-slate-500")}>
+                            {item.badge}
+                          </Badge>
+                        )}
                       </div>
                       <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">{item.description}</p>
                     </Link>
