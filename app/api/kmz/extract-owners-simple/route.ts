@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     // Use OR logic: either metadata is null OR public_owner_candidate field is missing/null
     const { data: allKmz, error: fetchError } = await supabase
       .from("kmz_collection")
-      .select("id, name, metadata")
+      .select("id, file_name, metadata")
       .limit(batch_size + 500) // Get more to account for filtering
 
     if (fetchError) {
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     for (const kmz of kmzFiles) {
       try {
         // Extract owners from filename and metadata
-        const candidates = enhancedExtractor.extract(kmz.name, kmz.metadata?.description)
+        const candidates = enhancedExtractor.extract(kmz.file_name, kmz.metadata?.description)
 
         if (candidates.length > 0) {
           const topCandidate = candidates[0]
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
 
           results.push({
             kmz_id: kmz.id,
-            name: kmz.name,
+            name: kmz.file_name,
             owner: topCandidate.name,
             confidence: topCandidate.confidence,
             type: topCandidate.type,
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
           })
         }
       } catch (err) {
-        console.error(`[v0] Error processing ${kmz.name}:`, err)
+        console.error(`[v0] Error processing ${kmz.file_name}:`, err)
       }
     }
 
