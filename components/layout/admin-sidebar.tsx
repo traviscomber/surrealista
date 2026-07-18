@@ -27,6 +27,7 @@ import {
   Mail,
   AlertCircle,
   ArrowLeft,
+  Users,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -120,6 +121,19 @@ const menuItems: MenuItem[] = [
     ],
   },
   {
+    title: "SII Roles",
+    href: "/admin/sii-rol-explorer",
+    icon: Database,
+    badge: "Explorer",
+  },
+  {
+    title: "Descubrimiento de Dueños",
+    href: "/admin/owner-discovery",
+    icon: Users,
+    badge: "285",
+    badgeVariant: "default",
+  },
+  {
     title: "Gestión Documentos",
     icon: FileText,
     badge: "Etapa 1",
@@ -164,6 +178,8 @@ const getPageTitle = (pathname: string): string => {
     "/kmz-search": "Búsqueda de Ubicaciones KMZ",
     "/kmz-guide": "Guía de Búsqueda KMZ",
     "/admin/sii-extractor": "Extractor de Coordenadas SII",
+    "/admin/sii-rol-explorer": "Explorador de Roles SII",
+    "/admin/owner-discovery": "Descubrimiento de Dueños",
     "/admin/file-explorer": "Explorador de Archivos",
     "/admin/kmz-vecindario": "Análisis de Vecindario KMZ",
     "/mvp/seguimiento": "Seguimiento MVP",
