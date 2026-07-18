@@ -17,10 +17,12 @@ import {
   Map,
   Eye,
   MessageSquare,
+  Globe,
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { AppHeader } from "@/components/layout/app-header"
+import { ScrapersPanel } from "@/components/admin/scrapers-panel"
 
 // Componente para las tarjetas de estadísticas
 const StatCard = ({ title, value, trend, trendValue, icon: Icon, color }) => {
@@ -142,7 +144,7 @@ export default function AdminDashboard() {
         </div>
 
         <Tabs defaultValue="overview" className="w-full" value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-3 md:grid-cols-5 mb-8">
+          <TabsList className="grid grid-cols-3 md:grid-cols-6 mb-8">
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
               <span className="hidden md:inline">Resumen</span>
@@ -162,6 +164,10 @@ export default function AdminDashboard() {
             <TabsTrigger value="settings" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
               <span className="hidden md:inline">Configuración</span>
+            </TabsTrigger>
+            <TabsTrigger value="scrapers" className="flex items-center gap-2">
+              <Globe className="h-4 w-4" />
+              <span className="hidden md:inline">Scrapers</span>
             </TabsTrigger>
           </TabsList>
 
@@ -522,6 +528,10 @@ export default function AdminDashboard() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="scrapers" className="mt-0">
+            <ScrapersPanel />
           </TabsContent>
         </Tabs>
       </div>
