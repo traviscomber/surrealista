@@ -164,17 +164,18 @@ export class EnhancedOwnerExtraction {
       allCandidates.push(...this.extractFromDescription(description))
     }
 
-    // If no candidates found, try fallback: extract ANY capitalized phrase
+    // If no candidates found, try fallback: extract ANYTHING as potential owner
     if (allCandidates.length === 0) {
       const cleanName = filename
         .replace(/\.(kmz|KMZ|zip|ZIP)$/, "")
         .replace(/\(\d+\)/g, "")
         .replace(/\-\s*\d+\s*ha/gi, "")
+        .replace(/^\d+\s+/, "") // Remove leading numbers
         .trim()
       
-      // Extract capitalized words/phrases (2+ words or specific patterns)
+      // Strategy 1: Extract capitalized phrase (if exists)
       const capitalizedMatch = cleanName.match(/([A-Z][a-záéíóú]+(?:\s+[A-Z][a-záéíóú]+)*)/)
-      if (capitalizedMatch && capitalizedMatch[1].length > 2) {
+      if (capitalizedMatch && capitalizedMatch[1].length > 2 && capitalizedMatch[1].length < 80) {
         allCandidates.push({
           name: capitalizedMatch[1],
           type: "property_name",
@@ -184,14 +185,26 @@ export class EnhancedOwnerExtraction {
         })
       }
       
-      // Also try extracting the whole cleaned name if it looks like a place
-      if (cleanName.length > 3 && cleanName.length < 80 && /[A-Z]/.test(cleanName)) {
+      // Strategy 2: Extract whole name (even if lowercase)
+      if (cleanName.length > 3 && cleanName.length < 80) {
         allCandidates.push({
           name: cleanName,
           type: "property_name",
           confidence: 0.48,
           source: "filename_full",
           pattern: "full_name",
+        })
+      }
+      
+      // Strategy 3: Try extracting first 2-3 words
+      const firstWords = cleanName.split(/\s+/).slice(0, 3).join(" ")
+      if (firstWords.length > 3 && firstWords.length < 60 && firstWords !== cleanName) {
+        allCandidates.push({
+          name: firstWords,
+          type: "property_name",
+          confidence: 0.46,
+          source: "filename_prefix",
+          pattern: "first_words",
         })
       }
     }
