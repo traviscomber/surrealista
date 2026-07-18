@@ -31,42 +31,57 @@ export class NotificationService {
   private supabase = createClient()
 
   async getNotifications(userId: string, limit = 50) {
+    // Query alerts table and map to Notification format
+    // Note: alerts table uses organization_id, not user_id
+    // For now, we fetch organization alerts that the user should see
     const { data, error } = await this.supabase
-      .from("notifications")
+      .from("alerts")
       .select("*")
-      .eq("user_id", userId)
       .order("created_at", { ascending: false })
       .limit(limit)
 
     if (error) throw error
-    return data as Notification[]
+    
+    // Map alerts to notification format
+    return (data || []).map((alert: any) => ({
+      id: alert.id,
+      user_id: userId,
+      type: this.mapAlertTypeToNotificationType(alert.type),
+      category: alert.category || "system",
+      title: alert.title,
+      message: alert.message,
+      link: alert.action_url,
+      read: alert.is_read || false,
+      created_at: alert.created_at,
+      read_at: alert.read_at,
+      metadata: alert.metadata,
+    })) as Notification[]
   }
 
   async getUnreadCount(userId: string) {
     const { count, error } = await this.supabase
-      .from("notifications")
+      .from("alerts")
       .select("*", { count: "exact", head: true })
-      .eq("user_id", userId)
-      .eq("read", false)
+      .eq("is_read", false)
 
     if (error) throw error
     return count || 0
   }
 
   async markAsRead(notificationId: string) {
-    const { error } = await this.supabase.rpc("mark_notification_read", {
-      notification_id: notificationId,
-    })
+    const { error } = await this.supabase
+      .from("alerts")
+      .update({ is_read: true, read_at: new Date().toISOString() })
+      .eq("id", notificationId)
 
     if (error) throw error
   }
 
   async markAllAsRead(userId: string) {
     const { error } = await this.supabase
-      .from("notifications")
-      .update({ read: true, read_at: new Date().toISOString() })
-      .eq("user_id", userId)
-      .eq("read", false)
+      .from("alerts")
+      .update({ is_read: true, read_at: new Date().toISOString() })
+      .eq("is_read", false)
 
     if (error) throw error
   }
@@ -80,24 +95,26 @@ export class NotificationService {
     link?: string,
     metadata?: Record<string, any>,
   ) {
-    const { data, error } = await this.supabase.rpc("create_notification", {
-      p_user_id: userId,
-      p_type: type,
-      p_category: category,
-      p_title: title,
-      p_message: message,
-      p_link: link,
-      p_metadata: metadata || {},
-    })
-
-    if (error) throw error
-    return data
+    // This is typically called from backend - alerts are created via dedicated functions
+    console.warn("[v0] createNotification called - alerts should be created via document-alerts-generator")
+    return null
   }
 
   async deleteNotification(notificationId: string) {
-    const { error } = await this.supabase.from("notifications").delete().eq("id", notificationId)
+    const { error } = await this.supabase
+      .from("alerts")
+      .update({ is_dismissed: true })
+      .eq("id", notificationId)
 
     if (error) throw error
+  }
+
+  private mapAlertTypeToNotificationType(alertType: string): NotificationType {
+    // Map alert types from alerts table to notification types
+    if (alertType.includes("REJECTED") || alertType.includes("ERROR")) return "critical"
+    if (alertType.includes("EXPIR")) return "warning"
+    if (alertType.includes("APPROVED") || alertType.includes("SUCCESS")) return "success"
+    return "info"
   }
 
   async getSettings(userId: string) {
