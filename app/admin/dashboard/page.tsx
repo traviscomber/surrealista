@@ -147,7 +147,7 @@ const ActivityItem = ({ user, action, property, time, image }) => {
               </Link>
             </Button>
             <Button asChild className="gap-2">
-              <Link href="/admin/propiedades">
+              <Link href="/propiedades">
                 <Building className="h-4 w-4" />
                 Ver Propiedades
               </Link>
@@ -250,7 +250,7 @@ const ActivityItem = ({ user, action, property, time, image }) => {
                   <div className="flex items-center justify-between">
                     <CardTitle>Propiedades Recientes</CardTitle>
                     <Button variant="ghost" size="sm" className="gap-1 text-xs" asChild>
-                      <Link href="/admin/propiedades">
+                      <Link href="/propiedades">
                         Ver Todas
                         <ArrowUpRight className="h-3 w-3" />
                       </Link>
@@ -451,7 +451,7 @@ const ActivityItem = ({ user, action, property, time, image }) => {
                   </p>
                   <div className="flex flex-wrap gap-3 justify-center">
                     <Button asChild>
-                      <Link href="/admin/propiedades">Ver Todas las Propiedades</Link>
+                      <Link href="/propiedades">Ver Todas las Propiedades</Link>
                     </Button>
                     <Button variant="outline" asChild>
                       <Link href="/admin/propiedades/nueva">Agregar Nueva Propiedad</Link>
