@@ -282,7 +282,8 @@ export async function upsertProperties(
     const { data, error } = await supabase
       .from('properties_external')
       .upsert(chunk, {
-        onConflict: 'external_id,source',
+        // external_id is globally namespaced by every scraper (for example `ichiloe-*`).
+        onConflict: 'external_id',
         ignoreDuplicates: false,
       })
       .select('id')

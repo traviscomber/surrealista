@@ -7,8 +7,9 @@
  * Covers all property types listed on iChiloe, focused on Chiloé archipelago
  * and surrounding Los Lagos zone (parcelas, campos, casas, islas, terrenos).
  */
+import * as cheerio from 'cheerio'
 import type { RawProperty, ScrapeResult } from './base-scraper'
-import { normaliseProperty, upsertProperties, logScrapeRun, parseArea, parseChileanPrice } from './base-scraper'
+import { normaliseProperty, upsertProperties, logScrapeRun } from './base-scraper'
 
 const BASE = 'https://www.ichiloe.cl'
 
@@ -65,18 +66,6 @@ async function fetchPage(typeSlug: string, page: number): Promise<string> {
   return res.text()
 }
 
-/** Light-touch HTML parser — no Cheerio dependency needed for this structure */
-function extractText(html: string, pattern: RegExp): string {
-  const m = html.match(pattern)
-  return m ? m[1].replace(/<[^>]+>/g, '').trim() : ''
-}
-
-function extractAttr(html: string, tag: string, attr: string): string {
-  const re = new RegExp(`<${tag}[^>]+${attr}="([^"]*)"`, 'i')
-  const m = html.match(re)
-  return m ? m[1].trim() : ''
-}
-
 interface ParsedCard {
   id: string
   title: string
@@ -88,43 +77,48 @@ interface ParsedCard {
   typeSlug: string
 }
 
-function parsePropertyCards(html: string, typeSlug: string): ParsedCard[] {
+/** Parse the real RealHomes cards used by iChiloe (`article.rh_list_card`). */
+export function parsePropertyCards(html: string, typeSlug: string): ParsedCard[] {
+  const $ = cheerio.load(html)
   const cards: ParsedCard[] = []
 
-  // Split by article tags that contain property listings
-  const articleRegex = /<article[^>]*class="[^"]*property[^"]*"[^>]*>([\s\S]*?)<\/article>/gi
-  let match
-  while ((match = articleRegex.exec(html)) !== null) {
-    const block = match[0]
+  $('article.rh_list_card, article[class*="property"]').each((_, element) => {
+    const card = $(element)
+    const propertyLink = card
+      .find('a[href*="/propiedades/propiedad/"]')
+      .first()
+      .attr('href')
+      ?.trim() ?? ''
+    const slugMatch = propertyLink.match(/\/propiedad\/([^/?#]+)/)
+    if (!slugMatch) return
 
-    // Extract permalink / ID from the article or its link
-    const permalink = extractAttr(block, 'a', 'href') || ''
-    // iChiloe uses /propiedades/propiedad/{slug}/ — use slug as ID
-    const slugMatch = permalink.match(/\/propiedad\/([^/]+)\/?$/)
-    const id = slugMatch ? slugMatch[1] : permalink.replace(/[^a-z0-9-]/gi, '').slice(0, 60)
-    if (!id) continue
+    const title = card.find('h1, h2, h3, h4').first().text().replace(/\s+/g, ' ').trim()
+    const text = card.text().replace(/\s+/g, ' ').trim()
 
-    const titleMatch = block.match(/<h\d[^>]*>([\s\S]*?)<\/h\d>/i)
-    const title = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, '').trim() : 'Propiedad iChiloe'
+    // Prefer currency-qualified values so title numbers are never mistaken for prices.
+    const priceMatch = text.match(/(?:UF\s*[\d.,]+|\$\s*[\d.,]+|[\d.,]+\s*UF)\b/i)
 
-    // Price — looks for "$X.XXX.XXX" or "X.XXX UF"
-    const priceMatch = block.match(/(\d[\d.,\s]*\s*(?:UF|uf|\$|CLP)?[\d.,]*)(?:\s*\+\s*[\d.]+%\s*Comisi[oó]n)?/)
-    const priceRaw = priceMatch ? priceMatch[0].replace(/\+\s*[\d.]+%[^<]*/i, '').trim() : ''
+    // iChiloe occasionally labels hectares as m2 in the card while the title says Ha.
+    const titleArea = title.match(/([\d.,]+)\s*(ha|has|hect[aá]rea[s]?|m[²2])/i)
+    const cardArea = text.match(/Área\s*([\d.,]+)\s*(ha|has|hect[aá]rea[s]?|m[²2])/i)
+    const areaMatch = titleArea ?? cardArea
 
-    // Area — "700 m2", "0.5 hectáreas", "63 has"
-    const areaMatch = block.match(/([\d.,]+\s*(?:m[²2]|ha[s]?|hect[aá]rea[s]?))/i)
-    const areaRaw = areaMatch ? areaMatch[1] : ''
+    const image = card.find('img').first().attr('data-src')
+      ?? card.find('img').first().attr('src')
+      ?? ''
+    const location = card.find('[class*="location"], address').first().text().replace(/\s+/g, ' ').trim()
 
-    // Address / location
-    const locationMatch = block.match(/class="[^"]*location[^"]*"[^>]*>([\s\S]*?)<\//)
-    const address = locationMatch ? locationMatch[1].replace(/<[^>]+>/g, '').trim() : ''
-
-    // Thumbnail
-    const imgMatch = block.match(/<img[^>]+src="([^"]+)"/)
-    const image = imgMatch ? imgMatch[1] : ''
-
-    cards.push({ id, title, url: permalink, priceRaw, areaRaw, address, image, typeSlug })
-  }
+    cards.push({
+      id: slugMatch[1],
+      title: title || 'Propiedad iChiloe',
+      url: propertyLink,
+      priceRaw: priceMatch?.[0] ?? '',
+      areaRaw: areaMatch ? `${areaMatch[1]} ${areaMatch[2]}` : '',
+      address: location,
+      image,
+      typeSlug,
+    })
+  })
 
   return cards
 }
