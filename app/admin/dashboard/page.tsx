@@ -122,6 +122,7 @@ const ActivityItem = ({ user, action, property, time, image }) => {
   export default function AdminDashboard() {
   const searchParams = useSearchParams()
   const tabParam = searchParams.get("tab")
+  const showFavorites = searchParams.get("favorites") === "true"
   const [activeTab, setActiveTab] = useState(
     VALID_TABS.includes(tabParam ?? "") ? (tabParam as string) : "overview"
   )
@@ -185,7 +186,7 @@ const ActivityItem = ({ user, action, property, time, image }) => {
           </TabsList>
 
           <TabsContent value="overview" className="mt-0">
-            <ScrapedPropertiesDashboard mode="summary" />
+            <ScrapedPropertiesDashboard mode="summary" initialShowFavorites={showFavorites} />
             <div className="hidden" aria-hidden="true">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <StatCard
@@ -440,7 +441,7 @@ const ActivityItem = ({ user, action, property, time, image }) => {
           </TabsContent>
 
           <TabsContent value="properties" className="mt-0">
-            <ScrapedPropertiesDashboard mode="full" />
+            <ScrapedPropertiesDashboard mode="full" initialShowFavorites={showFavorites} />
           </TabsContent>
 
           <TabsContent value="users" className="mt-0">
