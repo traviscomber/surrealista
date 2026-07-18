@@ -120,6 +120,14 @@ const SOURCES = [
     type: "south",
     color: "emerald",
   },
+  {
+    key: "rura",
+    label: "Rura.cl",
+    url: "rura.cl",
+    focus: "Parcelas y terrenos especializado",
+    type: "south",
+    color: "emerald",
+  },
 ]
 
 const STATUS_CONFIG = {
