@@ -8,7 +8,15 @@
     "lint": "next lint",
     "start": "next start",
     "kmz:reindex:audit": "node scripts/reindex-all-kmz.mjs",
-    "kmz:reindex:apply": "node scripts/reindex-all-kmz.mjs --apply"
+    "kmz:reindex:apply": "node scripts/reindex-all-kmz.mjs --apply",
+    "scrape:all": "node scripts/run-scrapers.mjs --aggregate",
+    "scrape:south": "node scripts/run-scrapers.mjs --source=south --aggregate",
+    "scrape:general": "node scripts/run-scrapers.mjs --source=general --aggregate",
+    "scrape:ichiloe": "node scripts/run-scrapers.mjs --source=ichiloe",
+    "scrape:surealista": "node scripts/run-scrapers.mjs --source=surealista",
+    "scrape:camposchile": "node scripts/run-scrapers.mjs --source=camposchile",
+    "scrape:terrachiloe": "node scripts/run-scrapers.mjs --source=terrachiloe",
+    "scrape:portalterreno": "node scripts/run-scrapers.mjs --source=portalterreno"
   },
   "dependencies": {
     "@ai-sdk/openai": "latest",
@@ -53,6 +61,7 @@
     "ai": "latest",
     "autoprefixer": "^10.4.20",
     "better-auth": "^1.6.14",
+    "cheerio": "^1.2.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "1.0.4",
@@ -98,6 +107,7 @@
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "pg": "^8.22.0",
     "postcss": "^8.5",
     "tailwindcss": "^3.4.17",
     "typescript": "^5"

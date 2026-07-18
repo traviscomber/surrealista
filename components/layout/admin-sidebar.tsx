@@ -12,9 +12,7 @@ import {
   Database,
   ChevronDown,
   ChevronRight,
-  Upload,
   Home,
-  Eye,
   FileText,
   Bell,
   Search,
@@ -132,38 +130,6 @@ const menuItems: MenuItem[] = [
     icon: Users,
     badge: "285",
     badgeVariant: "default",
-  },
-  {
-    title: "Gestión Documentos",
-    icon: FileText,
-    badge: "Etapa 1",
-    badgeVariant: "default",
-    children: [
-      {
-        title: "Google Drive Integration",
-        href: "/admin/google-drive-integration",
-        icon: Database,
-        badge: "API Ready",
-      },
-      {
-        title: "Organización Carpetas",
-        href: "/admin/organizacion-carpetas-demo",
-        icon: Eye,
-        badge: "Demo",
-      },
-      {
-        title: "Método PARA",
-        href: "/admin/documentacion-para-method",
-        icon: HelpCircle,
-        badge: "Guía",
-      },
-      {
-        title: "Migración Data Real",
-        href: "/admin/migracion-data-real",
-        icon: Upload,
-        badge: "Ready",
-      },
-    ],
   },
 ]
 

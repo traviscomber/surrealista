@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -17,10 +18,13 @@ import {
   Map,
   Eye,
   MessageSquare,
+  Globe,
 } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { AppHeader } from "@/components/layout/app-header"
+import { ScrapersPanel } from "@/components/admin/scrapers-panel"
+import { ScrapedPropertiesDashboard } from "@/components/admin/scraped-properties-dashboard"
 
 // Componente para las tarjetas de estadísticas
 const StatCard = ({ title, value, trend, trendValue, icon: Icon, color }) => {
@@ -113,8 +117,20 @@ const ActivityItem = ({ user, action, property, time, image }) => {
   )
 }
 
-export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState("overview")
+  const VALID_TABS = ["overview", "properties", "users", "analytics", "settings", "scrapers"]
+
+  export default function AdminDashboard() {
+  const searchParams = useSearchParams()
+  const tabParam = searchParams.get("tab")
+  const showFavorites = searchParams.get("favorites") === "true"
+  const [activeTab, setActiveTab] = useState(
+    VALID_TABS.includes(tabParam ?? "") ? (tabParam as string) : "overview"
+  )
+
+  useEffect(() => {
+    const t = searchParams.get("tab")
+    if (t && VALID_TABS.includes(t)) setActiveTab(t)
+  }, [searchParams])
 
   return (
     <>
@@ -133,7 +149,7 @@ export default function AdminDashboard() {
               </Link>
             </Button>
             <Button asChild className="gap-2">
-              <Link href="/admin/propiedades">
+              <Link href="/propiedades">
                 <Building className="h-4 w-4" />
                 Ver Propiedades
               </Link>
@@ -142,7 +158,7 @@ export default function AdminDashboard() {
         </div>
 
         <Tabs defaultValue="overview" className="w-full" value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid grid-cols-3 md:grid-cols-5 mb-8">
+          <TabsList className="grid grid-cols-3 md:grid-cols-6 mb-8">
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
               <span className="hidden md:inline">Resumen</span>
@@ -163,9 +179,15 @@ export default function AdminDashboard() {
               <Settings className="h-4 w-4" />
               <span className="hidden md:inline">Configuración</span>
             </TabsTrigger>
+            <TabsTrigger value="scrapers" className="flex items-center gap-2">
+              <Globe className="h-4 w-4" />
+              <span className="hidden md:inline">Scrapers</span>
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="mt-0">
+            <ScrapedPropertiesDashboard mode="summary" initialShowFavorites={showFavorites} />
+            <div className="hidden" aria-hidden="true">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <StatCard
                 title="Total Propiedades"
@@ -232,7 +254,7 @@ export default function AdminDashboard() {
                   <div className="flex items-center justify-between">
                     <CardTitle>Propiedades Recientes</CardTitle>
                     <Button variant="ghost" size="sm" className="gap-1 text-xs" asChild>
-                      <Link href="/admin/propiedades">
+                      <Link href="/propiedades">
                         Ver Todas
                         <ArrowUpRight className="h-3 w-3" />
                       </Link>
@@ -415,33 +437,11 @@ export default function AdminDashboard() {
                 </CardContent>
               </Card>
             </div>
+            </div>
           </TabsContent>
 
           <TabsContent value="properties" className="mt-0">
-            <Card>
-              <CardHeader>
-                <CardTitle>Gestión de Propiedades</CardTitle>
-                <CardDescription>Administra todas las propiedades de Sur-Realista</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center py-12">
-                  <Building className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Gestión de Propiedades</h3>
-                  <p className="text-gray-500 max-w-md mx-auto mb-6">
-                    Desde aquí puedes ver, editar, agregar y eliminar propiedades. También puedes gestionar imágenes,
-                    detalles y configurar propiedades destacadas.
-                  </p>
-                  <div className="flex flex-wrap gap-3 justify-center">
-                    <Button asChild>
-                      <Link href="/admin/propiedades">Ver Todas las Propiedades</Link>
-                    </Button>
-                    <Button variant="outline" asChild>
-                      <Link href="/admin/propiedades/nueva">Agregar Nueva Propiedad</Link>
-                    </Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <ScrapedPropertiesDashboard mode="full" initialShowFavorites={showFavorites} />
           </TabsContent>
 
           <TabsContent value="users" className="mt-0">
@@ -522,6 +522,10 @@ export default function AdminDashboard() {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="scrapers" className="mt-0">
+            <ScrapersPanel />
           </TabsContent>
         </Tabs>
       </div>
