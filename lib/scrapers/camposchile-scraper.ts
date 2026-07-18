@@ -5,10 +5,11 @@
  * URL pattern: https://www.camposchile.cl/propiedades/?tipo={tipo}&region={region}&pagina={n}
  * HTML-based, standard WP Real Estate theme.
  */
+import * as cheerio from 'cheerio'
 import type { RawProperty, ScrapeResult } from './base-scraper'
 import { normaliseProperty, upsertProperties, logScrapeRun, normaliseRegion } from './base-scraper'
 
-const BASE = 'https://www.camposchile.cl'
+const BASE = 'https://camposchile.com'
 
 const HEADERS = {
   'User-Agent':
@@ -17,32 +18,22 @@ const HEADERS = {
   Referer: BASE,
 }
 
-const SOUTH_REGIONS = [
-  'Los Lagos',
-  'Los Ríos',
-  'Aysén',
-  'La Araucanía',
-  'Biobío',
-  'Maule',
-]
+function simplifyLocation(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/regi[oó]n de(?:l)?/g, '')
+    .trim()
+}
 
-const PROPERTY_TYPES = ['campo', 'parcela', 'terreno', 'fundo', 'isla']
-
-async function fetchPage(type: string, region: string, page: number): Promise<string> {
-  const urls = [
-    `${BASE}/propiedades/?tipo=${encodeURIComponent(type)}&region=${encodeURIComponent(region)}&pagina=${page}`,
-    `${BASE}/propiedades/?tipo=${encodeURIComponent(type)}&region=${encodeURIComponent(region)}&page=${page}`,
-    `${BASE}/${type}s/?region=${encodeURIComponent(region)}&page=${page}`,
-  ]
-
-  for (const url of urls) {
-    try {
-      const res = await fetch(url, { headers: HEADERS, signal: AbortSignal.timeout(15_000) })
-      if (res.ok) return res.text()
-      if (res.status === 404) return ''
-    } catch { /* try next */ }
-  }
-  return ''
+async function fetchCatalog(): Promise<string> {
+  const res = await fetch(BASE, {
+    headers: HEADERS,
+    signal: AbortSignal.timeout(180_000),
+  })
+  if (!res.ok) throw new Error(`camposchile ${BASE} → ${res.status}`)
+  return res.text()
 }
 
 interface CamposListing {
@@ -57,68 +48,31 @@ interface CamposListing {
   image: string
 }
 
-function parseCards(html: string, fallbackType: string, fallbackRegion: string): CamposListing[] {
-  const results: CamposListing[] = []
-  if (!html) return results
+export function parseCamposCards(html: string): CamposListing[] {
+  if (!html) return []
+  const $ = cheerio.load(html)
 
-  // Try __NEXT_DATA__ first
-  const ndMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/)
-  if (ndMatch) {
-    try {
-      const nd = JSON.parse(ndMatch[1])
-      const props = nd?.props?.pageProps
-      const listings = props?.propiedades ?? props?.listings ?? props?.properties ?? []
-      for (const l of listings) {
-        const id = String(l.id ?? l.slug ?? '').trim()
-        if (!id) continue
-        results.push({
-          id,
-          title: String(l.titulo ?? l.title ?? 'Campo').slice(0, 300),
-          url: l.url ?? l.slug ?? '',
-          priceRaw: l.precio_uf != null ? `${l.precio_uf} UF` : String(l.precio ?? ''),
-          areaRaw: String(l.superficie ?? l.area ?? ''),
-          region: normaliseRegion(l.region ?? fallbackRegion) ?? fallbackRegion,
-          commune: l.comuna ?? l.ciudad ?? '',
-          type: l.tipo ?? fallbackType,
-          image: Array.isArray(l.imagenes) ? l.imagenes[0] : (l.imagen ?? ''),
-        })
-      }
-      if (results.length > 0) return results
-    } catch { /* fallback to HTML */ }
-  }
+  return $('.prop-card').map((index, element) => {
+    const card = $(element)
+    const id = card.attr('onclick')?.match(/openFichaGate\((\d+)\)/)?.[1] ?? String(index + 1)
+    const title = card.find('.prop-title').text().replace(/\s+/g, ' ').trim()
+    const metadata = card.find('.prop-meta span').map((_, item) => $(item).text().replace(/\s+/g, ' ').trim()).get()
+    const locationParts = (metadata[0] ?? '').split('·').map((part) => part.trim())
+    const details = (metadata[1] ?? '').split('·').map((part) => part.trim())
+    const badge = card.find('.prop-badge').text().replace(/\s+/g, ' ').trim()
 
-  // HTML card fallback
-  const articleRe = /<(?:article|div)[^>]*class="[^"]*(?:property|listing|propiedad)[^"]*"[^>]*>([\s\S]*?)<\/(?:article|div)>/gi
-  let m
-  while ((m = articleRe.exec(html)) !== null) {
-    const block = m[0]
-    const hrefMatch = block.match(/href="([^"]+)"/)
-    if (!hrefMatch) continue
-    const url = hrefMatch[1]
-    const id = url.split('/').filter(Boolean).pop() ?? ''
-    if (!id || id.length < 2) continue
-
-    const titleMatch = block.match(/<h\d[^>]*>([\s\S]*?)<\/h\d>/i)
-    const title = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, '').trim() : 'Propiedad'
-
-    const priceMatch = block.match(/\$[\d.,\s]+|[\d.,]+\s*(?:UF|uf)/i)
-    const areaMatch = block.match(/([\d.,]+\s*(?:m[²2]|ha[s]?|hect[aá]rea[s]?))/i)
-    const imgMatch = block.match(/<img[^>]+src="([^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/i)
-
-    results.push({
+    return {
       id,
-      title: title.slice(0, 300),
-      url,
-      priceRaw: priceMatch ? priceMatch[0] : '',
-      areaRaw: areaMatch ? areaMatch[1] : '',
-      region: fallbackRegion,
-      commune: '',
-      type: fallbackType,
-      image: imgMatch ? imgMatch[1] : '',
-    })
-  }
-
-  return results
+      title: title || 'Propiedad rural CamposChile',
+      url: BASE,
+      priceRaw: card.find('.prop-price').text().replace(/\s+/g, ' ').trim(),
+      areaRaw: details[0] ?? '',
+      region: normaliseRegion(locationParts[1] ?? '') ?? locationParts[1] ?? '',
+      commune: locationParts[0] ?? '',
+      type: badge || title.split(' ')[0] || 'campo',
+      image: card.find('img').first().attr('src') ?? '',
+    }
+  }).get()
 }
 
 export async function scrapeCamposChile(opts: {
@@ -127,51 +81,43 @@ export async function scrapeCamposChile(opts: {
   pages?: number
 } = {}): Promise<ScrapeResult> {
   const {
-    regions = SOUTH_REGIONS,
-    types = PROPERTY_TYPES,
-    pages = 2,
+    regions = [],
+    types = [],
   } = opts
 
   const start = Date.now()
   const allRaw: RawProperty[] = []
   const errors: string[] = []
-  const seen = new Set<string>()
 
-  for (const region of regions) {
-    for (const type of types) {
-      for (let page = 1; page <= pages; page++) {
-        try {
-          const html = await fetchPage(type, region, page)
-          if (!html) break
+  try {
+    const html = await fetchCatalog()
+    const requestedRegions = regions.map(simplifyLocation)
+    const requestedTypes = types.map((type) => type.toLowerCase())
+    const cards = parseCamposCards(html).filter((card) => {
+      const matchesRegion = requestedRegions.length === 0
+        || requestedRegions.some((region) => simplifyLocation(`${card.region} ${card.commune}`).includes(region))
+      const matchesType = requestedTypes.length === 0
+        || requestedTypes.some((type) => card.type.toLowerCase().includes(type) || card.title.toLowerCase().includes(type))
+      return matchesRegion && matchesType
+    })
 
-          const cards = parseCards(html, type, region)
-          if (cards.length === 0) break
-
-          for (const card of cards) {
-            if (seen.has(card.id)) continue
-            seen.add(card.id)
-            allRaw.push({
-              externalId: `camposchile-${card.id}`,
-              source: 'camposchile',
-              title: card.title,
-              priceRaw: card.priceRaw || null,
-              areaRaw: card.areaRaw || null,
-              propertyType: card.type,
-              operation: 'venta',
-              region: card.region,
-              commune: card.commune || null,
-              images: card.image ? [card.image] : [],
-              sourceUrl: card.url.startsWith('http') ? card.url : `${BASE}${card.url}`,
-            })
-          }
-
-          await new Promise((r) => setTimeout(r, 500 + Math.random() * 500))
-        } catch (err) {
-          errors.push(`camposchile/${region}/${type}/p${page}: ${(err as Error).message}`)
-          break
-        }
-      }
+    for (const card of cards) {
+      allRaw.push({
+        externalId: `camposchile-${card.id}`,
+        source: 'camposchile',
+        title: card.title,
+        priceRaw: card.priceRaw || null,
+        areaRaw: card.areaRaw || null,
+        propertyType: card.type,
+        operation: 'venta',
+        region: card.region,
+        commune: card.commune || null,
+        images: card.image ? [card.image] : [],
+        sourceUrl: card.url,
+      })
     }
+  } catch (err) {
+    errors.push(`camposchile/catalogo: ${(err as Error).message}`)
   }
 
   const normalised = await Promise.all(allRaw.map(normaliseProperty))
