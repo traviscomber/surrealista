@@ -24,6 +24,7 @@ export interface KMZData {
     name?: string
     description?: string
     author?: string
+    styles?: Record<string, Record<string, string>>
   }
   fileSize?: number
   skipped?: boolean
@@ -108,10 +109,7 @@ export class KMZReader {
 
     for (let i = 0; i < placemarksNodes.length; i++) {
       const placemark = placemarksNodes[i]
-      const parsedPlacemark = this.parsePlacemark(placemark)
-      if (parsedPlacemark) {
-        placemarks.push(parsedPlacemark)
-      }
+      placemarks.push(...this.parsePlacemarkGeometries(placemark))
     }
 
     // Extraer metadatos del documento
@@ -129,62 +127,89 @@ export class KMZReader {
     }
   }
 
-  private parsePlacemark(placemark: Element): KMZPlacemark | null {
+  private parsePlacemarkGeometries(placemark: Element): KMZPlacemark[] {
     try {
-      const name = placemark.getElementsByTagName("name")[0]?.textContent || "Sin nombre"
-      const description = placemark.getElementsByTagName("description")[0]?.textContent
-      const styleUrl = placemark.getElementsByTagName("styleUrl")[0]?.textContent
+      const baseName = placemark.getElementsByTagName("name")[0]?.textContent?.trim() || "Sin nombre"
+      const description = placemark.getElementsByTagName("description")[0]?.textContent || undefined
+      const styleUrl = placemark.getElementsByTagName("styleUrl")[0]?.textContent?.trim() || undefined
+      const properties = {
+        ...this.extractExtendedData(placemark),
+        folderPath: this.extractFolderPath(placemark),
+      }
+      const geometries: KMZPlacemark[] = []
 
-      // Buscar geometría
-      const point = placemark.getElementsByTagName("Point")[0]
-      const lineString = placemark.getElementsByTagName("LineString")[0]
-      const polygon = placemark.getElementsByTagName("Polygon")[0]
-
-      let coordinates: Array<[number, number, number?]> = []
-      let type: "Point" | "LineString" | "Polygon" = "Point"
-
-      if (point) {
-        const coordsText = point.getElementsByTagName("coordinates")[0]?.textContent?.trim()
-        if (coordsText) {
-          const [lng, lat, alt] = coordsText.split(",").map(Number)
-          coordinates = [[lng, lat, alt]]
-          type = "Point"
-        }
-      } else if (lineString) {
-        const coordsText = lineString.getElementsByTagName("coordinates")[0]?.textContent?.trim()
-        if (coordsText) {
-          coordinates = this.parseCoordinateString(coordsText)
-          type = "LineString"
-        }
-      } else if (polygon) {
-        const outerBoundary = polygon.getElementsByTagName("outerBoundaryIs")[0]
-        const linearRing = outerBoundary?.getElementsByTagName("LinearRing")[0]
-        const coordsText = linearRing?.getElementsByTagName("coordinates")[0]?.textContent?.trim()
-        if (coordsText) {
-          coordinates = this.parseCoordinateString(coordsText)
-          type = "Polygon"
-        }
+      const appendGeometry = (
+        type: KMZPlacemark["type"],
+        coordinates: Array<[number, number, number?]>,
+        extraProperties: Record<string, any> = {},
+      ) => {
+        if (coordinates.length === 0) return
+        const geometryNumber = geometries.length + 1
+        geometries.push({
+          name: geometryNumber === 1 ? baseName : `${baseName} · geometría ${geometryNumber}`,
+          description,
+          coordinates,
+          type,
+          styleUrl,
+          properties: { ...properties, ...extraProperties },
+        })
       }
 
-      if (coordinates.length === 0) {
-        return null
+      const points = placemark.getElementsByTagName("Point")
+      for (let index = 0; index < points.length; index++) {
+        const coordsText = points[index].getElementsByTagName("coordinates")[0]?.textContent?.trim()
+        if (coordsText) appendGeometry("Point", this.parseCoordinateString(coordsText).slice(0, 1))
       }
 
-      // Extraer propiedades adicionales de ExtendedData
-      const properties = this.extractExtendedData(placemark)
-
-      return {
-        name,
-        description,
-        coordinates,
-        type,
-        styleUrl,
-        properties,
+      const lineStrings = placemark.getElementsByTagName("LineString")
+      for (let index = 0; index < lineStrings.length; index++) {
+        const coordsText = lineStrings[index].getElementsByTagName("coordinates")[0]?.textContent?.trim()
+        if (coordsText) appendGeometry("LineString", this.parseCoordinateString(coordsText))
       }
+
+      const polygons = placemark.getElementsByTagName("Polygon")
+      for (let index = 0; index < polygons.length; index++) {
+        const outerBoundary = polygons[index].getElementsByTagName("outerBoundaryIs")[0]
+        const coordsText = outerBoundary
+          ?.getElementsByTagName("LinearRing")[0]
+          ?.getElementsByTagName("coordinates")[0]
+          ?.textContent?.trim()
+        if (!coordsText) continue
+
+        const innerBoundaries: Array<Array<[number, number, number?]>> = []
+        const innerNodes = polygons[index].getElementsByTagName("innerBoundaryIs")
+        for (let innerIndex = 0; innerIndex < innerNodes.length; innerIndex++) {
+          const innerCoords = innerNodes[innerIndex]
+            .getElementsByTagName("LinearRing")[0]
+            ?.getElementsByTagName("coordinates")[0]
+            ?.textContent?.trim()
+          if (innerCoords) innerBoundaries.push(this.parseCoordinateString(innerCoords))
+        }
+
+        appendGeometry("Polygon", this.parseCoordinateString(coordsText), { innerBoundaries })
+      }
+
+      return geometries
     } catch (error) {
       console.error("Error parsing placemark:", error)
-      return null
+      return []
     }
+  }
+
+  private extractFolderPath(placemark: Element): string[] {
+    const path: string[] = []
+    let parent = placemark.parentNode
+
+    while (parent && parent.nodeType === 1) {
+      const element = parent as Element
+      if (element.tagName === "Folder") {
+        const folderName = element.getElementsByTagName("name")[0]?.textContent?.trim()
+        if (folderName) path.unshift(folderName)
+      }
+      parent = parent.parentNode
+    }
+
+    return path
   }
 
   private parseCoordinateString(coordsText: string): Array<[number, number, number?]> {
@@ -207,9 +232,15 @@ export class KMZReader {
         const dataNode = dataNodes[i]
         const name = dataNode.getAttribute("name")
         const value = dataNode.getElementsByTagName("value")[0]?.textContent
-        if (name && value) {
-          properties[name] = value
-        }
+        if (name && value) properties[name] = value
+      }
+
+      const simpleDataNodes = extendedData.getElementsByTagName("SimpleData")
+      for (let i = 0; i < simpleDataNodes.length; i++) {
+        const simpleDataNode = simpleDataNodes[i]
+        const name = simpleDataNode.getAttribute("name")
+        const value = simpleDataNode.textContent
+        if (name && value) properties[name] = value.trim()
       }
     }
 
@@ -223,7 +254,35 @@ export class KMZReader {
       name: documentNode.getElementsByTagName("name")[0]?.textContent,
       description: documentNode.getElementsByTagName("description")[0]?.textContent,
       author: documentNode.getElementsByTagName("atom:author")[0]?.textContent,
+      styles: this.extractStyles(documentNode),
     }
+  }
+
+  private extractStyles(documentNode: Element): Record<string, Record<string, string>> {
+    const styles: Record<string, Record<string, string>> = {}
+    const styleNodes = documentNode.getElementsByTagName("Style")
+
+    for (let index = 0; index < styleNodes.length; index++) {
+      const style = styleNodes[index]
+      const id = style.getAttribute("id")
+      if (!id) continue
+
+      const lineStyle = style.getElementsByTagName("LineStyle")[0]
+      const polyStyle = style.getElementsByTagName("PolyStyle")[0]
+      const iconStyle = style.getElementsByTagName("IconStyle")[0]
+      const icon = iconStyle?.getElementsByTagName("Icon")[0]
+      styles[`#${id}`] = {
+        lineColor: lineStyle?.getElementsByTagName("color")[0]?.textContent?.trim() || "",
+        lineWidth: lineStyle?.getElementsByTagName("width")[0]?.textContent?.trim() || "",
+        polygonColor: polyStyle?.getElementsByTagName("color")[0]?.textContent?.trim() || "",
+        polygonFill: polyStyle?.getElementsByTagName("fill")[0]?.textContent?.trim() || "",
+        polygonOutline: polyStyle?.getElementsByTagName("outline")[0]?.textContent?.trim() || "",
+        iconHref: icon?.getElementsByTagName("href")[0]?.textContent?.trim() || "",
+        iconScale: iconStyle?.getElementsByTagName("scale")[0]?.textContent?.trim() || "",
+      }
+    }
+
+    return styles
   }
 
   private calculateBounds(
