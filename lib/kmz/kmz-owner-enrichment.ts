@@ -6,6 +6,17 @@ import { OwnerDiscoveryMetadata, OwnerResearchLead, OwnerCandidate } from "./own
  * Builds and maintains the owner research metadata incrementally
  */
 export class KMZOwnerEnrichmentPipeline {
+  private normalizeIsoDate(value?: string | null, fallback?: string): string | undefined {
+    if (!value) return fallback
+
+    const parsed = new Date(value)
+    if (Number.isNaN(parsed.getTime())) {
+      return fallback
+    }
+
+    return parsed.toISOString()
+  }
+
   /**
    * Add or update owner research lead
    * Appends new lead to array, never overwrites
@@ -183,22 +194,22 @@ export class KMZOwnerEnrichmentPipeline {
   prepareForStorage(metadata: OwnerDiscoveryMetadata): OwnerDiscoveryMetadata {
     // Ensure all dates are ISO strings
     if (metadata.public_owner_candidate?.dateFound) {
-      metadata.public_owner_candidate.dateFound = new Date(
-        metadata.public_owner_candidate.dateFound
-      ).toISOString()
+      metadata.public_owner_candidate.dateFound =
+        this.normalizeIsoDate(metadata.public_owner_candidate.dateFound, new Date().toISOString()) ||
+        new Date().toISOString()
     }
 
     if (metadata.owner_research_leads) {
       metadata.owner_research_leads = metadata.owner_research_leads.map((lead) => ({
         ...lead,
-        dateFound: new Date(lead.dateFound).toISOString(),
+        dateFound: this.normalizeIsoDate(lead.dateFound, new Date().toISOString()) || new Date().toISOString(),
       }))
     }
 
     if (metadata.owner_research_queue?.generatedAt) {
-      metadata.owner_research_queue.generatedAt = new Date(
-        metadata.owner_research_queue.generatedAt
-      ).toISOString()
+      metadata.owner_research_queue.generatedAt =
+        this.normalizeIsoDate(metadata.owner_research_queue.generatedAt, new Date().toISOString()) ||
+        new Date().toISOString()
     }
 
     // Calculate and store owner confidence

@@ -65,6 +65,28 @@ const MIN_CONF = parseFloat(arg("min-conf", "0.7"))
 
 // --------------------------- Helpers --------------------------------------
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+const MAX_QUERY_COUNT = 8
+const MAX_RESULT_COUNT = 10
+const MAX_PAGE_EXTRACTS = 3
+
+const SOURCE_TARGETS = [
+  { label: "sea", domains: ["sea.gob.cl", "seia.cl"], confidenceBoost: 0.12, queryHint: "site:sea.gob.cl OR site:seia.cl" },
+  { label: "pjud", domains: ["pjud.cl"], confidenceBoost: 0.1, queryHint: "site:pjud.cl" },
+  { label: "mercado-publico", domains: ["mercadopublico.cl"], confidenceBoost: 0.08, queryHint: "site:mercadopublico.cl" },
+  { label: "conaf", domains: ["conaf.cl"], confidenceBoost: 0.08, queryHint: "site:conaf.cl" },
+  { label: "municipal", domains: [".muni.cl", ".municipalidad.cl"], confidenceBoost: 0.07, queryHint: "site:muni.cl OR site:municipalidad.cl" },
+  { label: "cbr", domains: ["conservador.cl", "conservadordigital.cl"], confidenceBoost: 0.15, queryHint: "site:conservador.cl OR site:conservadordigital.cl" },
+]
+
+const BLOCKED_RESULT_DOMAINS = [
+  "facebook.com",
+  "instagram.com",
+  "youtube.com",
+  "linkedin.com",
+  "tiktok.com",
+  "x.com",
+  "twitter.com",
+]
 
 function normalize(str) {
   if (!str) return ""
@@ -131,6 +153,193 @@ function meaningfulTokens(name) {
 /** Distinctive tokens = meaningful tokens that aren't generic property words. */
 function distinctiveTokens(name) {
   return meaningfulTokens(name).filter((w) => !GENERIC.has(w))
+}
+
+function getHostname(input) {
+  try {
+    return new URL(input).hostname.toLowerCase()
+  } catch {
+    return ""
+  }
+}
+
+function classifySource(link) {
+  const hostname = getHostname(link)
+  const matched = SOURCE_TARGETS.find((target) =>
+    target.domains.some((domain) => domain.startsWith(".") ? hostname.endsWith(domain) : hostname === domain || hostname.endsWith(`.${domain}`))
+  )
+
+  return {
+    hostname,
+    sourceLabel: matched?.label || "general",
+    confidenceBoost: matched?.confidenceBoost || 0,
+    isPrioritySource: Boolean(matched),
+  }
+}
+
+function isBlockedResult(link) {
+  const hostname = getHostname(link)
+  return BLOCKED_RESULT_DOMAINS.some((domain) => hostname === domain || hostname.endsWith(`.${domain}`))
+}
+
+function unique(values) {
+  return Array.from(new Set(values.filter(Boolean)))
+}
+
+function buildSearchQueries({ name, commune, region, rol }) {
+  const cleanRol = `${rol || ""}`.trim()
+  const cleanNameValue = `${name || ""}`.trim()
+  const cleanCommune = `${commune || ""}`.trim()
+  const cleanRegion = `${region || ""}`.trim()
+  const distinctNameTokens = distinctiveTokens(cleanNameValue).slice(0, 4)
+  const tokenLabel = distinctNameTokens.join(" ")
+
+  const queries = [
+    cleanRol ? `"${cleanRol}" propietario sociedad predio chile` : null,
+    cleanRol && cleanCommune ? `"${cleanRol}" "${cleanCommune}" propietario sociedad` : null,
+    cleanRol && cleanRegion ? `"${cleanRol}" "${cleanRegion}" sociedad agricola forestal` : null,
+    cleanRol ? `"${cleanRol}" site:sea.gob.cl OR site:seia.cl` : null,
+    cleanRol ? `"${cleanRol}" site:pjud.cl OR site:mercadopublico.cl` : null,
+    cleanRol ? `"${cleanRol}" site:conaf.cl OR site:muni.cl` : null,
+    cleanNameValue && cleanRegion ? `"${cleanNameValue}" "${cleanRegion}" sociedad propietario` : null,
+    tokenLabel && cleanRegion ? `"${tokenLabel}" "${cleanRegion}" sociedad agricola forestal` : null,
+    tokenLabel ? `"${tokenLabel}" site:sea.gob.cl OR site:conaf.cl OR site:mercadopublico.cl` : null,
+  ]
+
+  for (const source of SOURCE_TARGETS) {
+    if (cleanRol) {
+      queries.push(`"${cleanRol}" ${source.queryHint}`)
+    }
+  }
+
+  return unique(queries).slice(0, MAX_QUERY_COUNT)
+}
+
+function scoreResult(result, context) {
+  const title = normalize(result?.title || "")
+  const snippet = normalize(result?.snippet || "")
+  const link = `${result?.link || ""}`.trim()
+  const { confidenceBoost, isPrioritySource } = classifySource(link)
+  let score = isPrioritySource ? 40 : 10
+
+  if (!link) score -= 50
+  if (isBlockedResult(link)) score -= 100
+
+  const rolToken = normalize(context.rol || "")
+  if (rolToken && (`${title} ${snippet}`).includes(rolToken)) score += 28
+
+  const communeToken = normalize(context.commune || "")
+  if (communeToken && (`${title} ${snippet}`).includes(communeToken)) score += 10
+
+  const regionToken = normalize(context.region || "")
+  if (regionToken && (`${title} ${snippet}`).includes(regionToken)) score += 6
+
+  for (const token of context.distinctive || []) {
+    if ((`${title} ${snippet}`).includes(token)) score += 8
+  }
+
+  if (/\bpropietari|\bduen|\bsociedad|\bspa\b|\bltda\b|\bs\.a\b|\bagricola\b|\bforestal\b/.test(`${title} ${snippet}`)) {
+    score += 16
+  }
+
+  score += Math.round(confidenceBoost * 100)
+  return score
+}
+
+function mergeSearchResults(queryRuns, context) {
+  const byLink = new Map()
+
+  for (const run of queryRuns) {
+    for (const result of run.results || []) {
+      const link = `${result?.link || ""}`.trim()
+      if (!link || isBlockedResult(link)) continue
+
+      const merged = {
+        ...result,
+        query: run.query,
+        sourceHint: classifySource(link).sourceLabel,
+      }
+      const scored = scoreResult(merged, context)
+      const existing = byLink.get(link)
+
+      if (!existing || scored > existing.__score) {
+        byLink.set(link, {
+          ...merged,
+          __score: scored,
+          queryCount: existing ? existing.queryCount + 1 : 1,
+        })
+      } else if (existing) {
+        existing.queryCount += 1
+      }
+    }
+  }
+
+  return Array.from(byLink.values())
+    .sort((a, b) => b.__score - a.__score)
+    .slice(0, MAX_RESULT_COUNT)
+}
+
+function stripHtml(html) {
+  return `${html || ""}`
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+async function fetchPageExtract(link) {
+  if (!link || /\.pdf(\?|$)/i.test(link)) {
+    return null
+  }
+
+  try {
+    const response = await fetch(link, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; SurRealistaOwnerResearch/1.0)",
+        "Accept-Language": "es-CL,es;q=0.9,en;q=0.6",
+      },
+      redirect: "follow",
+    })
+
+    if (!response.ok) {
+      return null
+    }
+
+    const contentType = `${response.headers.get("content-type") || ""}`.toLowerCase()
+    if (!contentType.includes("text/html")) {
+      return null
+    }
+
+    const html = await response.text()
+    const text = stripHtml(html).slice(0, 1800)
+    if (!text) return null
+
+    const titleMatch = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)
+
+    return {
+      link,
+      title: titleMatch?.[1]?.replace(/\s+/g, " ").trim() || null,
+      text,
+    }
+  } catch {
+    return null
+  }
+}
+
+async function fetchPriorityPageExtracts(results) {
+  const selected = results
+    .filter((result) => classifySource(result.link).isPrioritySource)
+    .slice(0, MAX_PAGE_EXTRACTS)
+
+  const extracts = []
+  for (const result of selected) {
+    const extract = await fetchPageExtract(result.link)
+    if (extract) extracts.push(extract)
+  }
+  return extracts
 }
 
 // --------------------------- Supabase REST --------------------------------
@@ -264,11 +473,17 @@ async function serperSearch(query) {
 }
 
 // --------------------------- OpenAI extraction ----------------------------
-async function extractOwner({ propertyName, commune, region, rol, results }) {
-  const evidence = results
+async function extractOwner({ propertyName, commune, region, rol, results, pageExtracts = [] }) {
+  let evidence = results
     .slice(0, 8)
     .map((r, i) => `[${i + 1}] ${r.title}\n${r.snippet || ""}\n${r.link}`)
     .join("\n\n")
+  const pageEvidence = pageExtracts.length
+    ? `\n\nExtractos de paginas fuente:\n${pageExtracts
+        .map((item, index) => `[P${index + 1}] ${item.title || item.link}\n${item.text}\n${item.link}`)
+        .join("\n\n")}`
+    : ""
+  evidence += pageEvidence
 
   const system =
     "Eres un analista experto en propiedad rural chilena. Extraes el nombre del " +
@@ -362,30 +577,55 @@ async function main() {
       continue
     }
 
-    // Build a focused query WITHOUT exact-phrase quotes (too strict for these
-    // informal names). Commune + region anchor it to the right area.
-    const q = [name, commune, region, "propiedad agricola predio propietario"]
-      .filter(Boolean)
-      .join(" ")
-      .trim()
+    const searchQueries = buildSearchQueries({ name, commune, region, rol })
+    const searchContext = {
+      rol,
+      commune,
+      region,
+      distinctive: distinctiveTokens(name),
+    }
 
     try {
-      const results = await serperSearch(q)
-      stats.credits++
+      const queryRuns = []
+      for (const query of searchQueries) {
+        const queryResults = await serperSearch(query)
+        stats.credits++
+        queryRuns.push({ query, results: queryResults })
+        await sleep(150)
+      }
+
+      const results = mergeSearchResults(queryRuns, searchContext)
       if (results.length === 0) {
         stats.noMatch++
         console.log(`[${stats.processed}/${candidates.length}] ${label} -> no results`)
         if (!DRY_RUN)
-          await updateKmz(kmz.id, { web_owner_scraped_at: new Date().toISOString(), web_owner: null }, kmz.metadata)
+          await updateKmz(
+            kmz.id,
+            {
+              web_owner_scraped_at: new Date().toISOString(),
+              web_owner_search_run_at: new Date().toISOString(),
+              web_owner: null,
+              web_owner_search_queries: searchQueries,
+              web_owner_search_sources: [],
+            },
+            kmz.metadata
+          )
         await sleep(DELAY)
         continue
       }
 
-      const ai = await extractOwner({ propertyName: name, commune, region, rol, results })
+      const pageExtracts = await fetchPriorityPageExtracts(results)
+      const ai = await extractOwner({ propertyName: name, commune, region, rol, results, pageExtracts })
       let conf = Number(ai.confidence) || 0
       const evIdx = Number(ai.evidence_index) || 0
       const evItem = results[evIdx - 1] || results[0]
+      const pageEvIdx = Number(ai.page_evidence_index) || 0
+      const pageEvItem = pageExtracts[pageEvIdx - 1] || null
       const evUrl = evItem?.link || null
+      const primarySource = classifySource(pageEvItem?.link || evUrl)
+      const topSources = unique(
+        results.map((item) => classifySource(item.link).sourceLabel).filter((item) => item && item !== "general")
+      ).slice(0, 5)
 
       // Evidence verification: at least one DISTINCTIVE token of the property
       // name must appear in the cited evidence (title+snippet+link). This stops
@@ -405,6 +645,17 @@ async function main() {
         if (conf >= MIN_CONF) conf = 0.4
       }
 
+      conf = Math.min(1, conf + primarySource.confidenceBoost)
+
+      const runMetadata = {
+        queries: searchQueries,
+        resultCount: results.length,
+        pageExtractCount: pageExtracts.length,
+        topSources,
+        primaryEvidenceDomain: primarySource.hostname || null,
+        executedAt: new Date().toISOString(),
+      }
+
       if (ai.owner && conf >= MIN_CONF) {
         stats.confirmed++
         console.log(`[${stats.processed}/${candidates.length}] ${label} -> ${ai.owner} (${ai.owner_type}, conf ${conf.toFixed(2)})`)
@@ -419,8 +670,22 @@ async function main() {
               web_owner_evidence_url: evUrl,
               web_owner_reasoning: ai.reasoning || null,
               web_owner_scraped_at: new Date().toISOString(),
+              web_owner_search_run_at: new Date().toISOString(),
+              web_owner_search_queries: searchQueries,
+              web_owner_search_sources: topSources,
+              web_owner_page_evidence_url: pageEvItem?.link || null,
               confirmed_owner: ai.owner,
               owner_source: "web+ai",
+              public_owner_candidate: {
+                name: ai.owner,
+                type: ai.owner_type || null,
+                confidence: conf,
+                reason: ai.reasoning || null,
+                source: primarySource.sourceLabel,
+                url: pageEvItem?.link || evUrl,
+                dateFound: new Date().toISOString(),
+              },
+              web_owner_last_run: runMetadata,
             },
             kmz.metadata
           )
@@ -437,6 +702,11 @@ async function main() {
               web_owner_confidence: conf,
               web_owner_evidence_url: evUrl,
               web_owner_scraped_at: new Date().toISOString(),
+              web_owner_search_run_at: new Date().toISOString(),
+              web_owner_search_queries: searchQueries,
+              web_owner_search_sources: topSources,
+              web_owner_page_evidence_url: pageEvItem?.link || null,
+              web_owner_last_run: runMetadata,
             },
             kmz.metadata
           )
@@ -444,7 +714,18 @@ async function main() {
         stats.noMatch++
         console.log(`[${stats.processed}/${candidates.length}] ${label} -> no owner found`)
         if (!DRY_RUN)
-          await updateKmz(kmz.id, { web_owner_scraped_at: new Date().toISOString(), web_owner: null }, kmz.metadata)
+          await updateKmz(
+            kmz.id,
+            {
+              web_owner_scraped_at: new Date().toISOString(),
+              web_owner_search_run_at: new Date().toISOString(),
+              web_owner: null,
+              web_owner_search_queries: searchQueries,
+              web_owner_search_sources: topSources,
+              web_owner_last_run: runMetadata,
+            },
+            kmz.metadata
+          )
       }
     } catch (err) {
       stats.errors++
