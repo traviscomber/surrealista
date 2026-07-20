@@ -65,14 +65,12 @@ type ScraperTask = {
 
 function isAuthorizedCronCall(request: NextRequest) {
   const authHeader = request.headers.get("authorization")?.trim()
-  const expectedSecret = (
-    process.env.CRON_SECRET?.trim() ||
-    process.env.APP_PASSWORD?.trim() ||
-    process.env.NEXT_PUBLIC_APP_PASSWORD?.trim()
-  )
+  const expectedSecret = process.env.CRON_SECRET?.trim()
 
-  if (!authHeader?.startsWith("Bearer ")) return false
-  if (!expectedSecret) return true
+  if (!expectedSecret) {
+    console.error("[cron] CRON_SECRET is not configured")
+    return false
+  }
 
   return authHeader === `Bearer ${expectedSecret}`
 }
