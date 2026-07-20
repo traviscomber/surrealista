@@ -15,7 +15,7 @@ interface KMZMapDisplayProps {
   selectedKmzId?: string | null
 }
 
-interface LayerInfo {
+export interface LayerInfo {
   name: string
   fileName: string
   layer: any
@@ -778,10 +778,10 @@ export function KMZMapDisplay({
 
         <div ref={mapRef} className="h-full w-full overflow-hidden pointer-events-auto" />
 
-        <div className="absolute right-4 top-4 z-[1000] flex max-h-[calc(100%-2rem)] w-[min(22rem,calc(100%-2rem))] flex-col overflow-hidden rounded-xl border bg-card shadow-xl">
+        <div className="absolute right-4 top-4 z-[1000] flex max-h-[calc(100%-2rem)] w-[min(26rem,calc(100%-2rem))] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-card/95 shadow-2xl backdrop-blur">
           <button
             type="button"
-            className="flex h-11 w-full items-center justify-between gap-3 px-3 text-left hover:bg-accent"
+            className="flex h-12 w-full items-center justify-between gap-3 px-4 text-left hover:bg-accent"
             onClick={() => setIsLayersOpen((open) => !open)}
             aria-expanded={isLayersOpen}
           >
@@ -795,10 +795,10 @@ export function KMZMapDisplay({
 
           {isLayersOpen && (
             <div className="min-h-0 overflow-y-auto border-t">
-              <div className="p-3">
+              <div className="space-y-3 p-3">
 
               {isLoadingLayers && (
-                <div className="mb-2 p-2 bg-blue-50 dark:bg-blue-900/30 rounded text-xs text-blue-700 dark:text-blue-300">
+                <div className="rounded-xl bg-blue-50 p-2 text-xs text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
                   Cargando capas: {layerProgress}%
                 </div>
               )}
@@ -879,43 +879,43 @@ export function KMZMapDisplay({
 
           {/* Detalles del Pinpoint section */}
           {selectedLayer && (
-            <div className="border-t bg-muted p-3">
-              <h4 className="font-semibold text-sm mb-3 flex items-center gap-2">
+            <div className="border-t bg-slate-50/90 p-3 dark:bg-slate-950/40">
+              <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold">
                 <MapPin className="h-4 w-4" />
-                Detalles
+                Capa seleccionada
               </h4>
-              <div className="space-y-2 text-xs">
-                <div>
-                  <p className="font-medium text-foreground">{selectedLayer.name}</p>
-                  <p className="text-muted-foreground">Archivo: {selectedLayer.fileName}</p>
+              <div className="space-y-3 text-xs">
+                <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950/60">
+                  <p className="font-semibold text-foreground">{selectedLayer.name}</p>
+                  <p className="mt-1 text-muted-foreground">Archivo: {selectedLayer.fileName}</p>
                 </div>
                 {selectedLayer.locationDetails && (
-                  <>
+                  <div className="grid gap-2 sm:grid-cols-2">
                     {selectedLayer.locationDetails.region && (
-                      <div className="pt-2 border-t">
+                      <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950/60">
                         <p className="font-medium text-foreground">Región</p>
                         <p className="text-muted-foreground">{selectedLayer.locationDetails.region}</p>
                       </div>
                     )}
                     {selectedLayer.locationDetails.provincia && (
-                      <div>
+                      <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950/60">
                         <p className="font-medium text-foreground">Provincia</p>
                         <p className="text-muted-foreground">{selectedLayer.locationDetails.provincia}</p>
                       </div>
                     )}
                     {selectedLayer.locationDetails.comuna && (
-                      <div>
+                      <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950/60">
                         <p className="font-medium text-foreground">Comuna</p>
                         <p className="text-muted-foreground">{selectedLayer.locationDetails.comuna}</p>
                       </div>
                     )}
                     {selectedLayer.locationDetails.nearbyCities && selectedLayer.locationDetails.nearbyCities.length > 0 && (
-                      <div>
+                      <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950/60 sm:col-span-2">
                         <p className="font-medium text-foreground">Ciudades Cercanas</p>
                         <p className="text-muted-foreground">{selectedLayer.locationDetails.nearbyCities.join(", ")}</p>
                         </div>
                       )}
-                  </>
+                  </div>
                 )}
               </div>
             </div>

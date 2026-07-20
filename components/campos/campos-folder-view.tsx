@@ -12,7 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
-import { KMZMapDisplay } from "@/components/kmz/kmz-map-display"
+import { KMZMapDisplay, type LayerInfo } from "@/components/kmz/kmz-map-display"
 import { OnboardingGuide } from "@/components/campos/onboarding-guide"
 import { createBrowserClient } from "@/lib/supabase/client"
 import {
@@ -249,6 +249,7 @@ const detailsSubtlePanelClass = "rounded-xl border border-white/10 bg-white/[0.0
 const detailsLabelClass = "text-[11px] uppercase tracking-wide text-slate-400"
 const detailsValueClass = "mt-1 text-sm font-medium text-slate-100"
 const lightDetailsCardClass = "border-slate-200 bg-white shadow-none"
+const lightDetailsPanelClass = "rounded-2xl border border-slate-200 bg-slate-50 p-4"
 
 const extractOwnerResearchSummary = (metadata?: Record<string, any>) => {
   const queue = metadata?.owner_research_queue
@@ -363,6 +364,7 @@ export function CAMPOSFolderView() {
   const [loadingDocuments, setLoadingDocuments] = useState(false)
   const [isLoadingFromURL, setIsLoadingFromURL] = useState(false)
   const [selectedKmzId, setSelectedKmzId] = useState<string | null>(null)
+  const [selectedMapLayer, setSelectedMapLayer] = useState<LayerInfo | null>(null)
   const [isResearchExpanded, setIsResearchExpanded] = useState(false)
   const [isEditExpanded, setIsEditExpanded] = useState(false)
   const [isLoadedFilesExpanded, setIsLoadedFilesExpanded] = useState(false)
@@ -451,6 +453,7 @@ export function CAMPOSFolderView() {
       siiPointResolution?.resolved_at ||
       ownerQueue?.resolvedAt ||
       null
+    const activeMapLayer = selectedMapLayer?.fileName === selectedItem.name ? selectedMapLayer : null
 
     if (selectedItem.type === "folder") {
       return (
@@ -626,6 +629,42 @@ export function CAMPOSFolderView() {
                 </div>
               </div>
 
+              {activeMapLayer ? (
+                <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[11px] uppercase tracking-[0.24em] text-emerald-100/80">Capa seleccionada en mapa</p>
+                      <p className="mt-2 text-lg font-semibold text-emerald-50">{activeMapLayer.name}</p>
+                      <p className="mt-1 text-sm text-emerald-100/80">{activeMapLayer.fileName}</p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="h-8 rounded-full border border-emerald-100/15 bg-black/10 px-3 text-emerald-50 hover:bg-black/20"
+                      onClick={() => handleCopyValue(activeMapLayer.name, "Nombre de capa")}
+                    >
+                      <Copy className="mr-2 h-3.5 w-3.5" />
+                      Copiar
+                    </Button>
+                  </div>
+                  <div className="mt-4 grid gap-3 md:grid-cols-3">
+                    <div className={detailsSubtlePanelClass}>
+                      <p className={detailsLabelClass}>Comuna</p>
+                      <p className={detailsValueClass}>{activeMapLayer.locationDetails?.comuna || "Sin dato"}</p>
+                    </div>
+                    <div className={detailsSubtlePanelClass}>
+                      <p className={detailsLabelClass}>Provincia</p>
+                      <p className={detailsValueClass}>{activeMapLayer.locationDetails?.provincia || "Sin dato"}</p>
+                    </div>
+                    <div className={detailsSubtlePanelClass}>
+                      <p className={detailsLabelClass}>Region</p>
+                      <p className={detailsValueClass}>{activeMapLayer.locationDetails?.region || "Sin dato"}</p>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
               {descriptionText ? (
                 <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
                   <div className="flex items-center gap-2">
@@ -763,6 +802,21 @@ export function CAMPOSFolderView() {
                   ) : null}
                 </div>
               ) : null}
+
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className={lightDetailsPanelClass}>
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Fuente rol</p>
+                  <p className="mt-2 text-base font-semibold text-slate-950">{evidenceLabel}</p>
+                </div>
+                <div className={lightDetailsPanelClass}>
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Actualizacion util</p>
+                  <p className="mt-2 text-base font-semibold text-slate-950">{formatDateLabel(latestResolutionAt) || "Sin registro"}</p>
+                </div>
+                <div className={lightDetailsPanelClass}>
+                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Rol principal</p>
+                  <p className="mt-2 text-base font-semibold text-slate-950">{primaryRole || "Pendiente"}</p>
+                </div>
+              </div>
             </CardContent>
           </Card>
 
@@ -890,17 +944,6 @@ export function CAMPOSFolderView() {
                     Copiar roles
                   </Button>
                 ) : null}
-              </div>
-
-              <div className="grid gap-3 xl:grid-cols-2">
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Fuente principal</p>
-                  <p className="mt-1 text-sm font-medium text-slate-900">{evidenceLabel}</p>
-                </div>
-                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Fecha util</p>
-                  <p className="mt-1 text-sm font-medium text-slate-900">{formatDateLabel(latestResolutionAt) || "Sin registro"}</p>
-                </div>
               </div>
 
               {roles.length > 1 ? (
@@ -1334,6 +1377,7 @@ export function CAMPOSFolderView() {
     setMapCenter(null)
     setSelectedItemDocuments([])
     setDocumentCount(0)
+    setSelectedMapLayer(null)
     
     // Reload metadata
     await loadRegionMetadata()
@@ -1435,6 +1479,7 @@ export function CAMPOSFolderView() {
           area: `${data.placemarks_count || 0} puntos`,
         }
         setSelectedItem(virtualItem)
+        setSelectedMapLayer(null)
         setIsDetailsSheetOpen(false)
         setIsLoadingFromURL(false)
 
@@ -1467,8 +1512,9 @@ export function CAMPOSFolderView() {
     setSelectedRegions(newSelected)
     
     // Clear old single region selection
-    setSelectedRegion(null)
-    setKmzFiles([])
+      setSelectedRegion(null)
+      setKmzFiles([])
+      setSelectedMapLayer(null)
   }
 
   // Load KMZ files progressively from multiple selected regions
@@ -1722,6 +1768,7 @@ export function CAMPOSFolderView() {
 
   const handleItemClick = async (item: FolderItem) => {
     setSelectedItem(item)
+    setSelectedMapLayer(null)
     setIsDetailsSheetOpen(true)
 
     // Open the horizontal details panel whenever a KMZ file is selected.
@@ -2325,6 +2372,7 @@ export function CAMPOSFolderView() {
                 height="100%" 
                 enableGeocoding={true}
                 selectedKmzId={selectedKmzId}
+                onPlacemarkSelect={setSelectedMapLayer}
               />
             ) : (
               <div className="h-full flex items-center justify-center bg-muted">
@@ -2405,7 +2453,7 @@ export function CAMPOSFolderView() {
           <div
             className={`hidden md:flex flex-shrink-0 flex-col bg-card border-t overflow-hidden transition-[height] duration-300 ${
               isMapFullscreen ? "md:hidden" : ""
-            } ${isRightPanelOpen ? "h-[360px]" : "h-11"}`}
+            } ${isRightPanelOpen ? "h-[min(50vh,44rem)]" : "h-11"}`}
           >
             <div className="flex h-11 flex-shrink-0 items-center justify-between px-4 border-b">
               <div className="min-w-0">
