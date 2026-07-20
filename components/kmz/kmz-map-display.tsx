@@ -54,14 +54,23 @@ export function KMZMapDisplay({
   const maxConcurrentGeocoding = 5
 
   const safeKmzFiles = Array.isArray(kmzFiles) ? kmzFiles : []
+  const matchesSelectedKmz = (file: any, selectedId: string) => {
+    const candidates = [
+      file?.id,
+      file?.dbId,
+      file?.metadata?.id,
+    ]
+      .map((value) => (value === null || value === undefined ? "" : value.toString()))
+      .filter(Boolean)
+
+    return candidates.includes(selectedId)
+  }
 
   // Filter KMZ files if a specific one is selected
   const displayKmzFiles = selectedKmzId 
     ? safeKmzFiles.filter(file => {
         const selectedIdStr = selectedKmzId.toString()
-        const fileId = file.id?.toString() || file.dbId?.toString() || ""
-        // Only match by ID, not by filename
-        return fileId === selectedIdStr
+        return matchesSelectedKmz(file, selectedIdStr)
       })
     : safeKmzFiles
 

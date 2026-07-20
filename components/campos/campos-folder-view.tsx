@@ -154,6 +154,23 @@ const buildMapPlacemarks = (record: any, storedPlacemarks: any[] = []) => {
   })
 }
 
+const buildPreviewPlacemarksFromCoordinates = (fileName: string, coordinatesList: any[] = [], description?: string | null) => {
+  return (coordinatesList || []).map((coordinates: any, index: number) => {
+    const type = inferGeometryType(coordinates)
+    const typeLabel = type === "Polygon" ? "Poligono" : type === "LineString" ? "Linea" : "Punto"
+
+    return {
+      name: `${fileName} - ${typeLabel} ${index + 1}`,
+      type,
+      coordinates,
+      description: description || "",
+      properties: {
+        recoveredFrom: "kmz_collection.coordinates",
+      },
+    }
+  })
+}
+
 const normalizeKmzDescription = (value?: string | null) => {
   if (!value) return null
 
@@ -379,6 +396,13 @@ export function CAMPOSFolderView() {
 
   const searchParams = useSearchParams()
   const kmzIdFromURL = searchParams?.get("kmz")
+  const hasActiveAdvancedFilters =
+    advancedFilters.priceMin > 0 ||
+    advancedFilters.priceMax < 10000000 ||
+    advancedFilters.areaMin > 0 ||
+    advancedFilters.areaMax < 50000 ||
+    advancedFilters.zones.length > 0 ||
+    advancedFilters.propertyTypes.length > 0
 
   const handleCopyValue = useCallback(
     async (value: string | null | undefined, label: string) => {
@@ -1286,8 +1310,7 @@ export function CAMPOSFolderView() {
   // Load filtered KMZ when regions or filters change
   useEffect(() => {
     const loadFilteredData = async () => {
-      if (selectedRegions.size === 0) {
-        setKmzFiles([])
+      if (selectedRegions.size === 0 || !hasActiveAdvancedFilters) {
         return
       }
 
@@ -1303,7 +1326,9 @@ export function CAMPOSFolderView() {
           filtered.map((kmz) => ({
             id: kmz.id,
             fileName: kmz.fileName,
-            placemarks: kmz.placemarks,
+            placemarks: Array.isArray(kmz.placemarks)
+              ? kmz.placemarks
+              : buildPreviewPlacemarksFromCoordinates(kmz.fileName, kmz.coordinates, kmz.metadata?.description),
             bounds: kmz.bounds,
             category: kmz.category,
           }))
@@ -1316,7 +1341,7 @@ export function CAMPOSFolderView() {
     }
 
     loadFilteredData()
-  }, [selectedRegions, advancedFilters])
+  }, [selectedRegions, advancedFilters, hasActiveAdvancedFilters])
 
   const loadRegionMetadata = async () => {
     setIsLoadingMetadata(true)
@@ -1612,12 +1637,12 @@ export function CAMPOSFolderView() {
 
   // Trigger loading when regions are selected
   useEffect(() => {
-    if (selectedRegions.size > 0) {
+    if (selectedRegions.size > 0 && !hasActiveAdvancedFilters) {
       loadMultipleRegionsKMZ()
-    } else {
+    } else if (selectedRegions.size === 0) {
       setKmzFiles([])
     }
-  }, [selectedRegions, loadMultipleRegionsKMZ])
+  }, [selectedRegions, loadMultipleRegionsKMZ, hasActiveAdvancedFilters])
 
   const buildRegionFolders = (metadata: any[]) => {
     const regionMap = new Map<string, any[]>()
@@ -1802,6 +1827,11 @@ export function CAMPOSFolderView() {
     if (item.location) {
       setMapCenter(item.location)
     }
+
+    // A file selection should leave multi-region exploration mode
+    // so the map and layers panel focus only on the chosen KMZ.
+    setSelectedRegions(new Set())
+    setSelectedRegion(item.region || null)
 
     // Set selectedKmzId to filter the map display
     if (item.type === "file") {
