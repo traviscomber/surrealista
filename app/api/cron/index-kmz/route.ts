@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { KMZLocationIndexer } from "@/lib/kmz/kmz-location-indexer"
+import type { KMZPlacemark } from "@/lib/kmz/kmz-reader"
 
 export async function GET(request: NextRequest) {
   const requestId = `[${new Date().toISOString()}]`
@@ -8,20 +9,20 @@ export async function GET(request: NextRequest) {
   try {
     console.log(requestId, "[v0] KMZ auto-indexing cron job started")
 
-    // Verify it's called from Vercel Cron
     const authHeader = request.headers.get("authorization")
-    if (!authHeader?.includes("Bearer")) {
+    const cronSecret = process.env.CRON_SECRET
+
+    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
       console.log(requestId, "[v0] Unauthorized cron call")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const supabase = await createClient()
 
-    // Get all active KMZ documents that haven't been indexed recently
-    console.log(requestId, "[v0] Fetching unindexed KMZ from kmz_collection...")
+    console.log(requestId, "[v0] Fetching active KMZ records...")
     const { data: kmzDocs, error: fetchError } = await supabase
       .from("kmz_collection")
-      .select("id, name, url, created_at, updated_at")
+      .select("id, file_name, region, updated_at")
       .eq("is_active", true)
       .order("updated_at", { ascending: false })
       .limit(20)
@@ -44,71 +45,108 @@ export async function GET(request: NextRequest) {
     const indexer = new KMZLocationIndexer()
     let totalIndexed = 0
     let skipped = 0
-    const results = []
+    const results: Array<Record<string, unknown>> = []
 
-    // Check which files are already indexed
-    const { data: existingLocations } = await supabase
+    const kmzIds = kmzDocs.map((doc) => doc.id)
+    const { data: existingLocations, error: existingError } = await supabase
       .from("kmz_location_index")
-      .select("kmz_file_url")
+      .select("kmz_id")
+      .in("kmz_id", kmzIds)
 
-    const indexedUrls = new Set(existingLocations?.map((l: any) => l.kmz_file_url) || [])
+    if (existingError) {
+      console.error(requestId, "[v0] Error checking existing KMZ indexes:", existingError)
+      return NextResponse.json({ error: "Failed to inspect existing KMZ indexes" }, { status: 500 })
+    }
 
-    // Index each KMZ file
+    const indexedKmzIds = new Set(existingLocations?.map((location: { kmz_id: string }) => location.kmz_id) || [])
+
     for (const doc of kmzDocs) {
       try {
-        if (indexedUrls.has(doc.url)) {
-          console.log(requestId, "[v0] Already indexed:", doc.name)
+        if (indexedKmzIds.has(doc.id)) {
+          console.log(requestId, "[v0] Already indexed:", doc.file_name)
           skipped++
           results.push({
-            name: doc.name,
+            id: doc.id,
+            name: doc.file_name,
             status: "skipped",
             reason: "Already indexed",
           })
           continue
         }
 
-        console.log(requestId, "[v0] Indexing KMZ file:", doc.name)
-        const indexedCount = await indexer.indexKMZFile(doc.url, doc.id, doc.name)
+        const { data: placemarkRows, error: placemarkError } = await supabase
+          .from("kmz_placemarks")
+          .select("name, description, coordinates, type, style_url, properties")
+          .eq("kmz_id", doc.id)
+          .limit(5000)
 
-        console.log(requestId, "[v0] Indexed", indexedCount, "locations from", doc.name)
-        totalIndexed += indexedCount
+        if (placemarkError) throw placemarkError
 
+        const placemarks = (placemarkRows || []).map((placemark) => ({
+          name: placemark.name,
+          description: placemark.description || "",
+          coordinates: placemark.coordinates || [],
+          type: placemark.type,
+          styleUrl: placemark.style_url || undefined,
+          properties: placemark.properties || {},
+        })) as KMZPlacemark[]
+
+        if (placemarks.length === 0) {
+          skipped++
+          results.push({
+            id: doc.id,
+            name: doc.file_name,
+            status: "skipped",
+            reason: "No stored placemarks",
+          })
+          continue
+        }
+
+        console.log(requestId, "[v0] Indexing KMZ file:", doc.file_name)
+        const result = await indexer.indexKMZLocations(doc.id, doc.file_name, placemarks, doc.region || undefined)
+
+        if (!result.success) {
+          throw result.error || new Error("KMZ location indexing failed")
+        }
+
+        totalIndexed += result.indexCount
         results.push({
-          name: doc.name,
+          id: doc.id,
+          name: doc.file_name,
           status: "success",
-          indexedLocations: indexedCount,
+          indexedLocations: result.indexCount,
         })
-      } catch (fileError: any) {
-        console.error(requestId, "[v0] Error indexing", doc.name, ":", fileError?.message)
+      } catch (fileError) {
+        const message = fileError instanceof Error ? fileError.message : "Unknown indexing error"
+        console.error(requestId, "[v0] Error indexing", doc.file_name, ":", message)
         results.push({
-          name: doc.name,
+          id: doc.id,
+          name: doc.file_name,
           status: "error",
-          error: fileError?.message,
+          error: message,
         })
       }
     }
 
     console.log(requestId, "[v0] Cron job complete. Indexed:", totalIndexed, "Skipped:", skipped)
 
-    return NextResponse.json(
-      {
-        success: true,
-        message: "Auto-indexing completed",
-        totalProcessed: kmzDocs.length,
-        totalIndexed,
-        skipped,
-        results,
-      },
-      { status: 200 }
-    )
-  } catch (error: any) {
-    console.error(requestId, "[v0] Cron job error:", error?.message)
+    return NextResponse.json({
+      success: true,
+      message: "Auto-indexing completed",
+      totalProcessed: kmzDocs.length,
+      totalIndexed,
+      skipped,
+      results,
+    })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown cron error"
+    console.error(requestId, "[v0] Cron job error:", message)
     return NextResponse.json(
       {
         error: "Cron job failed",
-        details: error?.message,
+        details: message,
       },
-      { status: 500 }
+      { status: 500 },
     )
   }
 }
