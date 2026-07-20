@@ -2300,7 +2300,7 @@ export function CAMPOSFolderView() {
 
   return (
     <div
-      className={`flex h-full w-full bg-slate-50 ${
+      className={`flex h-full max-h-full min-h-0 w-full overflow-hidden bg-slate-50 ${
         isMapFullscreen ? "md:flex" : ""
       }`}
     >
@@ -2318,7 +2318,7 @@ export function CAMPOSFolderView() {
             disabled={isLoadingFromURL}
           />
         </div>
-        <div className="flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="p-4">
             <OnboardingGuide />
           </div>
@@ -2344,7 +2344,7 @@ export function CAMPOSFolderView() {
       </div>
 
       {/* Main content area */}
-      <div className={`${isMapFullscreen ? "fixed inset-0 md:relative z-50" : "flex-1"} flex flex-col overflow-hidden`}>
+      <div className={`${isMapFullscreen ? "fixed inset-0 md:relative z-50" : "flex-1"} flex min-h-0 flex-col overflow-hidden`}>
         <div
           className={`${isMapFullscreen ? "md:flex" : "flex"} items-center justify-between px-4 py-2 border-b bg-card flex-shrink-0`}
         >
@@ -2364,7 +2364,7 @@ export function CAMPOSFolderView() {
 
         <>
           {/* Map Display */}
-          <div className="flex-1 overflow-hidden relative w-full">
+          <div className="relative min-h-0 flex-1 overflow-hidden">
             {kmzFiles.length > 0 && mapCenter ? (
               <KMZMapDisplay 
                 kmzFiles={kmzFiles} 
@@ -2453,7 +2453,7 @@ export function CAMPOSFolderView() {
           <div
             className={`hidden md:flex flex-shrink-0 flex-col bg-card border-t overflow-hidden transition-[height] duration-300 ${
               isMapFullscreen ? "md:hidden" : ""
-            } ${isRightPanelOpen ? "h-[min(50vh,44rem)]" : "h-11"}`}
+            } ${isRightPanelOpen ? "h-[min(34vh,26rem)]" : "h-11"}`}
           >
             <div className="flex h-11 flex-shrink-0 items-center justify-between px-4 border-b">
               <div className="min-w-0">
