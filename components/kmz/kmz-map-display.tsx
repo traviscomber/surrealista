@@ -73,6 +73,9 @@ export function KMZMapDisplay({
         return matchesSelectedKmz(file, selectedIdStr)
       })
     : safeKmzFiles
+  const totalRenderablePlacemarks = displayKmzFiles.reduce((sum, file: any) => {
+    return sum + (Array.isArray(file?.placemarks) ? file.placemarks.length : 0)
+  }, 0)
 
 
   useEffect(() => {
@@ -787,6 +790,15 @@ export function KMZMapDisplay({
 
         <div ref={mapRef} className="h-full w-full overflow-hidden pointer-events-auto" />
 
+        {!isLoadingLayers && displayKmzFiles.length > 0 && totalRenderablePlacemarks === 0 && (
+          <div className="absolute left-4 bottom-4 z-[1000] max-w-sm rounded-2xl border border-amber-300/70 bg-amber-50/95 p-3 text-xs text-amber-900 shadow-lg backdrop-blur">
+            <p className="font-semibold">KMZ sin geometria persistida</p>
+            <p className="mt-1">
+              Este registro no trae capas renderizables en la base actual. El mapa solo puede mostrar la ubicacion de referencia.
+            </p>
+          </div>
+        )}
+
         <div className="absolute right-4 top-4 z-[1000] flex max-h-[calc(100%-2rem)] w-[min(26rem,calc(100%-2rem))] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-card/95 shadow-2xl backdrop-blur">
           <button
             type="button"
@@ -813,7 +825,14 @@ export function KMZMapDisplay({
               )}
 
               {layers.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No hay capas cargadas</p>
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground">No hay capas cargadas</p>
+                  {displayKmzFiles.length > 0 && totalRenderablePlacemarks === 0 && (
+                    <p className="text-[10px] text-amber-700">
+                      El KMZ seleccionado no tiene geometrias persistidas.
+                    </p>
+                  )}
+                </div>
               ) : (
                 <div className="space-y-1.5">
                   {layers.map((layer, index) => (

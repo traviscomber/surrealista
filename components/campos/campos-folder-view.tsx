@@ -212,6 +212,15 @@ const getPrimaryRole = (item: FolderItem | null) => {
   return roles[0] || null
 }
 
+const hasPersistedGeometry = (item: FolderItem | null) => {
+  if (!item) return false
+  if ((item.placemarksCount || 0) > 0) return true
+
+  const metadata = item.metadata || {}
+  const proposalCount = metadata.normalized_geometry_count || metadata.total_geometry_count || 0
+  return Number(proposalCount) > 0
+}
+
 const getRoleStatus = (item: FolderItem | null) => {
   const roles = normalizeList(item?.rolNumbers)
   const metadata = item?.metadata || {}
@@ -478,6 +487,7 @@ export function CAMPOSFolderView() {
       ownerQueue?.resolvedAt ||
       null
     const activeMapLayer = selectedMapLayer?.fileName === selectedItem.name ? selectedMapLayer : null
+    const geometryAvailable = hasPersistedGeometry(selectedItem)
 
     if (selectedItem.type === "folder") {
       return (
@@ -652,6 +662,13 @@ export function CAMPOSFolderView() {
                   <p className="mt-2 text-lg font-semibold text-slate-100">{documentCount}</p>
                 </div>
               </div>
+
+              {!geometryAvailable && (
+                <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-50">
+                  Este KMZ no tiene geometrias persistidas en la base actualmente.
+                  El archivo sigue existiendo como registro, pero no hay capas renderizables guardadas para este item.
+                </div>
+              )}
 
               {activeMapLayer ? (
                 <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-4">
@@ -2309,6 +2326,11 @@ export function CAMPOSFolderView() {
                         >
                           <File className="h-3 w-3 mr-2" />
                           <span className="flex-1 text-left text-sm truncate">{child.name}</span>
+                          {!hasPersistedGeometry(child) && (
+                            <Badge variant="outline" className="ml-2 border-amber-300 text-[10px] text-amber-700">
+                              sin capa
+                            </Badge>
+                          )}
                           <Badge className={`text-xs ml-2 ${completeness.color}`} title={`${completeness.label}: ${completeness.score}%`}>
                             {getCompletenessIcon(completeness.level)} {completeness.score}%
                           </Badge>
