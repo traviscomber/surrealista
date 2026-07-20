@@ -1,6 +1,12 @@
 {
   "buildCommand": "next build",
   "functions": {
+    "app/api/cron/nightly-property-scrapers/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/cron/retry-failed-property-scrapers/route.ts": {
+      "maxDuration": 300
+    },
     "app/api/**/*.ts": {
       "maxDuration": 60
     }
@@ -9,6 +15,14 @@
     {
       "path": "/api/cron/index-kmz",
       "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/nightly-property-scrapers",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/retry-failed-property-scrapers",
+      "schedule": "30 9 * * *"
     }
   ]
 }
