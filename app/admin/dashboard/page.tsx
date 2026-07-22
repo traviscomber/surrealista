@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { Suspense, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { BarChart3, Building, Globe, PlusCircle, Store } from "lucide-react"
@@ -13,7 +13,7 @@ import { WorkspaceHeading } from "@/components/ui/workspace-heading"
 
 const VALID_TABS = ["overview", "properties", "scrapers"]
 
-export default function AdminDashboard() {
+function AdminDashboardContent() {
   const searchParams = useSearchParams()
   const tabParam = searchParams.get("tab")
   const showFavorites = searchParams.get("favorites") === "true"
@@ -107,5 +107,13 @@ export default function AdminDashboard() {
         </Tabs>
       </main>
     </>
+  )
+}
+
+export default function AdminDashboard() {
+  return (
+    <Suspense fallback={<div className="container mx-auto px-4 py-10 text-sm text-muted-foreground">Cargando panel operativo…</div>}>
+      <AdminDashboardContent />
+    </Suspense>
   )
 }
