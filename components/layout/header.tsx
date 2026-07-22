@@ -2,7 +2,6 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -23,116 +22,79 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import {
-  Building2,
-  Menu,
-  Calculator,
   Bot,
-  Brain,
-  MapPin,
-  FileText,
-  TrendingUp,
-  Rocket,
   BookOpen,
-  GitBranch,
-  Activity,
-  Settings,
-  BarChart3,
-  Shield,
-  FolderOpen,
-  Map,
-  Search,
-  Tag,
-  Sparkles,
+  Building2,
+  Calculator,
+  Database,
+  FileText,
   HelpCircle,
-  Globe,
+  MapPin,
+  Menu,
+  Search,
+  Shield,
+  Store,
+  Users,
 } from "lucide-react"
 import { GlobalCommandPalette } from "@/components/search/global-command-palette"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
 
-// Badge color map - only keep essential and useful badges
 const badgeColorMap: Record<string, string> = {
-  Gratis: "bg-blue-500",      // Free tier
-  IA: "bg-cyan-500",          // AI features
-  Nuevo: "bg-purple-500",     // New features
-  Beta: "bg-orange-500",      // Beta status
-  Activo: "bg-green-500",     // Active/Running
-  Demo: "bg-slate-500",       // Demo mode
-  Análisis: "bg-emerald-500", // Analysis
+  Gratis: "bg-blue-500",
+  IA: "bg-cyan-500",
+  Territorial: "bg-emerald-500",
+  Mercado: "bg-violet-500",
 }
 
 const toolsItems = [
   {
+    title: "Explorador de Campos",
+    href: "/",
+    icon: Search,
+    description: "Accede a campos, clientes, tareas, documentos y mapas en un solo lugar.",
+    badge: "Mercado",
+  },
+  {
     title: "Cotizador",
     href: "/cotizador",
     icon: Calculator,
-    description: "Calcula el valor de tu propiedad",
+    description: "Calcula una referencia de valor para una propiedad.",
     badge: "Gratis",
   },
   {
     title: "Asistente IA",
     href: "/asistente-ia",
     icon: Bot,
-    description: "Consulta inteligente sobre propiedades",
+    description: "Realiza consultas inteligentes sobre propiedades y antecedentes.",
     badge: "IA",
   },
   {
-    title: "Scrapers",
-    href: "/admin/dashboard?tab=scrapers",
-    icon: Globe,
-    description: "Fuentes de datos del mercado inmobiliario",
-    badge: "Activo",
+    title: "Mapa territorial",
+    href: "/kmz-search",
+    icon: MapPin,
+    description: "Busca ubicaciones, polígonos y antecedentes geográficos KMZ.",
+    badge: "Territorial",
+  },
+  {
+    title: "Explorador de roles SII",
+    href: "/admin/sii-rol-explorer",
+    icon: Database,
+    description: "Consulta y relaciona roles territoriales disponibles.",
+  },
+  {
+    title: "Descubrir propietarios",
+    href: "/admin/owner-discovery",
+    icon: Users,
+    description: "Investiga posibles propietarios y relaciones documentales.",
   },
 ]
 
-const mvpItems = [
-  {
-    title: "Seguimiento MVP",
-    href: "/mvp/seguimiento",
-    icon: Activity,
-    description: "Estado actual y progreso completo del desarrollo",
-    badge: "85%",
-  },
-  {
-    title: "Fase 1 - MVP",
-    href: "/admin/fase-1-mvp",
-    icon: Rocket,
-    description: "Gestión documental y organización de carpetas",
-    badge: "Fase 1",
-  },
-  {
-    title: "Fase 2 - MVP",
-    href: "/admin/fase-2-mvp",
-    icon: TrendingUp,
-    description: "Automatización y análisis inteligente",
-    badge: "Fase 2",
-  },
-  {
-    title: "Fase 3 - MVP",
-    href: "/admin/fase-3-mvp",
-    icon: BarChart3,
-    description: "Optimización y escalabilidad",
-    badge: "Fase 3",
-  },
-  {
-    title: "Agentes Documentales",
-    href: "/admin/agentes",
-    icon: Brain,
-    description: "Sistema agéntico para automatización documental",
-    badge: "Nuevo",
-  },
-  {
-    title: "Updates & Releases",
-    href: "/mvp/updates",
-    icon: GitBranch,
-    description: "Historial de actualizaciones y nuevas funciones",
-    badge: "Nuevo",
-  },
-  {
-    title: "Roadmap",
-    href: "/mvp/roadmap",
-    icon: TrendingUp,
-    description: "Hoja de ruta y próximas funcionalidades",
-  },
+const adminItems = [
+  { title: "Panel de datos", href: "/admin/dashboard", icon: Database },
+  { title: "Inventario Sur Realista", href: "/admin/surealista", icon: Store },
+  { title: "Gestión de propiedades", href: "/admin/propiedades", icon: Building2 },
+  { title: "Scrapers y sincronización", href: "/admin/dashboard?tab=scrapers", icon: Database },
+  { title: "Administrar archivos KMZ", href: "/admin/kmz-collection", icon: MapPin },
 ]
 
 const docsItems = [
@@ -140,116 +102,87 @@ const docsItems = [
     title: "Centro de Ayuda",
     href: "/ayuda",
     icon: HelpCircle,
-    description: "Guías, tutoriales y preguntas frecuentes",
-    badge: "Nuevo",
+    description: "Guías, tutoriales y preguntas frecuentes.",
   },
   {
-    title: "Documentación Técnica",
-    href: "/docs/tecnica",
-    icon: BookOpen,
-    description: "Arquitectura, APIs y especificaciones técnicas",
-  },
-  {
-    title: "Guías de Usuario",
+    title: "Guías de usuario",
     href: "/docs/usuario",
     icon: FileText,
-    description: "Manuales y tutoriales para usuarios",
+    description: "Manuales para usar las herramientas principales.",
   },
   {
-    title: "Documentación IA",
-    href: "/docs/ia",
-    icon: Brain,
-    description: "Modelos, algoritmos y capacidades de IA",
-    badge: "IA",
-  },
-  {
-    title: "API Reference",
-    href: "/docs/api",
-    icon: Settings,
-    description: "Documentación completa de APIs",
+    title: "Documentación técnica",
+    href: "/docs/tecnica",
+    icon: BookOpen,
+    description: "Arquitectura, integraciones y especificaciones.",
   },
 ]
 
-export function Header() {
-  const pathname = usePathname()
-  const [isOpen, setIsOpen] = useState(false)
+function ToolLink({ item, onClick }: { item: (typeof toolsItems)[number]; onClick?: () => void }) {
+  return (
+    <Link
+      href={item.href}
+      onClick={onClick}
+      className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent"
+    >
+      <div className="flex items-center gap-2">
+        <item.icon className="h-4 w-4 shrink-0" />
+        <span className="text-sm font-medium leading-none">{item.title}</span>
+        {item.badge && (
+          <Badge className={cn("ml-auto text-xs text-white", badgeColorMap[item.badge] || "bg-slate-500")}>
+            {item.badge}
+          </Badge>
+        )}
+      </div>
+      <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">{item.description}</p>
+    </Link>
+  )
+}
 
-  const isActive = (href: string) => {
-    if (href === "/") {
-      return pathname === href
-    }
-    return pathname.startsWith(href)
-  }
+export function Header() {
+  const [isOpen, setIsOpen] = useState(false)
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <div className="container flex h-16 items-center justify-between">
-        {/* Logo */}
-        <Link href="/" className="flex items-center space-x-2">
+      <div className="container flex h-16 items-center justify-between gap-4">
+        <Link href="/" className="flex shrink-0 items-center gap-2">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-forest">
             <Building2 className="h-4 w-4 text-white" />
           </div>
-          <span className="text-xl font-serif font-semibold bg-gradient-to-r from-primary to-forest bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-primary to-forest bg-clip-text font-serif text-xl font-semibold text-transparent">
             Sur-Realista
           </span>
         </Link>
 
-        {/* Desktop Navigation */}
         <NavigationMenu className="hidden lg:flex">
           <NavigationMenuList className="space-x-1">
             <NavigationMenuItem>
               <GlobalCommandPalette />
             </NavigationMenuItem>
 
-            {/* Tools Dropdown */}
             <NavigationMenuItem>
               <NavigationMenuTrigger className="h-10">
                 <Building2 className="mr-2 h-4 w-4" />
                 Herramientas
               </NavigationMenuTrigger>
               <NavigationMenuContent>
-                <div className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
-                  {toolsItems.map((item) => (
-                    <Link
-                      key={item.title}
-                      href={item.href}
-                      className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
-                    >
-                      <div className="flex items-center gap-2">
-                        <item.icon className="h-4 w-4" />
-                        <div className="text-sm font-medium leading-none">{item.title}</div>
-                        {item.badge && (
-                          <Badge className={cn("ml-auto text-white text-xs", badgeColorMap[item.badge] ?? "bg-slate-500")}>
-                            {item.badge}
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">{item.description}</p>
-                    </Link>
-                  ))}
+                <div className="grid w-[620px] grid-cols-2 gap-2 p-4">
+                  {toolsItems.map((item) => <ToolLink key={item.title} item={item} />)}
                 </div>
               </NavigationMenuContent>
             </NavigationMenuItem>
 
-            {/* Documentation Dropdown */}
             <NavigationMenuItem>
               <NavigationMenuTrigger className="h-10">
                 <BookOpen className="mr-2 h-4 w-4" />
                 Documentación
               </NavigationMenuTrigger>
               <NavigationMenuContent>
-                <div className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px]">
+                <div className="grid w-[540px] grid-cols-2 gap-2 p-4">
                   {docsItems.map((item) => (
-                    <Link
-                      key={item.title}
-                      href={item.href}
-                      className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground"
-                    >
-                      <div className="flex items-center gap-2">
-                        <item.icon className="h-4 w-4" />
-                        <div className="text-sm font-medium leading-none">{item.title}</div>
-                      </div>
-                      <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">{item.description}</p>
+                    <Link key={item.title} href={item.href} className="space-y-1 rounded-md p-3 transition-colors hover:bg-accent">
+                      <div className="flex items-center gap-2 text-sm font-medium"><item.icon className="h-4 w-4" />{item.title}</div>
+                      <p className="text-sm text-muted-foreground">{item.description}</p>
                     </Link>
                   ))}
                 </div>
@@ -258,157 +191,63 @@ export function Header() {
           </NavigationMenuList>
         </NavigationMenu>
 
-        {/* Admin Access */}
-        <div className="flex items-center space-x-4">
-          <div className="lg:hidden">
-            <GlobalCommandPalette />
-          </div>
-
-          {/* Theme Toggle */}
+        <div className="flex items-center gap-3">
+          <div className="lg:hidden"><GlobalCommandPalette /></div>
           <ThemeToggle />
-
-          {/* Drive status indicator */}
-          {/* <DriveStatusIndicator /> */}
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="hidden md:flex bg-transparent">
-                <Shield className="mr-2 h-4 w-4" />
-                Admin
+              <Button variant="outline" size="sm" className="hidden bg-transparent md:flex">
+                <Shield className="mr-2 h-4 w-4" />Admin
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56" align="end">
-              <DropdownMenuLabel>Panel de Administración</DropdownMenuLabel>
+            <DropdownMenuContent className="w-64" align="end">
+              <DropdownMenuLabel>Operaciones internas</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/busqueda" className="flex items-center">
-                  <Search className="mr-2 h-4 w-4" />
-                  <span>Búsqueda Unificada</span>
-                  <Badge className={cn("ml-auto text-white text-xs", badgeColorMap["Nuevo"])}>Nuevo</Badge>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/admin/tags" className="flex items-center">
-                  <Tag className="mr-2 h-4 w-4" />
-                  <span>Tags</span>
-                  <Badge className={cn("ml-auto text-white text-xs", badgeColorMap["Nuevo"])}>Nuevo</Badge>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link href="/admin/ia-workspace" className="flex items-center">
-                  <Brain className="mr-2 h-4 w-4" />
-                  <span>IA Workspace</span>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/admin/agentes" className="flex items-center">
-                  <Brain className="mr-2 h-4 w-4" />
-                  <span>Agentes Documentales</span>
-                  <Badge className={cn("ml-auto text-white text-xs", badgeColorMap["Nuevo"])}>Nuevo</Badge>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/kmz-analisis" className="flex items-center">
-                  <MapPin className="mr-2 h-4 w-4" />
-                  <span>Análisis de Vecindario KMZ</span>
-                  <Badge className={cn("ml-auto text-white text-xs", badgeColorMap["Análisis"])}>Análisis</Badge>
-                </Link>
-              </DropdownMenuItem>
+              {adminItems.map((item) => (
+                <DropdownMenuItem key={item.title} asChild>
+                  <Link href={item.href} className="flex items-center">
+                    <item.icon className="mr-2 h-4 w-4" />
+                    <span>{item.title}</span>
+                  </Link>
+                </DropdownMenuItem>
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
 
-          {/* Mobile Menu */}
           <Sheet open={isOpen} onOpenChange={setIsOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="sm" className="lg:hidden">
+              <Button variant="ghost" size="icon" className="lg:hidden" aria-label="Abrir menú">
                 <Menu className="h-5 w-5" />
-                <span className="sr-only">Toggle menu</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side="right" className="w-80">
-              <div className="flex flex-col space-y-4 mt-4">
-                <div className="flex items-center space-x-2 pb-4 border-b">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-forest">
-                    <Building2 className="h-4 w-4 text-white" />
+            <SheetContent side="right" className="w-80 overflow-y-auto">
+              <div className="mt-4 space-y-6">
+                <div className="flex items-center gap-2 border-b pb-4">
+                  <Building2 className="h-5 w-5 text-primary" />
+                  <span className="font-serif text-lg font-semibold">Sur-Realista</span>
+                </div>
+
+                <section>
+                  <h3 className="mb-2 px-3 text-sm font-semibold text-muted-foreground">Herramientas</h3>
+                  <div className="space-y-1">
+                    {toolsItems.map((item) => <ToolLink key={item.title} item={item} onClick={() => setIsOpen(false)} />)}
                   </div>
-                  <span className="text-lg font-serif font-semibold">Sur-Realista</span>
-                </div>
+                </section>
 
-                {/* Mobile Tools */}
-                <div className="space-y-2 pt-4 border-t">
-                  <h3 className="text-sm font-semibold text-muted-foreground px-3">Herramientas</h3>
-                  {toolsItems.map((item) => (
+                <section className="border-t pt-4">
+                  <h3 className="mb-2 px-3 text-sm font-semibold text-muted-foreground">Administración</h3>
+                  {adminItems.map((item) => (
                     <Link
                       key={item.title}
                       href={item.href}
-                      className="flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
                       onClick={() => setIsOpen(false)}
+                      className="flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
                     >
-                      <div className="flex items-center space-x-2">
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
-                      </div>
+                      <item.icon className="mr-2 h-4 w-4" />{item.title}
                     </Link>
                   ))}
-                </div>
-
-                {/* Mobile Documentation */}
-                <div className="space-y-2 pt-4 border-t">
-                  <h3 className="text-sm font-semibold text-muted-foreground px-3">Documentación</h3>
-                  {docsItems.map((item) => (
-                    <Link
-                      key={item.title}
-                      href={item.href}
-                      className="flex items-center justify-between rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
-                      onClick={() => setIsOpen(false)}
-                    >
-                      <div className="flex items-center space-x-2">
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-
-                {/* Mobile Admin */}
-                <div className="space-y-2 pt-4 border-t">
-                  <Link
-                    href="/admin/tags"
-                    className="flex items-center space-x-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    <Tag className="h-4 w-4" />
-                    <span>Tags</span>
-                    <Badge className={cn("ml-auto text-white text-xs", badgeColorMap["Nuevo"])}>Nuevo</Badge>
-                  </Link>
-                  <Link
-                    href="/admin/ia-workspace"
-                    className="flex items-center space-x-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    <Brain className="h-4 w-4" />
-                    <span>IA Workspace</span>
-                  </Link>
-                  <Link
-                    href="/admin/agentes"
-                    className="flex items-center space-x-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    <Brain className="mr-2 h-4 w-4" />
-                    <span>Agentes Documentales</span>
-                    <Badge className={cn("ml-auto text-white text-xs", badgeColorMap["Nuevo"])}>Nuevo</Badge>
-                  </Link>
-                  <Link
-                    href="/kmz-analisis"
-                    className="flex items-center space-x-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
-                    onClick={() => setIsOpen(false)}
-                  >
-                    <MapPin className="mr-2 h-4 w-4" />
-                    <span>Análisis de Vecindario KMZ</span>
-                    <Badge className={cn("ml-auto text-white text-xs", badgeColorMap["Análisis"])}>Análisis</Badge>
-                  </Link>
-                </div>
+                </section>
               </div>
             </SheetContent>
           </Sheet>
