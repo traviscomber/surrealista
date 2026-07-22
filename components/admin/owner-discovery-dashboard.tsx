@@ -13,7 +13,6 @@ import {
   RefreshCw,
   Search,
   ShieldCheck,
-  UserSearch,
   Users,
 } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -22,6 +21,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { WorkspaceHeading } from "@/components/ui/workspace-heading"
 
 interface OwnerRecord {
   id: string
@@ -44,7 +44,7 @@ interface OwnerRecord {
 const fetcher = async (url: string) => {
   const response = await fetch(url, { cache: "no-store" })
   const payload = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(payload.error || "No se pudo cargar Owner Discovery")
+  if (!response.ok) throw new Error(payload.error || "No se pudo cargar el inventario de propietarios")
   return payload as { records: OwnerRecord[]; total: number }
 }
 
@@ -58,7 +58,6 @@ function statusLabel(status: string) {
 function statusVariant(status: string): "default" | "secondary" | "outline" | "destructive" {
   if (status === "confirmed") return "default"
   if (status === "evidence-found") return "secondary"
-  if (status === "skipped") return "outline"
   return "outline"
 }
 
@@ -120,7 +119,7 @@ export function OwnerDiscoveryDashboard() {
       const result = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(result.error || "La investigación no pudo completarse")
       setRunMessage(result.skipped
-        ? `${record.file_name}: ya estaba investigado o descartado.`
+        ? `${record.file_name}: el registro ya estaba investigado o descartado.`
         : `${record.file_name}: investigación completada${result.searchResultsCount != null ? ` con ${result.searchResultsCount} resultados` : ""}.`)
       await mutate()
     } catch (runError) {
@@ -155,48 +154,49 @@ export function OwnerDiscoveryDashboard() {
   }
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <UserSearch className="h-7 w-7 text-primary" />
-            <h1 className="text-3xl font-semibold">Descubrimiento de propietarios</h1>
-          </div>
-          <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-            Investiga propietarios potenciales asociados a archivos KMZ y roles territoriales. Los resultados son candidatos de investigación y deben validarse antes de usarse comercial o legalmente.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => void mutate()} disabled={isLoading}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />Actualizar
-          </Button>
-          <Button variant="outline" onClick={exportCsv} disabled={!filtered.length}>
-            <Download className="mr-2 h-4 w-4" />Exportar CSV
-          </Button>
-        </div>
-      </div>
+    <div className="space-y-7 p-6 md:p-8">
+      <WorkspaceHeading
+        eyebrow="Investigación territorial"
+        title="Descubrimiento de propietarios"
+        description="Investiga posibles propietarios asociados a archivos KMZ y roles territoriales utilizando metadatos internos y fuentes públicas disponibles."
+        outcome="Obtienes una lista trazable de candidatos, nivel de confianza y evidencia disponible para priorizar la validación documental de cada propiedad."
+        actions={
+          <>
+            <Button variant="outline" onClick={() => void mutate()} disabled={isLoading}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+              Actualizar
+            </Button>
+            <Button variant="outline" onClick={exportCsv} disabled={!filtered.length}>
+              <Download className="mr-2 h-4 w-4" />
+              Exportar CSV
+            </Button>
+          </>
+        }
+      />
 
-      <Card className="border-amber-500/40 bg-amber-500/5">
-        <CardContent className="flex gap-3 p-4 text-sm">
-          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
-          <p><strong>Uso responsable:</strong> la información proviene de metadatos internos y fuentes públicas. Una coincidencia no acredita dominio ni reemplaza certificados, escrituras o antecedentes oficiales.</p>
+      <Card className="border-border/80 bg-muted/30 shadow-none">
+        <CardContent className="flex gap-3 p-4 text-sm leading-6">
+          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+          <p>
+            <strong>Alcance de la información:</strong> una coincidencia identifica un candidato de investigación. No acredita dominio ni reemplaza certificados, escrituras o antecedentes oficiales.
+          </p>
         </CardContent>
       </Card>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Card><CardContent className="flex items-center gap-3 p-5"><Users className="h-5 w-5 text-primary" /><div><p className="text-2xl font-semibold">{stats.total}</p><p className="text-sm text-muted-foreground">Registros activos</p></div></CardContent></Card>
-        <Card><CardContent className="flex items-center gap-3 p-5"><CheckCircle2 className="h-5 w-5 text-emerald-600" /><div><p className="text-2xl font-semibold">{stats.confirmed}</p><p className="text-sm text-muted-foreground">Alta confianza</p></div></CardContent></Card>
-        <Card><CardContent className="flex items-center gap-3 p-5"><Search className="h-5 w-5 text-primary" /><div><p className="text-2xl font-semibold">{stats.evidence}</p><p className="text-sm text-muted-foreground">Con evidencia</p></div></CardContent></Card>
-        <Card><CardContent className="flex items-center gap-3 p-5"><AlertCircle className="h-5 w-5 text-amber-600" /><div><p className="text-2xl font-semibold">{stats.pending}</p><p className="text-sm text-muted-foreground">Pendientes</p></div></CardContent></Card>
+        <Card className="shadow-none"><CardContent className="flex items-center gap-3 p-5"><Users className="h-5 w-5 text-primary" /><div><p className="text-2xl font-semibold">{stats.total}</p><p className="text-sm text-muted-foreground">Registros disponibles</p></div></CardContent></Card>
+        <Card className="shadow-none"><CardContent className="flex items-center gap-3 p-5"><CheckCircle2 className="h-5 w-5 text-primary" /><div><p className="text-2xl font-semibold">{stats.confirmed}</p><p className="text-sm text-muted-foreground">Alta confianza</p></div></CardContent></Card>
+        <Card className="shadow-none"><CardContent className="flex items-center gap-3 p-5"><Search className="h-5 w-5 text-primary" /><div><p className="text-2xl font-semibold">{stats.evidence}</p><p className="text-sm text-muted-foreground">Con evidencia</p></div></CardContent></Card>
+        <Card className="shadow-none"><CardContent className="flex items-center gap-3 p-5"><AlertCircle className="h-5 w-5 text-muted-foreground" /><div><p className="text-2xl font-semibold">{stats.pending}</p><p className="text-sm text-muted-foreground">Pendientes</p></div></CardContent></Card>
       </div>
 
-      {runMessage && <Card><CardContent className="p-4 text-sm">{runMessage}</CardContent></Card>}
-      {error && <Card className="border-destructive"><CardContent className="p-4 text-sm text-destructive">{error.message}</CardContent></Card>}
+      {runMessage && <Card className="shadow-none"><CardContent className="p-4 text-sm">{runMessage}</CardContent></Card>}
+      {error && <Card className="border-destructive shadow-none"><CardContent className="p-4 text-sm text-destructive">{error.message}</CardContent></Card>}
 
-      <Card>
+      <Card className="shadow-none">
         <CardHeader>
-          <CardTitle>Inventario de investigación</CardTitle>
-          <CardDescription>Busca por archivo, región, ROL o propietario candidato y ejecuta investigaciones individuales.</CardDescription>
+          <CardTitle className="font-serif text-xl">Inventario de investigación</CardTitle>
+          <CardDescription>Busca por archivo, región, ROL o propietario candidato y ejecuta investigaciones individuales sobre registros reales.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-3 lg:grid-cols-[1fr_220px_220px]">
@@ -241,7 +241,7 @@ export function OwnerDiscoveryDashboard() {
                 {isLoading && !records.length ? (
                   <TableRow><TableCell colSpan={6} className="py-16 text-center"><Loader2 className="mx-auto h-5 w-5 animate-spin" /></TableCell></TableRow>
                 ) : visible.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="py-12 text-center text-muted-foreground">No hay registros para estos filtros.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={6} className="py-12 text-center text-muted-foreground">No hay registros reales que coincidan con estos filtros.</TableCell></TableRow>
                 ) : visible.map((record) => (
                   <TableRow key={record.id}>
                     <TableCell>
