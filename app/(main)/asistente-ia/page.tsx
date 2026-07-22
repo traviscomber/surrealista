@@ -1,142 +1,107 @@
 import { AIAssistantChat } from "@/components/ai-assistant/ai-assistant-chat"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Sparkles, FolderOpen, FileText, MapPin, Search, Database } from "lucide-react"
+import { Database, FileSearch, FileText, FolderOpen, MapPin, Search, ShieldCheck } from "lucide-react"
+import { WorkspaceHeading } from "@/components/ui/workspace-heading"
+
+const capabilities = [
+  {
+    icon: FolderOpen,
+    title: "Explorar archivos territoriales",
+    description: "Localiza registros KMZ disponibles y resume sus antecedentes principales.",
+  },
+  {
+    icon: FileText,
+    title: "Consultar documentos",
+    description: "Busca información por nombre o contenido cuando la fuente documental está disponible.",
+  },
+  {
+    icon: MapPin,
+    title: "Relacionar información territorial",
+    description: "Apoya consultas sobre regiones, ubicaciones, roles y archivos asociados.",
+  },
+  {
+    icon: Search,
+    title: "Preparar una revisión",
+    description: "Organiza hallazgos y señala qué antecedentes deben verificarse manualmente.",
+  },
+]
+
+const examples = [
+  "¿Qué archivos territoriales existen para esta región?",
+  "Resume los antecedentes disponibles de este campo.",
+  "¿Qué registros tienen ROL y cuáles siguen incompletos?",
+  "Organiza los documentos relacionados con esta propiedad.",
+]
 
 export default function AsistenteIAPage() {
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-8">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <div className="w-12 h-12 bg-primary rounded-full flex items-center justify-center">
-              <Sparkles className="h-6 w-6 text-primary-foreground" />
-            </div>
-            <h1 className="text-4xl font-bold text-primary">
-              Asistente IA de Datos
-            </h1>
-          </div>
-          <p className="text-xl text-muted-foreground mb-4">
-            Consulta conversacional sobre tus documentos y datos en Google Drive
-          </p>
-          <div className="flex items-center justify-center gap-4 flex-wrap">
-            <Badge variant="secondary">
-              <Database className="h-3 w-3 mr-1" />
-              Datos en Tiempo Real
-            </Badge>
-            <Badge variant="secondary">
-              <FolderOpen className="h-3 w-3 mr-1" />
-              Google Drive Integrado
-            </Badge>
-            <Badge variant="secondary">
-              <Search className="h-3 w-3 mr-1" />
-              Búsqueda Inteligente
-            </Badge>
-          </div>
-        </div>
+    <main className="container mx-auto px-4 py-8">
+      <div className="mx-auto max-w-7xl space-y-8">
+        <WorkspaceHeading
+          eyebrow="Herramienta de apoyo"
+          title="Asistente de análisis"
+          description="Realiza consultas sobre los datos y documentos accesibles dentro de la plataforma. Las respuestas dependen de las fuentes disponibles y deben revisarse antes de utilizarse en decisiones comerciales, técnicas o legales."
+          outcome="Una síntesis inicial de la información encontrada, con referencias para continuar la revisión en los módulos correspondientes."
+        />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Chat Interface */}
-          <div className="lg:col-span-2">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+          <section className="min-w-0">
             <AIAssistantChat />
-          </div>
+          </section>
 
-          <div className="space-y-6">
+          <aside className="space-y-5">
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Database className="h-5 w-5 text-primary" />
-                  Capacidades del Asistente
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <Database className="h-4 w-4 text-primary" />
+                  Qué puede entregar
                 </CardTitle>
-                <CardDescription>Consulta conversacional sobre tus datos</CardDescription>
+                <CardDescription>Capacidades sujetas a la información realmente conectada.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <div className="flex items-start gap-3">
-                    <FolderOpen className="h-4 w-4 text-primary mt-1" />
+                {capabilities.map((capability) => (
+                  <div key={capability.title} className="flex items-start gap-3 border-b border-border/60 pb-4 last:border-0 last:pb-0">
+                    <capability.icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                     <div>
-                      <div className="font-medium text-sm">Exploración de Archivos KMZ</div>
-                      <div className="text-xs text-muted-foreground">Navega y consulta tus archivos de ubicación</div>
+                      <p className="text-sm font-medium text-foreground">{capability.title}</p>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">{capability.description}</p>
                     </div>
                   </div>
-                  <div className="flex items-start gap-3">
-                    <FileText className="h-4 w-4 text-primary mt-1" />
-                    <div>
-                      <div className="font-medium text-sm">Búsqueda de Documentos</div>
-                      <div className="text-xs text-muted-foreground">Encuentra archivos por contenido o nombre</div>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <MapPin className="h-4 w-4 text-primary mt-1" />
-                    <div>
-                      <div className="font-medium text-sm">Análisis de KMZ</div>
-                      <div className="text-xs text-muted-foreground">Consulta sobre archivos de ubicación</div>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <Search className="h-4 w-4 text-primary mt-1" />
-                    <div>
-                      <div className="font-medium text-sm">Consultas Inteligentes</div>
-                      <div className="text-xs text-muted-foreground">Pregunta en lenguaje natural</div>
-                    </div>
-                  </div>
-                </div>
+                ))}
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Ejemplos de Consultas</CardTitle>
-                <CardDescription>Preguntas que puedo responder con tus datos</CardDescription>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <FileSearch className="h-4 w-4 text-primary" />
+                  Consultas sugeridas
+                </CardTitle>
+                <CardDescription>Ejemplos orientados al trabajo interno.</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="text-sm space-y-2">
-                  <div className="p-3 bg-secondary rounded-lg cursor-pointer hover:bg-secondary/80 transition-colors">
-                    <div className="font-medium text-secondary-foreground">Estadísticas KMZ</div>
-                    <div className="text-xs text-muted-foreground">&quot;¿Cuántos archivos KMZ tengo?&quot;</div>
+              <CardContent className="space-y-2">
+                {examples.map((example) => (
+                  <div key={example} className="rounded-md border border-border/70 bg-muted/30 px-3 py-2.5 text-sm leading-5 text-foreground">
+                    {example}
                   </div>
-                  <div className="p-3 bg-secondary rounded-lg cursor-pointer hover:bg-secondary/80 transition-colors">
-                    <div className="font-medium text-secondary-foreground">Archivos por Región</div>
-                    <div className="text-xs text-muted-foreground">&quot;Muéstrame los archivos de la Región Metropolitana&quot;</div>
-                  </div>
-                  <div className="p-3 bg-secondary rounded-lg cursor-pointer hover:bg-secondary/80 transition-colors">
-                    <div className="font-medium text-secondary-foreground">Búsqueda de Archivos</div>
-                    <div className="text-xs text-muted-foreground">&quot;Buscar archivos KMZ&quot;</div>
-                  </div>
-                  <div className="p-3 bg-secondary rounded-lg cursor-pointer hover:bg-secondary/80 transition-colors">
-                    <div className="font-medium text-secondary-foreground">Ubicaciones</div>
-                    <div className="text-xs text-muted-foreground">&quot;¿Qué regiones tengo cargadas?&quot;</div>
-                  </div>
-                </div>
+                ))}
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-lg">Fuentes de Datos</CardTitle>
-                <CardDescription>Información en tiempo real</CardDescription>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <ShieldCheck className="h-4 w-4 text-primary" />
+                  Alcance de la respuesta
+                </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span>Base de Datos Supabase</span>
-                    <Badge variant="outline" className="text-xs">
-                      Activo
-                    </Badge>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Archivos KMZ</span>
-                    <Badge variant="outline" className="text-xs">
-                      Sincronizado
-                    </Badge>
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-3">Actualización en tiempo real</div>
-                </div>
+              <CardContent className="text-sm leading-6 text-muted-foreground">
+                El asistente no acredita dominio, tasación, vigencia documental ni exactitud legal. Cuando una fuente no está disponible, debe indicarlo en lugar de completar información por inferencia.
               </CardContent>
             </Card>
-          </div>
+          </aside>
         </div>
       </div>
-    </div>
+    </main>
   )
 }
