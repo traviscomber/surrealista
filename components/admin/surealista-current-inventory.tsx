@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { Building2, ExternalLink, Loader2, MapPin, RefreshCw, Search } from "lucide-react"
+import { Building2, ExternalLink, ImageOff, Loader2, MapPin, RefreshCw, Search } from "lucide-react"
 import { createBrowserClient } from "@/lib/supabase/client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { WorkspaceHeading } from "@/components/ui/workspace-heading"
 
 type CurrentProperty = {
   id: string
@@ -25,13 +26,13 @@ type CurrentProperty = {
 }
 
 function formatArea(area: number | null) {
-  if (!area) return "Sin superficie"
+  if (!area) return "Superficie no informada"
   if (area >= 10_000) return `${new Intl.NumberFormat("es-CL", { maximumFractionDigits: 2 }).format(area / 10_000)} ha`
   return `${new Intl.NumberFormat("es-CL").format(area)} m²`
 }
 
 function formatPrice(priceUf: number | null) {
-  return priceUf ? `UF ${new Intl.NumberFormat("es-CL").format(priceUf)}` : "Consultar precio"
+  return priceUf ? `UF ${new Intl.NumberFormat("es-CL").format(priceUf)}` : "Precio no informado"
 }
 
 export function SurRealistaCurrentInventory() {
@@ -95,38 +96,35 @@ export function SurRealistaCurrentInventory() {
   }, [properties, query])
 
   const regions = new Set(properties.map((property) => property.region).filter(Boolean)).size
-  const lastSync = properties[0]?.scraped_at ? new Date(properties[0].scraped_at).toLocaleString("es-CL") : "Sin sincronización"
+  const lastSync = properties[0]?.scraped_at ? new Date(properties[0].scraped_at).toLocaleString("es-CL") : "Sin sincronización registrada"
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-3xl font-semibold">Propiedades actuales Sur Realista</h1>
-            <Badge className="bg-emerald-600">EN VENTA</Badge>
-          </div>
-          <p className="mt-2 max-w-3xl text-sm text-muted-foreground">
-            Inventario comercial vigente publicado por Sur Realista. Esta vista se sincroniza con sur-realista.cl; una propiedad retirada del sitio deja de mostrarse aquí.
-          </p>
-        </div>
-        <Button onClick={() => void syncNow()} disabled={syncing} className="gap-2">
-          {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-          Sincronizar ahora
-        </Button>
-      </div>
+    <div className="space-y-7">
+      <WorkspaceHeading
+        eyebrow="Inventario oficial"
+        title="Propiedades actuales de Sur Realista"
+        description="Consulta el inventario comercial vigente publicado por Sur Realista y verifica cuándo fue incorporada o actualizada cada propiedad."
+        outcome="Obtienes una vista consolidada de las propiedades activas, con ubicación, superficie, precio disponible y acceso directo a la publicación original."
+        actions={
+          <Button onClick={() => void syncNow()} disabled={syncing} className="gap-2">
+            {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            Sincronizar ahora
+          </Button>
+        }
+      />
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Card><CardContent className="flex items-center gap-3 p-5"><Building2 className="h-5 w-5 text-primary" /><div><p className="text-2xl font-semibold">{properties.length}</p><p className="text-sm text-muted-foreground">Propiedades vigentes</p></div></CardContent></Card>
-        <Card><CardContent className="flex items-center gap-3 p-5"><MapPin className="h-5 w-5 text-primary" /><div><p className="text-2xl font-semibold">{regions}</p><p className="text-sm text-muted-foreground">Regiones</p></div></CardContent></Card>
-        <Card className="col-span-2"><CardContent className="p-5"><p className="text-sm text-muted-foreground">Última sincronización</p><p className="mt-1 font-medium">{lastSync}</p>{lastResult && <p className="mt-1 text-xs text-emerald-600">{lastResult}</p>}</CardContent></Card>
+        <Card className="shadow-none"><CardContent className="flex items-center gap-3 p-5"><Building2 className="h-5 w-5 text-primary" /><div><p className="text-2xl font-semibold">{properties.length}</p><p className="text-sm text-muted-foreground">Propiedades vigentes</p></div></CardContent></Card>
+        <Card className="shadow-none"><CardContent className="flex items-center gap-3 p-5"><MapPin className="h-5 w-5 text-primary" /><div><p className="text-2xl font-semibold">{regions}</p><p className="text-sm text-muted-foreground">Regiones representadas</p></div></CardContent></Card>
+        <Card className="col-span-2 shadow-none"><CardContent className="p-5"><p className="text-sm text-muted-foreground">Última sincronización registrada</p><p className="mt-1 font-medium">{lastSync}</p>{lastResult && <p className="mt-1 text-xs text-muted-foreground">{lastResult}</p>}</CardContent></Card>
       </div>
 
-      {error && <Card className="border-destructive"><CardContent className="p-4 text-sm text-destructive">{error}</CardContent></Card>}
+      {error && <Card className="border-destructive shadow-none"><CardContent className="p-4 text-sm text-destructive">{error}</CardContent></Card>}
 
-      <Card>
+      <Card className="shadow-none">
         <CardHeader>
-          <CardTitle>Inventario publicado</CardTitle>
-          <CardDescription>Solo propiedades actualmente ofrecidas por Sur Realista.</CardDescription>
+          <CardTitle className="font-serif text-xl">Inventario publicado</CardTitle>
+          <CardDescription>Solo se muestran registros activos provenientes de la fuente oficial configurada.</CardDescription>
         </CardHeader>
         <CardContent>
           <label className="relative mb-5 block">
@@ -137,19 +135,34 @@ export function SurRealistaCurrentInventory() {
           {loading ? (
             <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Cargando inventario…</div>
           ) : filtered.length === 0 ? (
-            <div className="py-16 text-center text-sm text-muted-foreground">No hay propiedades vigentes que coincidan.</div>
+            <div className="py-16 text-center text-sm text-muted-foreground">No hay propiedades activas que coincidan con la búsqueda.</div>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {filtered.map((property) => (
-                <Card key={property.id} className="overflow-hidden">
-                  <div className="aspect-[16/9] bg-muted"><img src={property.images?.[0] || "/placeholder.svg"} alt={property.title} className="h-full w-full object-cover" /></div>
-                  <CardContent className="space-y-3 p-4">
-                    <div><h2 className="line-clamp-2 font-medium">{property.title}</h2><p className="mt-1 text-sm text-muted-foreground">{[property.commune || property.city, property.region].filter(Boolean).join(", ") || "Ubicación no informada"}</p></div>
-                    <div className="flex items-center justify-between text-sm"><span>{formatArea(property.area_m2)}</span><strong>{formatPrice(property.price_uf)}</strong></div>
-                    <div className="flex items-center justify-between"><Badge variant="secondary">{property.property_type || "Campo"}</Badge>{property.source_url && <Button asChild size="sm" variant="outline"><Link href={property.source_url} target="_blank" rel="noreferrer">Ver en .cl <ExternalLink className="ml-2 h-3.5 w-3.5" /></Link></Button>}</div>
-                  </CardContent>
-                </Card>
-              ))}
+              {filtered.map((property) => {
+                const image = property.images?.find(Boolean)
+                return (
+                  <Card key={property.id} className="overflow-hidden shadow-none">
+                    <div className="aspect-[16/9] bg-muted/50">
+                      {image ? (
+                        <img src={image} alt={property.title} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+                          <ImageOff className="h-5 w-5" />
+                          Imagen no disponible en la fuente
+                        </div>
+                      )}
+                    </div>
+                    <CardContent className="space-y-3 p-4">
+                      <div>
+                        <h2 className="line-clamp-2 font-medium">{property.title}</h2>
+                        <p className="mt-1 text-sm text-muted-foreground">{[property.commune || property.city, property.region].filter(Boolean).join(", ") || "Ubicación no informada"}</p>
+                      </div>
+                      <div className="flex items-center justify-between gap-3 text-sm"><span>{formatArea(property.area_m2)}</span><strong>{formatPrice(property.price_uf)}</strong></div>
+                      <div className="flex items-center justify-between gap-3"><Badge variant="secondary">{property.property_type || "Tipo no informado"}</Badge>{property.source_url && <Button asChild size="sm" variant="outline"><Link href={property.source_url} target="_blank" rel="noreferrer">Abrir fuente <ExternalLink className="ml-2 h-3.5 w-3.5" /></Link></Button>}</div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
             </div>
           )}
         </CardContent>
