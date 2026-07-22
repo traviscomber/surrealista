@@ -4,43 +4,25 @@ import type React from "react"
 import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { cn } from "@/lib/utils"
 import {
-  LayoutDashboard,
+  AlertCircle,
   Building2,
-  Settings,
-  Database,
   ChevronDown,
   ChevronRight,
-  Home,
+  Database,
   FileText,
-  Bell,
-  Search,
-  User,
-  LogOut,
   HelpCircle,
-  Activity,
-  FolderOpen,
-  MapPin,
+  LayoutDashboard,
   Mail,
-  AlertCircle,
-  ArrowLeft,
+  MapPin,
+  Search,
   Users,
 } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { Separator } from "@/components/ui/separator"
 import { Input } from "@/components/ui/input"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 
 interface MenuItem {
   title: string
@@ -48,52 +30,46 @@ interface MenuItem {
   icon: React.ComponentType<{ className?: string }>
   badge?: string
   badgeVariant?: "default" | "secondary" | "destructive" | "outline"
-  badgeColor?: string
   children?: MenuItem[]
 }
 
 const menuItems: MenuItem[] = [
   {
-    title: "Dashboard",
+    title: "Panel principal",
     href: "/admin",
     icon: LayoutDashboard,
   },
   {
-    title: "Búsqueda Unificada",
+    title: "Buscar propiedades",
     href: "/busqueda",
     icon: Search,
-    badge: "New",
   },
   {
-    title: "Colección KMZ",
+    title: "Datos geográficos KMZ",
     icon: MapPin,
-    badge: "New",
     children: [
       {
-        title: "Estado del Sistema",
+        title: "Estado de indexación",
         href: "/admin/kmz-status",
         icon: AlertCircle,
-        badge: "Check",
       },
       {
-        title: "Guía de Búsqueda",
+        title: "Guía de uso",
         href: "/kmz-guide",
         icon: HelpCircle,
-        badge: "Start",
       },
       {
-        title: "Gestionar Colección",
+        title: "Administrar archivos KMZ",
         href: "/admin/kmz-collection",
         icon: Database,
       },
       {
-        title: "Indexar Ubicaciones",
+        title: "Indexar ubicaciones",
         href: "/admin/kmz",
         icon: MapPin,
-        badge: "Fast",
       },
       {
-        title: "Buscar por Ubicación",
+        title: "Buscar por ubicación",
         href: "/kmz-search",
         icon: Search,
       },
@@ -102,30 +78,26 @@ const menuItems: MenuItem[] = [
   {
     title: "Comunicaciones",
     icon: Mail,
-    badge: "Nuevo",
     children: [
       {
-        title: "Enviar Emails",
+        title: "Enviar correos",
         href: "/comunicaciones/email",
         icon: Mail,
-        badge: "Feature",
       },
       {
-        title: "Historial",
+        title: "Historial de envíos",
         href: "/comunicaciones/email",
         icon: FileText,
-        badge: "Logs",
       },
     ],
   },
   {
-    title: "SII Roles",
+    title: "Explorador de roles SII",
     href: "/admin/sii-rol-explorer",
     icon: Database,
-    badge: "Explorer",
   },
   {
-    title: "Descubrimiento de Dueños",
+    title: "Descubrimiento de propietarios",
     href: "/admin/owner-discovery",
     icon: Users,
     badge: "285",
@@ -133,58 +105,39 @@ const menuItems: MenuItem[] = [
   },
 ]
 
-const getPageTitle = (pathname: string): string => {
-  const routes: Record<string, string> = {
-    "/admin": "Dashboard",
-    "/busqueda": "Búsqueda Unificada",
-    "/campos": "Vista CAMPOS",
-    "/admin/kmz-status": "Estado del Sistema KMZ",
-    "/admin/kmz-collection": "Colección KMZ",
-    "/admin/kmz": "Panel de Indexación KMZ",
-    "/kmz-search": "Búsqueda de Ubicaciones KMZ",
-    "/kmz-guide": "Guía de Búsqueda KMZ",
-    "/admin/sii-extractor": "Extractor de Coordenadas SII",
-    "/admin/sii-rol-explorer": "Explorador de Roles SII",
-    "/admin/owner-discovery": "Descubrimiento de Dueños",
-    "/admin/file-explorer": "Explorador de Archivos",
-    "/admin/kmz-vecindario": "Análisis de Vecindario KMZ",
-    "/mvp/seguimiento": "Seguimiento MVP",
-    "/admin/fase-1-mvp": "Fase 1 MVP",
-    "/admin/fase-2-mvp": "Fase 2 MVP",
-    "/admin/fase-3-mvp": "Fase 3 MVP",
-    "/mvp/analytics-completo": "Analytics MVP",
-    "/admin/google-drive-integration": "Google Drive Integration",
-    "/admin/organizacion-carpetas-demo": "Organización Carpetas",
-    "/admin/documentacion-para-method": "Método PARA - Documentación",
-    "/admin/migracion-data-real": "Migración Data Real",
-    "/admin/mensajes": "Centro de Mensajes",
-    "/comunicaciones/email": "Enviar Emails",
-  }
-
-  return routes[pathname] || "Panel de Administración"
+const PAGE_TITLES: Record<string, string> = {
+  "/admin": "Panel principal",
+  "/busqueda": "Buscar propiedades",
+  "/campos": "Mapa de campos",
+  "/admin/kmz-status": "Estado de indexación KMZ",
+  "/admin/kmz-collection": "Administrar archivos KMZ",
+  "/admin/kmz": "Indexar ubicaciones KMZ",
+  "/kmz-search": "Buscar por ubicación KMZ",
+  "/kmz-guide": "Guía de datos KMZ",
+  "/admin/sii-rol-explorer": "Explorador de roles SII",
+  "/admin/owner-discovery": "Descubrimiento de propietarios",
+  "/comunicaciones/email": "Comunicaciones por correo",
 }
 
 export function AdminSidebar() {
   const pathname = usePathname()
-  const [expandedItems, setExpandedItems] = useState<string[]>(["Gestión Documentos"])
-  const pageTitle = getPageTitle(pathname)
+  const [expandedItems, setExpandedItems] = useState<string[]>([])
+  const pageTitle = PAGE_TITLES[pathname] || "Panel de Administración"
   const isKMZCollection = pathname === "/admin/kmz-collection"
 
   const toggleItem = (title: string) => {
-    setExpandedItems((prev) => (prev.includes(title) ? prev.filter((item) => item !== title) : [...prev, title]))
+    setExpandedItems((current) => current.includes(title)
+      ? current.filter((item) => item !== title)
+      : [...current, title])
   }
 
-  const isActive = (href: string) => {
-    if (href === "/admin") {
-      return pathname === href
-    }
-    return pathname === href || pathname.startsWith(href + "/")
-  }
+  const isActive = (href: string) => href === "/admin"
+    ? pathname === href
+    : pathname === href || pathname.startsWith(`${href}/`)
 
   const renderMenuItem = (item: MenuItem, level = 0) => {
-    const hasChildren = item.children && item.children.length > 0
+    const hasChildren = Boolean(item.children?.length)
     const isOpen = expandedItems.includes(item.title)
-    const isItemActive = item.href ? isActive(item.href) : false
 
     if (hasChildren) {
       return (
@@ -193,29 +146,16 @@ export function AdminSidebar() {
             <Button
               variant="ghost"
               className={cn(
-                "w-full justify-start gap-3 h-10 px-3 font-medium text-sm",
+                "h-10 w-full justify-start gap-3 px-3 text-sm font-medium",
                 level > 0 && "ml-4 w-[calc(100%-1rem)]",
-                "hover:bg-blue-50 hover:text-blue-700 transition-colors",
               )}
             >
-              <item.icon className="h-4 w-4 flex-shrink-0" />
-              <span className="flex-1 text-left truncate">{item.title}</span>
-              {item.badge && (
-                <Badge
-                  variant={item.badgeVariant || "secondary"}
-                  className={cn("text-xs px-1.5 py-0.5 h-5", item.badgeColor && `${item.badgeColor} text-white`)}
-                >
-                  {item.badge}
-                </Badge>
-              )}
-              {isOpen ? (
-                <ChevronDown className="h-4 w-4 flex-shrink-0" />
-              ) : (
-                <ChevronRight className="h-4 w-4 flex-shrink-0" />
-              )}
+              <item.icon className="h-4 w-4 shrink-0" />
+              <span className="flex-1 truncate text-left">{item.title}</span>
+              {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
             </Button>
           </CollapsibleTrigger>
-          <CollapsibleContent className="space-y-1 mt-1">
+          <CollapsibleContent className="mt-1 space-y-1">
             {item.children?.map((child) => renderMenuItem(child, level + 1))}
           </CollapsibleContent>
         </Collapsible>
@@ -223,168 +163,57 @@ export function AdminSidebar() {
     }
 
     return (
-      <Link key={item.title} href={item.href || "#"}>
-        <Button
-          variant="ghost"
-          className={cn(
-            "w-full justify-start gap-3 h-10 px-3 font-medium text-sm transition-colors",
-            level > 0 && "ml-4 w-[calc(100%-1rem)]",
-            isItemActive ? "bg-blue-100 text-blue-700 hover:bg-blue-100" : "hover:bg-blue-50 hover:text-blue-700",
-          )}
-        >
-          <item.icon className="h-4 w-4 flex-shrink-0" />
-          <span className="flex-1 text-left truncate">{item.title}</span>
-          {item.badge && (
-            <Badge
-              variant={item.badgeVariant || "secondary"}
-              className={cn("text-xs px-1.5 py-0.5 h-5", item.badgeColor && `${item.badgeColor} text-white`)}
-            >
-              {item.badge}
-            </Badge>
-          )}
-        </Button>
-      </Link>
+      <Button
+        key={item.title}
+        asChild
+        variant="ghost"
+        className={cn(
+          "h-10 w-full justify-start gap-3 px-3 text-sm font-medium",
+          level > 0 && "ml-4 w-[calc(100%-1rem)]",
+          item.href && isActive(item.href) && "bg-primary/10 text-primary",
+        )}
+      >
+        <Link href={item.href || "#"}>
+          <item.icon className="h-4 w-4 shrink-0" />
+          <span className="flex-1 truncate text-left">{item.title}</span>
+          {item.badge && <Badge variant={item.badgeVariant || "secondary"}>{item.badge}</Badge>}
+        </Link>
+      </Button>
     )
   }
 
   return (
-    <div className="w-80 bg-card border-r border-border flex flex-col h-full">
-      {/* Header */}
-      <div className="p-6 border-b border-border">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center">
-            <Building2 className="h-5 w-5 text-white" />
+    <aside className="flex h-full w-80 flex-col border-r border-border bg-card">
+      <div className="border-b border-border p-6">
+        <div className="mb-4 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
+            <Building2 className="h-5 w-5 text-primary-foreground" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-foreground">Panel de Administración</h2>
+            <h2 className="text-lg font-semibold">Panel de Administración</h2>
             <p className="text-sm text-muted-foreground">Sur-Realista</p>
           </div>
         </div>
 
-        {/* Current Page Title */}
-        <div className="mb-4">
-          <h1 className="text-xl font-bold text-foreground">{pageTitle}</h1>
-        </div>
+        <h1 className="mb-4 text-xl font-semibold">{pageTitle}</h1>
 
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input type="search" placeholder="Buscar..." className="pl-10 pr-4 w-full h-9 bg-background text-foreground border-border" />
-        </div>
+        <label className="relative block">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input type="search" placeholder="Buscar sección..." className="h-9 pl-10" />
+        </label>
       </div>
 
-      {/* Navigation - Hidden in KMZ Collection */}
-      {!isKMZCollection && (
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">{menuItems.map((item) => renderMenuItem(item))}</nav>
-      )}
-
-      {isKMZCollection && <div className="flex-1" />}
-
-      <Separator />
-
-      {/* Quick Actions / Navigation */}
-      {isKMZCollection ? (
-        <div className="p-4">
-          <Link href="/busqueda" className="block">
-            <Button className="w-full justify-start gap-2 h-10 bg-primary hover:bg-primary/90 text-white">
-              <ArrowLeft className="h-4 w-4" />
-              Volver al Sitio
-            </Button>
-          </Link>
-        </div>
+      {!isKMZCollection ? (
+        <nav className="flex-1 space-y-1 overflow-y-auto p-4">
+          {menuItems.map((item) => renderMenuItem(item))}
+        </nav>
       ) : (
-        <div className="p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-muted-foreground px-3">Accesos Directos</h3>
-          <div className="space-y-2">
-            <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
-              <Link href="/admin/tags">
-                <Database className="h-4 w-4" />
-                Gestión de Tags
-                <Badge className="ml-auto bg-green-500 text-white text-xs">NEW</Badge>
-              </Link>
-            </Button>
-            <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
-              <Link href="/admin/google-drive-integration">
-                <Database className="h-4 w-4" />
-                Google Drive
-                <Badge className="ml-auto bg-green-500 text-white text-xs">API Ready</Badge>
-              </Link>
-            </Button>
-            <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
-              <Link href="/busqueda">
-                <Search className="h-4 w-4" />
-                Búsqueda
-                <Badge className="ml-auto bg-primary text-white text-xs">Inicio</Badge>
-              </Link>
-            </Button>
-            <Button variant="outline" size="sm" className="w-full justify-start gap-2 h-9 bg-transparent" asChild>
-              <Link href="/campos">
-                <FolderOpen className="h-4 w-4" />
-                CAMPOS
-                <Badge className="ml-auto bg-accent text-white text-xs">Mapa</Badge>
-              </Link>
-            </Button>
-          </div>
-        </div>
+        <div className="flex-1" />
       )}
 
-      <Separator />
-
-      {/* User Profile & Actions */}
-      <div className="p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Avatar className="h-8 w-8">
-              <AvatarImage src="/placeholder.svg?height=32&width=32" alt="Admin" />
-              <AvatarFallback className="bg-gradient-to-br from-blue-600 to-purple-600 text-white text-xs">
-                AD
-              </AvatarFallback>
-            </Avatar>
-            <div>
-              <p className="text-sm font-medium text-gray-900">Administrador</p>
-              <p className="text-xs text-gray-500">admin@sur-realista.cl</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-1">
-            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-              <Bell className="h-4 w-4" />
-              <Badge className="absolute -top-1 -right-1 h-4 w-4 rounded-full p-0 flex items-center justify-center text-xs bg-red-500">
-                3
-              </Badge>
-            </Button>
-
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                  <Settings className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end">
-                <DropdownMenuLabel>Mi Cuenta</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <User className="mr-2 h-4 w-4" />
-                  <span>Perfil</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Settings className="mr-2 h-4 w-4" />
-                  <span>Configuración</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <HelpCircle className="mr-2 h-4 w-4" />
-                  <span>Ayuda</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Cerrar Sesión</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
+      <div className="border-t border-border p-4 text-sm text-muted-foreground">
+        Panel interno Sur-Realista
       </div>
-    </div>
+    </aside>
   )
 }
