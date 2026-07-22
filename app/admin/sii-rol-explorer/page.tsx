@@ -1,31 +1,33 @@
 import SiiRolExplorer from "@/components/sii-rol-explorer"
+import { WorkspaceHeading } from "@/components/ui/workspace-heading"
+import { Card, CardContent } from "@/components/ui/card"
+import { ShieldCheck } from "lucide-react"
 
 export const metadata = {
-  title: "Explorador SII - Consultar Roles",
-  description: "Herramienta para consultar números de rol en el SII",
+  title: "Explorador de roles SII | Sur Realista",
+  description: "Consulta asistida de roles territoriales para uso interno.",
 }
 
 export default function SiiPage() {
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900">Consultor de Roles (SII)</h1>
-        <p className="mt-2 text-slate-600">
-          Consulta el número de rol de propiedades mediante el servicio oficial del SII.
-        </p>
-      </div>
+    <main className="space-y-6">
+      <WorkspaceHeading
+        eyebrow="Información territorial"
+        title="Explorador de roles SII"
+        description="Consulta roles asociados a propiedades y organiza los antecedentes obtenidos desde el servicio oficial cuando la consulta está disponible."
+        outcome="Un punto de partida para relacionar un rol con los registros territoriales internos y detectar qué información aún requiere verificación."
+      />
 
       <SiiRolExplorer />
 
-      <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800">
-        <p className="font-semibold">Información técnica:</p>
-        <ul className="mt-2 list-inside list-disc space-y-1 text-xs">
-          <li>Esta herramienta opera bajo demanda del usuario</li>
-          <li>Respeta los términos de servicio del SII</li>
-          <li>Puede requerir verificación manual (CAPTCHA)</li>
-          <li>No realiza automatización masiva</li>
-        </ul>
-      </div>
-    </div>
+      <Card>
+        <CardContent className="flex items-start gap-3 p-4 text-sm leading-6 text-muted-foreground">
+          <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+          <p>
+            La consulta se ejecuta bajo demanda, puede requerir validación manual del SII y no reemplaza certificados, avalúos, escrituras ni otros antecedentes oficiales. La plataforma no debe automatizar consultas masivas ni completar información ausente por inferencia.
+          </p>
+        </CardContent>
+      </Card>
+    </main>
   )
 }
