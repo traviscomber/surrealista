@@ -6,7 +6,9 @@ import PropertyFilters from "@/components/properties/property-filters"
 import PropertyListView from "@/components/properties/property-list-view"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Search, Grid, List } from "lucide-react"
+import { WorkspaceHeading } from "@/components/ui/workspace-heading"
+import { Card, CardContent } from "@/components/ui/card"
+import { Search, Grid, List, Database } from "lucide-react"
 
 interface Property {
   id: string
@@ -43,18 +45,13 @@ function PropertiesContent({ initialProperties }: PropertiesClientProps) {
     features: [] as string[],
   })
 
-  // Update search term from URL params
   useEffect(() => {
     const search = searchParams.get("search")
-    if (search) {
-      setSearchTerm(search)
-    }
+    if (search) setSearchTerm(search)
   }, [searchParams])
 
-  // Filter properties based on search and filters
   const filteredProperties = useMemo(() => {
     return properties.filter((property) => {
-      // Search term filter
       if (searchTerm) {
         const searchLower = searchTerm.toLowerCase()
         const matchesSearch =
@@ -64,12 +61,8 @@ function PropertiesContent({ initialProperties }: PropertiesClientProps) {
         if (!matchesSearch) return false
       }
 
-      // Type filter
-      if (filters.types.length > 0 && !filters.types.includes(property.type || "")) {
-        return false
-      }
+      if (filters.types.length > 0 && !filters.types.includes(property.type || "")) return false
 
-      // Location filter
       if (filters.locations.length > 0) {
         const matchesLocation = filters.locations.some((location) =>
           (property.location || "").toLowerCase().includes(location.toLowerCase()),
@@ -77,36 +70,23 @@ function PropertiesContent({ initialProperties }: PropertiesClientProps) {
         if (!matchesLocation) return false
       }
 
-      // Price range filter
       const propertyPrice = property.price || 0
-      if (propertyPrice < filters.priceRange[0] || propertyPrice > filters.priceRange[1]) {
-        return false
-      }
+      if (propertyPrice > 0 && (propertyPrice < filters.priceRange[0] || propertyPrice > filters.priceRange[1])) return false
 
-      // Bedrooms filter
       if (filters.bedrooms !== "any") {
         const bedroomCount = Number.parseInt(filters.bedrooms)
-        const propertyBedrooms = property.bedrooms || 0
-        if (propertyBedrooms !== bedroomCount) return false
+        if ((property.bedrooms || 0) !== bedroomCount) return false
       }
 
-      // Bathrooms filter
       if (filters.bathrooms !== "any") {
         const bathroomCount = Number.parseInt(filters.bathrooms)
-        const propertyBathrooms = property.bathrooms || 0
-        if (propertyBathrooms !== bathroomCount) return false
+        if ((property.bathrooms || 0) !== bathroomCount) return false
       }
 
-      // Area filters
       const propertyArea = property.area || 0
-      if (filters.minArea && propertyArea < Number.parseInt(filters.minArea)) {
-        return false
-      }
-      if (filters.maxArea && propertyArea > Number.parseInt(filters.maxArea)) {
-        return false
-      }
+      if (filters.minArea && propertyArea < Number.parseInt(filters.minArea)) return false
+      if (filters.maxArea && propertyArea > Number.parseInt(filters.maxArea)) return false
 
-      // Features filter functionality
       if (filters.features.length > 0) {
         const propertyDescription = (property.description || "").toLowerCase()
         const matchesFeatures = filters.features.some((feature) => propertyDescription.includes(feature.toLowerCase()))
@@ -118,69 +98,74 @@ function PropertiesContent({ initialProperties }: PropertiesClientProps) {
   }, [properties, searchTerm, filters])
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
-      {/* Hero Section */}
-      <div className="relative bg-gradient-to-r from-blue-600 to-purple-600 text-white py-20">
-        <div className="container mx-auto px-4">
-          <div className="max-w-4xl mx-auto text-center space-y-6">
-            <h1 className="text-4xl md:text-6xl font-bold">Encuentra tu Hogar Ideal</h1>
-            <p className="text-xl opacity-90">Descubre las mejores propiedades en el sur de Chile</p>
-            <div className="max-w-2xl mx-auto">
-              <div className="relative">
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                <Input
-                  type="text"
-                  placeholder="Buscar por ubicación, tipo de propiedad..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-12 h-12 text-lg bg-white/10 border-white/20 text-white placeholder:text-white/70"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+    <main className="container mx-auto space-y-8 px-4 py-8">
+      <WorkspaceHeading
+        eyebrow="Inventario comercial"
+        title="Propiedades disponibles"
+        description="Consulta y filtra registros activos obtenidos desde las fuentes inmobiliarias conectadas al sistema."
+        outcome="Podrás identificar propiedades por ubicación, tipo, superficie y precio informado, manteniendo visibles los datos ausentes o no verificados."
+      />
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="flex flex-col lg:flex-row gap-8">
-          {/* Filters Sidebar */}
-          <div className="lg:w-1/4">
-            <PropertyFilters filters={filters} onFiltersChange={setFilters} properties={properties} />
+      <Card className="border-border/70">
+        <CardContent className="p-4">
+          <div className="relative max-w-2xl">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Buscar por título, ubicación o descripción"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              className="pl-9"
+            />
           </div>
+        </CardContent>
+      </Card>
 
-          {/* Properties List */}
-          <div className="lg:w-3/4">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">{filteredProperties.length} propiedades encontradas</h2>
-              <div className="flex gap-2">
-                <Button
-                  variant={viewMode === "grid" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setViewMode("grid")}
-                >
-                  <Grid className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant={viewMode === "list" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setViewMode("list")}
-                >
-                  <List className="h-4 w-4" />
-                </Button>
-              </div>
+      <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+        <aside>
+          <PropertyFilters filters={filters} onFiltersChange={setFilters} properties={properties} />
+        </aside>
+
+        <section className="space-y-5">
+          <div className="flex flex-col gap-3 border-b pb-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2">
+              <Database className="h-4 w-4 text-primary" />
+              <p className="text-sm">
+                <span className="font-semibold">{filteredProperties.length}</span>{" "}
+                {filteredProperties.length === 1 ? "registro disponible" : "registros disponibles"}
+              </p>
             </div>
 
-            <PropertyListView properties={filteredProperties} viewMode={viewMode} />
+            <div className="flex gap-2" aria-label="Cambiar vista">
+              <Button
+                variant={viewMode === "grid" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setViewMode("grid")}
+                aria-label="Vista en cuadrícula"
+              >
+                <Grid className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === "list" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setViewMode("list")}
+                aria-label="Vista en lista"
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
-        </div>
+
+          <PropertyListView properties={filteredProperties} viewMode={viewMode} />
+        </section>
       </div>
-    </div>
+    </main>
   )
 }
 
 export default function PropertiesClient({ initialProperties }: PropertiesClientProps) {
   return (
-    <Suspense fallback={<div>Cargando propiedades...</div>}>
+    <Suspense fallback={<div className="container mx-auto px-4 py-8 text-sm text-muted-foreground">Cargando inventario…</div>}>
       <PropertiesContent initialProperties={initialProperties} />
     </Suspense>
   )
