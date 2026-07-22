@@ -1,99 +1,37 @@
 "use client"
 
-import type React from "react"
-export const dynamic = "force-dynamic"
-
-import { useState, useEffect, useRef } from "react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Folder, Users, MessageSquare, Loader2, HardDrive, CheckSquare, MapPin, Database } from "lucide-react"
-import { createBrowserClient } from "@/lib/supabase/client"
-import { TaskCreationDialog } from "@/components/tasks/task-creation-dialog"
-import { TasksManager } from "@/components/tasks/tasks-manager"
-import dynamicImport from "next/dynamic"
-import { CAMPOSFolderView } from "@/components/campos/campos-folder-view"
-import { kmzReader } from "@/lib/kmz/kmz-reader"
-import { kmzStorageService } from "@/lib/kmz/kmz-storage-service"
-import { useRouter } from "next/navigation" // Added router for navigation
-import { ClientRepositoryDashboard } from "@/components/client-management/client-repository-dashboard"
+import { useEffect, useMemo, useState } from "react"
+import dynamic from "next/dynamic"
 import Link from "next/link"
+import {
+  CheckSquare,
+  Database,
+  Folder,
+  HardDrive,
+  MapPin,
+  MessageSquare,
+  Users,
+} from "lucide-react"
+import { createBrowserClient } from "@/lib/supabase/client"
+import { WorkspaceHeading } from "@/components/ui/workspace-heading"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { CAMPOSFolderView } from "@/components/campos/campos-folder-view"
+import { ClientRepositoryDashboard } from "@/components/client-management/client-repository-dashboard"
+import { TasksManager } from "@/components/tasks/tasks-manager"
+import { TaskCreationDialog } from "@/components/tasks/task-creation-dialog"
 import SiiRolExplorer from "@/components/sii-rol-explorer"
 
-const KMZMapDisplay = dynamicImport(() => import("@/components/kmz/kmz-map-display").then((mod) => mod.KMZMapDisplay), {
-  ssr: false,
-  loading: () => (
-    <div className="h-[600px] w-full flex items-center justify-center bg-muted rounded-xl">
-      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-    </div>
-  ),
-})
-
-const SimpleDriveFolderViewDynamic = dynamicImport(
-  () =>
-    import("@/components/google-drive/simple-drive-folder-view").then((mod) => ({
-      default: mod.SimpleDriveFolderView,
-    })),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="h-[600px] w-full flex items-center justify-center bg-muted rounded-xl">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    ),
-  },
+const SimpleDriveFolderView = dynamic(
+  () => import("@/components/google-drive/simple-drive-folder-view").then((mod) => mod.SimpleDriveFolderView),
+  { ssr: false, loading: () => <ModuleLoading label="Cargando archivos disponibles…" /> },
 )
 
-const CommunicationsManagerDynamic = dynamicImport(
-  () =>
-    import("@/components/communications/communications-manager").then((mod) => ({
-      default: mod.CommunicationsManager,
-    })),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="h-[600px] w-full flex items-center justify-center bg-muted rounded-xl">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    ),
-  },
+const CommunicationsManager = dynamic(
+  () => import("@/components/communications/communications-manager").then((mod) => mod.default),
+  { ssr: false, loading: () => <ModuleLoading label="Cargando comunicaciones…" /> },
 )
-
-interface Client {
-  id: string
-  first_name: string
-  last_name: string
-  company_name?: string
-  status: "hot" | "warm" | "cold"
-  email?: string
-  phone?: string
-  address?: string
-  city?: string
-  region?: string
-  latitude?: number
-  longitude?: number
-  main_interest?: string
-  locations_of_interest?: string[]
-  budget_min?: number
-  budget_max?: number
-  last_contact_date?: string
-  rut?: string // Added RUT field
-}
-
-interface Campo {
-  id: string
-  name: string
-  location: string
-  files: number
-  kmzFileId?: string
-  driveFiles?: any[]
-}
-
-interface KMZFile {
-  id: string
-  file_name: string
-  coordinates: any
-  placemarks_count: number
-}
 
 interface Task {
   id: string
@@ -106,476 +44,175 @@ interface Task {
   created_at: string
 }
 
+const moduleDescriptions: Record<string, { title: string; description: string; outcome: string }> = {
+  campos: {
+    title: "Explorador de Campos",
+    description: "Revisa el inventario territorial organizado desde los archivos y registros disponibles.",
+    outcome: "Encontrarás campos y antecedentes asociados para continuar su análisis o gestión.",
+  },
+  clientes: {
+    title: "Clientes",
+    description: "Consulta y organiza contactos, intereses, antecedentes y seguimiento comercial.",
+    outcome: "Obtendrás una vista centralizada de cada relación y sus próximos pasos.",
+  },
+  comunicaciones: {
+    title: "Comunicaciones",
+    description: "Revisa los registros de comunicación disponibles para el trabajo comercial y operativo.",
+    outcome: "Podrás recuperar contexto antes de contactar o dar seguimiento a una persona.",
+  },
+  tareas: {
+    title: "Tareas",
+    description: "Gestiona pendientes vinculados al trabajo territorial, documental y comercial.",
+    outcome: "Tendrás una lista operativa de acciones, responsables, prioridad y estado.",
+  },
+  drive: {
+    title: "Archivos",
+    description: "Accede a los documentos que estén disponibles mediante las integraciones configuradas.",
+    outcome: "Podrás localizar antecedentes sin asumir que una fuente está conectada cuando no lo está.",
+  },
+  kmz: {
+    title: "Archivos territoriales KMZ",
+    description: "Accede a la colección territorial activa y a sus herramientas administrativas.",
+    outcome: "Podrás revisar, cargar, indexar y mantener los archivos geográficos registrados.",
+  },
+  "sii-roles": {
+    title: "Roles SII",
+    description: "Consulta roles de avalúo y organiza antecedentes territoriales para revisión interna.",
+    outcome: "Obtendrás una referencia para continuar la validación en fuentes oficiales.",
+  },
+}
+
+function ModuleLoading({ label }: { label: string }) {
+  return (
+    <div className="flex min-h-[420px] items-center justify-center rounded-md border bg-muted/20 text-sm text-muted-foreground">
+      {label}
+    </div>
+  )
+}
+
 export default function UnifiedSearchPage() {
-  const [searchTerm, setSearchTerm] = useState("")
-  const [activeTab, setActiveTab] = useState("campos") // Set campos as default tab
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null)
-  const [selectedCampo, setSelectedCampo] = useState<Campo | null>(null)
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null)
+  const supabase = useMemo(() => createBrowserClient(), [])
+  const [activeTab, setActiveTab] = useState("campos")
   const [tasks, setTasks] = useState<Task[]>([])
   const [taskDialogOpen, setTaskDialogOpen] = useState(false)
-  const [kmzFiles, setKmzFiles] = useState<any[]>([])
-  const [loading, setLoading] = useState(false)
-  const [camposData, setCamposData] = useState<Campo[]>([])
-  const [currentUser, setCurrentUser] = useState<any>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [uploadingKMZ, setUploadingKMZ] = useState(false)
-  const [quickTaskTitle, setQuickTaskTitle] = useState("")
-  const [showQuickTask, setShowQuickTask] = useState(false)
-  const [showRUTValidation, setShowRUTValidation] = useState(false)
   const [taskRefreshTrigger, setTaskRefreshTrigger] = useState(0)
+  const [currentUser, setCurrentUser] = useState<any>(null)
+  const [kmzCount, setKmzCount] = useState<number | null>(null)
+  const [kmzCountError, setKmzCountError] = useState(false)
 
-  const supabase = createBrowserClient()
-
-  const router = useRouter() // Added router instance
-
-  useEffect(() => {
-    const controller = new AbortController()
-
-    const initializeData = async () => {
-      try {
-        await getCurrentUser()
-        await loadTasks()
-      } catch (error) {
-        if (error instanceof Error && error.name !== "AbortError") {
-          console.error("[v0] Error initializing data:", error)
-        }
-      }
-    }
-
-    initializeData()
-
-    return () => {
-      controller.abort()
-    }
-  }, [])
-
-  useEffect(() => {
-    // Load KMZ data from Supabase on mount
-    loadKMZFromSupabase()
-  }, [])
-
-  useEffect(() => {
-    if (activeTab === "clientes") {
-      // The ClientRepositoryDashboard component handles its own data loading with pagination
-    }
-  }, [activeTab])
-
-  const getCurrentUser = async () => {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      setCurrentUser(user)
-      console.log("[v0] Current user:", user?.email || "No user logged in")
-    } catch (error) {
-      if (error instanceof Error && error.name !== "AbortError") {
-        console.error("[v0] Error getting user:", error)
-      }
-    }
-  }
+  const currentModule = moduleDescriptions[activeTab] || moduleDescriptions.campos
 
   const loadTasks = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("tasks")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(20)
+    const { data, error } = await supabase
+      .from("tasks")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(20)
 
-      if (error) throw error
-      setTasks(data || [])
-      setTaskRefreshTrigger((prev) => prev + 1)
-    } catch (error) {
-      if (error instanceof Error && error.name !== "AbortError") {
-        console.error("[v0] Error loading tasks:", error)
-      }
+    if (error) {
+      console.error("[explorador] No se pudieron cargar las tareas", error)
+      return
     }
+
+    setTasks((data || []) as Task[])
+    setTaskRefreshTrigger((value) => value + 1)
   }
 
-  const loadKMZFromSupabase = async () => {
-    console.log("[v0] Loading KMZ data from Supabase...")
-    await loadCamposMetadata()
-  }
+  useEffect(() => {
+    void supabase.auth.getUser().then(({ data }) => setCurrentUser(data.user || null))
+    void loadTasks()
 
-  const loadCamposMetadata = async () => {
-    console.log("[v0] Loading campos metadata (lightweight)...")
-
-    try {
-      const { data, error } = await supabase
-        .from("kmz_collection")
-        .select("id, file_name, region, placemarks_count, file_path")
-        .eq("is_active", true)
-        .order("region", { ascending: true })
-
-      if (error) {
-        console.error("[v0] Error loading metadata:", error)
-        return
-      }
-
-      console.log("[v0] Loaded metadata for", data?.length || 0, "KMZ files")
-
-      // Group by region to build campos structure
-      const regionMap = new Map<string, any[]>()
-
-      data?.forEach((record) => {
-        const region = record.region || "Sin Región"
-        if (!regionMap.has(region)) {
-          regionMap.set(region, [])
+    void supabase
+      .from("kmz_collection")
+      .select("id", { count: "exact", head: true })
+      .eq("is_active", true)
+      .then(({ count, error }) => {
+        if (error) {
+          console.error("[explorador] No se pudo obtener el total de KMZ", error)
+          setKmzCountError(true)
+          return
         }
-        regionMap.get(region)?.push(record)
+        setKmzCount(count ?? 0)
       })
-
-      // Build campos from regions
-      const camposFromMetadata: Campo[] = []
-      let index = 1
-
-      for (const [region, files] of regionMap.entries()) {
-        camposFromMetadata.push({
-          id: `region-${index}`,
-          name: region,
-          location: region,
-          files: files.length,
-        })
-        index++
-      }
-
-      console.log("[v0] Built", camposFromMetadata.length, "campos from metadata")
-      setCamposData(camposData.concat(camposFromMetadata))
-    } catch (err) {
-      console.error("[v0] Error loading campos metadata:", err)
-    }
-  }
-
-  const handleClientClick = (client: Client) => {
-    setSelectedClient(client)
-    setSelectedCampo(null)
-    setSelectedTask(null)
-    setKmzFiles([])
-    console.log("[v0] Client clicked:", client.first_name, client.last_name, "at", client.latitude, client.longitude)
-  }
-
-  const handleCampoClick = async (campo: Campo) => {
-    setSelectedCampo(campo)
-    setSelectedClient(null)
-    setSelectedTask(null)
-    setLoading(true)
-
-    console.log("[v0] Loading KMZ files for region:", campo.location)
-
-    try {
-      const { data, error } = await supabase
-        .from("kmz_collection")
-        .select("*")
-        .eq("is_active", true)
-        .eq("region", campo.location)
-        .order("file_name", { ascending: true })
-
-      if (error) {
-        console.error("[v0] Error loading KMZ files for region:", error)
-        setKmzFiles([])
-      } else {
-        console.log("[v0] Loaded", data?.length || 0, "KMZ files for region:", campo.location)
-
-        const transformedKMZ = (data || []).map((record: any) => {
-          const placemarks = (record.coordinates || []).map((coordArray: any, index: number) => {
-            let geometryType = "Point"
-            let coordinates = coordArray
-
-            if (Array.isArray(coordArray) && coordArray.length > 3) {
-              if (Array.isArray(coordArray[0]) && coordArray[0].length >= 2 && typeof coordArray[0][0] === "number") {
-                geometryType = "Polygon"
-                coordinates = coordArray
-              }
-            }
-
-            return {
-              name: `${record.file_name} - ${geometryType === "Polygon" ? "Polígono" : "Punto"} ${index + 1}`,
-              type: geometryType,
-              coordinates: coordinates,
-              description: record.description || "",
-              properties: {
-                rol: record.rol_numbers?.[index] || "",
-                category: record.category || "general",
-              },
-            }
-          })
-
-          return {
-            fileName: record.file_name,
-            placemarks: placemarks,
-            bounds: record.bounds,
-            metadata: {
-              id: record.id,
-              category: record.category,
-              rolNumbers: record.rol_numbers || [],
-              placemarks_count: record.placemarks_count,
-            },
-          }
-        })
-
-        setKmzFiles(transformedKMZ)
-      }
-    } catch (err) {
-      console.error("[v0] Exception loading KMZ:", err)
-      setKmzFiles([])
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleTaskClick = (task: Task) => {
-    setSelectedTask(task)
-    setSelectedClient(null)
-    setSelectedCampo(null)
-    setKmzFiles([])
-    console.log("[v0] Task clicked:", task.title, "location:", task.location)
-  }
-
-  const getTaskCoordinates = (task: Task | null) => {
-    if (!task || !task.location) return null
-    const coords = task.location.split(",").map((c) => Number.parseFloat(c.trim()))
-    if (coords.length === 2 && !isNaN(coords[0]) && !isNaN(coords[1])) {
-      return { lat: coords[0], lng: coords[1] }
-    }
-    return null
-  }
-
-  const handleTabChange = (value: string) => {
-    console.log("[v0] Tab changed to:", value)
-    setActiveTab(value)
-  }
-
-  // KMZ files are now loaded on-demand by region when a campo is selected
-
-  const detectCategory = (path: string): string => {
-    const lowerPath = path.toLowerCase()
-    if (lowerPath.includes("campo")) return "campo"
-    if (lowerPath.includes("fundo")) return "fundo"
-    if (lowerPath.includes("parcela")) return "parcela"
-    if (lowerPath.includes("terreno")) return "terreno"
-    if (lowerPath.includes("casa")) return "casa"
-    return "general"
-  }
-
-  const handleOfflineKMZUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files
-    if (!files || files.length === 0) return
-
-    setUploadingKMZ(true)
-    console.log("[v0] Uploading", files.length, "KMZ files from local computer...")
-
-    try {
-      const uploadedKMZ = []
-
-      for (const file of Array.from(files)) {
-        try {
-          console.log("[v0] Processing offline KMZ file:", file.name)
-
-          // Parse the KMZ file
-          const kmzData = await kmzReader.readKMZFile(file)
-
-          try {
-            const saveResult = await kmzStorageService.saveKMZ({
-              file_name: file.name,
-              file_path: "offline-upload",
-              description: kmzData.metadata?.description,
-              metadata: kmzData.metadata,
-              placemarks_count: kmzData.placemarks.length,
-              rol_numbers: kmzReader.extractPropertyRoles(kmzData),
-              bounds: kmzData.bounds,
-              coordinates: kmzData.placemarks.map((p) => p.coordinates),
-              category: "offline",
-              created_by: currentUser?.id,
-            })
-
-            if (saveResult.success) {
-              console.log("[v0] Offline KMZ saved to database:", file.name)
-            }
-          } catch (dbError) {
-            console.error("[v0] Error saving KMZ to database:", dbError)
-            // Continue to display the file even if database save fails
-          }
-
-          uploadedKMZ.push({
-            id: file.name,
-            name: file.name,
-            placemarks: kmzData.placemarks,
-          })
-        } catch (error) {
-          console.error("[v0] Error processing offline KMZ file:", file.name, error)
-        }
-      }
-
-      // Add uploaded KMZ to the map
-      if (uploadedKMZ.length > 0) {
-        setKmzFiles((prev) => [...prev, ...uploadedKMZ])
-        console.log("[v0] Successfully uploaded", uploadedKMZ.length, "KMZ files")
-      }
-    } catch (error) {
-      console.error("[v0] Error uploading offline KMZ files:", error)
-    } finally {
-      setUploadingKMZ(false)
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = ""
-      }
-    }
-  }
-
-  const handleQuickTaskCreate = async () => {
-    if (!quickTaskTitle.trim()) return
-
-    try {
-      const { error } = await supabase.from("tasks").insert([
-        {
-          title: quickTaskTitle,
-          status: "pending",
-          priority: "medium",
-          created_by: currentUser?.email || "system",
-          created_at: new Date().toISOString(),
-        },
-      ])
-
-      if (error) throw error
-
-      setQuickTaskTitle("")
-      setShowQuickTask(false)
-      loadTasks()
-      console.log("[v0] Quick task created:", quickTaskTitle)
-    } catch (error) {
-      console.error("[v0] Error creating quick task:", error)
-    }
-  }
+  }, [supabase])
 
   return (
-    <div className="min-h-screen bg-background px-4 py-4">
-      <div className="w-full">
-        {/* Header */}
-        <div className="mb-6 pb-4 border-b">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Bienvenido a Sur-Realista</h1>
-          <p className="text-base text-muted-foreground max-w-2xl">
-            Tu centro de control para gestionar campos, contactos, comunicaciones, tareas y archivos geográficos. Todo en un mismo lugar.
-          </p>
-        </div>
+    <main className="container mx-auto space-y-8 px-4 py-8">
+      <WorkspaceHeading
+        eyebrow="Espacio de trabajo"
+        title={currentModule.title}
+        description={currentModule.description}
+        outcome={currentModule.outcome}
+      />
 
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-7 mb-4 h-auto gap-1 bg-transparent p-0">
-            <TabsTrigger
-              value="campos"
-              className="flex flex-col items-center gap-2 py-3 px-2 data-[state=active]:bg-teal-100 data-[state=active]:text-teal-900 rounded-lg transition-colors"
-            >
-              <Folder className="h-5 w-5" />
-              <span className="text-xs font-semibold">Mis Campos</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="clientes"
-              className="flex flex-col items-center gap-2 py-3 px-2 cursor-pointer data-[state=active]:bg-blue-100 data-[state=active]:text-blue-900 rounded-lg transition-colors"
-            >
-              <Users className="h-5 w-5" />
-              <span className="text-xs font-semibold">Clientes</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="comunicaciones"
-              className="flex flex-col items-center gap-2 py-3 px-2 cursor-pointer data-[state=active]:bg-purple-100 data-[state=active]:text-purple-900 rounded-lg transition-colors"
-            >
-              <MessageSquare className="h-5 w-5" />
-              <span className="text-xs font-semibold">Mensajes</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="tareas"
-              className="flex flex-col items-center gap-2 py-3 px-2 cursor-pointer data-[state=active]:bg-orange-100 data-[state=active]:text-orange-900 rounded-lg transition-colors"
-            >
-              <CheckSquare className="h-5 w-5" />
-              <span className="text-xs font-semibold">Tareas</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="drive"
-              className="flex flex-col items-center gap-2 py-3 px-2 cursor-pointer data-[state=active]:bg-sky-100 data-[state=active]:text-sky-900 rounded-lg transition-colors"
-            >
-              <HardDrive className="h-5 w-5" />
-              <span className="text-xs font-semibold">Archivos</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="kmz"
-              className="flex flex-col items-center gap-2 py-3 px-2 cursor-pointer data-[state=active]:bg-green-100 data-[state=active]:text-green-900 rounded-lg transition-colors"
-            >
-              <MapPin className="h-5 w-5" />
-              <span className="text-xs font-semibold">Mapas</span>
-            </TabsTrigger>
-            <TabsTrigger
-              value="sii-roles"
-              className="flex flex-col items-center gap-2 py-3 px-2 cursor-pointer data-[state=active]:bg-emerald-100 data-[state=active]:text-emerald-950 rounded-lg transition-colors"
-            >
-              <Database className="h-5 w-5" />
-              <span className="text-xs font-semibold">SII Roles</span>
-            </TabsTrigger>
-          </TabsList>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid h-auto w-full grid-cols-2 gap-1 bg-muted/60 p-1 sm:grid-cols-4 xl:grid-cols-7">
+          <TabsTrigger value="campos" className="gap-2 py-2.5"><Folder className="h-4 w-4" />Campos</TabsTrigger>
+          <TabsTrigger value="clientes" className="gap-2 py-2.5"><Users className="h-4 w-4" />Clientes</TabsTrigger>
+          <TabsTrigger value="comunicaciones" className="gap-2 py-2.5"><MessageSquare className="h-4 w-4" />Comunicaciones</TabsTrigger>
+          <TabsTrigger value="tareas" className="gap-2 py-2.5"><CheckSquare className="h-4 w-4" />Tareas</TabsTrigger>
+          <TabsTrigger value="drive" className="gap-2 py-2.5"><HardDrive className="h-4 w-4" />Archivos</TabsTrigger>
+          <TabsTrigger value="kmz" className="gap-2 py-2.5"><MapPin className="h-4 w-4" />KMZ</TabsTrigger>
+          <TabsTrigger value="sii-roles" className="gap-2 py-2.5"><Database className="h-4 w-4" />Roles SII</TabsTrigger>
+        </TabsList>
 
-          <TabsContent value="campos" className="h-[calc(100vh-20rem)] min-h-[600px]">
-            <CAMPOSFolderView />
-          </TabsContent>
+        <TabsContent value="campos" className="mt-6 min-h-[600px]">
+          <CAMPOSFolderView />
+        </TabsContent>
 
-          <TabsContent value="clientes">
-            <ClientRepositoryDashboard />
-          </TabsContent>
+        <TabsContent value="clientes" className="mt-6">
+          <ClientRepositoryDashboard />
+        </TabsContent>
 
-          <TabsContent value="comunicaciones">
-            <CommunicationsManagerDynamic />
-          </TabsContent>
+        <TabsContent value="comunicaciones" className="mt-6">
+          <CommunicationsManager />
+        </TabsContent>
 
-          <TabsContent value="tareas" className="h-[calc(100vh-20rem)] min-h-[600px]">
-            <TasksManager tasks={tasks} refreshTrigger={taskRefreshTrigger} onTasksUpdate={() => loadTasks()} />
-          </TabsContent>
+        <TabsContent value="tareas" className="mt-6 min-h-[600px]">
+          <TasksManager tasks={tasks} refreshTrigger={taskRefreshTrigger} onTasksUpdate={loadTasks} />
+        </TabsContent>
 
-          <TabsContent value="drive" className="h-[calc(100vh-16rem)] min-h-[600px]">
-            <SimpleDriveFolderViewDynamic />
-          </TabsContent>
+        <TabsContent value="drive" className="mt-6 min-h-[600px]">
+          <SimpleDriveFolderView />
+        </TabsContent>
 
-          <TabsContent value="kmz" className="h-[calc(100vh-16rem)] min-h-[600px]">
-            <div className="space-y-6">
-              <div className="grid md:grid-cols-2 gap-6">
-                {/* KMZ Search Access */}
+        <TabsContent value="kmz" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Colección territorial</CardTitle>
+              <CardDescription>
+                {kmzCountError
+                  ? "El total de archivos no está disponible en este momento."
+                  : kmzCount === null
+                    ? "Consultando la colección activa…"
+                    : `${new Intl.NumberFormat("es-CL").format(kmzCount)} archivos KMZ activos registrados.`}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+                Revisa los archivos geográficos disponibles, su indexación y los antecedentes territoriales asociados. El total mostrado proviene directamente de la colección activa.
+              </p>
+              <Button asChild>
+                <Link href="/admin/kmz-collection"><Database className="mr-2 h-4 w-4" />Administrar colección</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-                {/* Admin KMZ Collection Access */}
-                <Link href="/admin/kmz-collection">
-                  <div className="h-full group cursor-pointer">
-                    <div className="relative bg-card rounded-2xl border p-8 hover:border-primary transition-all hover:shadow-xl hover:-translate-y-1 h-full">
-                      <div className="absolute top-0 right-0 w-32 h-32 bg-secondary rounded-full -mr-16 -mt-16 opacity-50 group-hover:opacity-100 transition-opacity" />
-                      <div className="relative z-10">
-                        <div className="w-14 h-14 bg-primary rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                          <Database className="w-7 h-7 text-primary-foreground" />
-                        </div>
-                        <h3 className="text-2xl font-bold text-foreground mb-2">Administración de Colección</h3>
-                        <p className="text-muted-foreground mb-6">
-                          Gestiona y visualiza la colección de 338 archivos KMZ. Carga, indexa y administra las ubicaciones de todos tus archivos.
-                        </p>
-                        <div className="flex items-center gap-2 text-primary font-semibold group-hover:gap-4 transition-all">
-                          Administrar
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-              </div>
-            </div>
-          </TabsContent>
+        <TabsContent value="sii-roles" className="mt-6 min-h-[600px]">
+          <SiiRolExplorer />
+        </TabsContent>
+      </Tabs>
 
-          <TabsContent value="sii-roles" className="min-h-[600px]">
-            <SiiRolExplorer />
-          </TabsContent>
-        </Tabs>
-
-        <TaskCreationDialog
-          open={taskDialogOpen}
-          onOpenChange={setTaskDialogOpen}
-          currentUser={currentUser}
-          onTaskCreated={() => {
-            loadTasks()
-            setTaskDialogOpen(false)
-          }}
-        />
-      </div>
-    </div>
+      <TaskCreationDialog
+        open={taskDialogOpen}
+        onOpenChange={setTaskDialogOpen}
+        currentUser={currentUser}
+        onTaskCreated={() => {
+          void loadTasks()
+          setTaskDialogOpen(false)
+        }}
+      />
+    </main>
   )
 }
