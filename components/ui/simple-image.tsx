@@ -2,9 +2,10 @@
 
 import Image from "next/image"
 import { useState } from "react"
+import { ImageOff } from "lucide-react"
 
 interface SimpleImageProps {
-  src: string
+  src?: string | null
   alt: string
   width?: number
   height?: number
@@ -26,17 +27,25 @@ export function SimpleImage({
 }: SimpleImageProps) {
   const [error, setError] = useState(false)
 
-  // Generate a placeholder URL if the image fails to load
-  const placeholderUrl = `/placeholder.svg?height=${height || 400}&width=${width || 600}&query=${encodeURIComponent(
-    alt || "property image",
-  )}`
-
-  // Use the placeholder if there's an error
-  const imageSrc = error ? placeholderUrl : src
+  if (!src || error) {
+    return (
+      <div
+        role="img"
+        aria-label={`${alt}. Imagen no disponible.`}
+        className={`flex items-center justify-center bg-muted text-muted-foreground ${className}`}
+        style={fill ? { position: "absolute", inset: 0 } : { width: width || 600, height: height || 400 }}
+      >
+        <div className="flex flex-col items-center gap-2 px-3 text-center">
+          <ImageOff className="h-5 w-5" aria-hidden="true" />
+          <span className="text-xs">Imagen no disponible</span>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <Image
-      src={imageSrc || "/placeholder.svg"}
+      src={src}
       alt={alt}
       width={fill ? undefined : width || 600}
       height={fill ? undefined : height || 400}
