@@ -149,3 +149,21 @@
     opacity: 0.5;
   }
 }
+
+/* Brand rule: the internal product does not use gradients. */
+[class*="bg-gradient-to-"],
+[class*="bg-[linear-gradient"],
+[class*="bg-[radial-gradient"],
+[class*="bg-[conic-gradient"],
+[style*="linear-gradient"],
+[style*="radial-gradient"],
+[style*="conic-gradient"] {
+  background-image: none !important;
+}
+
+.bg-clip-text.text-transparent,
+[class*="bg-clip-text"][class*="text-transparent"] {
+  background-image: none !important;
+  color: hsl(var(--foreground)) !important;
+  -webkit-text-fill-color: hsl(var(--foreground)) !important;
+}
