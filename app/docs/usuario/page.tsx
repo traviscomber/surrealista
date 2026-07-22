@@ -1,136 +1,135 @@
 'use client'
 
 import { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { BookOpen, Zap, HelpCircle, Award } from 'lucide-react'
+import { AlertCircle, Bot, Calculator, Database, MapPin, ShieldCheck } from 'lucide-react'
+import { WorkspaceHeading } from '@/components/ui/workspace-heading'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+
+const guides = {
+  cotizador: {
+    icon: Calculator,
+    title: 'Referencia de valor',
+    description: 'Cómo preparar una estimación interna sin confundirla con una tasación oficial.',
+    steps: [
+      'Selecciona el tipo de propiedad, región y superficie.',
+      'Agrega solo características conocidas y verificables.',
+      'Incluye atributos rurales cuando correspondan al inmueble.',
+      'Ejecuta el cálculo y revisa rango, valor por m², confianza, metodología y fuentes declaradas.',
+      'Contrasta el resultado con antecedentes comerciales y técnicos antes de utilizarlo.',
+    ],
+    caution: 'La herramienta entrega una referencia de trabajo. No reemplaza una tasación bancaria, tributaria, legal ni profesional.',
+  },
+  asistente: {
+    icon: Bot,
+    title: 'Asistente de análisis',
+    description: 'Cómo formular consultas útiles y validar la respuesta obtenida.',
+    steps: [
+      'Indica el objeto concreto de la consulta: archivo, región, propiedad, rol o documento.',
+      'Incluye contexto suficiente para evitar interpretaciones ambiguas.',
+      'Revisa qué fuentes estaban disponibles durante la consulta.',
+      'Abre los documentos o enlaces originales cuando la respuesta cite evidencia.',
+      'No utilices una respuesta generada como confirmación legal, registral o comercial definitiva.',
+    ],
+    caution: 'La calidad de la respuesta depende de las fuentes y permisos disponibles. Un dato ausente no debe completarse mediante suposición.',
+  },
+  kmz: {
+    icon: MapPin,
+    title: 'Colección KMZ',
+    description: 'Cómo interpretar y mantener los archivos territoriales internos.',
+    steps: [
+      'Busca por nombre de archivo, ruta, categoría o rol disponible.',
+      'Revisa región, cantidad de elementos y fecha de actualización.',
+      'Corrige asignaciones territoriales únicamente cuando exista evidencia suficiente.',
+      'Utiliza las acciones masivas de proceso o reindexación solo cuando sea necesario.',
+      'Verifica el resultado del proceso y los errores informados antes de continuar.',
+    ],
+    caution: 'Los límites, polígonos y roles extraídos deben contrastarse con antecedentes oficiales cuando se utilicen para decisiones sensibles.',
+  },
+  roles: {
+    icon: Database,
+    title: 'Roles SII y propietarios',
+    description: 'Cómo trabajar con consultas territoriales y candidatos de investigación.',
+    steps: [
+      'Consulta un rol o registro específico.',
+      'Revisa el estado de la investigación y el nivel de confianza informado.',
+      'Abre la evidencia disponible y confirma que corresponda al inmueble correcto.',
+      'Distingue siempre entre candidato, evidencia encontrada y antecedente confirmado.',
+      'Utiliza certificados, escrituras y fuentes oficiales para acreditar propiedad o dominio.',
+    ],
+    caution: 'Una coincidencia de nombre, rol o ubicación no acredita dominio por sí sola.',
+  },
+}
+
+type GuideKey = keyof typeof guides
 
 export default function DocsUsuario() {
-  const [expandedGuide, setExpandedGuide] = useState<string>('cotizador')
+  const [activeGuide, setActiveGuide] = useState<GuideKey>('cotizador')
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-5xl mx-auto px-4 py-12">
-        <h1 className="text-4xl font-bold text-foreground mb-2">Guía del Usuario</h1>
-        <p className="text-lg text-slate-400 mb-8">Tutoriales y solución de problemas</p>
+    <main className="container mx-auto space-y-8 px-4 py-8">
+      <WorkspaceHeading
+        eyebrow="Procedimientos internos"
+        title="Guía de usuario"
+        description="Instrucciones para operar las herramientas principales, interpretar sus resultados y reconocer cuándo se necesita validación adicional."
+        outcome="Podrás completar los flujos principales sin confundir resultados de apoyo con antecedentes oficiales o confirmados."
+      />
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-8">
-          <button
-            onClick={() => setExpandedGuide('cotizador')}
-            className={`p-3 rounded-lg transition-colors text-left ${expandedGuide === 'cotizador' ? 'bg-emerald-900/40 border border-emerald-700/50' : 'bg-slate-900/50 border border-slate-700/50 hover:bg-slate-900/70'}`}
-          >
-            <BookOpen className="h-4 w-4" />
-            <span className="text-sm font-medium block mt-1">Cotizador</span>
-          </button>
+      <Tabs value={activeGuide} onValueChange={(value) => setActiveGuide(value as GuideKey)}>
+        <TabsList className="grid h-auto w-full grid-cols-2 lg:grid-cols-4">
+          {Object.entries(guides).map(([key, guide]) => (
+            <TabsTrigger key={key} value={key} className="gap-2 py-3">
+              <guide.icon className="h-4 w-4" />
+              <span className="hidden sm:inline">{guide.title}</span>
+            </TabsTrigger>
+          ))}
+        </TabsList>
 
-          <button
-            onClick={() => setExpandedGuide('asistente')}
-            className={`p-3 rounded-lg transition-colors text-left ${expandedGuide === 'asistente' ? 'bg-emerald-900/40 border border-emerald-700/50' : 'bg-slate-900/50 border border-slate-700/50 hover:bg-slate-900/70'}`}
-          >
-            <Zap className="h-4 w-4" />
-            <span className="text-sm font-medium block mt-1">Asistente IA</span>
-          </button>
+        {Object.entries(guides).map(([key, guide]) => (
+          <TabsContent key={key} value={key} className="mt-6">
+            <Card>
+              <CardHeader>
+                <div className="flex items-start gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-primary/20 bg-primary/10">
+                    <guide.icon className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <CardTitle>{guide.title}</CardTitle>
+                    <CardDescription className="mt-1 leading-5">{guide.description}</CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <ol className="space-y-3">
+                  {guide.steps.map((step, index) => (
+                    <li key={step} className="flex gap-3 text-sm leading-6">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border bg-muted text-xs font-semibold">{index + 1}</span>
+                      <span>{step}</span>
+                    </li>
+                  ))}
+                </ol>
 
-          <button
-            onClick={() => setExpandedGuide('faq')}
-            className={`p-3 rounded-lg transition-colors text-left ${expandedGuide === 'faq' ? 'bg-emerald-900/40 border border-emerald-700/50' : 'bg-slate-900/50 border border-slate-700/50 hover:bg-slate-900/70'}`}
-          >
-            <HelpCircle className="h-4 w-4" />
-            <span className="text-sm font-medium block mt-1">FAQ</span>
-          </button>
+                <div className="flex gap-3 rounded-md border border-border/70 bg-muted/30 p-4 text-sm leading-6">
+                  <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+                  <p><strong>Validación necesaria:</strong> {guide.caution}</p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        ))}
+      </Tabs>
 
-          <button
-            onClick={() => setExpandedGuide('tips')}
-            className={`p-3 rounded-lg transition-colors text-left ${expandedGuide === 'tips' ? 'bg-emerald-900/40 border border-emerald-700/50' : 'bg-slate-900/50 border border-slate-700/50 hover:bg-slate-900/70'}`}
-          >
-            <Award className="h-4 w-4" />
-            <span className="text-sm font-medium block mt-1">Tips</span>
-          </button>
-        </div>
-
-        {expandedGuide === 'cotizador' && (
-          <Card className="bg-slate-900/50 border-slate-700/50 mb-8">
-            <CardHeader>
-              <CardTitle>Cotizar una Propiedad en 5 Minutos</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ol className="space-y-2 text-sm">
-                <li className="text-slate-300"><strong className="text-emerald-400">1.</strong> Ve a Herramientas → Cotizador</li>
-                <li className="text-slate-300"><strong className="text-emerald-400">2.</strong> Selecciona tipo, región, área</li>
-                <li className="text-slate-300"><strong className="text-emerald-400">3.</strong> Ingresa condición y características</li>
-                <li className="text-slate-300"><strong className="text-emerald-400">4.</strong> Click en "Obtener Valuación"</li>
-                <li className="text-slate-300"><strong className="text-emerald-400">5.</strong> Revisa tu valuación con confianza</li>
-              </ol>
-            </CardContent>
-          </Card>
-        )}
-
-        {expandedGuide === 'asistente' && (
-          <Card className="bg-slate-900/50 border-slate-700/50 mb-8">
-            <CardHeader>
-              <CardTitle>Usar el Asistente IA</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <ol className="space-y-2 text-sm">
-                <li className="text-slate-300"><strong className="text-emerald-400">1.</strong> Ve a Herramientas → Asistente IA</li>
-                <li className="text-slate-300"><strong className="text-emerald-400">2.</strong> Haz tu pregunta en lenguaje natural</li>
-                <li className="text-slate-300"><strong className="text-emerald-400">3.</strong> Recibe respuesta basada en datos</li>
-              </ol>
-              <div className="border-t border-slate-700 pt-3 mt-3">
-                <p className="text-xs text-slate-400 mb-2">Ejemplos:</p>
-                <ul className="space-y-1 text-xs text-slate-400">
-                  <li>• "¿Archivos en Valdivia?"</li>
-                  <li>• "¿Cómo está el mercado?"</li>
-                  <li>• "¿Dónde invertir?"</li>
-                </ul>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {expandedGuide === 'faq' && (
-          <Card className="bg-slate-900/50 border-slate-700/50 mb-8">
-            <CardHeader>
-              <CardTitle>Preguntas Frecuentes</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <p className="font-semibold text-sm text-slate-200 mb-1">¿Qué tan preciso es?</p>
-                <p className="text-xs text-slate-400">Con múltiples comparables: ±5-10%. Para crédito: tasación oficial.</p>
-              </div>
-              <div>
-                <p className="font-semibold text-sm text-slate-200 mb-1">¿De dónde vienen los datos?</p>
-                <p className="text-xs text-slate-400">SII (40%), Base de datos (35%), Mercado (25%).</p>
-              </div>
-              <div>
-                <p className="font-semibold text-sm text-slate-200 mb-1">¿Es seguro?</p>
-                <p className="text-xs text-slate-400">Sí. HTTPS, encriptación y backups automáticos.</p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {expandedGuide === 'tips' && (
-          <Card className="bg-slate-900/50 border-slate-700/50 mb-8">
-            <CardHeader>
-              <CardTitle>Consejos de Expertos</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="bg-emerald-900/20 p-3 rounded text-xs">
-                <p className="font-semibold text-emerald-400 mb-1">Tip 1: Usa todas las características</p>
-                <p className="text-slate-300">Agrega piscina, terraza, garage para mayor precisión.</p>
-              </div>
-              <div className="bg-blue-900/20 p-3 rounded text-xs">
-                <p className="font-semibold text-blue-400 mb-1">Tip 2: Compara con mercado vigente</p>
-                <p className="text-slate-300">Valida la valuación con portales inmobiliarios.</p>
-              </div>
-              <div className="bg-purple-900/20 p-3 rounded text-xs">
-                <p className="font-semibold text-purple-400 mb-1">Tip 3: Para créditos</p>
-                <p className="text-slate-300">Obtén tasación oficial además de esta valuación.</p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
-    </div>
+      <Card className="border-border/70">
+        <CardContent className="flex gap-3 p-5">
+          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+          <div>
+            <h2 className="font-semibold">Principio general</h2>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              La plataforma debe mostrar información existente, estados reales y límites conocidos. Cuando un dato no esté disponible, debe indicarlo claramente en vez de inferirlo o completarlo.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    </main>
   )
 }
