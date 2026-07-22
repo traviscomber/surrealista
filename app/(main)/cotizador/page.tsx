@@ -1,14 +1,15 @@
 'use client'
 
 import { useState } from 'react'
+import { AlertCircle, BarChart3, Calculator, CheckCircle2, Loader2 } from 'lucide-react'
+import { WorkspaceHeading } from '@/components/ui/workspace-heading'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { DollarSign, Home, MapPin, Ruler, Sparkles, TrendingUp, AlertCircle, Filter } from 'lucide-react'
-import { RuralMacrofiltros, RuralMacrofilters } from '@/components/cotizador/rural-macrofiltros'
+import { RuralMacrofiltros, type RuralMacrofilters } from '@/components/cotizador/rural-macrofiltros'
 import { QuickKeywords } from '@/components/cotizador/quick-keywords'
 
 interface QuoteResult {
@@ -22,468 +23,203 @@ interface QuoteResult {
   recommendations: string[]
   data_sources?: string[]
   comparable_count?: number
-  internet_comparison?: {
-    price_per_sqm: number
-    source: string
-    difference_percentage: number
-    interpretation: string
-  } | null
+}
+
+const regions = [
+  'Arica y Parinacota', 'Tarapacá', 'Antofagasta', 'Atacama', 'Coquimbo', 'Valparaíso',
+  'Metropolitana', "O'Higgins", 'Maule', 'Ñuble', 'Biobío', 'Araucanía', 'Los Ríos',
+  'Los Lagos', 'Aysén', 'Magallanes',
+]
+
+const propertyTypes = [
+  { id: 'terreno', label: 'Terreno o lote' },
+  { id: 'casa', label: 'Casa o vivienda' },
+  { id: 'departamento', label: 'Departamento' },
+  { id: 'comercial', label: 'Propiedad comercial' },
+  { id: 'industrial', label: 'Propiedad industrial' },
+  { id: 'agrícola', label: 'Campo, fundo o propiedad agrícola' },
+  { id: 'local', label: 'Local comercial' },
+  { id: 'oficina', label: 'Oficina' },
+]
+
+const conditions = [
+  { id: 'excelente', label: 'Excelente estado' },
+  { id: 'bueno', label: 'Buen estado' },
+  { id: 'regular', label: 'Estado regular' },
+  { id: 'reparacion', label: 'Requiere reparación' },
+  { id: 'construccion', label: 'En construcción' },
+  { id: 'terreno', label: 'Terreno sin mejoras' },
+]
+
+const emptyMacrofilters: RuralMacrofilters = {
+  aptitudAgricola: [],
+  recursosHidricos: [],
+  aptitudFruticola: [],
+  aptitudGanadera: [],
+  aptitudLechera: [],
+  potencialForestal: [],
+  desarrolloInmobiliario: [],
+  conservacionTurismo: [],
+  infraestructura: [],
+  accesibilidad: [],
+}
+
+function formatClp(value: number) {
+  return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(value || 0)
 }
 
 export default function CotizadorPage() {
   const [activeTab, setActiveTab] = useState('basico')
   const [formData, setFormData] = useState({
-    property_type: '',
-    region: '',
-    city: '',
-    area_sqm: '',
-    condition: '',
-    features: '',
-    additional_info: '',
-    macrofiltros: {
-      aptitudAgricola: [],
-      recursosHidricos: [],
-      aptitudFruticola: [],
-      aptitudGanadera: [],
-      aptitudLechera: [],
-      potencialForestal: [],
-      desarrolloInmobiliario: [],
-      conservacionTurismo: [],
-      infraestructura: [],
-      accesibilidad: [],
-    } as RuralMacrofilters,
-    quickKeywords: [] as string[],
+    property_type: '', region: '', city: '', area_sqm: '', condition: '', features: '', additional_info: '',
+    macrofiltros: emptyMacrofilters, quickKeywords: [] as string[],
   })
-
   const [result, setResult] = useState<QuoteResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const regions = [
-    'Metropolitana',
-    'Valparaíso',
-    'Los Lagos',
-    'Los Ríos',
-    'Biobío',
-    'Araucanía',
-    'Maule',
-    'O\'Higgins',
-    'Coquimbo',
-    'Atacama',
-    'Antofagasta',
-    'Tarapacá',
-    'Arica y Parinacota',
-    'Aysén',
-    'Magallanes',
-  ]
-
-  const propertyTypes = [
-    { id: 'terreno', label: 'Terreno/Lote' },
-    { id: 'casa', label: 'Casa/Vivienda' },
-    { id: 'departamento', label: 'Departamento/Piso' },
-    { id: 'comercial', label: 'Propiedad Comercial' },
-    { id: 'industrial', label: 'Propiedad Industrial' },
-    { id: 'agrícola', label: 'Propiedad Agrícola/Fundo' },
-    { id: 'local', label: 'Local Comercial' },
-    { id: 'oficina', label: 'Oficina' },
-  ]
-
-  const conditions = [
-    { id: 'excelente', label: 'Excelente estado' },
-    { id: 'bueno', label: 'Buen estado' },
-    { id: 'regular', label: 'Estado regular' },
-    { id: 'reparacion', label: 'Necesita reparación' },
-    { id: 'construccion', label: 'En construcción' },
-    { id: 'terreno', label: 'Terreno sin mejoras' },
-  ]
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault()
     if (!formData.property_type || !formData.region || !formData.area_sqm) {
-      setError('Por favor completa al menos: tipo de propiedad, región y área')
+      setError('Completa tipo de propiedad, región y superficie para generar una referencia.')
       return
     }
-
     setLoading(true)
     setError(null)
-
     try {
       const response = await fetch('/api/cotizador/valuar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData),
       })
-
-      if (!response.ok) {
-        throw new Error('Error en la valuación')
-      }
-
-      const data = await response.json()
-      setResult(data)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error desconocido')
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(payload.error || 'No se pudo calcular la referencia de valor.')
+      setResult(payload)
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : 'No se pudo completar el cálculo.')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="w-full h-full bg-slate-900">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="p-6 border-b border-slate-700">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 bg-emerald-900/30 rounded-lg">
-              <DollarSign className="h-6 w-6 text-emerald-400" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold text-white">Cotizador de Propiedades</h1>
-              <p className="text-slate-400">Valuación profesional con análisis de mercado</p>
-            </div>
-          </div>
-        </div>
+    <main className="container mx-auto space-y-8 px-4 py-8">
+      <WorkspaceHeading
+        eyebrow="Análisis comercial"
+        title="Referencia de valor"
+        description="Organiza antecedentes básicos, atributos rurales y características relevantes para estimar un rango de valor de trabajo."
+        outcome="Obtendrás una referencia interna con rango estimado, valor unitario, nivel de confianza, factores considerados y fuentes informadas por el cálculo."
+      />
 
-        <div className="grid lg:grid-cols-3 gap-6 p-6 min-h-[calc(100vh-150px)]">
-          {/* Form Section */}
-          <div className="lg:col-span-2">
-            <Card className="bg-slate-800 border-slate-700 h-full">
-              <CardHeader>
-                <CardTitle className="text-white">Información de la Propiedad</CardTitle>
-                <CardDescription className="text-slate-400">
-                  Completa los datos para obtener valuación
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="h-[calc(100%-100px)] overflow-y-auto">
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-                    <TabsList className="grid w-full grid-cols-3 bg-slate-700 mb-4">
-                      <TabsTrigger value="basico" className="data-[state=active]:bg-emerald-600">
-                        Básico
-                      </TabsTrigger>
-                      <TabsTrigger value="macrofiltros" className="data-[state=active]:bg-emerald-600">
-                        <Filter className="h-4 w-4 mr-2" />
-                        Filtros Rurales
-                      </TabsTrigger>
-                      <TabsTrigger value="palabras-clave" className="data-[state=active]:bg-emerald-600">
-                        Palabras Clave
-                      </TabsTrigger>
-                    </TabsList>
+      <Card className="border-border/70 bg-muted/30">
+        <CardContent className="flex gap-3 p-4 text-sm leading-6">
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+          <p><strong>Alcance:</strong> esta herramienta no reemplaza una tasación profesional, bancaria, tributaria ni legal. El resultado depende de la calidad y disponibilidad de los antecedentes ingresados y de las fuentes utilizadas por el servicio.</p>
+        </CardContent>
+      </Card>
 
-                    {/* Tab: Datos Básicos */}
-                    <TabsContent value="basico" className="space-y-4">
-                      {/* Property Type */}
-                      <div>
-                        <label className="block text-sm font-medium text-slate-200 mb-2">Tipo de Propiedad *</label>
-                        <Select value={formData.property_type} onValueChange={(value) => setFormData({ ...formData, property_type: value })}>
-                          <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                            <SelectValue placeholder="Selecciona el tipo de propiedad" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {propertyTypes.map((type) => (
-                              <SelectItem key={type.id} value={type.id}>
-                                {type.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_minmax(340px,0.7fr)]">
+        <Card>
+          <CardHeader>
+            <CardTitle>Antecedentes de la propiedad</CardTitle>
+            <CardDescription>Ingresa solo información conocida. Los campos obligatorios permiten iniciar el cálculo; los demás mejoran el contexto.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <TabsList className="grid h-auto w-full grid-cols-3">
+                  <TabsTrigger value="basico">Datos básicos</TabsTrigger>
+                  <TabsTrigger value="macrofiltros">Atributos rurales</TabsTrigger>
+                  <TabsTrigger value="palabras-clave">Características</TabsTrigger>
+                </TabsList>
 
-                      <div className="grid grid-cols-2 gap-4">
-                        {/* Region */}
-                        <div>
-                          <label className="block text-sm font-medium text-slate-200 mb-2">Región *</label>
-                          <Select value={formData.region} onValueChange={(value) => setFormData({ ...formData, region: value })}>
-                            <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                              <SelectValue placeholder="Selecciona región" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {regions.map((region) => (
-                                <SelectItem key={region} value={region}>
-                                  {region}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        {/* City */}
-                        <div>
-                          <label className="block text-sm font-medium text-slate-200 mb-2">Ciudad</label>
-                          <Input
-                            type="text"
-                            placeholder="e.g., Santiago"
-                            value={formData.city}
-                            onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                            className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-4">
-                        {/* Area */}
-                        <div>
-                          <label className="block text-sm font-medium text-slate-200 mb-2">Área (m²) *</label>
-                          <Input
-                            type="number"
-                            placeholder="e.g., 5000"
-                            value={formData.area_sqm}
-                            onChange={(e) => setFormData({ ...formData, area_sqm: e.target.value })}
-                            className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
-                          />
-                        </div>
-
-                        {/* Condition */}
-                        <div>
-                          <label className="block text-sm font-medium text-slate-200 mb-2">Condición</label>
-                          <Select value={formData.condition} onValueChange={(value) => setFormData({ ...formData, condition: value })}>
-                            <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                              <SelectValue placeholder="Selecciona condición" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {conditions.map((condition) => (
-                                <SelectItem key={condition.id} value={condition.id}>
-                                  {condition.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-
-                      {/* Features */}
-                      <div>
-                        <label className="block text-sm font-medium text-slate-200 mb-2">Características</label>
-                        <Textarea
-                          placeholder="e.g., Frente a calle, vista al mar, con árboles frutales..."
-                          value={formData.features}
-                          onChange={(e) => setFormData({ ...formData, features: e.target.value })}
-                          className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
-                          rows={3}
-                        />
-                      </div>
-
-                      {/* Additional Info */}
-                      <div>
-                        <label className="block text-sm font-medium text-slate-200 mb-2">Información Adicional</label>
-                        <Textarea
-                          placeholder="Detalles adicionales que consideres importante..."
-                          value={formData.additional_info}
-                          onChange={(e) => setFormData({ ...formData, additional_info: e.target.value })}
-                          className="bg-slate-700 border-slate-600 text-white placeholder:text-slate-500"
-                          rows={3}
-                        />
-                      </div>
-                    </TabsContent>
-
-                    {/* Tab: Macrofiltros Rurales */}
-                    <TabsContent value="macrofiltros" className="space-y-4">
-                      <RuralMacrofiltros
-                        values={formData.macrofiltros}
-                        onChange={(macrofiltros) => setFormData({ ...formData, macrofiltros })}
-                      />
-                    </TabsContent>
-
-                    {/* Tab: Palabras Clave */}
-                    <TabsContent value="palabras-clave" className="space-y-4">
-                      <QuickKeywords
-                        selectedKeywords={formData.quickKeywords}
-                        onChange={(quickKeywords) => setFormData({ ...formData, quickKeywords })}
-                      />
-                    </TabsContent>
-                  </Tabs>
-
-                  {/* Error Message */}
-                  {error && (
-                    <div className="p-3 bg-red-900/30 border border-red-700/50 rounded text-red-300 text-sm flex items-start gap-2">
-                      <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-                      {error}
+                <TabsContent value="basico" className="mt-6 space-y-5">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Tipo de propiedad *</label>
+                      <Select value={formData.property_type} onValueChange={(value) => setFormData({ ...formData, property_type: value })}>
+                        <SelectTrigger><SelectValue placeholder="Seleccionar tipo" /></SelectTrigger>
+                        <SelectContent>{propertyTypes.map((item) => <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>)}</SelectContent>
+                      </Select>
                     </div>
-                  )}
-
-                  {/* Submit Button */}
-                  <Button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium"
-                  >
-                    {loading ? (
-                      <>
-                        <Sparkles className="h-4 w-4 mr-2 animate-spin" />
-                        Calculando valuación...
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="h-4 w-4 mr-2" />
-                        Obtener Valuación
-                      </>
-                    )}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Results Section */}
-          <div className="space-y-4">
-            {loading && (
-              <Card className="bg-slate-800 border-slate-700 h-full flex items-center justify-center">
-                <CardContent className="text-center">
-                  <div className="animate-spin inline-block p-4 bg-slate-700/50 rounded-lg mb-4">
-                    <Sparkles className="h-8 w-8 text-emerald-400" />
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Región *</label>
+                      <Select value={formData.region} onValueChange={(value) => setFormData({ ...formData, region: value })}>
+                        <SelectTrigger><SelectValue placeholder="Seleccionar región" /></SelectTrigger>
+                        <SelectContent>{regions.map((region) => <SelectItem key={region} value={region}>{region}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Comuna o localidad</label>
+                      <Input value={formData.city} onChange={(event) => setFormData({ ...formData, city: event.target.value })} placeholder="Ej.: Futrono" />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-sm font-medium">Superficie en m² *</label>
+                      <Input type="number" min="1" value={formData.area_sqm} onChange={(event) => setFormData({ ...formData, area_sqm: event.target.value })} placeholder="Ej.: 50000" />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <label className="text-sm font-medium">Estado o condición</label>
+                      <Select value={formData.condition} onValueChange={(value) => setFormData({ ...formData, condition: value })}>
+                        <SelectTrigger><SelectValue placeholder="Seleccionar condición" /></SelectTrigger>
+                        <SelectContent>{conditions.map((item) => <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>)}</SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  <p className="text-slate-300 font-medium">Analizando propiedad...</p>
-                  <p className="text-slate-500 text-sm">Esto puede tomar unos momentos</p>
-                </CardContent>
-              </Card>
-            )}
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Características verificables</label>
+                    <Textarea value={formData.features} onChange={(event) => setFormData({ ...formData, features: event.target.value })} placeholder="Acceso, agua, caminos, construcciones, uso actual, topografía u otros antecedentes conocidos." rows={4} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Información adicional</label>
+                    <Textarea value={formData.additional_info} onChange={(event) => setFormData({ ...formData, additional_info: event.target.value })} placeholder="Observaciones relevantes para interpretar la propiedad." rows={4} />
+                  </div>
+                </TabsContent>
 
-            {result && (
-              <div className="space-y-4">
-                {/* Main Result */}
-                <Card className="bg-gradient-to-br from-emerald-900/40 to-emerald-900/20 border-emerald-700/50">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-emerald-300 flex items-center gap-2">
-                      <DollarSign className="h-5 w-5" />
-                      Valuación Estimada
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="text-4xl font-bold text-white">
-                      ${result.estimated_price.toLocaleString()}
-                    </div>
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <p className="text-slate-400">Rango Estimado</p>
-                        <p className="text-emerald-300 font-medium">
-                          ${result.price_range.min.toLocaleString()} - ${result.price_range.max.toLocaleString()}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-slate-400">Precio por m²</p>
-                        <p className="text-emerald-300 font-medium">
-                          ${result.price_per_sqm.toLocaleString()}/m²
-                        </p>
-                      </div>
-                    </div>
-                    <div className="p-2 bg-slate-700/50 rounded">
-                      <p className="text-slate-400 text-xs mb-1">Confiabilidad</p>
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 h-2 bg-slate-600 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-emerald-500 rounded-full transition-all"
-                            style={{ width: `${result.confidence}%` }}
-                          />
-                        </div>
-                        <span className="text-emerald-300 font-bold text-sm">{result.confidence}%</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+                <TabsContent value="macrofiltros" className="mt-6">
+                  <RuralMacrofiltros values={formData.macrofiltros} onChange={(macrofiltros) => setFormData({ ...formData, macrofiltros })} />
+                </TabsContent>
+                <TabsContent value="palabras-clave" className="mt-6">
+                  <QuickKeywords selectedKeywords={formData.quickKeywords} onChange={(quickKeywords) => setFormData({ ...formData, quickKeywords })} />
+                </TabsContent>
+              </Tabs>
 
-                {/* Comparable Analysis */}
-                {result.internet_comparison && (
-                  <Card className={`border-l-4 ${
-                    result.internet_comparison.difference_percentage > 10 ? 'bg-amber-900/30 border-l-amber-500 border-amber-700/50' :
-                    result.internet_comparison.difference_percentage < -10 ? 'bg-orange-900/30 border-l-orange-500 border-orange-700/50' :
-                    'bg-green-900/30 border-l-green-500 border-green-700/50'
-                  }`}>
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-sm flex items-center gap-2">
-                        <TrendingUp className={`h-4 w-4 ${
-                          result.internet_comparison.difference_percentage > 10 ? 'text-amber-400' :
-                          result.internet_comparison.difference_percentage < -10 ? 'text-orange-400' :
-                          'text-green-400'
-                        }`} />
-                        Comparación con Mercado Vigente
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <p className="text-slate-400 text-xs mb-1">Tu Valuación</p>
-                          <p className="text-emerald-400 font-bold">${result.price_per_sqm.toLocaleString()}/m²</p>
-                        </div>
-                        <div>
-                          <p className="text-slate-400 text-xs mb-1">Mercado Actual</p>
-                          <p className={`font-bold ${
-                            result.internet_comparison.difference_percentage > 10 ? 'text-amber-400' :
-                            result.internet_comparison.difference_percentage < -10 ? 'text-orange-400' :
-                            'text-green-400'
-                          }`}>
-                            ${result.internet_comparison.price_per_sqm.toLocaleString()}/m²
-                          </p>
-                        </div>
-                      </div>
-                      <div className="p-2 bg-slate-900/50 rounded">
-                        <p className="text-slate-300 text-sm font-medium mb-1">Variación</p>
-                        <p className={`text-lg font-bold ${
-                          result.internet_comparison.difference_percentage > 10 ? 'text-amber-400' :
-                          result.internet_comparison.difference_percentage < -10 ? 'text-orange-400' :
-                          'text-green-400'
-                        }`}>
-                          {result.internet_comparison.difference_percentage > 0 ? '+' : ''}{result.internet_comparison.difference_percentage}%
-                        </p>
-                      </div>
-                      <div className="p-2 bg-slate-700/30 rounded border border-slate-600/50">
-                        <p className="text-slate-300 text-sm font-medium mb-1">Análisis</p>
-                        <p className="text-slate-400 text-sm">{result.internet_comparison.interpretation}</p>
-                      </div>
-                      <p className="text-slate-500 text-xs">
-                        Basado en: <strong>{result.internet_comparison.source}</strong>
-                      </p>
-                    </CardContent>
-                  </Card>
-                )}
+              {error ? <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</div> : null}
+              <Button type="submit" disabled={loading} className="w-full md:w-auto">
+                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Calculator className="mr-2 h-4 w-4" />}
+                {loading ? 'Calculando referencia…' : 'Calcular referencia'}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
 
-                {/* Market Factors */}
-                <Card className="bg-slate-800 border-slate-700">
-                  <CardContent className="pt-6">
-                    <p className="text-slate-300 font-medium mb-2 text-sm">Factores de Mercado</p>
-                    <ul className="space-y-1">
-                      {result.market_factors.map((factor, idx) => (
-                        <li key={idx} className="text-slate-400 text-sm flex items-start gap-2">
-                          <span className="text-emerald-400 mt-1">•</span>
-                          {factor}
-                        </li>
-                      ))}
-                    </ul>
-                  </CardContent>
-                </Card>
-
-                {/* Recommendations */}
-                {result.recommendations.length > 0 && (
-                  <Card className="bg-slate-800 border-slate-700">
-                    <CardContent className="pt-6">
-                      <p className="text-slate-300 font-medium mb-2 text-sm">Recomendaciones</p>
-                      <ul className="space-y-1">
-                        {result.recommendations.map((rec, idx) => (
-                          <li key={idx} className="text-slate-400 text-sm flex items-start gap-2">
-                            <TrendingUp className="h-4 w-4 text-emerald-400 mt-0.5 flex-shrink-0" />
-                            {rec}
-                          </li>
-                        ))}
-                      </ul>
-                    </CardContent>
-                  </Card>
-                )}
+        <Card>
+          <CardHeader>
+            <CardTitle>Resultado del análisis</CardTitle>
+            <CardDescription>La información aparece aquí una vez completado el cálculo.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {loading ? (
+              <div className="flex min-h-72 flex-col items-center justify-center gap-3 text-center text-sm text-muted-foreground"><Loader2 className="h-6 w-6 animate-spin text-primary" /><p>Procesando los antecedentes ingresados.</p></div>
+            ) : result ? (
+              <div className="space-y-5">
+                <div className="rounded-md border bg-muted/30 p-4">
+                  <p className="text-sm text-muted-foreground">Valor estimado</p>
+                  <p className="mt-1 font-serif text-3xl font-semibold">{formatClp(result.estimated_price)}</p>
+                  <p className="mt-2 text-sm text-muted-foreground">Rango: {formatClp(result.price_range?.min)} – {formatClp(result.price_range?.max)}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-md border p-3"><p className="text-xs text-muted-foreground">Valor por m²</p><p className="mt-1 font-medium">{formatClp(result.price_per_sqm)}</p></div>
+                  <div className="rounded-md border p-3"><p className="text-xs text-muted-foreground">Confianza</p><p className="mt-1 font-medium">{Math.round((result.confidence || 0) * 100)}%</p></div>
+                </div>
+                <div><h3 className="text-sm font-semibold">Metodología informada</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">{result.methodology || 'El servicio no informó una metodología.'}</p></div>
+                <div><h3 className="text-sm font-semibold">Análisis de comparables</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">{result.comparable_analysis || 'No se informó análisis de comparables.'}</p></div>
+                {result.market_factors?.length ? <div><h3 className="text-sm font-semibold">Factores considerados</h3><ul className="mt-2 space-y-2 text-sm text-muted-foreground">{result.market_factors.map((item) => <li key={item} className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />{item}</li>)}</ul></div> : null}
+                {result.data_sources?.length ? <div><h3 className="text-sm font-semibold">Fuentes declaradas</h3><p className="mt-2 text-sm leading-6 text-muted-foreground">{result.data_sources.join(', ')}</p></div> : null}
               </div>
+            ) : (
+              <div className="flex min-h-72 flex-col items-center justify-center gap-3 text-center"><BarChart3 className="h-7 w-7 text-muted-foreground" /><div><p className="font-medium">Aún no hay una referencia calculada</p><p className="mt-1 max-w-xs text-sm leading-6 text-muted-foreground">Completa los antecedentes mínimos y ejecuta el cálculo para revisar el rango y sus fundamentos.</p></div></div>
             )}
-
-            {!result && !loading && (
-              <Card className="bg-slate-800 border-slate-700 h-full flex items-center justify-center">
-                <CardContent className="text-center">
-                  <div className="p-4 bg-slate-700/50 rounded-lg mb-4 inline-block">
-                    <Ruler className="h-8 w-8 text-slate-500" />
-                  </div>
-                  <p className="text-slate-300 font-medium mb-1">Completa el formulario</p>
-                  <p className="text-slate-500 text-sm">Los resultados aparecerán aquí</p>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
-    </div>
+    </main>
   )
 }
