@@ -3,7 +3,6 @@ import type { Metadata } from "next"
 import { Inter, Lora } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
-import { PasswordGate } from "@/components/auth/password-gate"
 import { VisitReminders } from "@/components/visits/visit-reminders"
 import { Toaster } from "sonner"
 import { SentryInit } from "@/components/sentry-init"
@@ -49,7 +48,7 @@ export default function RootLayout({
           disableTransitionOnChange
           storageKey="sur-realista-theme"
         >
-          <PasswordGate>{children}</PasswordGate>
+          {children}
         </ThemeProvider>
         <Toaster richColors closeButton />
         <VisitReminders />
