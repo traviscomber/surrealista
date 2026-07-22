@@ -40,8 +40,8 @@ const menuItems: MenuItem[] = [
     icon: LayoutDashboard,
   },
   {
-    title: "Buscar propiedades",
-    href: "/busqueda",
+    title: "Explorador de Campos",
+    href: "/",
     icon: Search,
   },
   {
@@ -106,8 +106,9 @@ const menuItems: MenuItem[] = [
 ]
 
 const PAGE_TITLES: Record<string, string> = {
+  "/": "Explorador de Campos",
   "/admin": "Panel principal",
-  "/busqueda": "Buscar propiedades",
+  "/busqueda": "Explorador de Campos",
   "/campos": "Mapa de campos",
   "/admin/kmz-status": "Estado de indexación KMZ",
   "/admin/kmz-collection": "Administrar archivos KMZ",
@@ -131,9 +132,11 @@ export function AdminSidebar() {
       : [...current, title])
   }
 
-  const isActive = (href: string) => href === "/admin"
-    ? pathname === href
-    : pathname === href || pathname.startsWith(`${href}/`)
+  const isActive = (href: string) => {
+    if (href === "/") return pathname === "/" || pathname === "/busqueda"
+    if (href === "/admin") return pathname === href
+    return pathname === href || pathname.startsWith(`${href}/`)
+  }
 
   const renderMenuItem = (item: MenuItem, level = 0) => {
     const hasChildren = Boolean(item.children?.length)
