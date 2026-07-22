@@ -1,6 +1,6 @@
 import { load, type CheerioAPI } from "cheerio"
 import type { RawProperty, ScrapeResult } from "./base-scraper"
-import { logScrapeRun, normaliseProperty, normaliseRegion, upsertProperties } from "./base-scraper"
+import { getAdminClient, logScrapeRun, normaliseProperty, normaliseRegion, upsertProperties } from "./base-scraper"
 
 const BASE_URL = "https://sur-realista.cl"
 const LIST_URL = `${BASE_URL}/lista-de-campos/`
@@ -21,6 +21,7 @@ type ScrapeOptions = {
 
 type SurRealistaResult = ScrapeResult & {
   dryRun: boolean
+  deactivated: number
   preview?: Array<{
     externalId: string
     title: string
@@ -53,9 +54,6 @@ function externalIdFromUrl(url: string) {
 function parseSiteHectares(raw: string | null) {
   if (!raw) return null
   const value = raw.trim().replace(",", ".")
-
-  // The site uses a dot as a thousands separator when exactly three digits follow it
-  // (for example 1.600, 5.000 and 16.691 hectares), while shorter suffixes are decimals.
   const normalized = /^\d{1,3}\.\d{3}$/.test(value) ? value.replace(".", "") : value
   const hectares = Number.parseFloat(normalized)
   return Number.isFinite(hectares) && hectares > 0 ? hectares : null
@@ -158,6 +156,36 @@ function extractListings(html: string): RawProperty[] {
   return Array.from(results.values())
 }
 
+async function deactivateRemovedListings(currentExternalIds: string[]) {
+  const supabase = getAdminClient()
+  const { data: existing, error } = await supabase
+    .from("properties_external")
+    .select("id, external_id")
+    .eq("source", "surealista")
+    .eq("is_active", true)
+
+  if (error) throw error
+
+  const current = new Set(currentExternalIds)
+  const removedIds = (existing || [])
+    .filter((property) => !current.has(property.external_id))
+    .map((property) => property.id)
+
+  let deactivated = 0
+  for (let index = 0; index < removedIds.length; index += 100) {
+    const chunk = removedIds.slice(index, index + 100)
+    const { error: updateError } = await supabase
+      .from("properties_external")
+      .update({ is_active: false, scraped_at: new Date().toISOString() })
+      .in("id", chunk)
+
+    if (updateError) throw updateError
+    deactivated += chunk.length
+  }
+
+  return deactivated
+}
+
 export async function scrapeSurRealista(options: ScrapeOptions = {}): Promise<SurRealistaResult> {
   const { regions, dryRun = false } = options
   const startedAt = Date.now()
@@ -188,6 +216,7 @@ export async function scrapeSurRealista(options: ScrapeOptions = {}): Promise<Su
   let inserted = 0
   let updated = 0
   let skipped = 0
+  let deactivated = 0
 
   if (!dryRun && normalised.length > 0) {
     const dbResult = await upsertProperties(normalised)
@@ -195,6 +224,14 @@ export async function scrapeSurRealista(options: ScrapeOptions = {}): Promise<Su
     updated = dbResult.updated
     skipped = dbResult.skipped
     errors.push(...dbResult.errors)
+
+    if (!regions?.length) {
+      try {
+        deactivated = await deactivateRemovedListings(normalised.map((property) => property.external_id))
+      } catch (error) {
+        errors.push(`deactivation: ${(error as Error).message}`)
+      }
+    }
   }
 
   const result: Omit<SurRealistaResult, "source"> = {
@@ -205,6 +242,7 @@ export async function scrapeSurRealista(options: ScrapeOptions = {}): Promise<Su
     errors,
     durationMs: Date.now() - startedAt,
     dryRun,
+    deactivated,
     ...(dryRun
       ? {
           preview: rawProperties.slice(0, 10).map((property) => ({
