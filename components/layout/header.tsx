@@ -42,7 +42,6 @@ import { ThemeToggle } from "@/components/ui/theme-toggle"
 const badgeColorMap: Record<string, string> = {
   Gratis: "bg-blue-500",
   IA: "bg-cyan-500",
-  Territorial: "bg-emerald-500",
   Mercado: "bg-violet-500",
 }
 
@@ -67,13 +66,6 @@ const toolsItems = [
     icon: Bot,
     description: "Realiza consultas inteligentes sobre propiedades y antecedentes.",
     badge: "IA",
-  },
-  {
-    title: "Mapa territorial",
-    href: "/kmz-search",
-    icon: MapPin,
-    description: "Busca ubicaciones, polígonos y antecedentes geográficos KMZ.",
-    badge: "Territorial",
   },
   {
     title: "Explorador de roles SII",
