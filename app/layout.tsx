@@ -21,11 +21,16 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: "Sur-Realista - Inmobiliaria Premium del Sur de Chile",
+  title: {
+    default: "Sur Realista | Gestión territorial interna",
+    template: "%s | Sur Realista",
+  },
   description:
-    "Descubre propiedades exclusivas en el sur de Chile con tecnología IA avanzada. Puerto Varas, Pucón, Valdivia y más.",
-  keywords: "inmobiliaria, sur chile, puerto varas, pucon, valdivia, propiedades, casas, terrenos, IA",
-  generator: "v0.dev",
+    "Espacio interno para administrar propiedades, antecedentes territoriales, clientes, documentos y fuentes de información de Sur Realista.",
+  robots: {
+    index: false,
+    follow: false,
+  },
 }
 
 export default function RootLayout({
@@ -35,18 +40,18 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es" suppressHydrationWarning className="scroll-smooth">
-      <body className={`${inter.variable} ${lora.variable} font-sans bg-background text-foreground`}>
+      <body className={`${inter.variable} ${lora.variable} bg-background font-sans text-foreground antialiased`}>
         <SentryInit />
-        <ThemeProvider 
-          attribute="class" 
-          defaultTheme="system" 
-          enableSystem 
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
           disableTransitionOnChange
           storageKey="sur-realista-theme"
         >
           <PasswordGate>{children}</PasswordGate>
         </ThemeProvider>
-        <Toaster />
+        <Toaster richColors closeButton />
         <VisitReminders />
       </body>
     </html>
