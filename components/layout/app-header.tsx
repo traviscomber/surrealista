@@ -4,7 +4,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { NotificationBell } from "@/components/notifications/notification-bell"
 import { useAuth } from "@/lib/hooks/use-auth"
-import { Building2, Menu, Plus, ListTodo } from "lucide-react"
+import { Building2, Menu, Plus, ListTodo, Store } from "lucide-react"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 
 export function AppHeader() {
@@ -39,6 +39,10 @@ export function AppHeader() {
             </Link>
             <Link href="/admin/dashboard" className="text-sm font-medium transition-colors hover:text-primary">
               Dashboard
+            </Link>
+            <Link href="/admin/surealista" className="text-sm font-medium transition-colors hover:text-primary flex items-center gap-1">
+              <Store className="h-4 w-4" />
+              Sur Realista
             </Link>
             <Link href="/admin/propiedades" className="text-sm font-medium transition-colors hover:text-primary">
               Propiedades
@@ -79,6 +83,10 @@ export function AppHeader() {
                 </Link>
                 <Link href="/admin/dashboard" className="text-sm font-medium transition-colors hover:text-primary">
                   Dashboard
+                </Link>
+                <Link href="/admin/surealista" className="text-sm font-medium transition-colors hover:text-primary flex items-center gap-1">
+                  <Store className="h-4 w-4" />
+                  Sur Realista
                 </Link>
                 <Link href="/admin/propiedades" className="text-sm font-medium transition-colors hover:text-primary">
                   Propiedades
