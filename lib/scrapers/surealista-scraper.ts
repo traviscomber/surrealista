@@ -1,224 +1,225 @@
-/**
- * Sur Realista scraper — surealista.cl
- *
- * Next.js site. Tries __NEXT_DATA__ JSON extraction first,
- * falls back to HTML card parsing.
- *
- * Covers: Valparaíso → Magallanes. Specialises in campos, fundos,
- * parcelas and rural/coastal properties.
- */
-import type { RawProperty, ScrapeResult } from './base-scraper'
-import { normaliseProperty, upsertProperties, logScrapeRun, normaliseRegion } from './base-scraper'
+import { load, type CheerioAPI } from "cheerio"
+import type { RawProperty, ScrapeResult } from "./base-scraper"
+import { logScrapeRun, normaliseProperty, normaliseRegion, upsertProperties } from "./base-scraper"
 
-const BASE = 'https://surealista.cl'
+const BASE_URL = "https://sur-realista.cl"
+const LIST_URL = `${BASE_URL}/lista-de-campos/`
 
 const HEADERS = {
-  'User-Agent':
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
-  Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-  'Accept-Language': 'es-CL,es;q=0.9',
-  Referer: BASE,
+  "User-Agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36",
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language": "es-CL,es;q=0.9",
+  Referer: BASE_URL,
 }
 
-// Sur Realista covers broad south Chile — these are their focus regions
-const FOCUS_REGIONS = [
-  'Los Lagos',
-  'Los Ríos',
-  'La Araucanía',
-  'Aysén',
-  'Chiloé',
-]
-
-async function fetchListingPage(region: string, page: number): Promise<string> {
-  // Try common Next.js URL patterns for this site
-  const candidates = [
-    `${BASE}/propiedades?region=${encodeURIComponent(region)}&page=${page}`,
-    `${BASE}/buscar?region=${encodeURIComponent(region)}&pagina=${page}`,
-    `${BASE}/campos?region=${encodeURIComponent(region)}&page=${page}`,
-    page === 1 ? `${BASE}/propiedades` : `${BASE}/propiedades?page=${page}`,
-  ]
-
-  for (const url of candidates) {
-    try {
-      const res = await fetch(url, {
-        headers: HEADERS,
-        signal: AbortSignal.timeout(15_000),
-        redirect: 'follow',
-      })
-      if (res.ok) return res.text()
-    } catch { /* try next */ }
-  }
-  throw new Error(`surealista: could not fetch page ${page} for ${region}`)
-}
-
-interface SuRealistaListing {
-  id?: string | number
-  slug?: string
-  titulo?: string
-  title?: string
-  nombre?: string
-  precio?: string | number
-  precio_uf?: string | number
-  superficie?: string | number
-  area?: string | number
-  dormitorios?: number
-  banos?: number
-  tipo?: string
-  tipo_propiedad?: string
-  operacion?: string
-  region?: string
-  ciudad?: string
-  comuna?: string
-  descripcion?: string
-  imagenes?: string[] | { url: string }[]
-  imagen?: string
-  url?: string
-  lat?: number
-  lng?: number
-}
-
-function extractFromNextData(html: string): SuRealistaListing[] {
-  const ndMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/)
-  if (!ndMatch) return []
-  try {
-    const nd = JSON.parse(ndMatch[1])
-    const props = nd?.props?.pageProps
-    return (
-      props?.propiedades ??
-      props?.listings ??
-      props?.properties ??
-      props?.data?.propiedades ??
-      props?.data?.listings ??
-      []
-    )
-  } catch {
-    return []
-  }
-}
-
-function extractFromHTML(html: string): SuRealistaListing[] {
-  const results: SuRealistaListing[] = []
-  // Look for JSON-LD ItemList
-  const jsonLdRe = /<script[^>]+type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi
-  let m
-  while ((m = jsonLdRe.exec(html)) !== null) {
-    try {
-      const d = JSON.parse(m[1])
-      if (d?.['@type'] === 'ItemList') {
-        for (const item of d.itemListElement ?? []) {
-          const listing = item?.item ?? item
-          const id = String(listing?.['@id'] ?? '').replace(/\D/g, '').slice(-10) || listing?.url?.split('/').filter(Boolean).pop()
-          if (id) {
-            results.push({
-              id,
-              titulo: listing?.name,
-              precio: listing?.offers?.price,
-              url: listing?.url,
-              imagen: listing?.image ?? listing?.image?.[0],
-            })
-          }
-        }
-      }
-    } catch { /* skip */ }
-  }
-
-  // Article/card fallback
-  if (results.length === 0) {
-    const cardRe = /<article[^>]*>([\s\S]*?)<\/article>/gi
-    while ((m = cardRe.exec(html)) !== null) {
-      const block = m[1]
-      const hrefMatch = block.match(/href="([^"]*propiedad[^"]*)"/)
-      if (!hrefMatch) continue
-      const urlPath = hrefMatch[1]
-      const id = urlPath.split('/').filter(Boolean).pop() ?? ''
-      const titleMatch = block.match(/<h\d[^>]*>([\s\S]*?)<\/h\d>/i)
-      const title = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, '').trim() : ''
-      const priceMatch = block.match(/\$[\d.,\s]+|[\d.,]+\s*UF/i)
-      results.push({
-        id,
-        titulo: title,
-        precio: priceMatch ? priceMatch[0] : undefined,
-        url: urlPath,
-      })
-    }
-  }
-
-  return results
-}
-
-function toRaw(listing: SuRealistaListing, fallbackRegion: string): RawProperty | null {
-  const id = String(listing.id ?? listing.slug ?? '').trim()
-  if (!id) return null
-
-  const images = Array.isArray(listing.imagenes)
-    ? listing.imagenes.map((i) => (typeof i === 'string' ? i : i.url))
-    : listing.imagen ? [listing.imagen] : []
-
-  const rawRegion = listing.region ?? fallbackRegion
-  return {
-    externalId: `surealista-${id}`,
-    source: 'surealista',
-    title: String(listing.titulo ?? listing.title ?? listing.nombre ?? 'Propiedad Sur').slice(0, 400),
-    priceRaw: listing.precio_uf != null ? `${listing.precio_uf} UF` : (listing.precio ?? null),
-    areaRaw: listing.superficie ?? listing.area ?? null,
-    bedrooms: listing.dormitorios ?? null,
-    bathrooms: listing.banos ?? null,
-    propertyType: String(listing.tipo ?? listing.tipo_propiedad ?? '').toLowerCase() || null,
-    operation: String(listing.operacion ?? 'venta').toLowerCase().includes('arriendo') ? 'arriendo' : 'venta',
-    region: normaliseRegion(rawRegion),
-    commune: listing.comuna ?? null,
-    city: listing.ciudad ?? null,
-    description: String(listing.descripcion ?? '').slice(0, 2000),
-    images: images.slice(0, 10),
-    sourceUrl: listing.url ? (listing.url.startsWith('http') ? listing.url : `${BASE}${listing.url}`) : null,
-    lat: listing.lat ?? null,
-    lng: listing.lng ?? null,
-  }
-}
-
-export async function scrapeSurRealista(opts: {
+type ScrapeOptions = {
   regions?: string[]
   pages?: number
-} = {}): Promise<ScrapeResult> {
-  const { regions = FOCUS_REGIONS, pages = 3 } = opts
+  dryRun?: boolean
+}
 
-  const start = Date.now()
-  const allRaw: RawProperty[] = []
+type SurRealistaResult = ScrapeResult & {
+  dryRun: boolean
+  preview?: Array<{
+    externalId: string
+    title: string
+    priceRaw: string | number | null | undefined
+    areaRaw: string | number | null | undefined
+    commune: string | null | undefined
+    region: string | null | undefined
+    sourceUrl: string | null | undefined
+  }>
+}
+
+function cleanText(value: string | null | undefined) {
+  return `${value || ""}`.replace(/\u00a0/g, " ").replace(/\s+/g, " ").trim()
+}
+
+function absoluteUrl(value: string | null | undefined) {
+  if (!value) return null
+  try {
+    return new URL(value, BASE_URL).toString()
+  } catch {
+    return null
+  }
+}
+
+function externalIdFromUrl(url: string) {
+  const slug = new URL(url).pathname.split("/").filter(Boolean).pop() || "property"
+  return `surealista-${slug}`
+}
+
+function parseSiteHectares(raw: string | null) {
+  if (!raw) return null
+  const value = raw.trim().replace(",", ".")
+
+  // The site uses a dot as a thousands separator when exactly three digits follow it
+  // (for example 1.600, 5.000 and 16.691 hectares), while shorter suffixes are decimals.
+  const normalized = /^\d{1,3}\.\d{3}$/.test(value) ? value.replace(".", "") : value
+  const hectares = Number.parseFloat(normalized)
+  return Number.isFinite(hectares) && hectares > 0 ? hectares : null
+}
+
+function getLeafTokens($: CheerioAPI, card: ReturnType<CheerioAPI>) {
+  return card
+    .find("*")
+    .filter((_, element) => $(element).children().length === 0)
+    .map((_, element) => cleanText($(element).text()))
+    .get()
+    .filter(Boolean)
+}
+
+function findListingCard($: CheerioAPI, anchor: ReturnType<CheerioAPI>) {
+  let current = anchor
+  for (let depth = 0; depth < 10; depth += 1) {
+    const text = cleanText(current.text())
+    if (/Superficie:/i.test(text) && /\bUF\b/i.test(text)) return current
+    const parent = current.parent()
+    if (!parent.length) break
+    current = parent
+  }
+  return null
+}
+
+function extractImage(card: ReturnType<CheerioAPI>) {
+  const image = card.find("img").first()
+  const direct = image.attr("data-lazy-src") || image.attr("data-src") || image.attr("src")
+  if (direct && !direct.startsWith("data:")) return absoluteUrl(direct)
+
+  const srcset = image.attr("data-srcset") || image.attr("srcset")
+  const candidate = srcset?.split(",").pop()?.trim().split(/\s+/)[0]
+  return absoluteUrl(candidate)
+}
+
+function extractListings(html: string): RawProperty[] {
+  const $ = load(html)
+  const results = new Map<string, RawProperty>()
+
+  $('a[href*="/campos/"]').each((_, element) => {
+    const anchor = $(element)
+    const href = absoluteUrl(anchor.attr("href"))
+    if (!href || href === `${BASE_URL}/campos/`) return
+
+    const card = findListingCard($, anchor)
+    if (!card) return
+
+    const cardText = cleanText(card.text())
+    const areaMatch = cardText.match(/Superficie:\s*([\d.,]+)\s*has?/i)
+    const priceMatch = cardText.match(/\bUF\s*(Consultar precio|[\d.]+(?:\s*x\s*ha)?)/i)
+    if (!areaMatch || !priceMatch) return
+
+    const title = cleanText(
+      card.find("h1, h2, h3, h4, h5, h6").first().text() || anchor.attr("title") || anchor.text(),
+    )
+    if (!title) return
+
+    const tokens = Array.from(new Set(getLeafTokens($, card)))
+    const regionToken = tokens.find((token) => /Regi[oó]n|RM de Santiago/i.test(token)) || null
+    const regionIndex = regionToken ? tokens.indexOf(regionToken) : -1
+    const ignored = (token: string) =>
+      token === title || /Superficie:/i.test(token) || /^UF\b/i.test(token) || /Mostrar|detalle|ver m[aá]s/i.test(token)
+    const commune = regionIndex > 0
+      ? [...tokens.slice(0, regionIndex)].reverse().find((token) => !ignored(token)) || null
+      : null
+
+    const hectares = parseSiteHectares(areaMatch[1])
+    const priceLabel = cleanText(priceMatch[1])
+    const isPricePerHectare = /x\s*ha/i.test(priceLabel)
+    const isPriceOnRequest = /consultar/i.test(priceLabel)
+    const image = extractImage(card)
+    const features = [
+      `Superficie publicada: ${areaMatch[1]} ha`,
+      isPricePerHectare ? `Precio publicado por hectárea: UF ${priceLabel}` : null,
+      isPriceOnRequest ? "Precio a consultar" : null,
+    ].filter((feature): feature is string => Boolean(feature))
+
+    results.set(href, {
+      externalId: externalIdFromUrl(href),
+      source: "surealista",
+      title,
+      priceRaw: isPricePerHectare || isPriceOnRequest ? null : `UF ${priceLabel}`,
+      currencyRaw: "UF",
+      areaRaw: hectares ? `${hectares} ha` : null,
+      propertyType: /casa/i.test(title) ? "casa rural" : /terreno|lote|parcela/i.test(title) ? "terreno" : "campo",
+      operation: "venta",
+      region: normaliseRegion(regionToken),
+      commune,
+      city: commune,
+      description: features.join(" · "),
+      features,
+      images: image ? [image] : [],
+      sourceUrl: href,
+      contactName: "Juan Eduardo Navarro",
+      contactPhone: "+56 9 6674 9221",
+    })
+  })
+
+  return Array.from(results.values())
+}
+
+export async function scrapeSurRealista(options: ScrapeOptions = {}): Promise<SurRealistaResult> {
+  const { regions, dryRun = false } = options
+  const startedAt = Date.now()
   const errors: string[] = []
 
-  for (const region of regions) {
-    for (let page = 1; page <= pages; page++) {
-      try {
-        const html = await fetchListingPage(region, page)
-        const listings = extractFromNextData(html).length > 0
-          ? extractFromNextData(html)
-          : extractFromHTML(html)
+  const response = await fetch(LIST_URL, {
+    headers: HEADERS,
+    redirect: "follow",
+    signal: AbortSignal.timeout(30_000),
+    cache: "no-store",
+  })
 
-        if (listings.length === 0) break
+  if (!response.ok) throw new Error(`sur-realista.cl returned HTTP ${response.status}`)
 
-        const raws = listings.map((l) => toRaw(l, region)).filter((r): r is RawProperty => r !== null)
-        allRaw.push(...raws)
+  const html = await response.text()
+  let rawProperties = extractListings(html)
 
-        await new Promise((r) => setTimeout(r, 700 + Math.random() * 300))
-      } catch (err) {
-        errors.push(`surealista/${region}/p${page}: ${(err as Error).message}`)
-        break
-      }
-    }
+  if (regions?.length) {
+    const normalizedRegions = new Set(regions.map((region) => normaliseRegion(region)).filter(Boolean))
+    rawProperties = rawProperties.filter((property) => normalizedRegions.has(normaliseRegion(property.region)))
   }
 
-  const normalised = await Promise.all(allRaw.map(normaliseProperty))
-  const dbResult = await upsertProperties(normalised)
-  errors.push(...dbResult.errors)
+  if (rawProperties.length === 0) {
+    errors.push("No property cards were detected; the source HTML structure may have changed")
+  }
 
-  const result: Omit<ScrapeResult, 'source'> = {
-    found: allRaw.length,
-    inserted: dbResult.inserted,
-    updated: dbResult.updated,
-    skipped: dbResult.skipped,
+  const normalised = await Promise.all(rawProperties.map(normaliseProperty))
+  let inserted = 0
+  let updated = 0
+  let skipped = 0
+
+  if (!dryRun && normalised.length > 0) {
+    const dbResult = await upsertProperties(normalised)
+    inserted = dbResult.inserted
+    updated = dbResult.updated
+    skipped = dbResult.skipped
+    errors.push(...dbResult.errors)
+  }
+
+  const result: Omit<SurRealistaResult, "source"> = {
+    found: rawProperties.length,
+    inserted,
+    updated,
+    skipped,
     errors,
-    durationMs: Date.now() - start,
+    durationMs: Date.now() - startedAt,
+    dryRun,
+    ...(dryRun
+      ? {
+          preview: rawProperties.slice(0, 10).map((property) => ({
+            externalId: property.externalId,
+            title: property.title,
+            priceRaw: property.priceRaw,
+            areaRaw: property.areaRaw,
+            commune: property.commune,
+            region: property.region,
+            sourceUrl: property.sourceUrl,
+          })),
+        }
+      : {}),
   }
-  await logScrapeRun('surealista', result)
-  return { source: 'surealista', ...result }
+
+  if (!dryRun) await logScrapeRun("surealista", result)
+  return { source: "surealista", ...result }
 }

@@ -1,0 +1,114 @@
+{
+  "sources": [
+    {
+      "key": "ichiloe",
+      "label": "iChiloe",
+      "url": "ichiloe.cl",
+      "focus": "Archipiélago de Chiloé",
+      "group": "south",
+      "enabled": true,
+      "defaultPages": 2
+    },
+    {
+      "key": "surealista",
+      "label": "SurRealista",
+      "url": "surealista.cl",
+      "focus": "Propiedades rurales del sur de Chile",
+      "group": "south",
+      "enabled": true,
+      "defaultPages": 2
+    },
+    {
+      "key": "camposchile",
+      "label": "CamposChile",
+      "url": "camposchile.cl",
+      "focus": "Campos y fundos rurales",
+      "group": "south",
+      "enabled": true,
+      "defaultPages": 2
+    },
+    {
+      "key": "terrachiloe",
+      "label": "TerraChiloe",
+      "url": "terrachiloe.cl",
+      "focus": "Terrenos en Chiloé",
+      "group": "south",
+      "enabled": true,
+      "defaultPages": 2
+    },
+    {
+      "key": "portalterreno",
+      "label": "PortalTerreno",
+      "url": "portalterreno.cl",
+      "focus": "Terrenos del sur de Chile",
+      "group": "south",
+      "enabled": true,
+      "defaultPages": 2
+    },
+    {
+      "key": "icasas",
+      "label": "iCasas",
+      "url": "icasas.cl",
+      "focus": "Terrenos desde Biobío a Magallanes",
+      "group": "south",
+      "enabled": true,
+      "defaultPages": 2
+    },
+    {
+      "key": "remax",
+      "label": "RE/MAX",
+      "url": "remax.cl",
+      "focus": "Propiedades desde Biobío a Magallanes",
+      "group": "south",
+      "enabled": true,
+      "defaultPages": 2
+    },
+    {
+      "key": "portal_inmobiliario",
+      "label": "Portal Inmobiliario",
+      "url": "portalinmobiliario.com",
+      "focus": "Cobertura nacional",
+      "group": "general",
+      "enabled": true,
+      "defaultPages": 2
+    },
+    {
+      "key": "yapo",
+      "label": "Yapo",
+      "url": "yapo.cl",
+      "focus": "Cobertura nacional",
+      "group": "general",
+      "enabled": true,
+      "defaultPages": 2
+    },
+    {
+      "key": "toctoc",
+      "label": "TocToc",
+      "url": "toctoc.com",
+      "focus": "Cobertura nacional",
+      "group": "general",
+      "enabled": true,
+      "defaultPages": 2
+    },
+    {
+      "key": "rura",
+      "label": "Rura.cl",
+      "url": "rura.cl",
+      "focus": "Parcelas y terrenos especializados",
+      "group": "south",
+      "enabled": false,
+      "disabledReason": "Endpoint pendiente de validación",
+      "defaultPages": 1
+    },
+    {
+      "key": "goplaceit",
+      "label": "GoPlaceIt",
+      "url": "goplaceit.com",
+      "focus": "Terrenos desde Biobío a Magallanes",
+      "group": "south",
+      "enabled": false,
+      "disabledReason": "Endpoint pendiente de validación",
+      "defaultPages": 1
+    }
+  ]
+}
