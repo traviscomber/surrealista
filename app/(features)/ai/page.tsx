@@ -1,5 +1,7 @@
-import { AIWorkspace } from "@/components/ai/ai-workspace"
+import { redirect } from "next/navigation"
+
+export const dynamic = "force-dynamic"
 
 export default function AIPage() {
-  return <AIWorkspace />
+  redirect("/asistente-ia")
 }
