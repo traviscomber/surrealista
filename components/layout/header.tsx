@@ -2,9 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import {
   NavigationMenu,
   NavigationMenuContent,
@@ -39,45 +37,36 @@ import {
 import { GlobalCommandPalette } from "@/components/search/global-command-palette"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
 
-const badgeColorMap: Record<string, string> = {
-  Gratis: "bg-blue-500",
-  IA: "bg-cyan-500",
-  Mercado: "bg-violet-500",
-}
-
 const toolsItems = [
   {
     title: "Explorador de Campos",
     href: "/",
     icon: Search,
-    description: "Accede a campos, clientes, tareas, documentos y mapas en un solo lugar.",
-    badge: "Mercado",
+    description: "Reúne campos, clientes, tareas, documentos, mapas y antecedentes territoriales.",
   },
   {
     title: "Cotizador",
     href: "/cotizador",
     icon: Calculator,
-    description: "Calcula una referencia de valor para una propiedad.",
-    badge: "Gratis",
+    description: "Prepara una referencia de valor con los antecedentes disponibles de una propiedad.",
   },
   {
-    title: "Asistente IA",
+    title: "Asistente de análisis",
     href: "/asistente-ia",
     icon: Bot,
-    description: "Realiza consultas inteligentes sobre propiedades y antecedentes.",
-    badge: "IA",
+    description: "Apoya consultas internas sobre propiedades, documentos y datos disponibles.",
   },
   {
     title: "Explorador de roles SII",
     href: "/admin/sii-rol-explorer",
     icon: Database,
-    description: "Consulta y relaciona roles territoriales disponibles.",
+    description: "Consulta roles territoriales y sus relaciones con los registros disponibles.",
   },
   {
-    title: "Descubrir propietarios",
+    title: "Descubrimiento de propietarios",
     href: "/admin/owner-discovery",
     icon: Users,
-    description: "Investiga posibles propietarios y relaciones documentales.",
+    description: "Organiza candidatos, evidencias públicas y pendientes de validación.",
   },
 ]
 
@@ -85,28 +74,28 @@ const adminItems = [
   { title: "Panel de datos", href: "/admin/dashboard", icon: Database },
   { title: "Inventario Sur Realista", href: "/admin/surealista", icon: Store },
   { title: "Gestión de propiedades", href: "/admin/propiedades", icon: Building2 },
-  { title: "Scrapers y sincronización", href: "/admin/dashboard?tab=scrapers", icon: Database },
-  { title: "Administrar archivos KMZ", href: "/admin/kmz-collection", icon: MapPin },
+  { title: "Fuentes y sincronización", href: "/admin/dashboard?tab=scrapers", icon: Database },
+  { title: "Archivos territoriales KMZ", href: "/admin/kmz-collection", icon: MapPin },
 ]
 
 const docsItems = [
   {
-    title: "Centro de Ayuda",
+    title: "Centro de ayuda",
     href: "/ayuda",
     icon: HelpCircle,
-    description: "Guías, tutoriales y preguntas frecuentes.",
+    description: "Orientaciones para resolver tareas habituales dentro de la plataforma.",
   },
   {
     title: "Guías de usuario",
     href: "/docs/usuario",
     icon: FileText,
-    description: "Manuales para usar las herramientas principales.",
+    description: "Procedimientos operativos para utilizar las herramientas principales.",
   },
   {
     title: "Documentación técnica",
     href: "/docs/tecnica",
     icon: BookOpen,
-    description: "Arquitectura, integraciones y especificaciones.",
+    description: "Arquitectura, integraciones, fuentes y criterios de funcionamiento.",
   },
 ]
 
@@ -115,18 +104,13 @@ function ToolLink({ item, onClick }: { item: (typeof toolsItems)[number]; onClic
     <Link
       href={item.href}
       onClick={onClick}
-      className="block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent"
+      className="group block select-none rounded-md border border-transparent p-3 no-underline outline-none transition-colors hover:border-border hover:bg-muted/50 focus:border-border focus:bg-muted/50"
     >
       <div className="flex items-center gap-2">
-        <item.icon className="h-4 w-4 shrink-0" />
-        <span className="text-sm font-medium leading-none">{item.title}</span>
-        {item.badge && (
-          <Badge className={cn("ml-auto text-xs text-white", badgeColorMap[item.badge] || "bg-slate-500")}>
-            {item.badge}
-          </Badge>
-        )}
+        <item.icon className="h-4 w-4 shrink-0 text-primary" />
+        <span className="text-sm font-medium leading-none text-foreground">{item.title}</span>
       </div>
-      <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">{item.description}</p>
+      <p className="mt-2 line-clamp-2 text-sm leading-5 text-muted-foreground">{item.description}</p>
     </Link>
   )
 }
@@ -135,15 +119,16 @@ export function Header() {
   const [isOpen, setIsOpen] = useState(false)
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+    <header className="sticky top-0 z-50 w-full border-b border-border/70 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/90">
       <div className="container flex h-16 items-center justify-between gap-4">
-        <Link href="/" className="flex shrink-0 items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-primary to-forest">
-            <Building2 className="h-4 w-4 text-white" />
+        <Link href="/" className="flex shrink-0 items-center gap-3" aria-label="Ir al espacio de trabajo Sur Realista">
+          <div className="flex h-8 w-8 items-center justify-center rounded-md border border-primary/25 bg-primary/10">
+            <Building2 className="h-4 w-4 text-primary" />
           </div>
-          <span className="bg-gradient-to-r from-primary to-forest bg-clip-text font-serif text-xl font-semibold text-transparent">
-            Sur-Realista
-          </span>
+          <div className="leading-none">
+            <span className="block font-serif text-lg font-semibold tracking-tight text-foreground">Sur Realista</span>
+            <span className="mt-1 block text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">Espacio interno</span>
+          </div>
         </Link>
 
         <NavigationMenu className="hidden lg:flex">
@@ -172,9 +157,12 @@ export function Header() {
               <NavigationMenuContent>
                 <div className="grid w-[540px] grid-cols-2 gap-2 p-4">
                   {docsItems.map((item) => (
-                    <Link key={item.title} href={item.href} className="space-y-1 rounded-md p-3 transition-colors hover:bg-accent">
-                      <div className="flex items-center gap-2 text-sm font-medium"><item.icon className="h-4 w-4" />{item.title}</div>
-                      <p className="text-sm text-muted-foreground">{item.description}</p>
+                    <Link key={item.title} href={item.href} className="rounded-md border border-transparent p-3 transition-colors hover:border-border hover:bg-muted/50">
+                      <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                        <item.icon className="h-4 w-4 text-primary" />
+                        {item.title}
+                      </div>
+                      <p className="mt-2 text-sm leading-5 text-muted-foreground">{item.description}</p>
                     </Link>
                   ))}
                 </div>
@@ -190,16 +178,20 @@ export function Header() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="hidden bg-transparent md:flex">
-                <Shield className="mr-2 h-4 w-4" />Admin
+                <Shield className="mr-2 h-4 w-4" />
+                Administración
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-64" align="end">
-              <DropdownMenuLabel>Operaciones internas</DropdownMenuLabel>
+            <DropdownMenuContent className="w-72" align="end">
+              <DropdownMenuLabel>
+                <span className="block">Operaciones internas</span>
+                <span className="mt-1 block text-xs font-normal text-muted-foreground">Datos, inventario y fuentes de información.</span>
+              </DropdownMenuLabel>
               <DropdownMenuSeparator />
               {adminItems.map((item) => (
                 <DropdownMenuItem key={item.title} asChild>
-                  <Link href={item.href} className="flex items-center">
-                    <item.icon className="mr-2 h-4 w-4" />
+                  <Link href={item.href} className="flex items-center py-2.5">
+                    <item.icon className="mr-2 h-4 w-4 text-primary" />
                     <span>{item.title}</span>
                   </Link>
                 </DropdownMenuItem>
@@ -215,28 +207,33 @@ export function Header() {
             </SheetTrigger>
             <SheetContent side="right" className="w-80 overflow-y-auto">
               <div className="mt-4 space-y-6">
-                <div className="flex items-center gap-2 border-b pb-4">
-                  <Building2 className="h-5 w-5 text-primary" />
-                  <span className="font-serif text-lg font-semibold">Sur-Realista</span>
+                <div className="flex items-center gap-3 border-b pb-4">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-md border border-primary/25 bg-primary/10">
+                    <Building2 className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <span className="block font-serif text-lg font-semibold">Sur Realista</span>
+                    <span className="text-xs text-muted-foreground">Espacio interno</span>
+                  </div>
                 </div>
 
                 <section>
-                  <h3 className="mb-2 px-3 text-sm font-semibold text-muted-foreground">Herramientas</h3>
+                  <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Herramientas</h3>
                   <div className="space-y-1">
                     {toolsItems.map((item) => <ToolLink key={item.title} item={item} onClick={() => setIsOpen(false)} />)}
                   </div>
                 </section>
 
                 <section className="border-t pt-4">
-                  <h3 className="mb-2 px-3 text-sm font-semibold text-muted-foreground">Administración</h3>
+                  <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Administración</h3>
                   {adminItems.map((item) => (
                     <Link
                       key={item.title}
                       href={item.href}
                       onClick={() => setIsOpen(false)}
-                      className="flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent"
+                      className="flex items-center rounded-md px-3 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
                     >
-                      <item.icon className="mr-2 h-4 w-4" />{item.title}
+                      <item.icon className="mr-2 h-4 w-4 text-primary" />{item.title}
                     </Link>
                   ))}
                 </section>
