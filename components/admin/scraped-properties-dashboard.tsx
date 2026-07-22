@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import useSWR from "swr"
 import {
@@ -8,6 +8,7 @@ import {
   CircleDollarSign,
   Database,
   ExternalLink,
+  Loader2,
   MapPin,
   RefreshCw,
   Search,
@@ -110,6 +111,52 @@ export function ScrapedPropertiesDashboard({
   const [regionFilter, setRegionFilter] = useState("all")
   const [typeFilter, setTypeFilter] = useState("all")
   const [favoriteFilter, setFavoriteFilter] = useState(initialShowFavorites)
+  const [favorites, setFavorites] = useState<Set<string>>(new Set())
+  const [favoriteLoading, setFavoriteLoading] = useState<string | null>(null)
+
+  useEffect(() => {
+    const loadFavorites = async () => {
+      try {
+        const response = await fetch("/api/admin/favorites", {
+          headers: { "X-Site-Access-Token": "srmagica" },
+        })
+        if (!response.ok) return
+        const result = await response.json()
+        setFavorites(new Set(result.favorites || []))
+      } catch (loadError) {
+        console.error("[favorites] Could not load favorites", loadError)
+      }
+    }
+
+    void loadFavorites()
+  }, [])
+
+  const toggleFavorite = async (propertyId: string) => {
+    setFavoriteLoading(propertyId)
+    try {
+      const response = await fetch("/api/admin/favorites", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Site-Access-Token": "srmagica",
+        },
+        body: JSON.stringify({ property_id: propertyId, action: "toggle" }),
+      })
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const result = await response.json()
+      setFavorites((current) => {
+        const next = new Set(current)
+        if (result.is_favorite) next.add(propertyId)
+        else next.delete(propertyId)
+        return next
+      })
+    } catch (toggleError) {
+      console.error("[favorites] Could not update favorite", toggleError)
+    } finally {
+      setFavoriteLoading(null)
+    }
+  }
 
   const sourceOptions = useMemo(() => {
     const counts = new Map<string, number>()
@@ -147,9 +194,9 @@ export function ScrapedPropertiesDashboard({
         && (sourceFilter === "all" || property.source === sourceFilter)
         && (regionFilter === "all" || property.region === regionFilter)
         && (typeFilter === "all" || property.property_type === typeFilter)
-        && !favoriteFilter
+        && (!favoriteFilter || favorites.has(property.id))
     })
-  }, [properties, query, sourceFilter, regionFilter, typeFilter, favoriteFilter])
+  }, [properties, query, sourceFilter, regionFilter, typeFilter, favoriteFilter, favorites])
 
   const clearFilters = () => {
     setQuery("")
@@ -208,17 +255,17 @@ export function ScrapedPropertiesDashboard({
           </div>
 
           <div className="flex flex-wrap gap-2" aria-label="Filtrar por fuente">
-            <Button size="sm" variant={sourceFilter === "all" ? "default" : "outline"} onClick={() => { setSourceFilter("all"); setFavoriteFilter(false) }}>
+            <Button size="sm" variant={sourceFilter === "all" && !favoriteFilter ? "default" : "outline"} onClick={() => { setSourceFilter("all"); setFavoriteFilter(false) }}>
               Todos <Badge variant="secondary" className="ml-2">{properties.length}</Badge>
             </Button>
-            <Button size="sm" variant={favoriteFilter ? "default" : "outline"} onClick={() => setFavoriteFilter(!favoriteFilter)}>
-              <Star className="mr-1.5 h-4 w-4" /> Favoritos
+            <Button size="sm" variant={favoriteFilter ? "default" : "outline"} onClick={() => { setSourceFilter("all"); setFavoriteFilter(!favoriteFilter) }}>
+              <Star className="mr-1.5 h-4 w-4" /> Favoritos <Badge variant="secondary" className="ml-2">{favorites.size}</Badge>
             </Button>
             {sourceOptions.map((source) => (
               <Button
                 key={source.key}
                 size="sm"
-                variant={sourceFilter === source.key ? "default" : "outline"}
+                variant={sourceFilter === source.key && !favoriteFilter ? "default" : "outline"}
                 className={source.key === "surealista" ? "border-emerald-500" : undefined}
                 onClick={() => { setSourceFilter(source.key); setFavoriteFilter(false) }}
               >
@@ -253,7 +300,21 @@ export function ScrapedPropertiesDashboard({
                   <div className="flex min-w-0 flex-1 flex-col gap-3">
                     <div className="flex items-start justify-between gap-3">
                       <div><h3 className="font-medium leading-6">{property.title}</h3><div className="mt-2 flex flex-wrap gap-2"><Badge variant={property.source === "surealista" ? "default" : "secondary"}>{property.source === "surealista" ? "Sur Realista" : property.source}</Badge><span className="text-sm capitalize text-muted-foreground">{property.property_type || "Propiedad"}</span></div></div>
-                      {property.source_url && <Button asChild variant="outline" size="sm"><Link href={property.source_url} target="_blank" rel="noreferrer">Ver original <ExternalLink className="ml-2 h-4 w-4" /></Link></Button>}
+                      <div className="flex shrink-0 items-center gap-2">
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant={favorites.has(property.id) ? "default" : "outline"}
+                          className={favorites.has(property.id) ? "bg-amber-500 text-white hover:bg-amber-600" : undefined}
+                          aria-label={favorites.has(property.id) ? "Quitar de favoritos" : "Agregar a favoritos"}
+                          title={favorites.has(property.id) ? "Quitar de favoritos" : "Agregar a favoritos"}
+                          onClick={() => void toggleFavorite(property.id)}
+                          disabled={favoriteLoading === property.id}
+                        >
+                          {favoriteLoading === property.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Star className={`h-4 w-4 ${favorites.has(property.id) ? "fill-current" : ""}`} />}
+                        </Button>
+                        {property.source_url && <Button asChild variant="outline" size="sm"><Link href={property.source_url} target="_blank" rel="noreferrer">Ver original <ExternalLink className="ml-2 h-4 w-4" /></Link></Button>}
+                      </div>
                     </div>
                     <dl className="grid gap-3 text-sm sm:grid-cols-3">
                       <div><dt className="text-xs text-muted-foreground">Ubicación</dt><dd className="mt-1">{propertyLocation(property)}</dd></div>
