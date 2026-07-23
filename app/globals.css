@@ -10,25 +10,21 @@
 
 @layer base {
   :root {
-    /* Updated to Sur-Realista sage green and natural color palette */
+    /* Provisional product palette based on the current Sur Realista implementation. */
     --background: 0 0% 100%;
     --foreground: 150 15% 20%;
     --card: 0 0% 100%;
     --card-foreground: 150 15% 20%;
     --popover: 0 0% 100%;
     --popover-foreground: 150 15% 20%;
-    /* Sage green as primary - inspired by Sur-Realista nature focus */
     --primary: 150 25% 45%;
     --primary-foreground: 0 0% 98%;
-    /* Warm beige for secondary */
     --secondary: 35 25% 92%;
     --secondary-foreground: 150 25% 45%;
     --muted: 35 25% 92%;
     --muted-foreground: 150 10% 40%;
-    /* Soft blue-gray for accents */
     --accent: 195 25% 85%;
     --accent-foreground: 150 25% 45%;
-    /* Keep nature-themed colors for properties */
     --agricultural: 120 40% 45%;
     --agricultural-foreground: 0 0% 98%;
     --rural: 35 65% 55%;
@@ -57,6 +53,7 @@
     --sidebar-border: 150 15% 91%;
     --sidebar-ring: 150 25% 45%;
   }
+
   .dark {
     --background: 150 10% 12%;
     --foreground: 0 0% 95%;
@@ -99,21 +96,44 @@
     --sidebar-border: 150 10% 28%;
     --sidebar-ring: 150 30% 60%;
   }
-}
 
-@layer base {
   * {
     @apply border-border;
   }
+
+  html {
+    min-height: 100%;
+  }
+
   body {
+    min-height: 100vh;
     @apply bg-background text-foreground;
+  }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.18);
+    color: hsl(var(--foreground));
+  }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 3px;
+  }
+
+  button,
+  a,
+  input,
+  textarea,
+  select,
+  [role="button"] {
+    -webkit-tap-highlight-color: transparent;
   }
 }
 
 @keyframes fade-in-up {
   from {
     opacity: 0;
-    transform: translateY(30px);
+    transform: translateY(12px);
   }
   to {
     opacity: 1;
@@ -122,18 +142,16 @@
 }
 
 .animate-fade-in-up {
-  animation: fade-in-up 0.6s ease-out;
+  animation: fade-in-up 0.35s ease-out;
 }
 
-/* Added agricultural property specific styles */
-/* Enhanced property card hover with softer shadows */
 .property-card-hover {
-  transition: all 0.3s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .property-card-hover:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 12px 24px -8px rgba(107, 142, 122, 0.15), 0 8px 16px -8px rgba(107, 142, 122, 0.1);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px -14px rgba(36, 64, 49, 0.28);
 }
 
 .map-marker-pulse {
@@ -146,7 +164,26 @@
     opacity: 1;
   }
   50% {
-    opacity: 0.5;
+    opacity: 0.55;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .property-card-hover:hover {
+    transform: none;
   }
 }
 
