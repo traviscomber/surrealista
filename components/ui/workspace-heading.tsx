@@ -23,7 +23,7 @@ export function WorkspaceHeading({
       <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div className="max-w-3xl space-y-3">
           {eyebrow ? (
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               {eyebrow}
             </p>
           ) : null}
@@ -36,10 +36,9 @@ export function WorkspaceHeading({
             </p>
           </div>
           {outcome ? (
-            <div className="inline-flex max-w-2xl items-start rounded-md border border-border/70 bg-muted/40 px-3 py-2 text-sm leading-5 text-foreground">
-              <span className="mr-2 font-semibold">Resultado:</span>
-              <span>{outcome}</span>
-            </div>
+            <p className="max-w-2xl border-l-2 border-primary/40 pl-3 text-sm leading-6 text-foreground">
+              <span className="font-semibold">Resultado esperado:</span> {outcome}
+            </p>
           ) : null}
         </div>
         {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
