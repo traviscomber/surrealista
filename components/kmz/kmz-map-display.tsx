@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
-import { AlertCircle, ChevronDown, Eye, EyeOff, Layers3, Loader2, MapPin, Maximize, Minimize } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { AlertCircle, Eye, EyeOff, Layers3, Loader2, Maximize, Minimize } from "lucide-react"
 import type { KMZData } from "@/lib/kmz/kmz-reader"
 import { reverseGeocoder, type ChileanLocationDetails } from "@/lib/geocoding/reverse-geocode"
 import { Button } from "@/components/ui/button"
@@ -11,7 +11,7 @@ interface KMZMapDisplayProps {
   height?: string
   centerCoordinates?: { lat: number; lng: number }
   onPlacemarkSelect?: (placemark: LayerInfo | null) => void
-  enableGeocoding?: boolean // Add option to disable geocoding for performance
+  enableGeocoding?: boolean
   selectedKmzId?: string | null
 }
 
@@ -22,8 +22,83 @@ export interface LayerInfo {
   visible: boolean
   color: string
   bounds: any[]
+  description?: string | null
+  geometrySource?: "placemark" | "collection-bounds"
   locationDetails?: ChileanLocationDetails
   isLoadingLocation?: boolean
+}
+
+const PALETTE = ["#2f6f55", "#2f6484", "#8a6336", "#6c5c8d", "#397167", "#7a4f45"]
+
+function stableColor(value: string) {
+  let hash = 0
+  for (let index = 0; index < value.length; index++) hash = (hash * 31 + value.charCodeAt(index)) | 0
+  return PALETTE[Math.abs(hash) % PALETTE.length]
+}
+
+function escapeHtml(value: unknown) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;")
+}
+
+function cleanDescription(value: unknown): string | null {
+  if (!value || typeof value !== "string") return null
+  const cleaned = value
+    .replace(/<!\[CDATA\[|\]\]>/g, " ")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>|<\/div>|<\/li>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+  return cleaned || null
+}
+
+function fileDescription(file: any): string | null {
+  return cleanDescription(
+    file?.metadata?.description ||
+      file?.description ||
+      file?.metadata?.sii_point_resolution?.record?.direccion ||
+      file?.metadata?.sii_point_resolution?.record?.raw?.direccion ||
+      null,
+  )
+}
+
+function matchesSelected(file: any, selectedId: string) {
+  return [file?.id, file?.dbId, file?.metadata?.id]
+    .filter((value) => value !== null && value !== undefined)
+    .map(String)
+    .includes(selectedId)
+}
+
+function validBounds(bounds: any) {
+  if (!bounds) return false
+  return [bounds.north, bounds.south, bounds.east, bounds.west].every((value) => Number.isFinite(Number(value)))
+}
+
+function popupHtml(layer: LayerInfo, center: { lat: number; lng: number }, details?: ChileanLocationDetails) {
+  const location = details
+    ? [details.comuna, details.provincia, details.region].filter(Boolean).join(", ")
+    : null
+  const sourceNote =
+    layer.geometrySource === "collection-bounds"
+      ? "Vista de respaldo construida con los límites persistidos del archivo. No representa el trazado exacto del polígono original."
+      : null
+
+  return `<div style="min-width:260px;max-width:360px;font-family:system-ui,sans-serif;color:#17211c">
+    <h4 style="margin:0 0 8px;font-size:14px;font-weight:700;color:${layer.color}">${escapeHtml(layer.name)}</h4>
+    <p style="margin:0 0 4px;font-size:12px"><strong>Archivo:</strong> ${escapeHtml(layer.fileName)}</p>
+    <p style="margin:0 0 4px;font-size:12px"><strong>Centro:</strong> ${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}</p>
+    ${location ? `<p style="margin:0 0 4px;font-size:12px"><strong>Ubicación:</strong> ${escapeHtml(location)}</p>` : ""}
+    ${layer.description ? `<div style="margin-top:9px;padding-top:9px;border-top:1px solid #dfe5e1;font-size:12px;line-height:1.45;white-space:pre-wrap">${escapeHtml(layer.description)}</div>` : ""}
+    ${sourceNote ? `<div style="margin-top:9px;padding:8px;border-radius:6px;background:#fff7df;color:#6f5012;font-size:11px;line-height:1.4">${escapeHtml(sourceNote)}</div>` : ""}
+  </div>`
 }
 
 export function KMZMapDisplay({
@@ -31,927 +106,335 @@ export function KMZMapDisplay({
   height = "600px",
   centerCoordinates,
   onPlacemarkSelect,
-  enableGeocoding = true, // Re-enabled by default for location details
+  enableGeocoding = true,
   selectedKmzId = null,
 }: KMZMapDisplayProps) {
-  const [mapInstance, setMapInstance] = useState<any>(null)
-  const [leafletLoaded, setLeafletLoaded] = useState(false)
+  const mapNodeRef = useRef<HTMLDivElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const mapRef = useRef<any>(null)
+  const renderedLayersRef = useRef<any[]>([])
+  const clientMarkerRef = useRef<any>(null)
+  const [leafletReady, setLeafletReady] = useState(false)
   const [mapError, setMapError] = useState<string | null>(null)
   const [layers, setLayers] = useState<LayerInfo[]>([])
-  const [isFullscreen, setIsFullscreen] = useState(false)
-  const [isLoadingLayers, setIsLoadingLayers] = useState(false)
-  const [layerProgress, setLayerProgress] = useState(0)
-  const [selectedLayer, setSelectedLayer] = useState<LayerInfo | null>(null)
-  const [isLayersOpen, setIsLayersOpen] = useState(true)
-  const mapRef = useRef<HTMLDivElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const clientMarkerRef = useRef<any>(null)
-  const currentKmzDataRef = useRef<string>("")
-  const isProcessingRef = useRef<boolean>(false)
-  const renderQueueRef = useRef<any[]>([])
-  const geocodingQueueRef = useRef<Array<{ lat: number; lng: number; callback: (details: any) => void }>>([])
-  const activeGeocodingRef = useRef<number>(0)
-  const maxConcurrentGeocoding = 5
+  const [loading, setLoading] = useState(false)
+  const [fullscreen, setFullscreen] = useState(false)
+  const [layersOpen, setLayersOpen] = useState(true)
 
-  const safeKmzFiles = Array.isArray(kmzFiles) ? kmzFiles : []
-  const matchesSelectedKmz = (file: any, selectedId: string) => {
-    const candidates = [
-      file?.id,
-      file?.dbId,
-      file?.metadata?.id,
-    ]
-      .map((value) => (value === null || value === undefined ? "" : value.toString()))
-      .filter(Boolean)
-
-    return candidates.includes(selectedId)
-  }
-
-  // Filter KMZ files if a specific one is selected
-  const displayKmzFiles = selectedKmzId 
-    ? safeKmzFiles.filter(file => {
-        const selectedIdStr = selectedKmzId.toString()
-        return matchesSelectedKmz(file, selectedIdStr)
-      })
-    : safeKmzFiles
-  const totalRenderablePlacemarks = displayKmzFiles.reduce((sum, file: any) => {
-    return sum + (Array.isArray(file?.placemarks) ? file.placemarks.length : 0)
-  }, 0)
-
+  const displayFiles = useMemo(() => {
+    const safe = Array.isArray(kmzFiles) ? kmzFiles : []
+    if (!selectedKmzId) return safe
+    const selected = safe.filter((file: any) => matchesSelected(file, String(selectedKmzId)))
+    return selected.length > 0 ? selected : safe.length === 1 ? safe : []
+  }, [kmzFiles, selectedKmzId])
 
   useEffect(() => {
-    const loadLeaflet = async () => {
-      if (typeof window === "undefined") return
-
-      if ((window as any).L) {
-        setLeafletLoaded(true)
-        return
-      }
-
-      try {
-        // Load Leaflet CSS
-        const cssLink = document.createElement("link")
-        cssLink.rel = "stylesheet"
-        cssLink.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        cssLink.integrity = "sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-        cssLink.crossOrigin = ""
-        document.head.appendChild(cssLink)
-
-        // Load Leaflet JS
-        const script = document.createElement("script")
-        script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        script.integrity = "sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-        script.crossOrigin = ""
-
-        await new Promise((resolve, reject) => {
-          script.onload = () => {
-            resolve(true)
-          }
-          script.onerror = (error) => {
-            console.error("[v0] Error loading Leaflet:", error)
-            reject(error)
-          }
-          document.head.appendChild(script)
-        })
-
-        setLeafletLoaded(true)
-      } catch (error) {
-        console.error("[v0] Error loading Leaflet:", error)
-        setMapError("Error cargando el mapa")
-      }
+    if (typeof window === "undefined") return
+    if ((window as any).L) {
+      setLeafletReady(true)
+      return
     }
 
-    loadLeaflet()
+    const existingCss = document.querySelector('link[data-sur-realista-leaflet="true"]')
+    if (!existingCss) {
+      const css = document.createElement("link")
+      css.rel = "stylesheet"
+      css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      css.dataset.surRealistaLeaflet = "true"
+      document.head.appendChild(css)
+    }
+
+    const existingScript = document.querySelector('script[data-sur-realista-leaflet="true"]') as HTMLScriptElement | null
+    if (existingScript) {
+      existingScript.addEventListener("load", () => setLeafletReady(true), { once: true })
+      return
+    }
+
+    const script = document.createElement("script")
+    script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    script.dataset.surRealistaLeaflet = "true"
+    script.onload = () => setLeafletReady(true)
+    script.onerror = () => setMapError("No se pudo cargar el motor del mapa.")
+    document.head.appendChild(script)
   }, [])
 
-  // A file selection replaces the map dataset, so the first rendered geometry
-  // is the active layer even when the database id is not part of its filename.
   useEffect(() => {
-    if (!selectedKmzId || layers.length === 0) return
-
-    const activeLayer = layers[0]
-    setSelectedLayer(activeLayer)
-    setIsLayersOpen(true)
-  }, [selectedKmzId, layers])
-
-  useEffect(() => {
-    if (!leafletLoaded || !mapRef.current || mapInstance) return
-
-    const initMap = async () => {
-      try {
-        const L = (window as any).L
-        if (!L) {
-          console.error("[v0] Leaflet not available")
-          return
-        }
-
-        console.log("[v0] Initializing map...")
-
-        // Clear any existing map
-        if (mapRef.current) {
-          mapRef.current.innerHTML = ""
-        }
-
-        // Create map with Chile-focused view
-        const map = L.map(mapRef.current, {
-          center: [-41.0, -72.5], // Centro de Chile
-          zoom: 8,
-          zoomControl: false, // Disable default zoom control to add custom one
-        })
-
-        const osmLayer = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          attribution: "© OpenStreetMap contributors",
-          maxZoom: 19,
-          updateWhenIdle: true,
-          keepBuffer: 2,
-        })
-
-        const satelliteLayer = L.tileLayer(
-          "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-          {
-            attribution: "© Esri",
-            maxZoom: 19,
-            updateWhenIdle: true,
-            keepBuffer: 2,
-          },
-        )
-
-        const topoLayer = L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png", {
-          attribution: "© OpenTopoMap contributors",
-          maxZoom: 17,
-          updateWhenIdle: true,
-          keepBuffer: 2,
-        })
-
-        // Add default layer
-        osmLayer.addTo(map)
-
-        const baseLayers = {
-          Calles: osmLayer,
-          Satélite: satelliteLayer,
-          Topográfico: topoLayer,
-        }
-
-        L.control.layers(baseLayers, null, { position: "topright" }).addTo(map)
-
-        L.control
-          .zoom({
-            position: "topright",
-          })
-          .addTo(map)
-
-        console.log("[v0] Map initialized successfully")
-        setMapInstance(map)
-      } catch (error) {
-        console.error("[v0] Error initializing map:", error)
-        setMapError("Error inicializando el mapa")
-      }
-    }
-
-    initMap()
-  }, [leafletLoaded, mapInstance])
-
-  const processGeocodingQueue = async () => {
-    while (geocodingQueueRef.current.length > 0 && activeGeocodingRef.current < maxConcurrentGeocoding) {
-      const item = geocodingQueueRef.current.shift()
-      if (!item) break
-
-      activeGeocodingRef.current++
-      reverseGeocoder
-        .getLocationDetails(item.lat, item.lng)
-        .then((details) => {
-          item.callback(details)
-        })
-        .catch((error) => {
-          console.error("[v0] Geocoding error:", error)
-        })
-        .finally(() => {
-          activeGeocodingRef.current--
-          if (geocodingQueueRef.current.length > 0) {
-            processGeocodingQueue()
-          }
-        })
-    }
-  }
-
-  const renderPlacemarksInChunks = async (placemarks: any[], allBounds: any[], newLayers: LayerInfo[]) => {
-    const chunkSize = 50
-    const L = (window as any).L
-
-    const processChunk = (startIndex: number) => {
-      return new Promise<void>((resolve) => {
-        if (typeof requestIdleCallback !== "undefined") {
-          requestIdleCallback(
-            () => {
-              const endIndex = Math.min(startIndex + chunkSize, placemarks.length)
-              console.log(`[v0] Processing placemarks chunk ${startIndex}-${endIndex}/${placemarks.length}`)
-
-              for (let i = startIndex; i < endIndex; i++) {
-                const placemark = placemarks[i]
-                const kmzData = placemark._kmzData // Get kmzData from placemark
-                const color = getColorForPlacemark(kmzData.fileName, placemark.name)
-
-                if (placemark.type === "Point" && placemark.coordinates.length > 0) {
-                  const [lng, lat] = placemark.coordinates[0]
-
-                  if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-                    console.warn(`[v0] Invalid coordinates for ${placemark.name}`)
-                    continue
-                  }
-
-                  const marker = L.marker([lat, lng], { isKMZ: true }).addTo(mapInstance)
-
-                  marker.bindPopup(`
-                    <div style="min-width: 250px;">
-                      <h4 style="margin: 0 0 8px 0; color: ${color}; font-weight: bold;">${placemark.name}</h4>
-                      <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Archivo:</strong> ${kmzData.fileName}</p>
-                      <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Coordenadas:</strong> ${lat.toFixed(6)}, ${lng.toFixed(6)}</p>
-                      <div id="location-details-${placemark.name}" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
-                        <p style="margin: 0; font-size: 11px; color: #666;">Cargando información de ubicación...</p>
-                      </div>
-                      <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
-                        <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>📁 Documentación:</strong></p>
-                        <a href="/documentacion/campos/${encodeURIComponent(kmzData.fileName.replace(".kmz", "").replace(".kml", ""))}" 
-                           target="_blank"
-                           style="color: #6B8E7A; text-decoration: none; font-size: 11px; display: inline-block; padding: 4px 8px; background: #f0f4f0; border-radius: 4px; margin-top: 4px;">
-                          Ver carpeta de documentos →
-                        </a>
-                      </div>
-                      ${placemark.description ? `<p style="margin: 8px 0 0 0; font-size: 11px; color: #666;">${placemark.description.substring(0, 100)}...</p>` : ""}
-                    </div>
-                  `)
-
-                  allBounds.push([lat, lng])
-
-                  const layerInfo: LayerInfo = {
-                    name: placemark.name,
-                    fileName: kmzData.fileName,
-                    layer: marker,
-                    visible: true,
-                    color,
-                    bounds: [[lat, lng]],
-                    isLoadingLocation: enableGeocoding,
-                  }
-
-                  newLayers.push(layerInfo)
-
-                  // Only geocode if enabled
-                  if (enableGeocoding) {
-                    geocodingQueueRef.current.push({
-                      lat,
-                      lng,
-                      callback: (details) => {
-                        layerInfo.locationDetails = details
-                        layerInfo.isLoadingLocation = false
-                        marker.setPopupContent(buildPopupContent(placemark, kmzData, color, lat, lng, details))
-                        setLayers([...newLayers])
-                      },
-                    })
-                  }
-                } else if (
-                  (placemark.type === "LineString" || placemark.type === "Polygon") &&
-                  placemark.coordinates.length > 1
-                ) {
-                  const leafletCoords = placemark.coordinates
-                    .filter(
-                      ([lng, lat]: [number, number]) =>
-                        !isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180,
-                    )
-                    .map(([lng, lat]: [number, number]) => [lat, lng] as [number, number])
-
-                  if (leafletCoords.length < 2) continue
-
-                  let shape: any
-                  if (placemark.type === "Polygon") {
-                    shape = L.polygon(leafletCoords, {
-                      color,
-                      weight: 2,
-                      opacity: 0.8,
-                      fillColor: color,
-                      fillOpacity: 0.3,
-                      isKMZ: true,
-                    }).addTo(mapInstance)
-                  } else {
-                    shape = L.polyline(leafletCoords, {
-                      color,
-                      weight: 3,
-                      opacity: 0.8,
-                      isKMZ: true,
-                    }).addTo(mapInstance)
-                  }
-
-                  allBounds.push(...leafletCoords)
-
-                  const layerInfo: LayerInfo = {
-                    name: placemark.name,
-                    fileName: kmzData.fileName,
-                    layer: shape,
-                    visible: true,
-                    color,
-                    bounds: leafletCoords,
-                    isLoadingLocation: enableGeocoding,
-                  }
-
-                  newLayers.push(layerInfo)
-
-                  // Calculate center of polygon/polyline for popup and geocoding
-                  const centerLat = leafletCoords.reduce((sum, coord) => sum + coord[0], 0) / leafletCoords.length
-                  const centerLng = leafletCoords.reduce((sum, coord) => sum + coord[1], 0) / leafletCoords.length
-
-                  // Add a pin/marker at the center of the polygon for easy identification
-                  if (placemark.type === "Polygon") {
-                    const pinIcon = L.divIcon({
-                      html: `<div style="
-                        background-color: ${color};
-                        width: 12px;
-                        height: 12px;
-                        border-radius: 50%;
-                        border: 2px solid white;
-                        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-                        cursor: pointer;
-                      "></div>`,
-                      iconSize: [16, 16],
-                      className: "kmz-polygon-pin",
-                    })
-
-                    const pinMarker = L.marker([centerLat, centerLng], {
-                      icon: pinIcon,
-                      title: placemark.name,
-                      zIndexOffset: 1000,
-                    }).addTo(mapInstance)
-
-                    // Clicking the pin also opens the polygon popup
-                    pinMarker.on("click", () => {
-                      shape.openPopup()
-                    })
-                  }
-
-                  // Bind popup to shape
-                  const popupContent = `
-                    <div style="min-width: 250px;">
-                      <h4 style="margin: 0 0 8px 0; color: ${color}; font-weight: bold;">${placemark.name}</h4>
-                      <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Archivo:</strong> ${kmzData.fileName}</p>
-                      <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Tipo:</strong> ${placemark.type}</p>
-                      <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Coordenadas (centro):</strong> ${centerLat.toFixed(6)}, ${centerLng.toFixed(6)}</p>
-                      <div id="location-details-${placemark.name}" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
-                        <p style="margin: 0; font-size: 11px; color: #666;">Cargando información de ubicación...</p>
-                      </div>
-                      <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
-                        <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>📁 Documentación:</strong></p>
-                        <a href="/documentacion/campos/${encodeURIComponent(kmzData.fileName.replace(".kmz", "").replace(".kml", ""))}" 
-                           target="_blank"
-                           style="color: #6B8E7A; text-decoration: none; font-size: 11px; display: inline-block; padding: 4px 8px; background: #f0f4f0; border-radius: 4px; margin-top: 4px;">
-                          Ver carpeta de documentos →
-                        </a>
-                      </div>
-                      ${placemark.description ? `<p style="margin: 8px 0 0 0; font-size: 11px; color: #666;">${placemark.description.substring(0, 100)}...</p>` : ""}
-                    </div>
-                  `
-
-                  shape.bindPopup(popupContent)
-
-                  // Only geocode if enabled
-                  if (enableGeocoding) {
-                    geocodingQueueRef.current.push({
-                      lat: centerLat,
-                      lng: centerLng,
-                      callback: (details) => {
-                        layerInfo.locationDetails = details
-                        layerInfo.isLoadingLocation = false
-                        shape.setPopupContent(buildPopupContent(placemark, kmzData, color, centerLat, centerLng, details))
-                        setLayers([...newLayers])
-                      },
-                    })
-                  }
-                }
-              }
-
-              setLayerProgress(Math.round((endIndex / placemarks.length) * 100))
-              setLayers([...newLayers])
-
-              if (endIndex < placemarks.length) {
-                processChunk(endIndex).then(() => resolve())
-              } else {
-                resolve()
-              }
-            },
-            { timeout: 1000 },
-          )
-        } else {
-          // Fallback for browsers without requestIdleCallback
-          setTimeout(async () => {
-            await processChunk(startIndex)
-          }, 10)
-        }
-      })
-    }
-
-    await processChunk(0)
-  }
-
-  const buildPopupContent = (
-    placemark: any,
-    kmzData: any,
-    color: string,
-    lat: number,
-    lng: number,
-    details?: ChileanLocationDetails,
-  ) => {
-    const locationHtml = details
-      ? `
-      <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
-        ${details.region ? `<p style="margin: 0 0 3px 0; font-size: 12px;"><strong>Región:</strong> ${details.region}</p>` : ""}
-        ${details.provincia ? `<p style="margin: 0 0 3px 0; font-size: 12px;"><strong>Provincia:</strong> ${details.provincia}</p>` : ""}
-        ${details.comuna ? `<p style="margin: 0 0 3px 0; font-size: 12px;"><strong>Comuna:</strong> ${details.comuna}</p>` : ""}
-        ${details.nearbyCities && details.nearbyCities.length > 0 ? `<p style="margin: 0 0 3px 0; font-size: 11px; color: #666;"><strong>Cerca de:</strong> ${details.nearbyCities.join(", ")}</p>` : ""}
-      </div>
-    `
-      : `<div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;"><p style="margin: 0; font-size: 11px; color: #666;">Cargando información de ubicación...</p></div>`
-
-    return `
-      <div style="min-width: 250px;">
-        <h4 style="margin: 0 0 8px 0; color: ${color}; font-weight: bold;">${placemark.name}</h4>
-        <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Archivo:</strong> ${kmzData.fileName}</p>
-        <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Coordenadas:</strong> ${lat.toFixed(6)}, ${lng.toFixed(6)}</p>
-        ${locationHtml}
-        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e0e0e0;">
-          <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>📁 Documentación:</strong></p>
-          <a href="/documentacion/campos/${encodeURIComponent(kmzData.fileName.replace(".kmz", "").replace(".kml", ""))}" 
-             target="_blank"
-             style="color: #6B8E7A; text-decoration: none; font-size: 11px; display: inline-block; padding: 4px 8px; background: #f0f4f0; border-radius: 4px; margin-top: 4px;">
-            Ver carpeta de documentos →
-          </a>
-        </div>
-        ${placemark.description ? `<p style="margin: 8px 0 0 0; font-size: 11px; color: #666; padding-top: 8px; border-top: 1px solid #e0e0e0;">${placemark.description.substring(0, 100)}...</p>` : ""}
-      </div>
-    `
-  }
-
-  useEffect(() => {
-    if (!mapInstance || !displayKmzFiles || displayKmzFiles.length === 0) {
-      console.log("[v0] Map not ready or no KMZ files")
-      return
-    }
-
-    const kmzDataHash = JSON.stringify(
-      displayKmzFiles.map((f) => ({
-        fileName: f.fileName,
-        placemarkCount: f.placemarks?.length || 0,
-      })),
-    )
-
-    if (isProcessingRef.current || currentKmzDataRef.current === kmzDataHash) {
-      console.log("[v0] Skipping duplicate render")
-      return
-    }
-
-    isProcessingRef.current = true
-    currentKmzDataRef.current = kmzDataHash
-    setIsLoadingLayers(true)
-    setLayerProgress(0)
-
-    const L = (window as any).L
-    if (!L) {
-      isProcessingRef.current = false
-      return
-    }
-
-    console.log("[v0] Starting chunked KMZ rendering...")
-
-    // Clear existing KMZ layers
-    mapInstance.eachLayer((layer: any) => {
-      if (layer.options && layer.options.isKMZ) {
-        mapInstance.removeLayer(layer)
-      }
-    })
-
-    const allBounds: any[] = []
-    const newLayers: LayerInfo[] = []
-
-    // Process each KMZ file
-    const allPlacemarks = displayKmzFiles.flatMap((kmzData) => {
-      if (!kmzData.placemarks || !Array.isArray(kmzData.placemarks)) {
-        return []
-      }
-      return kmzData.placemarks.map((p) => ({ ...p, _kmzData: kmzData }))
-    })
-
-    console.log("[v0] Total placemarks to render:", allPlacemarks.length)
-
-    renderPlacemarksInChunks(allPlacemarks, allBounds, newLayers).then(() => {
-      console.log("[v0] Placemark rendering complete, finalizing...")
-      if (enableGeocoding) {
-        processGeocodingQueue()
-      }
-
-      setLayers(newLayers)
-      setIsLoadingLayers(false)
-      isProcessingRef.current = false
-
-      if (allBounds.length > 0) {
-        try {
-          const bounds = L.latLngBounds(allBounds)
-          mapInstance.fitBounds(bounds, { padding: [50, 50] })
-          console.log("[v0] Map bounds fitted")
-        } catch (error) {
-          console.warn("[v0] Error fitting bounds:", error)
-        }
-      }
-    })
-    }, [mapInstance, displayKmzFiles])
-
-  useEffect(() => {
-    if (!mapInstance || !centerCoordinates) return
-
+    if (!leafletReady || !mapNodeRef.current || mapRef.current) return
     const L = (window as any).L
     if (!L) return
 
-    console.log("[v0] Centering map on coordinates:", centerCoordinates)
-
-    if (clientMarkerRef.current) {
-      mapInstance.removeLayer(clientMarkerRef.current)
+    try {
+      const map = L.map(mapNodeRef.current, { center: [-41, -72.5], zoom: 7, zoomControl: false })
+      const streets = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "© OpenStreetMap contributors",
+        maxZoom: 19,
+      }).addTo(map)
+      const satellite = L.tileLayer(
+        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        { attribution: "© Esri", maxZoom: 19 },
+      )
+      L.control.layers({ Calles: streets, Satélite: satellite }, undefined, { position: "topright" }).addTo(map)
+      L.control.zoom({ position: "topright" }).addTo(map)
+      mapRef.current = map
+      window.requestAnimationFrame(() => map.invalidateSize())
+    } catch (error) {
+      console.error("[KMZ map] init error", error)
+      setMapError("No se pudo inicializar el mapa.")
     }
 
-    const clientIcon = L.divIcon({
-      className: "custom-client-marker",
-      html: `
-        <div style="
-          background-color: #3b82f6;
-          width: 32px;
-          height: 32px;
-          border-radius: 50%;
-          border: 3px solid white;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          animation: pulse 2s infinite;
-        ">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
-            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-          </svg>
-        </div>
-      `,
-      iconSize: [32, 32],
-      iconAnchor: [16, 16],
-    })
-
-    const marker = L.marker([centerCoordinates.lat, centerCoordinates.lng], {
-      icon: clientIcon,
-      zIndexOffset: 1000,
-    }).addTo(mapInstance)
-
-    marker
-      .bindPopup(`
-      <div style="min-width: 200px;">
-        <h4 style="margin: 0 0 8px 0; color: #3b82f6; font-weight: bold;">Ubicación del Cliente</h4>
-        <p style="margin: 0 0 4px 0; font-size: 12px;"><strong>Coordenadas:</strong> ${centerCoordinates.lat.toFixed(6)}, ${centerCoordinates.lng.toFixed(6)}</p>
-      </div>
-    `)
-      .openPopup()
-
-    clientMarkerRef.current = marker
-
-    mapInstance.flyTo([centerCoordinates.lat, centerCoordinates.lng], 13, {
-      duration: 1.5,
-      easeLinearity: 0.25,
-    })
-
-    if (!document.getElementById("client-marker-styles")) {
-      const style = document.createElement("style")
-      style.id = "client-marker-styles"
-      style.textContent = `
-        @keyframes pulse {
-          0%, 100% {
-            transform: scale(1);
-            opacity: 1;
-          }
-          50% {
-            transform: scale(1.1);
-            opacity: 0.8;
-          }
-        }
-      `
-      document.head.appendChild(style)
-    }
-  }, [mapInstance, centerCoordinates])
-
-  const toggleLayerVisibility = (index: number) => {
-    if (!mapInstance) return
-
-    const updatedLayers = [...layers]
-    const layer = updatedLayers[index]
-
-    if (layer.visible) {
-      mapInstance.removeLayer(layer.layer)
-    } else {
-      layer.layer.addTo(mapInstance)
-    }
-
-    layer.visible = !layer.visible
-    setLayers(updatedLayers)
-  }
-
-  const zoomToLayer = (index: number) => {
-    if (!mapInstance) return
-
-    const L = (window as any).L
-    const layer = layers[index]
-
-    if (layer.bounds.length > 0) {
-      const bounds = L.latLngBounds(layer.bounds)
-      mapInstance.fitBounds(bounds, { padding: [50, 50] })
-
-      if (layer.layer.openPopup) {
-        layer.layer.openPopup()
-      }
-    }
-  }
-
-  const toggleFullscreen = () => {
-    if (!containerRef.current) return
-
-    if (!isFullscreen) {
-      if (containerRef.current.requestFullscreen) {
-        containerRef.current.requestFullscreen()
-      }
-    } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen()
-      }
-    }
-  }
-
-  useEffect(() => {
-    const handleFullscreenChange = () => {
-      setIsFullscreen(!!document.fullscreenElement)
-      if (mapInstance) {
-        setTimeout(() => {
-          mapInstance.invalidateSize()
-        }, 100)
-      }
-    }
-
-    document.addEventListener("fullscreenchange", handleFullscreenChange)
     return () => {
-      document.removeEventListener("fullscreenchange", handleFullscreenChange)
+      mapRef.current?.remove()
+      mapRef.current = null
     }
-  }, [mapInstance])
+  }, [leafletReady])
 
   useEffect(() => {
-    if (!mapInstance || !containerRef.current) return
+    const map = mapRef.current
+    const L = (window as any).L
+    if (!map || !L) return
 
-    const resizeObserver = new ResizeObserver(() => {
-      window.requestAnimationFrame(() => mapInstance.invalidateSize())
+    setLoading(true)
+    renderedLayersRef.current.forEach((layer) => {
+      if (map.hasLayer(layer)) map.removeLayer(layer)
     })
+    renderedLayersRef.current = []
 
-    resizeObserver.observe(containerRef.current)
-    return () => resizeObserver.disconnect()
-  }, [mapInstance])
+    const nextLayers: LayerInfo[] = []
+    const allCoordinates: [number, number][] = []
 
-  const getColorForPlacemark = (fileName: string, placemarkName: string): string => {
-    const colors = [
-      "#e74c3c", // red
-      "#3498db", // blue
-      "#2ecc71", // green
-      "#f39c12", // orange
-      "#9b59b6", // purple
-      "#1abc9c", // turquoise
-      "#e67e22", // carrot
-      "#16a085", // green sea
-      "#c0392b", // dark red
-      "#2980b9", // belize blue
-      "#27ae60", // nephritis
-      "#f1c40f", // sunflower
-      "#8e44ad", // wisteria
-      "#d35400", // pumpkin
-      "#c0392b", // pomegranate
-      "#bdc3c7", // silver
-      "#7f8c8d", // asbestos
-      "#34495e", // wet asphalt
-    ]
+    const register = async (
+      file: any,
+      name: string,
+      leafletLayer: any,
+      bounds: [number, number][],
+      description: string | null,
+      geometrySource: LayerInfo["geometrySource"],
+    ) => {
+      const color = stableColor(`${file.fileName}-${name}`)
+      const centerBounds = L.latLngBounds(bounds)
+      const center = centerBounds.getCenter()
+      const layerInfo: LayerInfo = {
+        name,
+        fileName: file.fileName,
+        layer: leafletLayer,
+        visible: true,
+        color,
+        bounds,
+        description,
+        geometrySource,
+        isLoadingLocation: enableGeocoding,
+      }
+      leafletLayer.bindPopup(popupHtml(layerInfo, center))
+      leafletLayer.on("click", () => {
+        onPlacemarkSelect?.(layerInfo)
+      })
+      nextLayers.push(layerInfo)
+      renderedLayersRef.current.push(leafletLayer)
+      allCoordinates.push(...bounds)
 
-    const str = `${fileName}-${placemarkName}`
-    let hash = 0
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i)
-      hash = (hash << 5) - hash + char
-      hash = hash & hash
+      if (enableGeocoding) {
+        try {
+          const details = await reverseGeocoder.getLocationDetails(center.lat, center.lng)
+          layerInfo.locationDetails = details
+          layerInfo.isLoadingLocation = false
+          leafletLayer.setPopupContent(popupHtml(layerInfo, center, details))
+          setLayers([...nextLayers])
+        } catch {
+          layerInfo.isLoadingLocation = false
+        }
+      }
     }
 
-    const colorIndex = Math.abs(hash) % colors.length
-    return colors[colorIndex]
+    const render = async () => {
+      for (const file of displayFiles as any[]) {
+        const placemarks = Array.isArray(file?.placemarks) ? file.placemarks : []
+        let rendered = 0
+
+        for (const placemark of placemarks) {
+          const coords = Array.isArray(placemark?.coordinates) ? placemark.coordinates : []
+          const color = stableColor(`${file.fileName}-${placemark?.name || "capa"}`)
+          const description = cleanDescription(placemark?.description) || fileDescription(file)
+
+          if (placemark?.type === "Point" && coords.length > 0) {
+            const [lng, lat] = coords[0] || []
+            if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue
+            const marker = L.marker([lat, lng], { isKMZ: true }).addTo(map)
+            await register(file, placemark.name || "Punto", marker, [[lat, lng]], description, "placemark")
+            rendered++
+            continue
+          }
+
+          const latLngs = coords
+            .map(([lng, lat]: [number, number]) => [Number(lat), Number(lng)] as [number, number])
+            .filter(([lat, lng]: [number, number]) => Number.isFinite(lat) && Number.isFinite(lng))
+          if (latLngs.length < 2) continue
+
+          const shape =
+            placemark?.type === "Polygon"
+              ? L.polygon(latLngs, { color, weight: 2, opacity: 0.9, fillColor: color, fillOpacity: 0.22, isKMZ: true }).addTo(map)
+              : L.polyline(latLngs, { color, weight: 3, opacity: 0.9, isKMZ: true }).addTo(map)
+          await register(file, placemark.name || placemark.type || "Capa", shape, latLngs, description, "placemark")
+          rendered++
+        }
+
+        if (rendered === 0 && validBounds(file?.bounds)) {
+          const bounds = file.bounds
+          const latLngs: [number, number][] = [
+            [Number(bounds.south), Number(bounds.west)],
+            [Number(bounds.north), Number(bounds.west)],
+            [Number(bounds.north), Number(bounds.east)],
+            [Number(bounds.south), Number(bounds.east)],
+          ]
+          const color = stableColor(file.fileName || "kmz")
+          const rectangle = L.polygon(latLngs, {
+            color,
+            weight: 2,
+            dashArray: "7 6",
+            opacity: 0.95,
+            fillColor: color,
+            fillOpacity: 0.12,
+            isKMZ: true,
+          }).addTo(map)
+          const description = fileDescription(file)
+          await register(
+            file,
+            `${file.fileName || "KMZ"} · límites disponibles`,
+            rectangle,
+            latLngs,
+            description,
+            "collection-bounds",
+          )
+        }
+      }
+
+      setLayers(nextLayers)
+      setLoading(false)
+      if (allCoordinates.length > 0) {
+        map.fitBounds(L.latLngBounds(allCoordinates), { padding: [48, 48], maxZoom: 15 })
+      }
+    }
+
+    void render()
+  }, [displayFiles, enableGeocoding, onPlacemarkSelect])
+
+  useEffect(() => {
+    const map = mapRef.current
+    const L = (window as any).L
+    if (!map || !L || !centerCoordinates) return
+    if (!Number.isFinite(centerCoordinates.lat) || !Number.isFinite(centerCoordinates.lng)) return
+
+    if (clientMarkerRef.current && map.hasLayer(clientMarkerRef.current)) map.removeLayer(clientMarkerRef.current)
+    clientMarkerRef.current = L.circleMarker([centerCoordinates.lat, centerCoordinates.lng], {
+      radius: 6,
+      color: "#1f5d48",
+      weight: 2,
+      fillColor: "#ffffff",
+      fillOpacity: 1,
+    }).addTo(map)
+    map.panTo([centerCoordinates.lat, centerCoordinates.lng])
+  }, [centerCoordinates])
+
+  useEffect(() => {
+    const map = mapRef.current
+    const node = containerRef.current
+    if (!map || !node) return
+    const observer = new ResizeObserver(() => window.requestAnimationFrame(() => map.invalidateSize()))
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [leafletReady])
+
+  useEffect(() => {
+    const handler = () => {
+      setFullscreen(Boolean(document.fullscreenElement))
+      window.setTimeout(() => mapRef.current?.invalidateSize(), 120)
+    }
+    document.addEventListener("fullscreenchange", handler)
+    return () => document.removeEventListener("fullscreenchange", handler)
+  }, [])
+
+  const toggleLayer = (index: number) => {
+    const map = mapRef.current
+    if (!map) return
+    setLayers((current) =>
+      current.map((entry, entryIndex) => {
+        if (entryIndex !== index) return entry
+        if (entry.visible) map.removeLayer(entry.layer)
+        else entry.layer.addTo(map)
+        return { ...entry, visible: !entry.visible }
+      }),
+    )
+  }
+
+  const zoomLayer = (entry: LayerInfo) => {
+    const map = mapRef.current
+    const L = (window as any).L
+    if (!map || !L || entry.bounds.length === 0) return
+    map.fitBounds(L.latLngBounds(entry.bounds), { padding: [48, 48], maxZoom: 16 })
+    entry.layer.openPopup?.()
+    onPlacemarkSelect?.(entry)
+  }
+
+  const toggleFullscreen = async () => {
+    if (!containerRef.current) return
+    if (document.fullscreenElement) await document.exitFullscreen()
+    else await containerRef.current.requestFullscreen()
   }
 
   if (mapError) {
     return (
-      <div className="flex items-center justify-center h-full bg-red-50" style={{ height }}>
-        <div className="text-center">
-          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <p className="text-red-600 font-medium">{mapError}</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!leafletLoaded) {
-    return (
-      <div className="flex items-center justify-center h-full bg-muted" style={{ height }}>
-        <div className="flex flex-col items-center gap-2">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          <p className="text-muted-foreground">Cargando mapa...</p>
+      <div className="flex items-center justify-center bg-destructive/5" style={{ height }}>
+        <div className="max-w-sm text-center">
+          <AlertCircle className="mx-auto mb-3 h-9 w-9 text-destructive" />
+          <p className="font-medium text-destructive">{mapError}</p>
         </div>
       </div>
     )
   }
 
   return (
-    <>
-      {mapError && (
-        <div className="flex items-center gap-2 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <AlertCircle className="h-5 w-5 text-red-600" />
-          <p className="text-sm text-red-800">{mapError}</p>
-        </div>
-      )}
+    <div ref={containerRef} className="relative overflow-hidden bg-muted" style={{ height: fullscreen ? "100vh" : height }}>
+      <div ref={mapNodeRef} className="h-full w-full" />
 
-      <div
-        ref={containerRef}
-        className="relative h-full w-full overflow-hidden bg-muted"
-        style={{ height: isFullscreen ? "100vh" : height || "100%" }}
-      >
-        <Button
-          variant="secondary"
-          size="sm"
-          className="absolute top-4 left-4 z-[1000] shadow-lg"
-          onClick={toggleFullscreen}
-          title={isFullscreen ? "Salir de pantalla completa" : "Pantalla completa"}
-        >
-          {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
-        </Button>
-
-        <div ref={mapRef} className="h-full w-full overflow-hidden pointer-events-auto" />
-
-        {!isLoadingLayers && displayKmzFiles.length > 0 && totalRenderablePlacemarks === 0 && (
-          <div className="absolute left-4 bottom-4 z-[1000] max-w-sm rounded-2xl border border-amber-300/70 bg-amber-50/95 p-3 text-xs text-amber-900 shadow-lg backdrop-blur">
-            <p className="font-semibold">KMZ sin geometria persistida</p>
-            <p className="mt-1">
-              Este registro no trae capas renderizables en la base actual. El mapa solo puede mostrar la ubicacion de referencia.
-            </p>
+      {!leafletReady || loading ? (
+        <div className="pointer-events-none absolute inset-0 z-[500] flex items-center justify-center bg-background/55 backdrop-blur-[1px]">
+          <div className="flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm shadow-sm">
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            Cargando geometría y ubicación…
           </div>
-        )}
+        </div>
+      ) : null}
 
-        <div className="absolute right-4 top-4 z-[1000] flex max-h-[calc(100%-2rem)] w-[min(26rem,calc(100%-2rem))] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-card/95 shadow-2xl backdrop-blur">
-          <button
-            type="button"
-            className="flex h-12 w-full items-center justify-between gap-3 px-4 text-left hover:bg-accent"
-            onClick={() => setIsLayersOpen((open) => !open)}
-            aria-expanded={isLayersOpen}
-          >
-            <span className="flex min-w-0 items-center gap-2 text-sm font-semibold text-foreground">
-              <Layers3 className="h-4 w-4 flex-shrink-0" />
-              <span className="truncate">Capas del mapa</span>
-              <span className="rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">{layers.length}</span>
-            </span>
-            <ChevronDown className={`h-4 w-4 flex-shrink-0 transition-transform ${isLayersOpen ? "" : "rotate-180"}`} />
-          </button>
+      <div className="absolute left-3 top-3 z-[600] flex gap-2">
+        <Button type="button" size="sm" variant="outline" className="bg-background/95" onClick={() => setLayersOpen((value) => !value)}>
+          <Layers3 className="mr-2 h-4 w-4" />
+          {layers.length} {layers.length === 1 ? "capa" : "capas"}
+        </Button>
+        <Button type="button" size="icon" variant="outline" className="bg-background/95" onClick={toggleFullscreen} aria-label={fullscreen ? "Salir de pantalla completa" : "Ver en pantalla completa"}>
+          {fullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+        </Button>
+      </div>
 
-          {isLayersOpen && (
-            <div className="min-h-0 overflow-y-auto border-t">
-              <div className="space-y-3 p-3">
-
-              {isLoadingLayers && (
-                <div className="rounded-xl bg-blue-50 p-2 text-xs text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                  Cargando capas: {layerProgress}%
-                </div>
-              )}
-
-              {layers.length === 0 ? (
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">No hay capas cargadas</p>
-                  {displayKmzFiles.length > 0 && totalRenderablePlacemarks === 0 && (
-                    <p className="text-[10px] text-amber-700">
-                      El KMZ seleccionado no tiene geometrias persistidas.
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-1.5">
-                  {layers.map((layer, index) => (
-                    <div
-                      key={index}
-                      onClick={() => {
-                        zoomToLayer(index)
-                        setSelectedLayer(layer)
-                        onPlacemarkSelect?.(layer)
-                      }}
-                      className={`flex items-start gap-2 p-2 rounded-lg border cursor-pointer transition-colors ${
-                        selectedLayer?.name === layer.name
-                          ? "bg-blue-50 dark:bg-blue-900/30 border-blue-300 dark:border-blue-700"
-                          : "bg-card hover:bg-accent/70 border-border"
-                      }`}
-                    >
-                      <div
-                        className="w-3 h-3 rounded flex-shrink-0 mt-0.5 border border-border"
-                        style={{ backgroundColor: layer.color }}
-                        title={`Color: ${layer.color}`}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium truncate">{layer.name}</p>
-                        <p className="text-[10px] text-muted-foreground truncate">{layer.fileName}</p>
-                        {layer.isLoadingLocation && (
-                          <p className="text-[10px] text-muted-foreground mt-0.5">Cargando ubicación...</p>
-                        )}
-                        {layer.locationDetails && !layer.isLoadingLocation && (
-                          <div className="mt-1 space-y-0.5">
-                            {layer.locationDetails.comuna && (
-                              <p className="text-[10px] text-muted-foreground">📍 {layer.locationDetails.comuna}</p>
-                            )}
-                            {layer.locationDetails.region && (
-                              <p className="text-[10px] text-muted-foreground">
-                                {layer.locationDetails.region.replace("Región de ", "")}
-                              </p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex gap-0.5 flex-shrink-0">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            toggleLayerVisibility(index)
-                          }}
-                          title={layer.visible ? "Ocultar" : "Mostrar"}
-                        >
-                          {layer.visible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            zoomToLayer(index)
-                          }}
-                          title="Centrar en mapa"
-                        >
-                          <MapPin className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-          {/* Detalles del Pinpoint section */}
-          {selectedLayer && (
-            <div className="border-t bg-slate-50/90 p-3 dark:bg-slate-950/40">
-              <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold">
-                <MapPin className="h-4 w-4" />
-                Capa seleccionada
-              </h4>
-              <div className="space-y-3 text-xs">
-                <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950/60">
-                  <p className="font-semibold text-foreground">{selectedLayer.name}</p>
-                  <p className="mt-1 text-muted-foreground">Archivo: {selectedLayer.fileName}</p>
-                </div>
-                {selectedLayer.locationDetails && (
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {selectedLayer.locationDetails.region && (
-                      <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950/60">
-                        <p className="font-medium text-foreground">Región</p>
-                        <p className="text-muted-foreground">{selectedLayer.locationDetails.region}</p>
-                      </div>
-                    )}
-                    {selectedLayer.locationDetails.provincia && (
-                      <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950/60">
-                        <p className="font-medium text-foreground">Provincia</p>
-                        <p className="text-muted-foreground">{selectedLayer.locationDetails.provincia}</p>
-                      </div>
-                    )}
-                    {selectedLayer.locationDetails.comuna && (
-                      <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950/60">
-                        <p className="font-medium text-foreground">Comuna</p>
-                        <p className="text-muted-foreground">{selectedLayer.locationDetails.comuna}</p>
-                      </div>
-                    )}
-                    {selectedLayer.locationDetails.nearbyCities && selectedLayer.locationDetails.nearbyCities.length > 0 && (
-                      <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950/60 sm:col-span-2">
-                        <p className="font-medium text-foreground">Ciudades Cercanas</p>
-                        <p className="text-muted-foreground">{selectedLayer.locationDetails.nearbyCities.join(", ")}</p>
-                        </div>
-                      )}
-                  </div>
-                )}
+      {layersOpen ? (
+        <div className="absolute left-3 top-14 z-[600] max-h-[55%] w-80 overflow-y-auto rounded-lg border bg-background/95 p-2 shadow-sm backdrop-blur">
+          {layers.length === 0 && !loading ? (
+            <div className="p-3 text-sm text-muted-foreground">No hay geometría ni límites disponibles para este archivo.</div>
+          ) : (
+            layers.map((entry, index) => (
+              <div key={`${entry.fileName}-${entry.name}-${index}`} className="flex items-start gap-2 rounded-md p-2 hover:bg-muted/60">
+                <button type="button" className="mt-0.5" onClick={() => toggleLayer(index)} aria-label={entry.visible ? "Ocultar capa" : "Mostrar capa"}>
+                  {entry.visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
+                </button>
+                <button type="button" className="min-w-0 flex-1 text-left" onClick={() => zoomLayer(entry)}>
+                  <span className="block truncate text-sm font-medium">{entry.name}</span>
+                  <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                    {entry.geometrySource === "collection-bounds" ? "Límites de respaldo" : entry.fileName}
+                  </span>
+                </button>
               </div>
-            </div>
-          )}
-            </div>
+            ))
           )}
         </div>
-      </div>
-    </>
+      ) : null}
+    </div>
   )
 }
