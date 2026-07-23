@@ -21,19 +21,19 @@ export interface LayerInfo {
   layer: any
   visible: boolean
   color: string
-  bounds: any[]
+  bounds: [number, number][]
   description?: string | null
-  geometrySource?: "placemark" | "collection-bounds"
+  geometrySource?: "placemark" | "collection-bounds" | "selected-center"
   locationDetails?: ChileanLocationDetails
   isLoadingLocation?: boolean
 }
 
-const PALETTE = ["#2f6f55", "#2f6484", "#8a6336", "#6c5c8d", "#397167", "#7a4f45"]
+const COLORS = ["#2f6f55", "#2f6484", "#8a6336", "#6c5c8d", "#397167", "#7a4f45"]
 
-function stableColor(value: string) {
+function getColor(value: string) {
   let hash = 0
   for (let index = 0; index < value.length; index++) hash = (hash * 31 + value.charCodeAt(index)) | 0
-  return PALETTE[Math.abs(hash) % PALETTE.length]
+  return COLORS[Math.abs(hash) % COLORS.length]
 }
 
 function escapeHtml(value: unknown) {
@@ -60,44 +60,47 @@ function cleanDescription(value: unknown): string | null {
   return cleaned || null
 }
 
-function fileDescription(file: any): string | null {
-  return cleanDescription(
-    file?.metadata?.description ||
-      file?.description ||
-      file?.metadata?.sii_point_resolution?.record?.direccion ||
-      file?.metadata?.sii_point_resolution?.record?.raw?.direccion ||
-      null,
-  )
-}
-
-function matchesSelected(file: any, selectedId: string) {
+function selectedFileMatches(file: any, selectedId: string) {
   return [file?.id, file?.dbId, file?.metadata?.id]
     .filter((value) => value !== null && value !== undefined)
     .map(String)
     .includes(selectedId)
 }
 
-function validBounds(bounds: any) {
-  if (!bounds) return false
-  return [bounds.north, bounds.south, bounds.east, bounds.west].every((value) => Number.isFinite(Number(value)))
+function isValidBounds(bounds: any) {
+  return Boolean(bounds) && [bounds.north, bounds.south, bounds.east, bounds.west].every((value) => Number.isFinite(Number(value)))
 }
 
-function popupHtml(layer: LayerInfo, center: { lat: number; lng: number }, details?: ChileanLocationDetails) {
-  const location = details
-    ? [details.comuna, details.provincia, details.region].filter(Boolean).join(", ")
+function getFileDescription(file: any) {
+  const placemarkDescription = Array.isArray(file?.placemarks)
+    ? file.placemarks.map((placemark: any) => cleanDescription(placemark?.description)).find(Boolean)
     : null
-  const sourceNote =
+  return (
+    placemarkDescription ||
+    cleanDescription(file?.description) ||
+    cleanDescription(file?.metadata?.description) ||
+    cleanDescription(file?.metadata?.sii_point_resolution?.record?.direccion) ||
+    cleanDescription(file?.metadata?.sii_point_resolution?.record?.raw?.direccion) ||
+    null
+  )
+}
+
+function buildPopup(layer: LayerInfo, center: { lat: number; lng: number }, details?: ChileanLocationDetails) {
+  const location = details ? [details.comuna, details.provincia, details.region].filter(Boolean).join(", ") : null
+  const sourceMessage =
     layer.geometrySource === "collection-bounds"
-      ? "Vista de respaldo construida con los límites persistidos del archivo. No representa el trazado exacto del polígono original."
-      : null
+      ? "Los límites mostrados provienen del encuadre persistido del archivo y no sustituyen el polígono original."
+      : layer.geometrySource === "selected-center"
+        ? "Punto de referencia calculado desde la ubicación disponible para el archivo seleccionado."
+        : null
 
   return `<div style="min-width:260px;max-width:360px;font-family:system-ui,sans-serif;color:#17211c">
     <h4 style="margin:0 0 8px;font-size:14px;font-weight:700;color:${layer.color}">${escapeHtml(layer.name)}</h4>
     <p style="margin:0 0 4px;font-size:12px"><strong>Archivo:</strong> ${escapeHtml(layer.fileName)}</p>
-    <p style="margin:0 0 4px;font-size:12px"><strong>Centro:</strong> ${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}</p>
+    <p style="margin:0 0 4px;font-size:12px"><strong>Coordenadas:</strong> ${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}</p>
     ${location ? `<p style="margin:0 0 4px;font-size:12px"><strong>Ubicación:</strong> ${escapeHtml(location)}</p>` : ""}
     ${layer.description ? `<div style="margin-top:9px;padding-top:9px;border-top:1px solid #dfe5e1;font-size:12px;line-height:1.45;white-space:pre-wrap">${escapeHtml(layer.description)}</div>` : ""}
-    ${sourceNote ? `<div style="margin-top:9px;padding:8px;border-radius:6px;background:#fff7df;color:#6f5012;font-size:11px;line-height:1.4">${escapeHtml(sourceNote)}</div>` : ""}
+    ${sourceMessage ? `<div style="margin-top:9px;padding:8px;border-radius:6px;background:#fff7df;color:#6f5012;font-size:11px;line-height:1.4">${escapeHtml(sourceMessage)}</div>` : ""}
   </div>`
 }
 
@@ -112,54 +115,55 @@ export function KMZMapDisplay({
   const mapNodeRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<any>(null)
-  const renderedLayersRef = useRef<any[]>([])
-  const clientMarkerRef = useRef<any>(null)
-  const [leafletReady, setLeafletReady] = useState(false)
-  const [mapError, setMapError] = useState<string | null>(null)
+  const renderedRef = useRef<any[]>([])
+  const [leafletLoaded, setLeafletLoaded] = useState(false)
+  const [mapReady, setMapReady] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [layers, setLayers] = useState<LayerInfo[]>([])
   const [loading, setLoading] = useState(false)
   const [fullscreen, setFullscreen] = useState(false)
   const [layersOpen, setLayersOpen] = useState(true)
 
   const displayFiles = useMemo(() => {
-    const safe = Array.isArray(kmzFiles) ? kmzFiles : []
-    if (!selectedKmzId) return safe
-    const selected = safe.filter((file: any) => matchesSelected(file, String(selectedKmzId)))
-    return selected.length > 0 ? selected : safe.length === 1 ? safe : []
+    const safeFiles = Array.isArray(kmzFiles) ? (kmzFiles as any[]) : []
+    if (!selectedKmzId) return safeFiles
+    const matched = safeFiles.filter((file) => selectedFileMatches(file, String(selectedKmzId)))
+    if (matched.length > 0) return matched
+    return safeFiles.length === 1 ? safeFiles : []
   }, [kmzFiles, selectedKmzId])
 
   useEffect(() => {
     if (typeof window === "undefined") return
     if ((window as any).L) {
-      setLeafletReady(true)
+      setLeafletLoaded(true)
       return
     }
 
-    const existingCss = document.querySelector('link[data-sur-realista-leaflet="true"]')
-    if (!existingCss) {
+    if (!document.querySelector('link[data-sur-realista-leaflet="css"]')) {
       const css = document.createElement("link")
       css.rel = "stylesheet"
       css.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-      css.dataset.surRealistaLeaflet = "true"
+      css.dataset.surRealistaLeaflet = "css"
       document.head.appendChild(css)
     }
 
-    const existingScript = document.querySelector('script[data-sur-realista-leaflet="true"]') as HTMLScriptElement | null
+    const existingScript = document.querySelector('script[data-sur-realista-leaflet="script"]') as HTMLScriptElement | null
     if (existingScript) {
-      existingScript.addEventListener("load", () => setLeafletReady(true), { once: true })
+      if ((window as any).L) setLeafletLoaded(true)
+      else existingScript.addEventListener("load", () => setLeafletLoaded(true), { once: true })
       return
     }
 
     const script = document.createElement("script")
     script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    script.dataset.surRealistaLeaflet = "true"
-    script.onload = () => setLeafletReady(true)
-    script.onerror = () => setMapError("No se pudo cargar el motor del mapa.")
+    script.dataset.surRealistaLeaflet = "script"
+    script.onload = () => setLeafletLoaded(Boolean((window as any).L))
+    script.onerror = () => setError("No se pudo cargar el motor del mapa.")
     document.head.appendChild(script)
   }, [])
 
   useEffect(() => {
-    if (!leafletReady || !mapNodeRef.current || mapRef.current) return
+    if (!leafletLoaded || !mapNodeRef.current || mapRef.current) return
     const L = (window as any).L
     if (!L) return
 
@@ -176,47 +180,51 @@ export function KMZMapDisplay({
       L.control.layers({ Calles: streets, Satélite: satellite }, undefined, { position: "topright" }).addTo(map)
       L.control.zoom({ position: "topright" }).addTo(map)
       mapRef.current = map
+      setMapReady(true)
       window.requestAnimationFrame(() => map.invalidateSize())
-    } catch (error) {
-      console.error("[KMZ map] init error", error)
-      setMapError("No se pudo inicializar el mapa.")
+    } catch (mapError) {
+      console.error("[KMZ map] initialization failed", mapError)
+      setError("No se pudo inicializar el mapa.")
     }
 
     return () => {
       mapRef.current?.remove()
       mapRef.current = null
+      setMapReady(false)
     }
-  }, [leafletReady])
+  }, [leafletLoaded])
 
   useEffect(() => {
+    if (!mapReady) return
     const map = mapRef.current
     const L = (window as any).L
     if (!map || !L) return
 
+    let cancelled = false
     setLoading(true)
-    renderedLayersRef.current.forEach((layer) => {
+    renderedRef.current.forEach((layer) => {
       if (map.hasLayer(layer)) map.removeLayer(layer)
     })
-    renderedLayersRef.current = []
+    renderedRef.current = []
 
     const nextLayers: LayerInfo[] = []
-    const allCoordinates: [number, number][] = []
+    const allBounds: [number, number][] = []
 
-    const register = async (
+    const addLayer = async (
       file: any,
       name: string,
-      leafletLayer: any,
+      shape: any,
       bounds: [number, number][],
       description: string | null,
       geometrySource: LayerInfo["geometrySource"],
+      pinAtCenter = false,
     ) => {
-      const color = stableColor(`${file.fileName}-${name}`)
-      const centerBounds = L.latLngBounds(bounds)
-      const center = centerBounds.getCenter()
-      const layerInfo: LayerInfo = {
+      const color = getColor(`${file.fileName}-${name}`)
+      const centerPoint = L.latLngBounds(bounds).getCenter()
+      const info: LayerInfo = {
         name,
-        fileName: file.fileName,
-        layer: leafletLayer,
+        fileName: file.fileName || "Archivo KMZ",
+        layer: shape,
         visible: true,
         color,
         bounds,
@@ -224,47 +232,64 @@ export function KMZMapDisplay({
         geometrySource,
         isLoadingLocation: enableGeocoding,
       }
-      leafletLayer.bindPopup(popupHtml(layerInfo, center))
-      leafletLayer.on("click", () => {
-        onPlacemarkSelect?.(layerInfo)
-      })
-      nextLayers.push(layerInfo)
-      renderedLayersRef.current.push(leafletLayer)
-      allCoordinates.push(...bounds)
+
+      shape.bindPopup(buildPopup(info, centerPoint))
+      shape.on("click", () => onPlacemarkSelect?.(info))
+      renderedRef.current.push(shape)
+      nextLayers.push(info)
+      allBounds.push(...bounds)
+
+      if (pinAtCenter) {
+        const pin = L.circleMarker([centerPoint.lat, centerPoint.lng], {
+          radius: 7,
+          color: "#ffffff",
+          weight: 3,
+          fillColor: color,
+          fillOpacity: 1,
+          isKMZ: true,
+        }).addTo(map)
+        pin.bindPopup(buildPopup(info, centerPoint))
+        pin.on("click", () => {
+          onPlacemarkSelect?.(info)
+          shape.openPopup?.()
+        })
+        renderedRef.current.push(pin)
+      }
 
       if (enableGeocoding) {
         try {
-          const details = await reverseGeocoder.getLocationDetails(center.lat, center.lng)
-          layerInfo.locationDetails = details
-          layerInfo.isLoadingLocation = false
-          leafletLayer.setPopupContent(popupHtml(layerInfo, center, details))
-          setLayers([...nextLayers])
+          const details = await reverseGeocoder.getLocationDetails(centerPoint.lat, centerPoint.lng)
+          if (cancelled) return
+          info.locationDetails = details
+          info.isLoadingLocation = false
+          const popup = buildPopup(info, centerPoint, details)
+          shape.setPopupContent(popup)
         } catch {
-          layerInfo.isLoadingLocation = false
+          info.isLoadingLocation = false
         }
       }
     }
 
     const render = async () => {
-      for (const file of displayFiles as any[]) {
+      for (const file of displayFiles) {
         const placemarks = Array.isArray(file?.placemarks) ? file.placemarks : []
-        let rendered = 0
+        let geometryCount = 0
 
         for (const placemark of placemarks) {
-          const coords = Array.isArray(placemark?.coordinates) ? placemark.coordinates : []
-          const color = stableColor(`${file.fileName}-${placemark?.name || "capa"}`)
-          const description = cleanDescription(placemark?.description) || fileDescription(file)
+          const coordinates = Array.isArray(placemark?.coordinates) ? placemark.coordinates : []
+          const description = cleanDescription(placemark?.description) || getFileDescription(file)
+          const color = getColor(`${file.fileName}-${placemark?.name || "capa"}`)
 
-          if (placemark?.type === "Point" && coords.length > 0) {
-            const [lng, lat] = coords[0] || []
-            if (!Number.isFinite(lat) || !Number.isFinite(lng)) continue
-            const marker = L.marker([lat, lng], { isKMZ: true }).addTo(map)
-            await register(file, placemark.name || "Punto", marker, [[lat, lng]], description, "placemark")
-            rendered++
+          if (placemark?.type === "Point" && coordinates.length > 0) {
+            const [lng, lat] = coordinates[0] || []
+            if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) continue
+            const marker = L.marker([Number(lat), Number(lng)], { isKMZ: true }).addTo(map)
+            await addLayer(file, placemark.name || "Punto", marker, [[Number(lat), Number(lng)]], description, "placemark")
+            geometryCount++
             continue
           }
 
-          const latLngs = coords
+          const latLngs = coordinates
             .map(([lng, lat]: [number, number]) => [Number(lat), Number(lng)] as [number, number])
             .filter(([lat, lng]: [number, number]) => Number.isFinite(lat) && Number.isFinite(lng))
           if (latLngs.length < 2) continue
@@ -273,11 +298,11 @@ export function KMZMapDisplay({
             placemark?.type === "Polygon"
               ? L.polygon(latLngs, { color, weight: 2, opacity: 0.9, fillColor: color, fillOpacity: 0.22, isKMZ: true }).addTo(map)
               : L.polyline(latLngs, { color, weight: 3, opacity: 0.9, isKMZ: true }).addTo(map)
-          await register(file, placemark.name || placemark.type || "Capa", shape, latLngs, description, "placemark")
-          rendered++
+          await addLayer(file, placemark.name || placemark.type || "Capa", shape, latLngs, description, "placemark", true)
+          geometryCount++
         }
 
-        if (rendered === 0 && validBounds(file?.bounds)) {
+        if (geometryCount === 0 && isValidBounds(file?.bounds)) {
           const bounds = file.bounds
           const latLngs: [number, number][] = [
             [Number(bounds.south), Number(bounds.west)],
@@ -285,7 +310,7 @@ export function KMZMapDisplay({
             [Number(bounds.north), Number(bounds.east)],
             [Number(bounds.south), Number(bounds.east)],
           ]
-          const color = stableColor(file.fileName || "kmz")
+          const color = getColor(file.fileName || "kmz")
           const rectangle = L.polygon(latLngs, {
             color,
             weight: 2,
@@ -295,58 +320,56 @@ export function KMZMapDisplay({
             fillOpacity: 0.12,
             isKMZ: true,
           }).addTo(map)
-          const description = fileDescription(file)
-          await register(
+          await addLayer(
             file,
-            `${file.fileName || "KMZ"} · límites disponibles`,
+            `${file.fileName || "KMZ"} · ubicación`,
             rectangle,
             latLngs,
-            description,
+            getFileDescription(file),
             "collection-bounds",
+            true,
           )
         }
       }
 
-      setLayers(nextLayers)
-      setLoading(false)
-      if (allCoordinates.length > 0) {
-        map.fitBounds(L.latLngBounds(allCoordinates), { padding: [48, 48], maxZoom: 15 })
+      if (nextLayers.length === 0 && centerCoordinates && Number.isFinite(centerCoordinates.lat) && Number.isFinite(centerCoordinates.lng)) {
+        const file = displayFiles[0] || { fileName: "KMZ seleccionado" }
+        const color = getColor(file.fileName || "selected")
+        const marker = L.marker([centerCoordinates.lat, centerCoordinates.lng], { isKMZ: true }).addTo(map)
+        await addLayer(
+          file,
+          file.fileName || "Ubicación del KMZ",
+          marker,
+          [[centerCoordinates.lat, centerCoordinates.lng]],
+          getFileDescription(file),
+          "selected-center",
+        )
       }
+
+      if (cancelled) return
+      setLayers([...nextLayers])
+      setLoading(false)
+      if (allBounds.length === 1) map.setView(allBounds[0], 14)
+      else if (allBounds.length > 1) map.fitBounds(L.latLngBounds(allBounds), { padding: [48, 48], maxZoom: 15 })
     }
 
     void render()
-  }, [displayFiles, enableGeocoding, onPlacemarkSelect])
+    return () => {
+      cancelled = true
+    }
+  }, [mapReady, displayFiles, centerCoordinates, enableGeocoding, onPlacemarkSelect])
 
   useEffect(() => {
-    const map = mapRef.current
-    const L = (window as any).L
-    if (!map || !L || !centerCoordinates) return
-    if (!Number.isFinite(centerCoordinates.lat) || !Number.isFinite(centerCoordinates.lng)) return
-
-    if (clientMarkerRef.current && map.hasLayer(clientMarkerRef.current)) map.removeLayer(clientMarkerRef.current)
-    clientMarkerRef.current = L.circleMarker([centerCoordinates.lat, centerCoordinates.lng], {
-      radius: 6,
-      color: "#1f5d48",
-      weight: 2,
-      fillColor: "#ffffff",
-      fillOpacity: 1,
-    }).addTo(map)
-    map.panTo([centerCoordinates.lat, centerCoordinates.lng])
-  }, [centerCoordinates])
-
-  useEffect(() => {
-    const map = mapRef.current
-    const node = containerRef.current
-    if (!map || !node) return
-    const observer = new ResizeObserver(() => window.requestAnimationFrame(() => map.invalidateSize()))
-    observer.observe(node)
+    if (!mapReady || !containerRef.current) return
+    const observer = new ResizeObserver(() => window.requestAnimationFrame(() => mapRef.current?.invalidateSize()))
+    observer.observe(containerRef.current)
     return () => observer.disconnect()
-  }, [leafletReady])
+  }, [mapReady])
 
   useEffect(() => {
     const handler = () => {
       setFullscreen(Boolean(document.fullscreenElement))
-      window.setTimeout(() => mapRef.current?.invalidateSize(), 120)
+      window.setTimeout(() => mapRef.current?.invalidateSize(), 100)
     }
     document.addEventListener("fullscreenchange", handler)
     return () => document.removeEventListener("fullscreenchange", handler)
@@ -368,8 +391,9 @@ export function KMZMapDisplay({
   const zoomLayer = (entry: LayerInfo) => {
     const map = mapRef.current
     const L = (window as any).L
-    if (!map || !L || entry.bounds.length === 0) return
-    map.fitBounds(L.latLngBounds(entry.bounds), { padding: [48, 48], maxZoom: 16 })
+    if (!map || !L) return
+    if (entry.bounds.length === 1) map.setView(entry.bounds[0], 15)
+    else map.fitBounds(L.latLngBounds(entry.bounds), { padding: [48, 48], maxZoom: 16 })
     entry.layer.openPopup?.()
     onPlacemarkSelect?.(entry)
   }
@@ -380,12 +404,12 @@ export function KMZMapDisplay({
     else await containerRef.current.requestFullscreen()
   }
 
-  if (mapError) {
+  if (error) {
     return (
       <div className="flex items-center justify-center bg-destructive/5" style={{ height }}>
         <div className="max-w-sm text-center">
           <AlertCircle className="mx-auto mb-3 h-9 w-9 text-destructive" />
-          <p className="font-medium text-destructive">{mapError}</p>
+          <p className="font-medium text-destructive">{error}</p>
         </div>
       </div>
     )
@@ -395,11 +419,11 @@ export function KMZMapDisplay({
     <div ref={containerRef} className="relative overflow-hidden bg-muted" style={{ height: fullscreen ? "100vh" : height }}>
       <div ref={mapNodeRef} className="h-full w-full" />
 
-      {!leafletReady || loading ? (
-        <div className="pointer-events-none absolute inset-0 z-[500] flex items-center justify-center bg-background/55 backdrop-blur-[1px]">
+      {!mapReady || loading ? (
+        <div className="pointer-events-none absolute inset-0 z-[500] flex items-center justify-center bg-background/45 backdrop-blur-[1px]">
           <div className="flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm shadow-sm">
             <Loader2 className="h-4 w-4 animate-spin text-primary" />
-            Cargando geometría y ubicación…
+            Cargando ubicación y capas…
           </div>
         </div>
       ) : null}
@@ -417,7 +441,7 @@ export function KMZMapDisplay({
       {layersOpen ? (
         <div className="absolute left-3 top-14 z-[600] max-h-[55%] w-80 overflow-y-auto rounded-lg border bg-background/95 p-2 shadow-sm backdrop-blur">
           {layers.length === 0 && !loading ? (
-            <div className="p-3 text-sm text-muted-foreground">No hay geometría ni límites disponibles para este archivo.</div>
+            <div className="p-3 text-sm text-muted-foreground">No hay geometría ni ubicación disponible para este archivo.</div>
           ) : (
             layers.map((entry, index) => (
               <div key={`${entry.fileName}-${entry.name}-${index}`} className="flex items-start gap-2 rounded-md p-2 hover:bg-muted/60">
@@ -427,7 +451,7 @@ export function KMZMapDisplay({
                 <button type="button" className="min-w-0 flex-1 text-left" onClick={() => zoomLayer(entry)}>
                   <span className="block truncate text-sm font-medium">{entry.name}</span>
                   <span className="mt-0.5 block truncate text-xs text-muted-foreground">
-                    {entry.geometrySource === "collection-bounds" ? "Límites de respaldo" : entry.fileName}
+                    {entry.geometrySource === "placemark" ? entry.fileName : "Ubicación recuperada"}
                   </span>
                 </button>
               </div>
