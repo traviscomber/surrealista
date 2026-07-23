@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { CAMPOSFolderView } from "@/components/campos/campos-folder-view"
+import { LeafletPopupBehavior } from "@/components/kmz/leaflet-popup-behavior"
 
 export const metadata: Metadata = {
   title: "CAMPOS - Gestión de Carpetas | Sur-Realista",
@@ -9,4 +10,8 @@ export const metadata: Metadata = {
 export default function CAMPOSPage() {
   return (
     <div className="fixed inset-x-0 bottom-0 top-16 min-h-0 overflow-hidden bg-slate-50">
-      <C
+      <LeafletPopupBehavior />
+      <CAMPOSFolderView />
+    </div>
+  )
+}
