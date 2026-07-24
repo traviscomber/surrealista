@@ -72,9 +72,9 @@ const toolsItems = [
   },
   {
     title: "Gestor de descubrimiento de propiedades",
-    href: "/admin/kmz-owner-discovery",
-    icon: MapPin,
-    description: "Descubre y valida propiedades mediante análisis geoespacial e investigación de titularidad.",
+    href: "/admin/dashboard",
+    icon: Database,
+    description: "Panel de datos, scrapers activos e inventario consolidado de propiedades.",
   },
 ]
 
