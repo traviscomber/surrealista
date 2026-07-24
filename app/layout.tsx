@@ -5,6 +5,7 @@ import "./globals.css"
 import "@/components/campos/campos-inspector-accordion.css"
 import "@/components/campos/campos-five-phase-suite.css"
 import { CAMPOSFivePhaseSuite } from "@/components/campos/campos-five-phase-suite"
+import { CAMPOSSelectionResync } from "@/components/campos/campos-selection-resync"
 import { ThemeProvider } from "@/components/theme-provider"
 import { VisitReminders } from "@/components/visits/visit-reminders"
 import { CAMPOSInspectorAccordion } from "@/components/campos/campos-inspector-accordion"
@@ -56,6 +57,7 @@ export default function RootLayout({
         </ThemeProvider>
         <CAMPOSInspectorAccordion />
         <CAMPOSFivePhaseSuite />
+        <CAMPOSSelectionResync />
         <Toaster richColors closeButton />
         <VisitReminders />
       </body>
