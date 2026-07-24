@@ -70,6 +70,12 @@ const toolsItems = [
     icon: Users,
     description: "Organiza candidatos, evidencias públicas y pendientes de validación.",
   },
+  {
+    title: "Gestor de descubrimiento de propiedades",
+    href: "/admin/kmz-owner-discovery",
+    icon: MapPin,
+    description: "Descubre y valida propiedades mediante análisis geoespacial e investigación de titularidad.",
+  },
 ]
 
 const adminItems = [
