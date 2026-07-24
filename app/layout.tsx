@@ -2,8 +2,10 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter, Lora } from "next/font/google"
 import "./globals.css"
+import "@/components/campos/campos-inspector-accordion.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { VisitReminders } from "@/components/visits/visit-reminders"
+import { CAMPOSInspectorAccordion } from "@/components/campos/campos-inspector-accordion"
 import { Toaster } from "sonner"
 import { SentryInit } from "@/components/sentry-init"
 
@@ -50,6 +52,7 @@ export default function RootLayout({
         >
           {children}
         </ThemeProvider>
+        <CAMPOSInspectorAccordion />
         <Toaster richColors closeButton />
         <VisitReminders />
       </body>
