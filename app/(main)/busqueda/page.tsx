@@ -156,7 +156,10 @@ export default function UnifiedSearchPage() {
           <TabsTrigger value="sii-roles" className="gap-2 py-2.5"><Database className="h-4 w-4" />Roles SII</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="campos" className="mt-6 min-h-[600px]">
+        <TabsContent
+          value="campos"
+          className="mt-6 h-[calc(100dvh-25rem)] min-h-[480px] overflow-hidden rounded-lg border"
+        >
           <CAMPOSFolderView />
         </TabsContent>
 
