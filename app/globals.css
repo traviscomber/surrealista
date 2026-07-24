@@ -202,6 +202,99 @@
   background: rgba(15, 23, 42, 0.11);
 }
 
+/* CAMPOS inspector: transform the existing bottom details block into a real side panel. */
+@media (min-width: 768px) {
+  div[class*="h-[min(34vh,26rem)]"] {
+    position: absolute;
+    inset: 3.05rem 0 0 auto;
+    z-index: 650;
+    display: flex !important;
+    width: clamp(24rem, 31vw, 31rem) !important;
+    height: auto !important;
+    max-height: none !important;
+    border-top: 0 !important;
+    border-left: 1px solid hsl(var(--border));
+    background: hsl(var(--card) / 0.98) !important;
+    box-shadow: -20px 0 48px -38px rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(12px);
+  }
+
+  div[class*="h-[min(34vh,26rem)]"] > div:first-child {
+    height: 3.5rem !important;
+    padding-inline: 1rem !important;
+    background: hsl(var(--card) / 0.98);
+  }
+
+  div[class*="h-[min(34vh,26rem)]"] > div:first-child h2 {
+    font-size: 0.95rem !important;
+    letter-spacing: -0.01em;
+  }
+
+  div[class*="h-[min(34vh,26rem)]"] > div:last-child {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+
+  div[class*="h-11"]:has(> div > div > h2) {
+    position: absolute;
+    inset: auto 0 0 auto;
+    z-index: 650;
+    width: min(31rem, 38vw) !important;
+    border-top: 1px solid hsl(var(--border));
+    border-left: 1px solid hsl(var(--border));
+    border-radius: 0.75rem 0 0 0;
+    background: hsl(var(--card) / 0.98) !important;
+    box-shadow: -12px -12px 32px -28px rgba(15, 23, 42, 0.55);
+  }
+}
+
+/* Reuse the same inspector as a bottom sheet on mobile. */
+@media (max-width: 767px) {
+  div[class*="h-[min(34vh,26rem)]"],
+  div[class*="h-11"]:has(> div > div > h2) {
+    position: fixed;
+    inset: auto 0 0 0;
+    z-index: 1000;
+    display: flex !important;
+    width: 100% !important;
+    height: min(72dvh, 42rem) !important;
+    max-height: calc(100dvh - 4rem) !important;
+    border-top: 1px solid hsl(var(--border));
+    border-radius: 1rem 1rem 0 0;
+    background: hsl(var(--card) / 0.99) !important;
+    box-shadow: 0 -18px 50px -28px rgba(15, 23, 42, 0.5);
+  }
+
+  div[class*="h-[min(34vh,26rem)]"] > div:first-child,
+  div[class*="h-11"]:has(> div > div > h2) > div:first-child {
+    min-height: 3.5rem;
+    padding-inline: 1rem !important;
+  }
+
+  div[class*="h-[min(34vh,26rem)]"] > div:first-child::before,
+  div[class*="h-11"]:has(> div > div > h2) > div:first-child::before {
+    content: "";
+    position: absolute;
+    top: 0.45rem;
+    left: 50%;
+    width: 2.75rem;
+    height: 0.25rem;
+    border-radius: 999px;
+    background: hsl(var(--muted-foreground) / 0.35);
+    transform: translateX(-50%);
+  }
+
+  div[class*="h-[min(34vh,26rem)]"] > div:last-child {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
 /* CAMPOS description tab: turn the raw metadata block into a calm editorial ficha. */
 div:has(> div > svg.lucide-file-text) {
   position: relative;
