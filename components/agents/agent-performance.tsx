@@ -13,14 +13,22 @@ export function AgentPerformance() {
     totalExecutions: 0,
   })
   const [loading, setLoading] = useState(true)
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  )
+  const [supabase, setSupabase] = useState<any>(null)
 
   useEffect(() => {
-    loadStats()
+    setSupabase(
+      createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+      )
+    )
   }, [])
+
+  useEffect(() => {
+    if (supabase) {
+      loadStats()
+    }
+  }, [supabase])
 
   const loadStats = async () => {
     try {

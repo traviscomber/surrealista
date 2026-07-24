@@ -20,6 +20,9 @@ export class OwnerAnalyzer {
 
   constructor() {
     this.apiKey = process.env.OPENAI_API_KEY || ""
+  }
+
+  private validateApiKey() {
     if (!this.apiKey) {
       throw new Error("OPENAI_API_KEY environment variable is not set")
     }
@@ -35,6 +38,8 @@ export class OwnerAnalyzer {
    * - Evidence from search results
    */
   async analyzeSearchResults(searchResults: string, context?: string): Promise<AnalysisResult> {
+    this.validateApiKey()
+
     if (!searchResults || searchResults.trim().length === 0) {
       return {
         possibleOwner: null,

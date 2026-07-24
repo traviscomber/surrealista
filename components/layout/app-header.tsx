@@ -37,18 +37,27 @@ export function AppHeader() {
           </nav>
         </div>
 
-        <Sheet>
-          <SheetTrigger asChild className="xl:hidden">
-            <Button variant="ghost" size="icon" aria-label="Abrir navegación">
-              <Menu className="h-5 w-5" />
+        <div className="flex items-center gap-3">
+          <Link href="/admin/dashboard" className="hidden md:inline-flex">
+            <Button variant="outline" size="sm" className="gap-2">
+              <LayoutDashboard className="h-4 w-4" />
+              <span>Administración</span>
             </Button>
-          </SheetTrigger>
-          <SheetContent side="right">
-            <nav className="mt-8 flex flex-col gap-5">
-              {NAV_ITEMS.map((item) => <NavLink key={item.href} {...item} />)}
-            </nav>
-          </SheetContent>
-        </Sheet>
+          </Link>
+
+          <Sheet>
+            <SheetTrigger asChild className="xl:hidden">
+              <Button variant="ghost" size="icon" aria-label="Abrir navegación">
+                <Menu className="h-5 w-5" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right">
+              <nav className="mt-8 flex flex-col gap-5">
+                {NAV_ITEMS.map((item) => <NavLink key={item.href} {...item} />)}
+              </nav>
+            </SheetContent>
+          </Sheet>
+        </div>
       </div>
     </header>
   )

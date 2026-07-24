@@ -36,14 +36,22 @@ export function AgentList({
   const [loading, setLoading] = useState(true)
   const [initializing, setInitializing] = useState(false)
   const { toast } = useToast()
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  )
+  const [supabase, setSupabase] = useState<any>(null)
 
   useEffect(() => {
-    loadAgents()
+    setSupabase(
+      createBrowserClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+      )
+    )
   }, [])
+
+  useEffect(() => {
+    if (supabase) {
+      loadAgents()
+    }
+  }, [supabase])
 
   const loadAgents = async () => {
     try {

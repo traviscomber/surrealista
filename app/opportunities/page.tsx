@@ -3,6 +3,8 @@ import type { Metadata } from "next"
 import { OpportunitiesFeed } from "@/components/portal/opportunities-feed"
 import { WorkspaceHeading } from "@/components/ui/workspace-heading"
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: "Oportunidades | Sur Realista",
   description: "Revisión interna de oportunidades territoriales e inmobiliarias.",

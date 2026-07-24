@@ -70,6 +70,12 @@ const toolsItems = [
     icon: Users,
     description: "Organiza candidatos, evidencias públicas y pendientes de validación.",
   },
+  {
+    title: "Gestor de descubrimiento de propiedades",
+    href: "/admin/dashboard",
+    icon: Database,
+    description: "Panel de datos, scrapers activos e inventario consolidado de propiedades.",
+  },
 ]
 
 const adminItems = [

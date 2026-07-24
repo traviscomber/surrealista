@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic'
+
 import type { Metadata } from 'next'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
