@@ -279,5 +279,15 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .campos-suite-launcher,
+  .campos-suite-launcher:hover,
+  .campos-suite-header-actions button:hover,
+  .campos-suite-actions button:hover,
+  .campos-suite-map-card > button:hover { transition: none; transform: none; }
+  .campos-suite-backdrop { animation: none; }
+  .campos-suite-shell { animation: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
   .campos-suite-backdrop, .campos-suite-shell, .campos-suite-launcher, .campos-suite-phases button { animation: none !important; transition: none !important; }
 }
