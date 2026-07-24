@@ -2,7 +2,21 @@
 
 import { useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
-import { CAMPOSAIWidget, type CAMPOSAgentContext } from "@/components/campos/campos-ai-widget"
+import { CAMPOSAIWidget } from "@/components/campos/campos-ai-widget"
+
+type CAMPOSAgentContext = {
+  title?: string | null
+  role?: string | null
+  owner?: string | null
+  commune?: string | null
+  area?: string | null
+  latitude?: string | null
+  longitude?: string | null
+  sections?: string[]
+  text?: string
+  source?: string
+  capturedAt?: string
+}
 
 const STORAGE_KEY = "campos-ai-agent-context"
 
@@ -50,8 +64,7 @@ export function CAMPOSAIAgentHost() {
     }
 
     const handleOpen = (event: Event) => {
-      const detail = (event as CustomEvent<CAMPOSAgentContext>).detail
-      if (detail?.title) handleSelection(event)
+      handleSelection(event)
       setIsOpen(true)
     }
 
@@ -66,5 +79,5 @@ export function CAMPOSAIAgentHost() {
 
   if (!onCampos) return null
 
-  return <CAMPOSAIWidget isOpen={isOpen} onOpenChange={setIsOpen} context={context} />
+  return <CAMPOSAIWidget isOpen={isOpen} onOpenChange={setIsOpen} />
 }
