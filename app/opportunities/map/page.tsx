@@ -3,6 +3,8 @@ import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 
+export const dynamic = 'force-dynamic'
+
 export const metadata: Metadata = {
   title: 'Map View | Real Estate Portal',
   description: 'Interactive map view of opportunities',

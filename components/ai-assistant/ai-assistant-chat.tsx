@@ -22,11 +22,6 @@ import {
 } from "lucide-react"
 import { v4 as uuidv4 } from "uuid"
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
-
 interface Message {
   id: string
   role: "user" | "assistant"
@@ -161,7 +156,17 @@ export function AIAssistantChat() {
   const [sessionId] = useState(uuidv4())
   const [showQuickActions, setShowQuickActions] = useState(true)
   const [showComplexQuestions, setShowComplexQuestions] = useState(false)
+  const [supabase, setSupabase] = useState<any>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    setSupabase(
+      createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+      )
+    )
+  }, [])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
