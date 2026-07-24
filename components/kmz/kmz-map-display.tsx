@@ -503,7 +503,7 @@ export function KMZMapDisplay({
 
   if (error) {
     return (
-      <div className="flex items-center justify-center rounded-xl border bg-destructive/5" style={{ height }}>
+      <div className={`flex items-center justify-center rounded-xl border bg-destructive/5 ${height === "100%" ? "absolute inset-0" : ""}`} style={height !== "100%" ? { height } : undefined}>
         <div className="max-w-sm text-center">
           <AlertCircle className="mx-auto mb-3 h-9 w-9 text-destructive" />
           <p className="font-medium text-destructive">{error}</p>
@@ -512,11 +512,14 @@ export function KMZMapDisplay({
     )
   }
 
+  // When height is "100%", use absolute inset so Leaflet gets a real pixel height from its positioned ancestor.
+  const isFluid = !fullscreen && height === "100%"
+
   return (
     <div
       ref={containerRef}
-      className="relative h-full min-h-0 w-full overflow-hidden rounded-xl border border-border bg-muted shadow-sm"
-      style={{ height: fullscreen ? "100vh" : height }}
+      className={`${isFluid ? "absolute inset-0" : "relative"} min-h-0 w-full overflow-hidden rounded-xl border border-border bg-muted shadow-sm`}
+      style={fullscreen ? { height: "100vh" } : isFluid ? undefined : { height }}
     >
       <div ref={mapNodeRef} className="h-full w-full" />
 
