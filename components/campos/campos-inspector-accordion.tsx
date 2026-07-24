@@ -28,6 +28,7 @@ const getSectionId = (element: HTMLElement, index: number): SectionId => {
   if (index === 0 || text.includes("estado del kmz")) return "resumen"
   if (text.includes("descripcion del kmz") || text.includes("metadata actual")) return "descripcion"
   if (text.includes("ficha sii") || text.includes("trazabilidad sii") || text.includes("cruce sii")) return "sii"
+
   if (
     text.includes("dueno / sociedad") ||
     text.includes("propietario") ||
@@ -37,6 +38,7 @@ const getSectionId = (element: HTMLElement, index: number): SectionId => {
   ) {
     return "propiedad"
   }
+
   if (
     text.includes("documentos") ||
     text.includes("google docs") ||
@@ -45,6 +47,7 @@ const getSectionId = (element: HTMLElement, index: number): SectionId => {
   ) {
     return "documentos"
   }
+
   if (
     text.includes("predio") ||
     text.includes("ubicacion") ||
@@ -59,18 +62,24 @@ const getSectionId = (element: HTMLElement, index: number): SectionId => {
   return "resumen"
 }
 
-const findInspectorContent = () => {
+const findInspectorBody = () => {
   const headings = Array.from(document.querySelectorAll("h2")).filter(
     (heading) => normalizeText(heading.textContent || "").trim() === "detalles",
   )
 
   for (const heading of headings.reverse()) {
-    const header = heading.parentElement
-    const content = header?.nextElementSibling
-    if (content instanceof HTMLElement && content.querySelector(":scope > *")) return content
+    const content = heading.parentElement?.nextElementSibling
+    if (!(content instanceof HTMLElement)) continue
+
+    const body = content.querySelector(":scope > div.flex-1.overflow-y-auto.p-4")
+    if (body instanceof HTMLElement) return body
   }
 
   return null
+}
+
+const clearGeneratedUI = (scope: ParentNode = document) => {
+  scope.querySelectorAll("[data-campos-generated='true']").forEach((node) => node.remove())
 }
 
 export function CAMPOSInspectorAccordion() {
@@ -79,43 +88,51 @@ export function CAMPOSInspectorAccordion() {
   useEffect(() => {
     if (!pathname?.toLowerCase().includes("campos")) return
 
-    let applying = false
+    let frameId = 0
+    let observer: MutationObserver | null = null
+    let currentBody: HTMLElement | null = null
+    let currentSignature = ""
+
+    const observe = () => {
+      if (!observer) return
+      observer.observe(document.body, { childList: true, subtree: true })
+    }
 
     const applyAccordion = () => {
-      if (applying) return
-      applying = true
+      const body = findInspectorBody()
+      if (!body) return
 
-      const content = findInspectorContent()
-      if (!content) {
-        applying = false
-        return
-      }
-
-      const body = content.querySelector(":scope > div.flex-1.overflow-y-auto.p-4")
-      if (!(body instanceof HTMLElement)) {
-        applying = false
-        return
-      }
-
-      body.querySelectorAll(":scope > [data-campos-generated='true']").forEach((node) => node.remove())
-
-      const cards = Array.from(body.children).filter(
+      const originalCards = Array.from(body.children).filter(
         (child): child is HTMLElement =>
           child instanceof HTMLElement && child.dataset.camposGenerated !== "true",
       )
 
-      if (cards.length === 0) {
-        applying = false
+      if (originalCards.length === 0) return
+
+      const signature = originalCards
+        .map((card, index) => `${index}:${normalizeText(card.innerText || "").slice(0, 90)}`)
+        .join("|")
+
+      if (body === currentBody && signature === currentSignature && body.querySelector(".campos-inspector-quick-nav")) {
         return
       }
 
-      cards.forEach((card, index) => {
+      observer?.disconnect()
+      clearGeneratedUI(body)
+
+      originalCards.forEach((card) => {
+        card.classList.remove("campos-inspector-section-content", "is-open")
+        card.removeAttribute("data-campos-section")
+        card.removeAttribute("aria-hidden")
+      })
+
+      originalCards.forEach((card, index) => {
         card.dataset.camposSection = getSectionId(card, index)
         card.classList.add("campos-inspector-section-content")
       })
 
       const available = sections.filter((section) =>
-        cards.some((card) => card.dataset.camposSection === section.id),
+        originalCards.some((card) => card.dataset.camposSection === section.id),
       )
 
       let active = (window.localStorage.getItem(STORAGE_KEY) || "resumen") as SectionId
@@ -125,7 +142,7 @@ export function CAMPOSInspectorAccordion() {
         active = next
         window.localStorage.setItem(STORAGE_KEY, next)
 
-        cards.forEach((card) => {
+        originalCards.forEach((card) => {
           const isOpen = card.dataset.camposSection === next
           card.classList.toggle("is-open", isOpen)
           card.setAttribute("aria-hidden", isOpen ? "false" : "true")
@@ -138,7 +155,7 @@ export function CAMPOSInspectorAccordion() {
         })
       }
 
-      const quickNav = document.createElement("div")
+      const quickNav = document.createElement("nav")
       quickNav.dataset.camposGenerated = "true"
       quickNav.className = "campos-inspector-quick-nav"
       quickNav.setAttribute("aria-label", "Navegación del inspector")
@@ -157,6 +174,7 @@ export function CAMPOSInspectorAccordion() {
       aiButton.type = "button"
       aiButton.className = "campos-inspector-nav-button"
       aiButton.textContent = "IA"
+      aiButton.setAttribute("aria-label", "Abrir asistente de inteligencia artificial")
       aiButton.addEventListener("click", () => {
         const candidate = Array.from(document.querySelectorAll("button")).find((button) =>
           normalizeText(button.getAttribute("title") || button.textContent || "").includes("asistente"),
@@ -167,7 +185,7 @@ export function CAMPOSInspectorAccordion() {
       body.prepend(quickNav)
 
       available.forEach((section) => {
-        const firstCard = cards.find((card) => card.dataset.camposSection === section.id)
+        const firstCard = originalCards.find((card) => card.dataset.camposSection === section.id)
         if (!firstCard) return
 
         const trigger = document.createElement("button")
@@ -175,27 +193,47 @@ export function CAMPOSInspectorAccordion() {
         trigger.dataset.camposGenerated = "true"
         trigger.dataset.camposSectionButton = section.id
         trigger.className = "campos-inspector-accordion-trigger"
+        trigger.setAttribute("aria-controls", `campos-inspector-${section.id}`)
         trigger.innerHTML = `<span>${section.label}</span><span aria-hidden="true" class="campos-inspector-chevron">⌄</span>`
         trigger.addEventListener("click", () => render(section.id))
+
+        firstCard.id = `campos-inspector-${section.id}`
         body.insertBefore(trigger, firstCard)
       })
 
       render(active)
-      applying = false
+      currentBody = body
+      currentSignature = signature
+      observe()
     }
 
-    const observer = new MutationObserver(() => window.requestAnimationFrame(applyAccordion))
-    observer.observe(document.body, { childList: true, subtree: true })
-    const initialFrame = window.requestAnimationFrame(applyAccordion)
+    const scheduleApply = () => {
+      window.cancelAnimationFrame(frameId)
+      frameId = window.requestAnimationFrame(applyAccordion)
+    }
+
+    observer = new MutationObserver((mutations) => {
+      const hasExternalChange = mutations.some((mutation) =>
+        Array.from(mutation.addedNodes).some(
+          (node) => !(node instanceof HTMLElement) || node.dataset.camposGenerated !== "true",
+        ),
+      )
+
+      if (hasExternalChange) scheduleApply()
+    })
+
+    observe()
+    scheduleApply()
 
     return () => {
-      observer.disconnect()
-      window.cancelAnimationFrame(initialFrame)
-      document.querySelectorAll("[data-campos-generated='true']").forEach((node) => node.remove())
+      observer?.disconnect()
+      window.cancelAnimationFrame(frameId)
+      clearGeneratedUI()
       document.querySelectorAll<HTMLElement>("[data-campos-section]").forEach((node) => {
         node.classList.remove("campos-inspector-section-content", "is-open")
         node.removeAttribute("data-campos-section")
         node.removeAttribute("aria-hidden")
+        if (node.id.startsWith("campos-inspector-")) node.removeAttribute("id")
       })
     }
   }, [pathname])
