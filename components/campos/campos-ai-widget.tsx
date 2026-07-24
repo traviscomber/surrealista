@@ -1,6 +1,5 @@
 "use client"
 
-import type React from "react"
 import { useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -29,19 +28,36 @@ interface CAMPOSAIWidgetProps {
   context?: CAMPOSAgentContext | null
 }
 
+const buildBriefing = (context?: CAMPOSAgentContext | null) => {
+  if (!context?.title) {
+    return "Selecciona un expediente para activar el análisis territorial."
+  }
+
+  return [
+    `Expediente activo: ${context.title}`,
+    context.role ? `ROL: ${context.role}` : null,
+    context.owner ? `Propietario: ${context.owner}` : null,
+    context.commune ? `Comuna: ${context.commune}` : null,
+    context.area ? `Superficie: ${context.area}` : null,
+    "Puedes preguntar por riesgos, documentos, propiedad, ubicación o análisis territorial.",
+  ]
+    .filter(Boolean)
+    .join("\n")
+}
+
 export function CAMPOSAIWidget({ isOpen, onOpenChange, context }: CAMPOSAIWidgetProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const { messages, input, handleInputChange, handleSubmit, isLoading } = useChat({
+  const briefingRef = useRef("")
+
+  const { messages, input, handleInputChange, handleSubmit, isLoading, setMessages } = useChat({
     api: "/api/campos-agent",
-    body: {
-      context,
-    },
+    body: { context },
     initialMessages: [
       {
         id: "initial",
         role: "assistant",
         content:
-          "¡Hola! Soy tu asistente IA especializado en CAMPOS. Puedo ayudarte a analizar expedientes territoriales, propiedades, documentos y datos geográficos.",
+          "Soy el copiloto territorial de CAMPOS. Analizo expedientes, propiedades, documentos y contexto geográfico.",
       },
     ],
   })
@@ -49,6 +65,21 @@ export function CAMPOSAIWidget({ isOpen, onOpenChange, context }: CAMPOSAIWidget
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
+
+  useEffect(() => {
+    const nextBriefing = buildBriefing(context)
+    if (!isOpen || briefingRef.current === nextBriefing || !context?.title) return
+
+    briefingRef.current = nextBriefing
+    setMessages((current) => [
+      ...current,
+      {
+        id: `briefing-${Date.now()}`,
+        role: "assistant",
+        content: `Contexto cargado:\n\n${nextBriefing}`,
+      },
+    ])
+  }, [context, isOpen, setMessages])
 
   const contextLabel = context?.title
     ? `${context.title}${context.role ? ` · ROL ${context.role}` : ""}`
@@ -64,7 +95,7 @@ export function CAMPOSAIWidget({ isOpen, onOpenChange, context }: CAMPOSAIWidget
 
       {isOpen && (
         <div className="fixed bottom-24 right-6 z-40 w-96 h-[500px] max-w-[calc(100vw-3rem)]">
-          <Card className="h-full flex flex-col shadow-2xl">
+          <Card className="h-full flex col flex-col shadow-2xl">
             <CardHeader className="py-3">
               <CardTitle className="text-sm flex items-center gap-2">
                 <Sparkles className="h-4 w-4" />
