@@ -2443,7 +2443,7 @@ export function CAMPOSFolderView() {
           )}
         </div>
 
-        <>
+        <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
           {/* Map Display */}
           <div className="relative min-h-0 flex-1 overflow-hidden">
             {kmzFiles.length > 0 && mapCenter ? (
@@ -2527,39 +2527,39 @@ export function CAMPOSFolderView() {
               {isMapFullscreen ? <Minimize2 className="h-5 w-5" /> : <Maximize2 className="h-5 w-5" />}
             </Button>
           </div>
-        </>
 
-        {/* Bottom Panel - Details (Horizontal Layout) */}
-        {selectedItem?.type === "file" && (
-          <div
-            className={`hidden md:flex flex-shrink-0 flex-col bg-card border-t overflow-hidden transition-[height] duration-300 ${
-              isMapFullscreen ? "md:hidden" : ""
-            } ${isRightPanelOpen ? "h-[min(34vh,26rem)]" : "h-11"}`}
-          >
-            <div className="flex h-11 flex-shrink-0 items-center justify-between px-4 border-b">
-              <div className="min-w-0">
-                <h2 className="truncate text-sm font-semibold">Detalles del KMZ</h2>
-                {!isRightPanelOpen && <p className="truncate text-xs text-muted-foreground">{selectedItem.name}</p>}
+          {/* Bottom Panel - Details (Horizontal Layout) */}
+          {selectedItem?.type === "file" && (
+            <div
+              className={`hidden md:flex flex-shrink-0 flex-col bg-card border-t overflow-hidden transition-[height] duration-300 ${
+                isMapFullscreen ? "md:hidden" : ""
+              } ${isRightPanelOpen ? "h-[min(34vh,26rem)]" : "h-11"}`}
+            >
+              <div className="flex h-11 flex-shrink-0 items-center justify-between px-4 border-b">
+                <div className="min-w-0">
+                  <h2 className="truncate text-sm font-semibold">Detalles del KMZ</h2>
+                  {!isRightPanelOpen && <p className="truncate text-xs text-muted-foreground">{selectedItem.name}</p>}
+                </div>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 flex-shrink-0"
+                  onClick={() => setIsRightPanelOpen((open) => !open)}
+                  title={isRightPanelOpen ? "Colapsar panel" : "Expandir panel"}
+                  aria-expanded={isRightPanelOpen}
+                >
+                  <ChevronDown className={`h-4 w-4 transition-transform ${!isRightPanelOpen ? "rotate-180" : ""}`} />
+                  <span className="sr-only">{isRightPanelOpen ? "Colapsar detalles" : "Expandir detalles"}</span>
+                </Button>
               </div>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-8 w-8 flex-shrink-0"
-                onClick={() => setIsRightPanelOpen((open) => !open)}
-                title={isRightPanelOpen ? "Colapsar panel" : "Expandir panel"}
-                aria-expanded={isRightPanelOpen}
-              >
-                <ChevronDown className={`h-4 w-4 transition-transform ${!isRightPanelOpen ? "rotate-180" : ""}`} />
-                <span className="sr-only">{isRightPanelOpen ? "Colapsar detalles" : "Expandir detalles"}</span>
-              </Button>
+              {isRightPanelOpen && (
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  <DetailsPanel />
+                </div>
+              )}
             </div>
-            {isRightPanelOpen && (
-              <div className="min-h-0 flex-1 overflow-y-auto">
-                <DetailsPanel />
-              </div>
-            )}
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   )
