@@ -1813,6 +1813,35 @@ export function CAMPOSFolderView() {
     setSelectedMapLayer(null)
     setIsDetailsSheetOpen(true)
 
+    // Dispatch structured event so CAMPOSFivePhaseSuite and other consumers
+    // can react without DOM parsing. MutationObserver is kept as fallback.
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("campos:selection-change", {
+          detail: {
+            title: item.name,
+            role: item.rolNumbers?.[0] ?? null,
+            owner: item.owner ?? null,
+            commune: (item.metadata as Record<string, any>)?.locationDetails?.comuna ?? null,
+            area: item.area ?? null,
+            latitude: item.location?.lat?.toString() ?? null,
+            longitude: item.location?.lng?.toString() ?? null,
+            sections: Object.keys((item.metadata as Record<string, any>) ?? {}).filter(Boolean),
+            text: [
+              item.name,
+              item.description,
+              item.owner,
+              item.rolNumbers?.join(", "),
+              item.region,
+              item.category,
+            ]
+              .filter(Boolean)
+              .join("\n"),
+          },
+        }),
+      )
+    }
+
     // Open the horizontal details panel whenever a KMZ file is selected.
     if (item.type === "file") {
       setIsRightPanelOpen(true)
