@@ -22,6 +22,13 @@ type SummaryMetric = {
   tone?: "default" | "success" | "warning"
 }
 
+type IntelligenceSignal = {
+  title: string
+  detail: string
+  tone: "success" | "warning" | "neutral"
+  section: SectionId
+}
+
 const normalizeText = (value: string) =>
   value
     .normalize("NFD")
@@ -99,34 +106,42 @@ const clearGeneratedUI = (scope: ParentNode = document) => {
   scope.querySelectorAll("[data-campos-generated='true']").forEach((node) => node.remove())
 }
 
-const buildExecutiveSummary = (cards: HTMLElement[], availableCount: number) => {
+const getInspectorData = (cards: HTMLElement[], availableCount: number) => {
   const rawText = cards.map((card) => card.innerText || "").join("\n")
   const normalized = normalizeText(rawText)
+  const role = extractValue(rawText, ["rol(?: sii)?", "rol de avaluo", "rol predial"])
+  const area = extractValue(rawText, ["superficie", "area", "hectareas", "ha"])
+  const commune = extractValue(rawText, ["comuna", "localidad", "sector"])
+  const owner = extractValue(rawText, ["propietario", "dueno", "sociedad"])
+  const coverage = Math.round((availableCount / sections.length) * 100)
 
+  return { rawText, normalized, role, area, commune, owner, coverage }
+}
+
+const buildExecutiveSummary = (cards: HTMLElement[], availableCount: number) => {
+  const data = getInspectorData(cards, availableCount)
   const title =
-    extractValue(rawText, ["nombre(?: del)? predio", "predio", "nombre", "titulo"]) ||
+    extractValue(data.rawText, ["nombre(?: del)? predio", "predio", "nombre", "titulo"]) ||
     cards[0]?.querySelector("h3, h4, strong")?.textContent?.trim() ||
     "Predio seleccionado"
 
   const status =
-    extractValue(rawText, ["estado(?: del kmz)?", "situacion", "status"]) ||
-    (normalized.includes("completo") ? "Completo" : normalized.includes("pendiente") ? "Pendiente" : "En revisión")
-
-  const role = extractValue(rawText, ["rol(?: sii)?", "rol de avaluo", "rol predial"]) || "Sin rol"
-  const area = extractValue(rawText, ["superficie", "area", "hectareas", "ha"]) || "Sin dato"
-  const commune = extractValue(rawText, ["comuna", "localidad", "sector"]) || "Sin comuna"
-  const owner = extractValue(rawText, ["propietario", "dueno", "sociedad"]) || "No asignado"
-  const coverage = Math.round((availableCount / sections.length) * 100)
+    extractValue(data.rawText, ["estado(?: del kmz)?", "situacion", "status"]) ||
+    (data.normalized.includes("completo")
+      ? "Completo"
+      : data.normalized.includes("pendiente")
+        ? "Pendiente"
+        : "En revisión")
 
   const metrics: SummaryMetric[] = [
-    { label: "Rol SII", value: role },
-    { label: "Superficie", value: area },
-    { label: "Comuna", value: commune },
-    { label: "Propiedad", value: owner },
+    { label: "Rol SII", value: data.role || "Sin rol" },
+    { label: "Superficie", value: data.area || "Sin dato" },
+    { label: "Comuna", value: data.commune || "Sin comuna" },
+    { label: "Propiedad", value: data.owner || "No asignado" },
     {
       label: "Cobertura",
-      value: `${coverage}%`,
-      tone: coverage >= 80 ? "success" : coverage >= 50 ? "warning" : "default",
+      value: `${data.coverage}%`,
+      tone: data.coverage >= 80 ? "success" : data.coverage >= 50 ? "warning" : "default",
     },
   ]
 
@@ -188,14 +203,127 @@ const buildExecutiveSummary = (cards: HTMLElement[], availableCount: number) => 
 
   const progress = document.createElement("div")
   progress.className = "campos-inspector-progress"
-  progress.setAttribute("aria-label", `Cobertura de información ${coverage}%`)
+  progress.setAttribute("aria-label", `Cobertura de información ${data.coverage}%`)
 
   const progressBar = document.createElement("span")
-  progressBar.style.width = `${coverage}%`
+  progressBar.style.width = `${data.coverage}%`
   progress.appendChild(progressBar)
 
   summary.append(header, grid, progress)
   return summary
+}
+
+const buildIntelligencePanel = (
+  cards: HTMLElement[],
+  available: readonly { id: SectionId; label: string }[],
+  onNavigate: (section: SectionId) => void,
+) => {
+  const data = getInspectorData(cards, available.length)
+  const hasDocuments = available.some((section) => section.id === "documentos")
+  const hasSii = available.some((section) => section.id === "sii")
+  const hasLocation = available.some((section) => section.id === "ubicacion")
+  const signals: IntelligenceSignal[] = [
+    {
+      title: hasLocation ? "Geometría territorial disponible" : "Falta validar ubicación",
+      detail: hasLocation
+        ? "La selección contiene información espacial para revisión cartográfica."
+        : "No se detectó una sección de ubicación o geometría consolidada.",
+      tone: hasLocation ? "success" : "warning",
+      section: "ubicacion",
+    },
+    {
+      title: data.role && hasSii ? "Cruce SII identificado" : "Cruce SII pendiente",
+      detail:
+        data.role && hasSii
+          ? `Se detectó el rol ${data.role} dentro de la ficha disponible.`
+          : "Conviene confirmar rol, avalúo y trazabilidad tributaria del predio.",
+      tone: data.role && hasSii ? "success" : "warning",
+      section: "sii",
+    },
+    {
+      title: data.owner ? "Propiedad asociada" : "Propietario no confirmado",
+      detail: data.owner
+        ? `La información disponible vincula el predio con ${data.owner}.`
+        : "No se detectó un propietario o sociedad claramente asignada.",
+      tone: data.owner ? "success" : "warning",
+      section: "propiedad",
+    },
+    {
+      title: hasDocuments ? "Evidencia documental disponible" : "Sin evidencia documental",
+      detail: hasDocuments
+        ? "El expediente incluye una sección de documentos para respaldo y auditoría."
+        : "Agrega archivos, enlaces o antecedentes para fortalecer la investigación.",
+      tone: hasDocuments ? "neutral" : "warning",
+      section: "documentos",
+    },
+  ]
+
+  const panel = document.createElement("section")
+  panel.dataset.camposGenerated = "true"
+  panel.className = "campos-inspector-intelligence"
+  panel.setAttribute("aria-label", "Señales y línea de investigación")
+
+  const panelHeader = document.createElement("div")
+  panelHeader.className = "campos-inspector-intelligence-header"
+  panelHeader.innerHTML = `<div><span class="campos-inspector-eyebrow">Análisis automático</span><h3>Señales de investigación</h3></div><span class="campos-inspector-signal-count">${signals.filter((signal) => signal.tone === "warning").length} alertas</span>`
+
+  const signalList = document.createElement("div")
+  signalList.className = "campos-inspector-signal-list"
+
+  signals.forEach((signal) => {
+    const button = document.createElement("button")
+    button.type = "button"
+    button.className = `campos-inspector-signal is-${signal.tone}`
+    button.setAttribute("aria-label", `${signal.title}. Abrir ${signal.section}`)
+    button.addEventListener("click", () => onNavigate(signal.section))
+
+    const dot = document.createElement("span")
+    dot.className = "campos-inspector-signal-dot"
+    dot.setAttribute("aria-hidden", "true")
+
+    const content = document.createElement("span")
+    content.className = "campos-inspector-signal-content"
+
+    const title = document.createElement("strong")
+    title.textContent = signal.title
+
+    const detail = document.createElement("span")
+    detail.textContent = signal.detail
+
+    const arrow = document.createElement("span")
+    arrow.className = "campos-inspector-signal-arrow"
+    arrow.setAttribute("aria-hidden", "true")
+    arrow.textContent = "›"
+
+    content.append(title, detail)
+    button.append(dot, content, arrow)
+    signalList.appendChild(button)
+  })
+
+  const timeline = document.createElement("div")
+  timeline.className = "campos-inspector-timeline"
+
+  const timelineTitle = document.createElement("div")
+  timelineTitle.className = "campos-inspector-timeline-title"
+  timelineTitle.textContent = "Ruta sugerida"
+  timeline.appendChild(timelineTitle)
+
+  const steps = [
+    { label: "Validar geometría", done: hasLocation },
+    { label: "Confirmar ficha SII", done: Boolean(data.role && hasSii) },
+    { label: "Verificar propiedad", done: Boolean(data.owner) },
+    { label: "Consolidar documentos", done: hasDocuments },
+  ]
+
+  steps.forEach((step, index) => {
+    const item = document.createElement("div")
+    item.className = `campos-inspector-timeline-item${step.done ? " is-done" : ""}`
+    item.innerHTML = `<span class="campos-inspector-timeline-index">${step.done ? "✓" : index + 1}</span><span>${step.label}</span>`
+    timeline.appendChild(item)
+  })
+
+  panel.append(panelHeader, signalList, timeline)
+  return panel
 }
 
 export function CAMPOSInspectorAccordion() {
@@ -255,23 +383,25 @@ export function CAMPOSInspectorAccordion() {
       if (!available.some((section) => section.id === active)) active = available[0]?.id || "resumen"
 
       const render = (next: SectionId) => {
-        active = next
-        window.localStorage.setItem(STORAGE_KEY, next)
+        const target = available.some((section) => section.id === next) ? next : available[0]?.id || "resumen"
+        active = target
+        window.localStorage.setItem(STORAGE_KEY, target)
 
         originalCards.forEach((card) => {
-          const isOpen = card.dataset.camposSection === next
+          const isOpen = card.dataset.camposSection === target
           card.classList.toggle("is-open", isOpen)
           card.setAttribute("aria-hidden", isOpen ? "false" : "true")
         })
 
         body.querySelectorAll<HTMLElement>("[data-campos-section-button]").forEach((button) => {
-          const selected = button.dataset.camposSectionButton === next
+          const selected = button.dataset.camposSectionButton === target
           button.classList.toggle("is-active", selected)
           button.setAttribute("aria-expanded", selected ? "true" : "false")
         })
       }
 
       const executiveSummary = buildExecutiveSummary(originalCards, available.length)
+      const intelligencePanel = buildIntelligencePanel(originalCards, available, render)
 
       const quickNav = document.createElement("nav")
       quickNav.dataset.camposGenerated = "true"
@@ -300,7 +430,7 @@ export function CAMPOSInspectorAccordion() {
         if (candidate instanceof HTMLButtonElement) candidate.click()
       })
       quickNav.appendChild(aiButton)
-      body.prepend(executiveSummary, quickNav)
+      body.prepend(executiveSummary, intelligencePanel, quickNav)
 
       available.forEach((section) => {
         const firstCard = originalCards.find((card) => card.dataset.camposSection === section.id)
