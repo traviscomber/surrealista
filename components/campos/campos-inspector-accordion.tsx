@@ -15,11 +15,12 @@ const sections = [
 ] as const
 
 type SectionId = (typeof sections)[number]["id"]
+type Tone = "default" | "success" | "warning"
 
 type SummaryMetric = {
   label: string
   value: string
-  tone?: "default" | "success" | "warning"
+  tone?: Tone
 }
 
 type IntelligenceSignal = {
@@ -29,19 +30,36 @@ type IntelligenceSignal = {
   section: SectionId
 }
 
+type InspectorData = {
+  rawText: string
+  normalized: string
+  title: string
+  status: string
+  role: string | null
+  area: string | null
+  commune: string | null
+  owner: string | null
+  latitude: string | null
+  longitude: string | null
+  coverage: number
+  score: number
+  riskLevel: "Bajo" | "Medio" | "Alto"
+  availableIds: SectionId[]
+}
+
 const normalizeText = (value: string) =>
   value
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
 
-const compactValue = (value: string) => value.replace(/\s+/g, " ").trim().slice(0, 42)
+const compactValue = (value: string, max = 42) => value.replace(/\s+/g, " ").trim().slice(0, max)
 
 const extractValue = (text: string, labels: string[]) => {
   for (const label of labels) {
-    const pattern = new RegExp(`${label}\\s*[:\\-]?\\s*([^\\n|]{2,48})`, "i")
+    const pattern = new RegExp(`${label}\\s*[:\\-]?\\s*([^\\n|]{2,64})`, "i")
     const match = text.match(pattern)
-    if (match?.[1]) return compactValue(match[1])
+    if (match?.[1]) return compactValue(match[1], 56)
   }
   return null
 }
@@ -106,33 +124,66 @@ const clearGeneratedUI = (scope: ParentNode = document) => {
   scope.querySelectorAll("[data-campos-generated='true']").forEach((node) => node.remove())
 }
 
-const getInspectorData = (cards: HTMLElement[], availableCount: number) => {
+const getInspectorData = (
+  cards: HTMLElement[],
+  available: readonly { id: SectionId; label: string }[],
+): InspectorData => {
   const rawText = cards.map((card) => card.innerText || "").join("\n")
   const normalized = normalizeText(rawText)
+  const title =
+    extractValue(rawText, ["nombre(?: del)? predio", "predio", "nombre", "titulo"]) ||
+    cards[0]?.querySelector("h3, h4, strong")?.textContent?.trim() ||
+    "Predio seleccionado"
+  const status =
+    extractValue(rawText, ["estado(?: del kmz)?", "situacion", "status"]) ||
+    (normalized.includes("completo")
+      ? "Completo"
+      : normalized.includes("pendiente")
+        ? "Pendiente"
+        : "En revisión")
   const role = extractValue(rawText, ["rol(?: sii)?", "rol de avaluo", "rol predial"])
   const area = extractValue(rawText, ["superficie", "area", "hectareas", "ha"])
   const commune = extractValue(rawText, ["comuna", "localidad", "sector"])
   const owner = extractValue(rawText, ["propietario", "dueno", "sociedad"])
-  const coverage = Math.round((availableCount / sections.length) * 100)
+  const latitude = extractValue(rawText, ["latitud", "latitude", "lat"])
+  const longitude = extractValue(rawText, ["longitud", "longitude", "lng", "lon"])
+  const availableIds = available.map((section) => section.id)
+  const coverage = Math.round((available.length / sections.length) * 100)
 
-  return { rawText, normalized, role, area, commune, owner, coverage }
+  let score = 0
+  if (availableIds.includes("ubicacion")) score += 18
+  if (latitude && longitude) score += 7
+  if (availableIds.includes("sii")) score += 15
+  if (role) score += 12
+  if (availableIds.includes("propiedad")) score += 10
+  if (owner) score += 12
+  if (availableIds.includes("documentos")) score += 14
+  if (availableIds.includes("descripcion")) score += 7
+  if (area) score += 3
+  if (commune) score += 2
+  score = Math.min(100, score)
+
+  const riskLevel = score >= 76 ? "Bajo" : score >= 48 ? "Medio" : "Alto"
+
+  return {
+    rawText,
+    normalized,
+    title: compactValue(title, 64),
+    status,
+    role,
+    area,
+    commune,
+    owner,
+    latitude,
+    longitude,
+    coverage,
+    score,
+    riskLevel,
+    availableIds,
+  }
 }
 
-const buildExecutiveSummary = (cards: HTMLElement[], availableCount: number) => {
-  const data = getInspectorData(cards, availableCount)
-  const title =
-    extractValue(data.rawText, ["nombre(?: del)? predio", "predio", "nombre", "titulo"]) ||
-    cards[0]?.querySelector("h3, h4, strong")?.textContent?.trim() ||
-    "Predio seleccionado"
-
-  const status =
-    extractValue(data.rawText, ["estado(?: del kmz)?", "situacion", "status"]) ||
-    (data.normalized.includes("completo")
-      ? "Completo"
-      : data.normalized.includes("pendiente")
-        ? "Pendiente"
-        : "En revisión")
-
+const buildExecutiveSummary = (data: InspectorData) => {
   const metrics: SummaryMetric[] = [
     { label: "Rol SII", value: data.role || "Sin rol" },
     { label: "Superficie", value: data.area || "Sin dato" },
@@ -170,14 +221,14 @@ const buildExecutiveSummary = (cards: HTMLElement[], availableCount: number) => 
 
   const heading = document.createElement("h3")
   heading.className = "campos-inspector-title"
-  heading.textContent = compactValue(title)
+  heading.textContent = data.title
 
   headingWrap.append(eyebrow, heading)
   identity.append(marker, headingWrap)
 
   const badge = document.createElement("span")
-  badge.className = `campos-inspector-status ${normalizeText(status).includes("complet") ? "is-complete" : ""}`
-  badge.textContent = compactValue(status)
+  badge.className = `campos-inspector-status ${normalizeText(data.status).includes("complet") ? "is-complete" : ""}`
+  badge.textContent = compactValue(data.status)
 
   header.append(identity, badge)
 
@@ -213,15 +264,10 @@ const buildExecutiveSummary = (cards: HTMLElement[], availableCount: number) => 
   return summary
 }
 
-const buildIntelligencePanel = (
-  cards: HTMLElement[],
-  available: readonly { id: SectionId; label: string }[],
-  onNavigate: (section: SectionId) => void,
-) => {
-  const data = getInspectorData(cards, available.length)
-  const hasDocuments = available.some((section) => section.id === "documentos")
-  const hasSii = available.some((section) => section.id === "sii")
-  const hasLocation = available.some((section) => section.id === "ubicacion")
+const buildIntelligencePanel = (data: InspectorData, onNavigate: (section: SectionId) => void) => {
+  const hasDocuments = data.availableIds.includes("documentos")
+  const hasSii = data.availableIds.includes("sii")
+  const hasLocation = data.availableIds.includes("ubicacion")
   const signals: IntelligenceSignal[] = [
     {
       title: hasLocation ? "Geometría territorial disponible" : "Falta validar ubicación",
@@ -300,30 +346,125 @@ const buildIntelligencePanel = (
     signalList.appendChild(button)
   })
 
-  const timeline = document.createElement("div")
-  timeline.className = "campos-inspector-timeline"
+  panel.append(panelHeader, signalList)
+  return panel
+}
 
-  const timelineTitle = document.createElement("div")
-  timelineTitle.className = "campos-inspector-timeline-title"
-  timelineTitle.textContent = "Ruta sugerida"
-  timeline.appendChild(timelineTitle)
+const buildAdvancedWorkspace = (data: InspectorData, onNavigate: (section: SectionId) => void) => {
+  const workspace = document.createElement("section")
+  workspace.dataset.camposGenerated = "true"
+  workspace.className = "campos-inspector-advanced"
+  workspace.setAttribute("aria-label", "Centro avanzado de inteligencia territorial")
 
-  const steps = [
-    { label: "Validar geometría", done: hasLocation },
-    { label: "Confirmar ficha SII", done: Boolean(data.role && hasSii) },
-    { label: "Verificar propiedad", done: Boolean(data.owner) },
-    { label: "Consolidar documentos", done: hasDocuments },
-  ]
+  const scoreCard = document.createElement("article")
+  scoreCard.className = `campos-inspector-score-card risk-${normalizeText(data.riskLevel)}`
+  scoreCard.innerHTML = `
+    <div class="campos-inspector-score-ring" style="--score:${data.score}">
+      <div><strong>${data.score}</strong><span>/100</span></div>
+    </div>
+    <div class="campos-inspector-score-copy">
+      <span class="campos-inspector-eyebrow">Score territorial</span>
+      <h3>Riesgo ${data.riskLevel.toLowerCase()}</h3>
+      <p>Índice calculado con geometría, SII, propiedad, documentos y completitud del expediente.</p>
+    </div>`
 
-  steps.forEach((step, index) => {
-    const item = document.createElement("div")
-    item.className = `campos-inspector-timeline-item${step.done ? " is-done" : ""}`
-    item.innerHTML = `<span class="campos-inspector-timeline-index">${step.done ? "✓" : index + 1}</span><span>${step.label}</span>`
-    timeline.appendChild(item)
+  const spatialCard = document.createElement("article")
+  spatialCard.className = "campos-inspector-spatial-card"
+
+  const coordinateLabel = data.latitude && data.longitude ? `${data.latitude}, ${data.longitude}` : "Coordenadas no detectadas"
+  spatialCard.innerHTML = `
+    <div class="campos-inspector-spatial-map" aria-hidden="true">
+      <span class="campos-inspector-map-grid"></span>
+      <span class="campos-inspector-map-shape"></span>
+      <span class="campos-inspector-map-pin">⌖</span>
+    </div>
+    <div class="campos-inspector-spatial-copy">
+      <span class="campos-inspector-eyebrow">Contexto espacial</span>
+      <h3>${data.commune || "Localización por validar"}</h3>
+      <p>${coordinateLabel}</p>
+    </div>`
+  spatialCard.addEventListener("click", () => onNavigate("ubicacion"))
+  spatialCard.setAttribute("role", "button")
+  spatialCard.setAttribute("tabindex", "0")
+  spatialCard.addEventListener("keydown", (event) => {
+    if (event.key === "Enter" || event.key === " ") onNavigate("ubicacion")
   })
 
-  panel.append(panelHeader, signalList, timeline)
-  return panel
+  const report = document.createElement("article")
+  report.className = "campos-inspector-report"
+
+  const missing: string[] = []
+  if (!data.latitude || !data.longitude) missing.push("coordenadas verificadas")
+  if (!data.role) missing.push("rol SII")
+  if (!data.owner) missing.push("propietario")
+  if (!data.availableIds.includes("documentos")) missing.push("evidencia documental")
+
+  const conclusion =
+    data.score >= 76
+      ? "El expediente presenta una base sólida para revisión ejecutiva y continuidad operativa."
+      : data.score >= 48
+        ? "El expediente es utilizable, pero mantiene brechas que deben cerrarse antes de una decisión definitiva."
+        : "El expediente requiere investigación prioritaria antes de utilizarse para decisiones territoriales."
+
+  const recommendation = missing.length
+    ? `Prioridad: completar ${missing.slice(0, 3).join(", ")}.`
+    : "Prioridad: mantener trazabilidad y verificar vigencia de los antecedentes."
+
+  const reportText = `${data.title}. Score territorial ${data.score}/100, riesgo ${data.riskLevel.toLowerCase()}. ${conclusion} ${recommendation}`
+
+  const reportHeader = document.createElement("div")
+  reportHeader.className = "campos-inspector-report-header"
+  reportHeader.innerHTML = `<div><span class="campos-inspector-eyebrow">Informe inteligente</span><h3>Conclusión ejecutiva</h3></div>`
+
+  const copyButton = document.createElement("button")
+  copyButton.type = "button"
+  copyButton.className = "campos-inspector-copy-button"
+  copyButton.textContent = "Copiar"
+  copyButton.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(reportText)
+      copyButton.textContent = "Copiado"
+      window.setTimeout(() => {
+        copyButton.textContent = "Copiar"
+      }, 1400)
+    } catch {
+      copyButton.textContent = "No disponible"
+    }
+  })
+  reportHeader.appendChild(copyButton)
+
+  const reportBody = document.createElement("div")
+  reportBody.className = "campos-inspector-report-body"
+  reportBody.innerHTML = `<p>${conclusion}</p><div class="campos-inspector-recommendation"><strong>Acción recomendada</strong><span>${recommendation}</span></div>`
+  report.append(reportHeader, reportBody)
+
+  const audit = document.createElement("article")
+  audit.className = "campos-inspector-audit"
+  const auditItems = [
+    { label: "Selección territorial cargada", done: data.availableIds.includes("ubicacion"), section: "ubicacion" as SectionId },
+    { label: "Antecedentes tributarios revisados", done: Boolean(data.role), section: "sii" as SectionId },
+    { label: "Titularidad asociada", done: Boolean(data.owner), section: "propiedad" as SectionId },
+    { label: "Evidencia documental consolidada", done: data.availableIds.includes("documentos"), section: "documentos" as SectionId },
+  ]
+
+  const auditHeader = document.createElement("div")
+  auditHeader.className = "campos-inspector-audit-header"
+  auditHeader.innerHTML = `<div><span class="campos-inspector-eyebrow">Trazabilidad</span><h3>Estado del expediente</h3></div><span>${auditItems.filter((item) => item.done).length}/${auditItems.length}</span>`
+
+  const auditList = document.createElement("div")
+  auditList.className = "campos-inspector-audit-list"
+  auditItems.forEach((item, index) => {
+    const row = document.createElement("button")
+    row.type = "button"
+    row.className = `campos-inspector-audit-item${item.done ? " is-done" : ""}`
+    row.innerHTML = `<span class="campos-inspector-audit-index">${item.done ? "✓" : index + 1}</span><span>${item.label}</span><span class="campos-inspector-audit-state">${item.done ? "Listo" : "Pendiente"}</span>`
+    row.addEventListener("click", () => onNavigate(item.section))
+    auditList.appendChild(row)
+  })
+  audit.append(auditHeader, auditList)
+
+  workspace.append(scoreCard, spatialCard, report, audit)
+  return workspace
 }
 
 export function CAMPOSInspectorAccordion() {
@@ -357,9 +498,7 @@ export function CAMPOSInspectorAccordion() {
         .map((card, index) => `${index}:${normalizeText(card.innerText || "").slice(0, 90)}`)
         .join("|")
 
-      if (body === currentBody && signature === currentSignature && body.querySelector(".campos-inspector-quick-nav")) {
-        return
-      }
+      if (body === currentBody && signature === currentSignature && body.querySelector(".campos-inspector-quick-nav")) return
 
       observer?.disconnect()
       clearGeneratedUI(body)
@@ -378,6 +517,7 @@ export function CAMPOSInspectorAccordion() {
       const available = sections.filter((section) =>
         originalCards.some((card) => card.dataset.camposSection === section.id),
       )
+      const data = getInspectorData(originalCards, available)
 
       let active = (window.localStorage.getItem(STORAGE_KEY) || "resumen") as SectionId
       if (!available.some((section) => section.id === active)) active = available[0]?.id || "resumen"
@@ -400,8 +540,9 @@ export function CAMPOSInspectorAccordion() {
         })
       }
 
-      const executiveSummary = buildExecutiveSummary(originalCards, available.length)
-      const intelligencePanel = buildIntelligencePanel(originalCards, available, render)
+      const executiveSummary = buildExecutiveSummary(data)
+      const intelligencePanel = buildIntelligencePanel(data, render)
+      const advancedWorkspace = buildAdvancedWorkspace(data, render)
 
       const quickNav = document.createElement("nav")
       quickNav.dataset.camposGenerated = "true"
@@ -430,7 +571,7 @@ export function CAMPOSInspectorAccordion() {
         if (candidate instanceof HTMLButtonElement) candidate.click()
       })
       quickNav.appendChild(aiButton)
-      body.prepend(executiveSummary, intelligencePanel, quickNav)
+      body.prepend(executiveSummary, intelligencePanel, advancedWorkspace, quickNav)
 
       available.forEach((section) => {
         const firstCard = originalCards.find((card) => card.dataset.camposSection === section.id)
