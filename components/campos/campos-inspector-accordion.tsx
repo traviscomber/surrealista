@@ -16,11 +16,28 @@ const sections = [
 
 type SectionId = (typeof sections)[number]["id"]
 
+type SummaryMetric = {
+  label: string
+  value: string
+  tone?: "default" | "success" | "warning"
+}
+
 const normalizeText = (value: string) =>
   value
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
+
+const compactValue = (value: string) => value.replace(/\s+/g, " ").trim().slice(0, 42)
+
+const extractValue = (text: string, labels: string[]) => {
+  for (const label of labels) {
+    const pattern = new RegExp(`${label}\\s*[:\\-]?\\s*([^\\n|]{2,48})`, "i")
+    const match = text.match(pattern)
+    if (match?.[1]) return compactValue(match[1])
+  }
+  return null
+}
 
 const getSectionId = (element: HTMLElement, index: number): SectionId => {
   const text = normalizeText(element.innerText || "")
@@ -80,6 +97,105 @@ const findInspectorBody = () => {
 
 const clearGeneratedUI = (scope: ParentNode = document) => {
   scope.querySelectorAll("[data-campos-generated='true']").forEach((node) => node.remove())
+}
+
+const buildExecutiveSummary = (cards: HTMLElement[], availableCount: number) => {
+  const rawText = cards.map((card) => card.innerText || "").join("\n")
+  const normalized = normalizeText(rawText)
+
+  const title =
+    extractValue(rawText, ["nombre(?: del)? predio", "predio", "nombre", "titulo"]) ||
+    cards[0]?.querySelector("h3, h4, strong")?.textContent?.trim() ||
+    "Predio seleccionado"
+
+  const status =
+    extractValue(rawText, ["estado(?: del kmz)?", "situacion", "status"]) ||
+    (normalized.includes("completo") ? "Completo" : normalized.includes("pendiente") ? "Pendiente" : "En revisión")
+
+  const role = extractValue(rawText, ["rol(?: sii)?", "rol de avaluo", "rol predial"]) || "Sin rol"
+  const area = extractValue(rawText, ["superficie", "area", "hectareas", "ha"]) || "Sin dato"
+  const commune = extractValue(rawText, ["comuna", "localidad", "sector"]) || "Sin comuna"
+  const owner = extractValue(rawText, ["propietario", "dueno", "sociedad"]) || "No asignado"
+  const coverage = Math.round((availableCount / sections.length) * 100)
+
+  const metrics: SummaryMetric[] = [
+    { label: "Rol SII", value: role },
+    { label: "Superficie", value: area },
+    { label: "Comuna", value: commune },
+    { label: "Propiedad", value: owner },
+    {
+      label: "Cobertura",
+      value: `${coverage}%`,
+      tone: coverage >= 80 ? "success" : coverage >= 50 ? "warning" : "default",
+    },
+  ]
+
+  const summary = document.createElement("section")
+  summary.dataset.camposGenerated = "true"
+  summary.className = "campos-inspector-executive"
+  summary.setAttribute("aria-label", "Resumen ejecutivo del predio")
+
+  const header = document.createElement("div")
+  header.className = "campos-inspector-executive-header"
+
+  const identity = document.createElement("div")
+  identity.className = "campos-inspector-identity"
+
+  const marker = document.createElement("span")
+  marker.className = "campos-inspector-marker"
+  marker.setAttribute("aria-hidden", "true")
+  marker.textContent = "⌖"
+
+  const headingWrap = document.createElement("div")
+  headingWrap.className = "campos-inspector-heading-wrap"
+
+  const eyebrow = document.createElement("span")
+  eyebrow.className = "campos-inspector-eyebrow"
+  eyebrow.textContent = "Inteligencia territorial"
+
+  const heading = document.createElement("h3")
+  heading.className = "campos-inspector-title"
+  heading.textContent = compactValue(title)
+
+  headingWrap.append(eyebrow, heading)
+  identity.append(marker, headingWrap)
+
+  const badge = document.createElement("span")
+  badge.className = `campos-inspector-status ${normalizeText(status).includes("complet") ? "is-complete" : ""}`
+  badge.textContent = compactValue(status)
+
+  header.append(identity, badge)
+
+  const grid = document.createElement("div")
+  grid.className = "campos-inspector-kpi-grid"
+
+  metrics.forEach((metric) => {
+    const item = document.createElement("div")
+    item.className = `campos-inspector-kpi${metric.tone ? ` is-${metric.tone}` : ""}`
+
+    const label = document.createElement("span")
+    label.className = "campos-inspector-kpi-label"
+    label.textContent = metric.label
+
+    const value = document.createElement("strong")
+    value.className = "campos-inspector-kpi-value"
+    value.textContent = compactValue(metric.value)
+    value.title = metric.value
+
+    item.append(label, value)
+    grid.appendChild(item)
+  })
+
+  const progress = document.createElement("div")
+  progress.className = "campos-inspector-progress"
+  progress.setAttribute("aria-label", `Cobertura de información ${coverage}%`)
+
+  const progressBar = document.createElement("span")
+  progressBar.style.width = `${coverage}%`
+  progress.appendChild(progressBar)
+
+  summary.append(header, grid, progress)
+  return summary
 }
 
 export function CAMPOSInspectorAccordion() {
@@ -155,6 +271,8 @@ export function CAMPOSInspectorAccordion() {
         })
       }
 
+      const executiveSummary = buildExecutiveSummary(originalCards, available.length)
+
       const quickNav = document.createElement("nav")
       quickNav.dataset.camposGenerated = "true"
       quickNav.className = "campos-inspector-quick-nav"
@@ -172,7 +290,7 @@ export function CAMPOSInspectorAccordion() {
 
       const aiButton = document.createElement("button")
       aiButton.type = "button"
-      aiButton.className = "campos-inspector-nav-button"
+      aiButton.className = "campos-inspector-nav-button campos-inspector-ai-button"
       aiButton.textContent = "IA"
       aiButton.setAttribute("aria-label", "Abrir asistente de inteligencia artificial")
       aiButton.addEventListener("click", () => {
@@ -182,7 +300,7 @@ export function CAMPOSInspectorAccordion() {
         if (candidate instanceof HTMLButtonElement) candidate.click()
       })
       quickNav.appendChild(aiButton)
-      body.prepend(quickNav)
+      body.prepend(executiveSummary, quickNav)
 
       available.forEach((section) => {
         const firstCard = originalCards.find((card) => card.dataset.camposSection === section.id)
