@@ -295,6 +295,75 @@
   }
 }
 
+/* CAMPOS inspector information architecture: compact GIS-style sections. */
+div[class*="h-[min(34vh,26rem)]"] > div:last-child > div > div.border-b.p-4 {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding: 0.75rem 1rem !important;
+  background: hsl(var(--card) / 0.96);
+  backdrop-filter: blur(10px);
+}
+
+div[class*="h-[min(34vh,26rem)]"] > div:last-child > div > div.border-b.p-4 h2 {
+  font-size: 0.75rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+}
+
+div[class*="h-[min(34vh,26rem)]"] > div:last-child > div > div.flex-1.overflow-y-auto.p-4 {
+  display: grid;
+  gap: 0.65rem;
+  padding: 0.75rem !important;
+}
+
+div[class*="h-[min(34vh,26rem)]"] > div:last-child > div > div.flex-1.overflow-y-auto.p-4 > [class*="rounded-lg"],
+div[class*="h-[min(34vh,26rem)]"] > div:last-child > div > div.flex-1.overflow-y-auto.p-4 > [data-slot="card"],
+div[class*="h-[min(34vh,26rem)]"] > div:last-child > div > div.flex-1.overflow-y-auto.p-4 > .border-slate-200 {
+  margin: 0 !important;
+  border-radius: 0.8rem !important;
+  box-shadow: none !important;
+}
+
+div[class*="h-[min(34vh,26rem)]"] > div:last-child > div > div.flex-1.overflow-y-auto.p-4 > [data-slot="card"] > div,
+div[class*="h-[min(34vh,26rem)]"] > div:last-child > div > div.flex-1.overflow-y-auto.p-4 > .border-slate-200 > div {
+  padding: 0.85rem !important;
+}
+
+div[class*="h-[min(34vh,26rem)]"] > div:last-child > div > div.flex-1.overflow-y-auto.p-4 h3 {
+  font-size: 1.15rem !important;
+  line-height: 1.25 !important;
+}
+
+div[class*="h-[min(34vh,26rem)]"] > div:last-child > div > div.flex-1.overflow-y-auto.p-4 .grid {
+  gap: 0.55rem !important;
+}
+
+div[class*="h-[min(34vh,26rem)]"] > div:last-child > div > div.flex-1.overflow-y-auto.p-4 [class*="rounded-2xl"],
+div[class*="h-[min(34vh,26rem)]"] > div:last-child > div > div.flex-1.overflow-y-auto.p-4 [class*="rounded-xl"] {
+  border-radius: 0.7rem !important;
+}
+
+div[class*="h-[min(34vh,26rem)]"] > div:last-child > div > div.flex-1.overflow-y-auto.p-4 button.h-8 {
+  height: 1.8rem !important;
+  padding-inline: 0.6rem !important;
+  font-size: 0.72rem !important;
+}
+
+div[class*="h-[min(34vh,26rem)]"] > div:last-child > div > div.flex-1.overflow-y-auto.p-4 [class*="h-28"],
+div[class*="h-[min(34vh,26rem)]"] > div:last-child > div > div.flex-1.overflow-y-auto.p-4 [class*="h-[240px]"] {
+  max-height: 9rem !important;
+}
+
+@media (min-width: 768px) {
+  div[class*="h-[min(34vh,26rem)]"] > div:last-child > div > div.flex-1.overflow-y-auto.p-4 .md\:grid-cols-3,
+  div[class*="h-[min(34vh,26rem)]"] > div:last-child > div > div.flex-1.overflow-y-auto.p-4 .md\:grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
 /* CAMPOS description tab: turn the raw metadata block into a calm editorial ficha. */
 div:has(> div > svg.lucide-file-text) {
   position: relative;
