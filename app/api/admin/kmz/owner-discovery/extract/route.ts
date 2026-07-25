@@ -1,5 +1,32 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { enhancedExtractor } from "@/lib/kmz/enhanced-owner-extraction"
+
+type OwnerLead = {
+  name: string
+  type: "person" | "company"
+  confidence: number
+  reason: string
+  source: string
+  dateFound: string
+}
+
+function toOwnerLead(candidate: {
+  name: string
+  type: "person" | "company" | "property_name"
+  confidence: number
+  source: string
+  pattern: string
+}, dateFound: string): OwnerLead {
+  return {
+    name: candidate.name,
+    type: candidate.type === "company" ? "company" : "person",
+    confidence: candidate.confidence,
+    reason: `Extracted from KMZ ${candidate.source} using ${candidate.pattern}`,
+    source: `kmz_${candidate.source}`,
+    dateFound,
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -7,15 +34,14 @@ export async function POST(request: NextRequest) {
 
     const supabase = createClient(
       process.env.SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
     )
 
-    // Fetch KMZ files
     let query = supabase
       .from("kmz_collection")
-      .select("id, file_name, metadata, owner, rol_numbers")
+      .select("id, file_name, description, metadata, owner, rol_numbers")
       .eq("is_active", true)
-      .is("owner", true)
+      .is("owner", null)
       .limit(100)
 
     if (search_query) {
@@ -27,34 +53,49 @@ export async function POST(request: NextRequest) {
     if (queryError) throw queryError
     if (!kmzFiles) return NextResponse.json({ error: "No data" }, { status: 400 })
 
-    // Process each KMZ
     const results = await Promise.all(
       kmzFiles.map(async (kmz) => {
         try {
-          // Extract owner hints from file name
-          const ownerCandidates = extractOwnerFromFileName(kmz.file_name)
+          const descriptionSources = [
+            kmz.description,
+            kmz.metadata?.name,
+            kmz.metadata?.description,
+            kmz.metadata?.author,
+          ]
+            .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+            .join(" | ")
+
+          const extractedCandidates = enhancedExtractor
+            .extract(kmz.file_name, descriptionSources)
+            .filter((candidate) => candidate.type !== "property_name")
+
+          const topCandidate = extractedCandidates[0] || null
+          const now = new Date().toISOString()
 
           const result = {
             kmz_id: kmz.id,
             file_name: kmz.file_name,
-            status: ownerCandidates.length > 0 ? "success" : "pending",
-            confidence: ownerCandidates.length > 0 ? 0.65 : 0,
-            owners_found: ownerCandidates.length,
-            companies_found: 0,
-            leads_found: 0,
-            message: ownerCandidates.length > 0 
-              ? `Encontrados: ${ownerCandidates.join(", ")}` 
-              : "No se encontraron coincidencias en el nombre",
+            status: topCandidate ? "success" : "pending",
+            confidence: topCandidate ? topCandidate.confidence : 0,
+            owners_found: extractedCandidates.length,
+            companies_found: extractedCandidates.filter((candidate) => candidate.type === "company").length,
+            leads_found: extractedCandidates.length,
+            message: topCandidate
+              ? `Encontrados: ${extractedCandidates.map((candidate) => candidate.name).join(", ")}`
+              : "No se encontraron coincidencias claras en el nombre o la descripcion",
           }
 
-          // Persist if not dry_run
-          if (!dry_run && result.status === "success") {
-            const updates: any = {
+          if (!dry_run && topCandidate) {
+            const updates = {
+              owner: topCandidate.name,
               metadata: {
                 ...(kmz.metadata || {}),
-                public_owner_candidate: ownerCandidates[0] || null,
-                owner_confidence: result.confidence,
-                owner_research_leads: ownerCandidates,
+                public_owner_candidate: toOwnerLead(topCandidate, now),
+                owner_confidence: topCandidate.confidence,
+                owner_type: topCandidate.type,
+                owner_research_leads: extractedCandidates.map((candidate) => toOwnerLead(candidate, now)),
+                owner_candidates: extractedCandidates,
+                updated_at: now,
               },
             }
 
@@ -77,7 +118,7 @@ export async function POST(request: NextRequest) {
             message: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
           }
         }
-      })
+      }),
     )
 
     const stats = {
@@ -93,37 +134,7 @@ export async function POST(request: NextRequest) {
     console.error("[v0] Owner extraction error:", error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unknown error" },
-      { status: 500 }
+      { status: 500 },
     )
   }
-}
-
-// Extract owner candidates from file name patterns
-function extractOwnerFromFileName(fileName: string): string[] {
-  const candidates: string[] = []
-
-  // Remove .kmz extension
-  let name = fileName.replace(/\.kmz$/i, "")
-
-  // Pattern: "Fundo/Campo/Parcela [Name]"
-  const typeMatch = name.match(/(?:fundo|campo|parcela|propiedad|terreno)\s+(.+?)(?:\s*\(|\s*-|\s*\d|$)/i)
-  if (typeMatch) {
-    candidates.push(typeMatch[1].trim())
-  }
-
-  // Pattern: "[Name] - [Area]" or "[Name] ([Area])"
-  const areaMatch = name.match(/^(.+?)\s*(?:-|\.)\s*\d+\s*(?:ha|hectare)/i)
-  if (areaMatch) {
-    candidates.push(areaMatch[1].trim())
-  }
-
-  // Just take first part before special chars
-  if (candidates.length === 0) {
-    const firstPart = name.split(/[-—_()[\]]/)[0].trim()
-    if (firstPart.length > 3) {
-      candidates.push(firstPart)
-    }
-  }
-
-  return [...new Set(candidates)].slice(0, 3)
 }

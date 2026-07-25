@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
       .from("kmz_collection")
       .select("id, file_name, metadata, owner")
       .eq("is_active", true)
-      .is("owner", true) // Only those without owner data
+      .is("owner", null) // Only those without owner data
       .limit(batch_size)
 
     if (queryError) throw queryError

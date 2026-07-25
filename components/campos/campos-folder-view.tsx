@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { KMZMapDisplay, type LayerInfo } from "@/components/kmz/kmz-map-display"
 import { OnboardingGuide } from "@/components/campos/onboarding-guide"
@@ -109,6 +110,17 @@ const normalizeList = (values?: unknown[]) => {
     .filter(Boolean)
 }
 
+const getSiiReferenceCenter = (metadata?: Record<string, any> | null) => {
+  const center = metadata?.sii_point_resolution?.center
+  if (!center) return null
+
+  const lat = Number(center.lat)
+  const lng = Number(center.lng)
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+
+  return { lat, lng }
+}
+
 const inferGeometryType = (coordinates: unknown): "Point" | "LineString" | "Polygon" => {
   if (!Array.isArray(coordinates) || coordinates.length <= 1) return "Point"
 
@@ -125,16 +137,15 @@ const inferGeometryType = (coordinates: unknown): "Point" | "LineString" | "Poly
 }
 
 const buildMapPlacemarks = (record: any, storedPlacemarks: any[] = []) => {
-  if (storedPlacemarks.length > 0) {
-    return storedPlacemarks.map((placemark) => ({
-      name: placemark.name || "Capa sin nombre",
-      type: placemark.type || inferGeometryType(placemark.coordinates),
-      coordinates: placemark.coordinates || [],
-      description: placemark.description || record.description || "",
-      styleUrl: placemark.style_url || undefined,
-      properties: placemark.properties || {},
-    }))
-  }
+  const proposal = normalizeKmzRecord(record, storedPlacemarks)
+  return proposal.placemarks.map((placemark) => ({
+    name: placemark.name || "Capa sin nombre",
+    type: placemark.type || inferGeometryType(placemark.coordinates),
+    coordinates: placemark.coordinates || [],
+    description: placemark.description || record.description || "",
+    styleUrl: placemark.styleUrl || undefined,
+    properties: placemark.properties || {},
+  }))
 
   return (record.coordinates || []).map((coordinates: any, index: number) => {
     const type = inferGeometryType(coordinates)
@@ -154,8 +165,15 @@ const buildMapPlacemarks = (record: any, storedPlacemarks: any[] = []) => {
   })
 }
 
+const getRenderablePlacemarkCount = (record: any, storedPlacemarks: any[] = []) => {
+  const normalizedCount = buildMapPlacemarks(record, storedPlacemarks).length
+  if (normalizedCount > 0) return normalizedCount
+  if (storedPlacemarks.length > 0) return storedPlacemarks.length
+  return Number(record?.placemarks_count || 0)
+}
+
 const buildPreviewPlacemarksFromCoordinates = (fileName: string, coordinatesList: any[] = [], description?: string | null) => {
-  return (coordinatesList || []).map((coordinates: any, index: number) => {
+  const previewPlacemarks = (coordinatesList || []).map((coordinates: any, index: number) => {
     const type = inferGeometryType(coordinates)
     const typeLabel = type === "Polygon" ? "Poligono" : type === "LineString" ? "Linea" : "Punto"
 
@@ -169,6 +187,8 @@ const buildPreviewPlacemarksFromCoordinates = (fileName: string, coordinatesList
       },
     }
   })
+
+  return previewPlacemarks
 }
 
 const normalizeKmzDescription = (value?: string | null) => {
@@ -219,6 +239,11 @@ const hasPersistedGeometry = (item: FolderItem | null) => {
   const metadata = item.metadata || {}
   const proposalCount = metadata.normalized_geometry_count || metadata.total_geometry_count || 0
   return Number(proposalCount) > 0
+}
+
+const hasSiiReferencePoint = (item: FolderItem | null) => {
+  if (!item) return false
+  return Boolean(getSiiReferenceCenter(item.metadata))
 }
 
 const getRoleStatus = (item: FolderItem | null) => {
@@ -394,6 +419,7 @@ export function CAMPOSFolderView() {
   const [isResearchExpanded, setIsResearchExpanded] = useState(false)
   const [isEditExpanded, setIsEditExpanded] = useState(false)
   const [isLoadedFilesExpanded, setIsLoadedFilesExpanded] = useState(false)
+  const [detailTab, setDetailTab] = useState("descripcion")
   const [advancedFilters, setAdvancedFilters] = useState({
     priceMin: 0,
     priceMax: 10000000,
@@ -412,6 +438,65 @@ export function CAMPOSFolderView() {
     advancedFilters.areaMax < 50000 ||
     advancedFilters.zones.length > 0 ||
     advancedFilters.propertyTypes.length > 0
+
+  useEffect(() => {
+    if (selectedItem?.type === "file") {
+      setDetailTab("descripcion")
+    }
+  }, [selectedItem?.id, selectedItem?.type])
+
+  useEffect(() => {
+    if (selectedMapLayer) {
+      setDetailTab("descripcion")
+    }
+  }, [selectedMapLayer?.fileName, selectedMapLayer?.name])
+
+  const fetchStoredPlacemarksMap = useCallback(
+    async (kmzIds: Array<string | number>) => {
+      const ids = kmzIds
+        .map((value) => `${value ?? ""}`.trim())
+        .filter(Boolean)
+
+      if (ids.length === 0) return new Map<string, any[]>()
+
+      const { data, error } = await supabase
+        .from("kmz_placemarks")
+        .select("*")
+        .in("kmz_id", ids)
+        .limit(200000)
+
+      if (error || !data) return new Map<string, any[]>()
+
+      const grouped = new Map<string, any[]>()
+      for (const placemark of data) {
+        const key = `${placemark.kmz_id}`
+        const current = grouped.get(key) || []
+        current.push(placemark)
+        grouped.set(key, current)
+      }
+
+      return grouped
+    },
+    [supabase],
+  )
+
+  const transformKmzRecord = useCallback((record: any, storedPlacemarks: any[] = []) => {
+    const placemarks = buildMapPlacemarks(record, storedPlacemarks)
+    return {
+      id: record.id,
+      dbId: record.id,
+      fileName: record.file_name,
+      placemarks,
+      bounds: record.bounds,
+      metadata: {
+        id: record.id,
+        category: record.category,
+        rolNumbers: record.rol_numbers || [],
+        placemarks_count: placemarks.length,
+        region: record.region,
+      },
+    }
+  }, [])
 
   const handleCopyValue = useCallback(
     async (value: string | null | undefined, label: string) => {
@@ -443,7 +528,7 @@ export function CAMPOSFolderView() {
           </div>
           <div className="p-6 text-center text-muted-foreground">
             <Folder className="mx-auto mb-3 h-12 w-12 opacity-50" />
-            <p className="text-sm">Selecciona una region o un KMZ para ver el detalle operativo.</p>
+            <p className="text-sm">Selecciona una región o un KMZ para ver el detalle operativo.</p>
           </div>
         </>
       )
@@ -488,6 +573,7 @@ export function CAMPOSFolderView() {
       null
     const activeMapLayer = selectedMapLayer?.fileName === selectedItem.name ? selectedMapLayer : null
     const geometryAvailable = hasPersistedGeometry(selectedItem)
+    const siiReferenceAvailable = hasSiiReferencePoint(selectedItem)
 
     if (selectedItem.type === "folder") {
       return (
@@ -496,14 +582,14 @@ export function CAMPOSFolderView() {
             <h2 className="text-lg font-semibold">Detalles</h2>
           </div>
           <div className="flex-1 space-y-4 overflow-y-auto p-4">
-            <div className="rounded-3xl border border-slate-200 bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-5 text-white shadow-sm">
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 text-slate-900 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-300">Estado</p>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">Estado</p>
                   <h3 className="mt-2 text-2xl font-bold leading-tight">{selectedItem.name}</h3>
-                  <p className="mt-2 text-sm text-slate-300">Region activa en exploracion de campos.</p>
+                  <p className="mt-2 text-sm text-slate-600">Region activa en exploracion de campos.</p>
                 </div>
-                <Badge className="border-white/20 bg-white/10 text-white hover:bg-white/10">
+                <Badge className="border-slate-200 bg-white text-slate-700 hover:bg-white">
                   {selectedItem.fileCount || 0} archivos
                 </Badge>
               </div>
@@ -629,7 +715,50 @@ export function CAMPOSFolderView() {
             </div>
           </div>
 
-          <Card className={detailsCardClass}>
+          <Tabs value={detailTab} onValueChange={setDetailTab} className="flex min-h-0 flex-1 flex-col">
+            <div className="border-b px-4 py-3">
+              <TabsList className="grid h-auto w-full grid-cols-2 gap-1 bg-slate-100 p-1 md:grid-cols-6">
+                <TabsTrigger
+                  value="descripcion"
+                  className="rounded-full px-3 py-2 text-xs font-medium text-slate-600 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                >
+                  Descripcion
+                </TabsTrigger>
+                <TabsTrigger
+                  value="propietario"
+                  className="rounded-full px-3 py-2 text-xs font-medium text-slate-600 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                >
+                  Propietario
+                </TabsTrigger>
+                <TabsTrigger
+                  value="sii"
+                  className="rounded-full px-3 py-2 text-xs font-medium text-slate-600 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                >
+                  SII
+                </TabsTrigger>
+                <TabsTrigger
+                  value="documentos"
+                  className="rounded-full px-3 py-2 text-xs font-medium text-slate-600 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                >
+                  Documentos
+                </TabsTrigger>
+                <TabsTrigger
+                  value="investigacion"
+                  className="rounded-full px-3 py-2 text-xs font-medium text-slate-600 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                >
+                  Investigacion
+                </TabsTrigger>
+                <TabsTrigger
+                  value="edicion"
+                  className="rounded-full px-3 py-2 text-xs font-medium text-slate-600 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+                >
+                  Edicion
+                </TabsTrigger>
+              </TabsList>
+            </div>
+
+            <TabsContent value="descripcion" className="min-h-0 flex-1 overflow-y-auto p-4">
+              <Card className={detailsCardClass}>
             <CardContent className="space-y-4 p-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
@@ -665,8 +794,9 @@ export function CAMPOSFolderView() {
 
               {!geometryAvailable && (
                 <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-50">
-                  Este KMZ no tiene geometrias persistidas en la base actualmente.
-                  El archivo sigue existiendo como registro, pero no hay capas renderizables guardadas para este item.
+                  {siiReferenceAvailable
+                    ? "Este KMZ no tiene geometria KMZ persistida. Se mostrara un punto de referencia SII mientras se reingesta la capa real."
+                    : "Este KMZ no tiene geometria persistida en la base actualmente. El archivo sigue existiendo como registro, pero no hay capas renderizables guardadas para este item."}
                 </div>
               )}
 
@@ -860,6 +990,8 @@ export function CAMPOSFolderView() {
               </div>
             </CardContent>
           </Card>
+            </TabsContent>
+            <TabsContent value="propietario" className="min-h-0 flex-1 overflow-y-auto p-4">
 
           <Card className={lightDetailsCardClass}>
             <CardContent className="space-y-4 p-4">
@@ -965,6 +1097,8 @@ export function CAMPOSFolderView() {
               </div>
             </CardContent>
           </Card>
+            </TabsContent>
+            <TabsContent value="sii" className="min-h-0 flex-1 overflow-y-auto p-4">
 
           <Card className="border-slate-200 shadow-none">
             <CardContent className="space-y-4 p-4">
@@ -1018,6 +1152,8 @@ export function CAMPOSFolderView() {
               ) : null}
             </CardContent>
           </Card>
+            </TabsContent>
+            <TabsContent value="documentos" className="min-h-0 flex-1 overflow-y-auto p-4">
 
           <Card className="border-slate-200 shadow-none">
             <CardContent className="space-y-4 p-4">
@@ -1101,6 +1237,8 @@ export function CAMPOSFolderView() {
               )}
             </CardContent>
           </Card>
+            </TabsContent>
+            <TabsContent value="investigacion" className="min-h-0 flex-1 overflow-y-auto p-4">
 
           <Card className="border-slate-200 shadow-none">
             <CardContent className="space-y-4 p-4">
@@ -1191,6 +1329,8 @@ export function CAMPOSFolderView() {
               )}
             </CardContent>
           </Card>
+            </TabsContent>
+            <TabsContent value="edicion" className="min-h-0 flex-1 overflow-y-auto p-4">
 
           <Card className="border-slate-200 shadow-none">
             <CardContent className="space-y-4 p-4">
@@ -1284,6 +1424,8 @@ export function CAMPOSFolderView() {
               </CardContent>
             </Card>
           ) : null}
+            </TabsContent>
+          </Tabs>
         </div>
       </>
     )
@@ -1297,6 +1439,12 @@ export function CAMPOSFolderView() {
       lat: (bounds.south + bounds.north) / 2,
       lng: (bounds.west + bounds.east) / 2,
     }
+  }
+
+  const getRecordLocation = (record: any): { lat: number; lng: number } => {
+    const siiCenter = getSiiReferenceCenter(record?.metadata)
+    if (siiCenter) return siiCenter
+    return calculateCenterFromBounds(record?.bounds)
   }
 
   useEffect(() => {
@@ -1342,12 +1490,17 @@ export function CAMPOSFolderView() {
         setKmzFiles(
           filtered.map((kmz) => ({
             id: kmz.id,
+            dbId: kmz.id,
             fileName: kmz.fileName,
             placemarks: Array.isArray(kmz.placemarks)
               ? kmz.placemarks
               : buildPreviewPlacemarksFromCoordinates(kmz.fileName, kmz.coordinates, kmz.metadata?.description),
             bounds: kmz.bounds,
             category: kmz.category,
+            metadata: {
+              ...(kmz.metadata || {}),
+              id: kmz.id,
+            },
           }))
         )
       } catch (error) {
@@ -1458,44 +1611,16 @@ export function CAMPOSFolderView() {
         setSelectedRegion(data.region)
 
         // Calculate map center
-        const center = calculateCenterFromBounds(data.bounds)
+        const center = getRecordLocation(data)
         setMapCenter(center)
 
-        // Transform the KMZ file
-        const placemarks = (data.coordinates || []).map((coordArray: any, index: number) => {
-          let geometryType = "Point"
-          let coordinates = coordArray
+        const { data: storedPlacemarks } = await supabase
+          .from("kmz_placemarks")
+          .select("*")
+          .eq("kmz_id", data.id)
+          .limit(5000)
 
-          if (Array.isArray(coordArray) && coordArray.length > 3) {
-            if (Array.isArray(coordArray[0]) && coordArray[0].length >= 2 && typeof coordArray[0][0] === "number") {
-              geometryType = "Polygon"
-              coordinates = coordArray
-            }
-          }
-
-          return {
-            name: `${data.file_name} - ${geometryType === "Polygon" ? "Poligono" : "Punto"} ${index + 1}`,
-            type: geometryType,
-            coordinates: coordinates,
-            description: data.description || "",
-            properties: {
-              rol: data.rol_numbers?.[index] || "",
-              category: data.category || "general",
-            },
-          }
-        })
-
-        const transformedKMZ = {
-          fileName: data.file_name,
-          placemarks: placemarks,
-          bounds: data.bounds,
-          metadata: {
-            id: data.id,
-            category: data.category,
-            rolNumbers: data.rol_numbers || [],
-            placemarks_count: data.placemarks_count,
-          },
-        }
+        const transformedKMZ = transformKmzRecord(data, storedPlacemarks || [])
 
         setKmzFiles([transformedKMZ])
 
@@ -1518,7 +1643,7 @@ export function CAMPOSFolderView() {
           dbId: data.id,
           location: center,
           description: data.description || data.metadata?.description || null,
-          area: `${data.placemarks_count || 0} puntos`,
+          area: `${getRenderablePlacemarkCount(data)} puntos`,
         }
         setSelectedItem(virtualItem)
         setSelectedMapLayer(null)
@@ -1587,26 +1712,22 @@ export function CAMPOSFolderView() {
           .limit(1000)
 
         if (!error && data) {
+          const storedPlacemarksMap = await fetchStoredPlacemarksMap(data.map((record: any) => record.id))
           // Process each KMZ file in the region
           for (let i = 0; i < data.length; i++) {
             const kmzData = data[i]
             
             try {
-              // Read KMZ file content
-              const kmzContent = await kmzStorageService.readKMZ(kmzData.file_path)
-              const placemarks = await kmzReader.parseKMZContent(kmzContent)
+              const storedPlacemarks = storedPlacemarksMap.get(`${kmzData.id}`) || []
+              let transformedKMZ = transformKmzRecord(kmzData, storedPlacemarks)
 
-              const transformedKMZ = {
-                fileName: kmzData.file_name,
-                placemarks: placemarks,
-                bounds: kmzData.bounds,
-                metadata: {
-                  id: kmzData.id,
-                  category: kmzData.category,
-                  rolNumbers: kmzData.rol_numbers || [],
-                  placemarks_count: kmzData.placemarks_count,
-                  region: regionName,
-                },
+              if (transformedKMZ.placemarks.length === 0 && kmzData.file_path && !`${kmzData.file_path}`.startsWith("offline/")) {
+                const kmzContent = await kmzStorageService.readKMZ(kmzData.file_path)
+                const placemarks = await kmzReader.parseKMZContent(kmzContent)
+                transformedKMZ = {
+                  ...transformedKMZ,
+                  placemarks,
+                }
               }
 
               allKmzFiles.push(transformedKMZ)
@@ -1686,7 +1807,7 @@ export function CAMPOSFolderView() {
       let validFiles = 0
 
       files.forEach((file) => {
-        const center = calculateCenterFromBounds(file.bounds)
+        const center = getRecordLocation(file)
         regionLat += center.lat
         regionLng += center.lng
         validFiles++
@@ -1705,20 +1826,20 @@ export function CAMPOSFolderView() {
         category: region,
         fileCount: files.length,
         children: files.map((file, idx) => {
-          const fileCenter = calculateCenterFromBounds(file.bounds)
+          const fileCenter = getRecordLocation(file)
           return {
             id: `file-${folderId}-${idx}`,
             name: file.file_name,
             type: "file" as const,
             description: file.description || file.metadata?.description || null,
-            area: `${file.placemarks_count || 0} puntos`,
+            area: `${getRenderablePlacemarkCount(file)} puntos`,
             location: fileCenter,
             dbId: file.id,
             owner: file.owner,
             google_docs_link: file.google_docs_link,
             rolNumbers: file.rol_numbers || [],
             metadata: file.metadata || {},
-            placemarksCount: file.placemarks_count || 0,
+            placemarksCount: getRenderablePlacemarkCount(file),
             region: file.region || region,
             category: file.category || undefined,
           }
@@ -1751,21 +1872,12 @@ export function CAMPOSFolderView() {
         const uniqueData = data?.filter(
           (record, index, self) => index === self.findIndex((r) => r.file_name === record.file_name),
         )
+        const storedPlacemarksMap = await fetchStoredPlacemarksMap((uniqueData || []).map((record: any) => record.id))
         // Keep regional navigation light: detailed placemarks are loaded only when
         // a KMZ is selected. The compact collection geometry is enough for previews.
-        const transformedKMZ = (uniqueData || []).map((record: any) => ({
-          fileName: record.file_name,
-          dbId: record.id,
-          id: record.id,
-          placemarks: buildMapPlacemarks(record),
-          bounds: record.bounds,
-          metadata: {
-            id: record.id,
-            category: record.category,
-            rolNumbers: record.rol_numbers || [],
-            placemarks_count: record.placemarks_count,
-          },
-        }))
+        const transformedKMZ = (uniqueData || []).map((record: any) =>
+          transformKmzRecord(record, storedPlacemarksMap.get(`${record.id}`) || []),
+        )
 
         setKmzFiles(transformedKMZ)
         
@@ -1780,14 +1892,14 @@ export function CAMPOSFolderView() {
                     name: kmz.fileName,
                     type: "file" as const,
                     description: uniqueData?.[idx]?.description || uniqueData?.[idx]?.metadata?.description || null,
-                    area: `${kmz.metadata.placemarks_count || 0} puntos`,
-                    location: kmz.bounds ? calculateCenterFromBounds(kmz.bounds) : undefined,
+                    area: `${kmz.placemarks.length} puntos`,
+                    location: getRecordLocation(uniqueData?.[idx]),
                     dbId: kmz.metadata.id,
                     owner: uniqueData?.[idx]?.owner,
                     google_docs_link: uniqueData?.[idx]?.google_docs_link,
                     rolNumbers: uniqueData?.[idx]?.rol_numbers || [],
                     metadata: uniqueData?.[idx]?.metadata || {},
-                    placemarksCount: uniqueData?.[idx]?.placemarks_count || 0,
+                    placemarksCount: kmz.placemarks.length,
                     region: uniqueData?.[idx]?.region || region,
                     category: uniqueData?.[idx]?.category || undefined,
                   })),
@@ -1910,7 +2022,7 @@ export function CAMPOSFolderView() {
                 description: data.description || data.metadata?.description || prev.description || null,
                 rolNumbers: data.rol_numbers || [],
                 metadata: data.metadata || {},
-                placemarksCount: data.placemarks_count || 0,
+                placemarksCount: getRenderablePlacemarkCount(data),
                   region: data.region || prev.region,
                   category: data.category || prev.category,
                 }
@@ -1924,6 +2036,15 @@ export function CAMPOSFolderView() {
             .limit(5000)
           const placemarks = buildMapPlacemarks(data, storedPlacemarks || [])
 
+          setSelectedItem((prev) =>
+            prev
+              ? {
+                ...prev,
+                placemarksCount: placemarks.length,
+              }
+              : prev,
+          )
+
           const transformedKMZ = {
             fileName: data.file_name,
             dbId: data.id, // Add dbId at top level for filtering
@@ -1934,7 +2055,7 @@ export function CAMPOSFolderView() {
               id: data.id,
               category: data.category,
               rolNumbers: data.rol_numbers || [],
-              placemarks_count: data.placemarks_count,
+              placemarks_count: placemarks.length,
             },
           }
 
@@ -2164,67 +2285,85 @@ export function CAMPOSFolderView() {
 
   const FolderList = () => (
     <>
-      <div className="p-4 border-b space-y-3">
+      <div className="space-y-4 border-b bg-gradient-to-b from-background to-muted/40 p-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Carpetas CAMPOS</h2>
+          <h2 className="text-lg font-semibold">Colección de campos</h2>
           <Button onClick={handleRefresh} disabled={isLoadingMetadata || isRescanning} size="sm" variant="outline">
             <RefreshCw className={`h-4 w-4 ${isLoadingMetadata ? "animate-spin" : ""}`} />
           </Button>
         </div>
 
-        <div className="flex gap-2 flex-wrap">
-          <Badge variant="default" className="text-sm font-semibold">
-            {totalFiles} archivos
-          </Badge>
-          {folders.length > 0 && <Badge variant="secondary">{folders.length} regiones</Badge>}
-          {selectedRegion && kmzFiles.length > 0 && <Badge variant="outline">{kmzFiles.length} en mapa</Badge>}
-          {selectedRegions.size > 0 && <Badge variant="secondary">{selectedRegions.size} seleccionadas</Badge>}
-          {kmzFiles.length > 0 && selectedRegions.size > 0 && <Badge variant="outline">{kmzFiles.length} en mapa</Badge>}
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="rounded-2xl border border-border/60 bg-background/80 p-3 shadow-sm">
+            <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">Archivos</p>
+            <p className="mt-1 text-2xl font-semibold text-foreground">{totalFiles}</p>
+            <p className="text-xs text-muted-foreground">KMZ visibles o indexados</p>
+          </div>
+          <div className="rounded-2xl border border-border/60 bg-background/80 p-3 shadow-sm">
+            <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">Regiones</p>
+            <p className="mt-1 text-2xl font-semibold text-foreground">{folders.length}</p>
+            <p className="text-xs text-muted-foreground">Carpetas con contenido</p>
+          </div>
+          <div className="rounded-2xl border border-border/60 bg-background/80 p-3 shadow-sm">
+            <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">En mapa</p>
+            <p className="mt-1 text-2xl font-semibold text-foreground">{kmzFiles.length}</p>
+            <p className="text-xs text-muted-foreground">Archivos cargados en la vista</p>
+          </div>
+          <div className="rounded-2xl border border-border/60 bg-background/80 p-3 shadow-sm">
+            <p className="text-[11px] uppercase tracking-[0.22em] text-muted-foreground">Seleccionadas</p>
+            <p className="mt-1 text-2xl font-semibold text-foreground">{selectedRegions.size}</p>
+            <p className="text-xs text-muted-foreground">Regiones activas</p>
+          </div>
         </div>
 
-        {/* Selected regions display */}
+        {/* Regiones seleccionadas */}
         {selectedRegions.size > 0 && (
-          <div className="flex gap-2 flex-wrap p-3 bg-teal-50 border border-teal-200 rounded-lg">
-            {Array.from(selectedRegions).map((region) => (
-              <div key={region} className="flex items-center gap-2 bg-white px-3 py-1 rounded-full border border-teal-200">
-                <span className="text-sm">{getCleanRegionName(region)}</span>
-                {regionLoadingProgress[region] !== undefined && regionLoadingProgress[region] < 100 && (
-                  <span className="text-xs text-teal-600 font-medium">{regionLoadingProgress[region]}%</span>
-                )}
-                <button
-                  onClick={() => handleRegionToggle(region)}
-                  className="ml-2 text-teal-600 hover:text-teal-700 font-bold"
-                >
-                  ×
-                </button>
-              </div>
-            ))}
+          <div className="rounded-2xl border border-cyan-200 bg-cyan-50/80 p-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-700">Regiones activas</p>
+              <span className="text-xs text-cyan-700">Se mantienen sincronizadas con el mapa</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {Array.from(selectedRegions).map((region) => (
+                <div key={region} className="flex items-center gap-2 rounded-full border border-cyan-200 bg-white px-3 py-1.5 shadow-sm">
+                  <span className="text-sm font-medium text-slate-900">{getCleanRegionName(region)}</span>
+                  {regionLoadingProgress[region] !== undefined && regionLoadingProgress[region] < 100 && (
+                    <span className="text-xs font-semibold text-cyan-700">{regionLoadingProgress[region]}%</span>
+                  )}
+                  <button
+                    onClick={() => handleRegionToggle(region)}
+                    className="ml-1 text-cyan-700 transition-colors hover:text-cyan-900"
+                  >
+                    x
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         )}
-
         {(folders.find((f) => f.name === "Sin Region")?.fileCount || 0) > 0 && (
-          <div className="p-3 bg-sage-50 border border-sage-200 rounded-lg space-y-2">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex-1">
-                <p className="text-sm font-medium text-sage-900">
+          <div className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50/80 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-amber-950">
                   {folders.find((f) => f.name === "Sin Region")?.fileCount || 0} archivos sin región
                 </p>
-                <p className="text-xs text-sage-700 mt-1">Pueden reasignarse automáticamente según coordenadas</p>
+                <p className="mt-1 text-xs text-amber-800">Pueden reasignarse automáticamente según coordenadas</p>
               </div>
               <Button
                 onClick={handleRescanRegions}
                 disabled={isRescanning}
                 size="sm"
-                className="bg-sage hover:bg-sage-dark text-white"
+                className="border border-amber-300 bg-amber-600 text-white shadow-sm hover:bg-amber-700"
               >
                 {isRescanning ? (
                   <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
                     Reasignando...
                   </>
                 ) : (
                   <>
-                    <MapPin className="h-4 w-4 mr-2" />
+                    <MapPin className="mr-2 h-4 w-4" />
                     Reasignar
                   </>
                 )}
@@ -2232,31 +2371,28 @@ export function CAMPOSFolderView() {
             </div>
 
             {rescanProgress && rescanProgress.total > 0 && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-xs text-sage-700">
+              <div className="space-y-2 rounded-xl bg-white/80 p-3 shadow-sm">
+                <div className="flex items-center justify-between text-xs text-amber-900">
                   <span>
                     {rescanProgress.processed} / {rescanProgress.total}
                   </span>
                   <span>
-                    ✓ {rescanProgress.updated} | ✗ {rescanProgress.failed}
+                    + {rescanProgress.updated} | - {rescanProgress.failed}
                   </span>
                 </div>
-                <div className="w-full bg-sage-200 rounded-full h-2">
+                <div className="h-2 w-full rounded-full bg-amber-100">
                   <div
-                    className="bg-sage h-2 rounded-full transition-all duration-300"
-                    style={{
-                      width: `${(rescanProgress.processed / rescanProgress.total) * 100}%`,
-                    }}
+                    className="h-2 rounded-full bg-amber-500 transition-all duration-300"
+                    style={{ width: `${(rescanProgress.processed / rescanProgress.total) * 100}%` }}
                   />
                 </div>
                 {rescanProgress.currentFile && (
-                  <p className="text-xs text-sage-600 truncate">{rescanProgress.currentFile}</p>
+                  <p className="text-xs text-amber-700 truncate">{rescanProgress.currentFile}</p>
                 )}
               </div>
             )}
           </div>
         )}
-
         <div className="space-y-2">
           <input
             ref={fileInputRef}
@@ -2356,8 +2492,11 @@ export function CAMPOSFolderView() {
                           <File className="h-3 w-3 mr-2" />
                           <span className="flex-1 text-left text-sm truncate">{child.name}</span>
                           {!hasPersistedGeometry(child) && (
-                            <Badge variant="outline" className="ml-2 border-amber-300 text-[10px] text-amber-700">
-                              sin capa
+                            <Badge
+                              variant="outline"
+                              className={`ml-2 text-[10px] ${hasSiiReferencePoint(child) ? "border-sky-300 text-sky-700" : "border-amber-300 text-amber-700"}`}
+                            >
+                              {hasSiiReferencePoint(child) ? "punto sii" : "sin capa"}
                             </Badge>
                           )}
                           <Badge className={`text-xs ml-2 ${completeness.color}`} title={`${completeness.label}: ${completeness.score}%`}>
@@ -2537,7 +2676,7 @@ export function CAMPOSFolderView() {
             >
               <div className="flex h-11 flex-shrink-0 items-center justify-between px-4 border-b">
                 <div className="min-w-0">
-                  <h2 className="truncate text-sm font-semibold">Detalles del KMZ</h2>
+                  <h2 className="truncate text-sm font-semibold">Detalle del archivo</h2>
                   {!isRightPanelOpen && <p className="truncate text-xs text-muted-foreground">{selectedItem.name}</p>}
                 </div>
                 <Button

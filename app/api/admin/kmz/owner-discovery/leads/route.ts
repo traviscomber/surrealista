@@ -49,12 +49,20 @@ export async function POST(request: NextRequest) {
 
           // Persist if not dry_run
           if (!dry_run && result.status === "success") {
+            const now = new Date().toISOString()
             const updates: any = {
               metadata: {
                 ...(kmz.metadata || {}),
                 owner_research_leads: [
                   ...(kmz.metadata?.owner_research_leads || []),
-                  ...leadsFound.map((lead) => ({ source: "public_registry", name: lead })),
+                  ...leadsFound.map((lead) => ({
+                    name: lead,
+                    type: "person",
+                    confidence: 0.72,
+                    reason: "Found in public registry search",
+                    source: "public_registry",
+                    dateFound: now,
+                  })),
                 ],
               },
             }
