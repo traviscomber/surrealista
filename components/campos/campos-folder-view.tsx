@@ -759,237 +759,212 @@ export function CAMPOSFolderView() {
 
             <TabsContent value="descripcion" className="min-h-0 flex-1 overflow-y-auto p-4">
               <Card className={detailsCardClass}>
-            <CardContent className="space-y-4 p-4">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <Database className="h-4 w-4 text-slate-300" />
-                  <p className="text-sm font-semibold text-slate-50">Predio</p>
-                </div>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  className="h-8 rounded-full bg-white/10 px-3 text-slate-100 hover:bg-white/15"
-                  onClick={() => handleCopyValue(selectedItem.name, "Nombre de KMZ")}
-                >
-                  <Copy className="mr-2 h-3.5 w-3.5" />
-                  Copiar nombre
-                </Button>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className={detailsPanelClass}>
-                  <p className={detailsLabelClass}>Region</p>
-                  <p className="mt-2 text-lg font-semibold text-slate-100">{selectedItem.region || "Sin region"}</p>
-                </div>
-                <div className={detailsPanelClass}>
-                  <p className={detailsLabelClass}>Categoria</p>
-                  <p className="mt-2 text-lg font-semibold text-slate-100">{selectedItem.category || "Sin categoria"}</p>
-                </div>
-                <div className={detailsPanelClass}>
-                  <p className={detailsLabelClass}>Documentos</p>
-                  <p className="mt-2 text-lg font-semibold text-slate-100">{documentCount}</p>
-                </div>
-              </div>
-
-              {!geometryAvailable && (
-                <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-50">
-                  {siiReferenceAvailable
-                    ? "Este KMZ no tiene geometria KMZ persistida. Se mostrara un punto de referencia SII mientras se reingesta la capa real."
-                    : "Este KMZ no tiene geometria persistida en la base actualmente. El archivo sigue existiendo como registro, pero no hay capas renderizables guardadas para este item."}
-                </div>
-              )}
-
-              {activeMapLayer ? (
-                <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-[11px] uppercase tracking-[0.24em] text-emerald-100/80">Capa seleccionada en mapa</p>
-                      <p className="mt-2 text-lg font-semibold text-emerald-50">{activeMapLayer.name}</p>
-                      <p className="mt-1 text-sm text-emerald-100/80">{activeMapLayer.fileName}</p>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      className="h-8 rounded-full border border-emerald-100/15 bg-black/10 px-3 text-emerald-50 hover:bg-black/20"
-                      onClick={() => handleCopyValue(activeMapLayer.name, "Nombre de capa")}
-                    >
-                      <Copy className="mr-2 h-3.5 w-3.5" />
-                      Copiar
-                    </Button>
-                  </div>
-                  <div className="mt-4 grid gap-3 md:grid-cols-3">
-                    <div className={detailsSubtlePanelClass}>
-                      <p className={detailsLabelClass}>Comuna</p>
-                      <p className={detailsValueClass}>{activeMapLayer.locationDetails?.comuna || "Sin dato"}</p>
-                    </div>
-                    <div className={detailsSubtlePanelClass}>
-                      <p className={detailsLabelClass}>Provincia</p>
-                      <p className={detailsValueClass}>{activeMapLayer.locationDetails?.provincia || "Sin dato"}</p>
-                    </div>
-                    <div className={detailsSubtlePanelClass}>
-                      <p className={detailsLabelClass}>Region</p>
-                      <p className={detailsValueClass}>{activeMapLayer.locationDetails?.region || "Sin dato"}</p>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-
-              {descriptionText ? (
-                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4 text-slate-300" />
-                    <p className="text-sm font-semibold text-slate-50">Descripcion del KMZ</p>
-                  </div>
-                  {descriptionHighlights.length > 1 ? (
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {descriptionHighlights.map((line) => (
-                        <Badge key={line} variant="secondary" className="max-w-full bg-white/10 text-slate-100">
-                          <span className="truncate">{line}</span>
-                        </Badge>
-                      ))}
-                    </div>
-                  ) : null}
-                  <div className="mt-3 rounded-lg border border-white/10 bg-black/10 p-3">
-                    <p className="whitespace-pre-wrap text-sm leading-6 text-slate-200">{descriptionText}</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.03] p-4 text-sm text-slate-400">
-                  Este KMZ no trae una descripcion legible en su metadata actual.
-                </div>
-              )}
-
-              {siiRecord ? (
-                <div className="rounded-xl border border-sky-500/30 bg-sky-500/10 p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <ShieldCheck className="h-4 w-4 text-sky-200" />
-                      <p className="text-sm font-semibold text-sky-50">Ficha SII</p>
-                    </div>
-                    {siiRecord.direccion ? (
+                <CardContent className="space-y-5 p-4">
+                  <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">Archivo</p>
+                        <h3 className="mt-2 text-2xl font-bold leading-tight text-slate-50">{selectedItem.name}</h3>
+                        <p className="mt-2 text-sm text-slate-300">
+                          {selectedItem.region || "Sin region"} · {selectedItem.category || "Sin categoria"}
+                        </p>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <Badge className="border-white/10 bg-white/10 text-slate-50 hover:bg-white/10">
+                            {documentCount} documento{documentCount === 1 ? "" : "s"}
+                          </Badge>
+                          <Badge className="border-white/10 bg-white/10 text-slate-50 hover:bg-white/10">
+                            {roles.length} rol{roles.length === 1 ? "" : "es"}
+                          </Badge>
+                          <Badge className="border-white/10 bg-white/10 text-slate-50 hover:bg-white/10">
+                            {selectedItem.placemarksCount ? `${selectedItem.placemarksCount} geometrías` : "Sin geometrías"}
+                          </Badge>
+                        </div>
+                        <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                          <div className={detailsSubtlePanelClass}>
+                            <p className={detailsLabelClass}>Rol principal</p>
+                            <p className={detailsValueClass}>{primaryRole || "Pendiente"}</p>
+                          </div>
+                          <div className={detailsSubtlePanelClass}>
+                            <p className={detailsLabelClass}>Ubicación</p>
+                            <p className={detailsValueClass}>
+                              {activeMapLayer?.locationDetails?.comuna || (selectedItem.location ? "Coordenadas disponibles" : "Sin dato")}
+                            </p>
+                          </div>
+                          <div className={detailsSubtlePanelClass}>
+                            <p className={detailsLabelClass}>Dueño</p>
+                            <p className={detailsValueClass}>{confirmedOwner || candidateOwner || "Sin identificar"}</p>
+                          </div>
+                          <div className={detailsSubtlePanelClass}>
+                            <p className={detailsLabelClass}>Geometría</p>
+                            <p className={detailsValueClass}>
+                              {geometryAvailable ? "Geometría lista" : siiReferenceAvailable ? "Punto SII" : "Sin geometría"}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                       <Button
                         type="button"
                         variant="secondary"
                         size="sm"
-                        className="h-8 rounded-full border border-sky-400/20 bg-black/10 px-3 text-sky-50 hover:bg-black/20"
-                        onClick={() => handleCopyValue(siiRecord.direccion, "Direccion SII")}
+                        className="h-8 rounded-full bg-white/10 px-3 text-slate-100 hover:bg-white/15"
+                        onClick={() => handleCopyValue(selectedItem.name, "Nombre de KMZ")}
                       >
                         <Copy className="mr-2 h-3.5 w-3.5" />
-                        Copiar direccion
+                        Copiar nombre
                       </Button>
-                    ) : null}
-                  </div>
-
-                  <div className="mt-4 grid gap-4 md:grid-cols-2">
-                    <div className="rounded-2xl border border-sky-500/20 bg-black/10 p-4">
-                      <p className="text-[11px] uppercase tracking-wide text-sky-200">Direccion SII</p>
-                      <p className="mt-2 text-base font-semibold text-slate-50">{siiRecord.direccion || "Sin direccion"}</p>
-                    </div>
-                    <div className="rounded-2xl border border-sky-500/20 bg-black/10 p-4">
-                      <p className="text-[11px] uppercase tracking-wide text-sky-200">Destino</p>
-                      <p className="mt-2 text-base font-semibold text-slate-50">{siiRecord.destino || "Sin destino"}</p>
-                    </div>
-                    <div className="rounded-2xl border border-sky-500/20 bg-black/10 p-4">
-                      <p className="text-[11px] uppercase tracking-wide text-sky-200">Avaluo total</p>
-                      <p className="mt-2 text-2xl font-bold text-slate-50">{formatCurrencyCLP(siiRecord.avaluoTotal) || "Sin dato"}</p>
-                    </div>
-                    <div className="rounded-2xl border border-sky-500/20 bg-black/10 p-4">
-                      <p className="text-[11px] uppercase tracking-wide text-sky-200">Periodo</p>
-                      <p className="mt-2 text-base font-semibold text-slate-50">{siiRecord.periodo || "Sin periodo"}</p>
                     </div>
                   </div>
 
-                  <div className="mt-4 grid gap-4 md:grid-cols-2">
-                    <div className="rounded-2xl border border-sky-500/20 bg-black/10 p-4">
-                      <p className="text-[11px] uppercase tracking-wide text-sky-200">Afecto</p>
-                      <p className="mt-2 text-base font-semibold text-slate-50">{formatCurrencyCLP(siiRecord.avaluoAfecto) || "Sin dato"}</p>
+                  <div className="grid gap-4 xl:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+                    <div className="space-y-4">
+                      {activeMapLayer ? (
+                        <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-[11px] uppercase tracking-[0.24em] text-emerald-100/80">Geometría activa</p>
+                              <h4 className="mt-2 text-lg font-semibold text-emerald-50">{activeMapLayer.name}</h4>
+                              <p className="mt-1 text-sm text-emerald-100/80">{activeMapLayer.fileName}</p>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="sm"
+                              className="h-8 rounded-full border border-emerald-100/15 bg-black/10 px-3 text-emerald-50 hover:bg-black/20"
+                              onClick={() => handleCopyValue(activeMapLayer.name, "Nombre de capa")}
+                            >
+                              <Copy className="mr-2 h-3.5 w-3.5" />
+                              Copiar
+                            </Button>
+                          </div>
+                          <div className="mt-4 grid gap-3 md:grid-cols-3">
+                            <div className={detailsSubtlePanelClass}>
+                              <p className={detailsLabelClass}>Origen</p>
+                              <p className={detailsValueClass}>
+                                {activeMapLayer.geometrySource === "placemark"
+                                  ? activeMapLayer.bounds.length <= 1
+                                    ? "Punto"
+                                    : "Polígono o línea"
+                                  : activeMapLayer.geometrySource === "collection-bounds"
+                                    ? "Límite recuperado"
+                                    : "Centro seleccionado"}
+                              </p>
+                            </div>
+                            <div className={detailsSubtlePanelClass}>
+                              <p className={detailsLabelClass}>Comuna</p>
+                              <p className={detailsValueClass}>{activeMapLayer.locationDetails?.comuna || "Sin dato"}</p>
+                            </div>
+                            <div className={detailsSubtlePanelClass}>
+                              <p className={detailsLabelClass}>Provincia</p>
+                              <p className={detailsValueClass}>{activeMapLayer.locationDetails?.provincia || "Sin dato"}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-amber-50">
+                          {geometryAvailable
+                            ? "La geometría persistida está disponible, pero todavía no hay una capa activa seleccionada en el mapa."
+                            : siiReferenceAvailable
+                              ? "Este KMZ solo tiene un punto de referencia SII por ahora."
+                              : "Este KMZ todavía no tiene geometría persistida para mostrar en el mapa."}
+                        </div>
+                      )}
+
+                      {descriptionText ? (
+                        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-slate-300" />
+                            <p className="text-sm font-semibold text-slate-50">Descripción del KMZ</p>
+                          </div>
+                          {descriptionHighlights.length > 0 ? (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {descriptionHighlights.map((line) => (
+                                <Badge key={line} variant="secondary" className="max-w-full bg-white/10 text-slate-100">
+                                  <span className="truncate">{line}</span>
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : null}
+                          <div className="mt-3 rounded-lg border border-white/10 bg-black/10 p-3">
+                            <p className="whitespace-pre-wrap text-sm leading-6 text-slate-200">{descriptionText}</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.03] p-4 text-sm text-slate-400">
+                          Este KMZ no trae una descripción legible en su metadata actual.
+                        </div>
+                      )}
                     </div>
-                    <div className="rounded-2xl border border-sky-500/20 bg-black/10 p-4">
-                      <p className="text-[11px] uppercase tracking-wide text-sky-200">Exento</p>
-                      <p className="mt-2 text-base font-semibold text-slate-50">{formatCurrencyCLP(siiRecord.avaluoExento) || "Sin dato"}</p>
-                    </div>
-                    <div className="rounded-2xl border border-sky-500/20 bg-black/10 p-4">
-                      <p className="text-[11px] uppercase tracking-wide text-sky-200">Sup. terreno</p>
-                      <p className="mt-2 text-base font-semibold text-slate-50">{formatMeasure(siiRecord.superficieTerreno) || "Sin dato"}</p>
-                    </div>
-                    <div className="rounded-2xl border border-sky-500/20 bg-black/10 p-4">
-                      <p className="text-[11px] uppercase tracking-wide text-sky-200">Sup. construida</p>
-                      <p className="mt-2 text-base font-semibold text-slate-50">{formatMeasure(siiRecord.superficieConstruida) || "Sin dato"}</p>
+
+                    <div className="space-y-4">
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className={detailsPanelClass}>
+                          <p className={detailsLabelClass}>Rol principal</p>
+                          <p className="mt-2 text-lg font-semibold text-slate-100">{primaryRole || "Pendiente"}</p>
+                        </div>
+                        <div className={detailsPanelClass}>
+                          <p className={detailsLabelClass}>Dueño</p>
+                          <p className="mt-2 text-lg font-semibold text-slate-100">{confirmedOwner || candidateOwner || "Sin identificar"}</p>
+                        </div>
+                        <div className={detailsPanelClass}>
+                          <p className={detailsLabelClass}>Ubicación</p>
+                          <p className="mt-2 text-lg font-semibold text-slate-100">
+                            {activeMapLayer?.locationDetails?.comuna || (selectedItem.location ? "Coordenadas disponibles" : "Sin dato")}
+                          </p>
+                        </div>
+                        <div className={detailsPanelClass}>
+                          <p className={detailsLabelClass}>Región</p>
+                          <p className="mt-2 text-lg font-semibold text-slate-100">{selectedItem.region || "Sin region"}</p>
+                        </div>
+                      </div>
+
+                      {selectedItem.location ? (
+                        <div className={detailsPanelClass}>
+                          <div className="flex items-center justify-between gap-3">
+                            <p className={detailsLabelClass}>Ubicación del archivo</p>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2 text-slate-300 hover:bg-white/10 hover:text-slate-100"
+                              onClick={() =>
+                                handleCopyValue(`${selectedItem.location?.lat.toFixed(6)}, ${selectedItem.location?.lng.toFixed(6)}`, "Coordenadas")
+                              }
+                            >
+                              <Copy className="mr-2 h-3.5 w-3.5" />
+                              Copiar
+                            </Button>
+                          </div>
+                          <div className="mt-2 grid gap-2 md:grid-cols-2">
+                            <div>
+                              <p className="text-xs uppercase tracking-wide text-slate-400">Latitud</p>
+                              <p className="mt-1 text-sm font-medium text-slate-100">{selectedItem.location.lat.toFixed(6)}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs uppercase tracking-wide text-slate-400">Longitud</p>
+                              <p className="mt-1 text-sm font-medium text-slate-100">{selectedItem.location.lng.toFixed(6)}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
 
-                  {siiRecord.areaHomogenea ? (
-                    <div className="mt-4 rounded-2xl border border-sky-500/20 bg-black/10 p-4">
-                      <p className="text-[11px] uppercase tracking-wide text-sky-200">Area homogenea</p>
-                      <p className="mt-2 text-base font-semibold text-slate-50">{siiRecord.areaHomogenea}</p>
+                  {manualRoleAssignment ? (
+                    <div className="rounded-xl border border-sky-200 bg-sky-50 p-3">
+                      <p className="text-sm font-medium text-sky-950">Última asignación manual</p>
+                      <p className="mt-1 text-sm text-sky-950">
+                        {manualRoleAssignment.assigned_role || primaryRole || "Sin rol"} | {manualRoleAssignment.evidenceType || "manual-review"}
+                      </p>
+                      {manualRoleAssignment.notes ? (
+                        <p className="mt-2 text-xs text-sky-900">{manualRoleAssignment.notes}</p>
+                      ) : null}
+                      {manualRoleAssignment.assigned_at ? (
+                        <p className="mt-1 text-xs text-sky-800">{formatDateLabel(manualRoleAssignment.assigned_at)}</p>
+                      ) : null}
                     </div>
                   ) : null}
-                </div>
-              ) : null}
-
-              {selectedItem.location ? (
-                <div className={detailsPanelClass}>
-                  <div className="flex items-center justify-between gap-3">
-                    <p className={detailsLabelClass}>Ubicacion del archivo</p>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 px-2 text-slate-300 hover:bg-white/10 hover:text-slate-100"
-                      onClick={() =>
-                        handleCopyValue(`${selectedItem.location?.lat.toFixed(6)}, ${selectedItem.location?.lng.toFixed(6)}`, "Coordenadas")
-                      }
-                    >
-                      <Copy className="mr-2 h-3.5 w-3.5" />
-                      Copiar
-                    </Button>
-                  </div>
-                  <div className="mt-2 grid gap-2 md:grid-cols-2">
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-slate-400">Latitud</p>
-                      <p className="mt-1 text-sm font-medium text-slate-100">{selectedItem.location.lat.toFixed(6)}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-wide text-slate-400">Longitud</p>
-                      <p className="mt-1 text-sm font-medium text-slate-100">{selectedItem.location.lng.toFixed(6)}</p>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-
-              {manualRoleAssignment ? (
-                <div className="rounded-xl border border-sky-200 bg-sky-50 p-3">
-                  <p className="text-sm font-medium text-sky-950">Ultima asignacion manual</p>
-                  <p className="mt-1 text-sm text-sky-950">
-                    {manualRoleAssignment.assigned_role || primaryRole || "Sin rol"} | {manualRoleAssignment.evidenceType || "manual-review"}
-                  </p>
-                  {manualRoleAssignment.notes ? (
-                    <p className="mt-2 text-xs text-sky-900">{manualRoleAssignment.notes}</p>
-                  ) : null}
-                  {manualRoleAssignment.assigned_at ? (
-                    <p className="mt-1 text-xs text-sky-800">{formatDateLabel(manualRoleAssignment.assigned_at)}</p>
-                  ) : null}
-                </div>
-              ) : null}
-
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className={lightDetailsPanelClass}>
-                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Fuente rol</p>
-                  <p className="mt-2 text-base font-semibold text-slate-950">{evidenceLabel}</p>
-                </div>
-                <div className={lightDetailsPanelClass}>
-                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Actualizacion util</p>
-                  <p className="mt-2 text-base font-semibold text-slate-950">{formatDateLabel(latestResolutionAt) || "Sin registro"}</p>
-                </div>
-                <div className={lightDetailsPanelClass}>
-                  <p className="text-[11px] uppercase tracking-wide text-slate-500">Rol principal</p>
-                  <p className="mt-2 text-base font-semibold text-slate-950">{primaryRole || "Pendiente"}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
             </TabsContent>
             <TabsContent value="propietario" className="min-h-0 flex-1 overflow-y-auto p-4">
 
