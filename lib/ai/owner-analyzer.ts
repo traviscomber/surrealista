@@ -296,4 +296,13 @@ export function getOwnerAnalyzer(): OwnerAnalyzer {
   return analyzerInstance
 }
 
-export const ownerAnalyzer = getOwnerAnalyzer()
+export const ownerAnalyzer = {
+  analyzeSearchResults: (...args: Parameters<OwnerAnalyzer["analyzeSearchResults"]>) =>
+    getOwnerAnalyzer().analyzeSearchResults(...args),
+  mergeAnalyses: (...args: Parameters<OwnerAnalyzer["mergeAnalyses"]>) =>
+    getOwnerAnalyzer().mergeAnalyses(...args),
+  toResearchLead: (...args: Parameters<OwnerAnalyzer["toResearchLead"]>) =>
+    getOwnerAnalyzer().toResearchLead(...args),
+  shouldStore: (...args: Parameters<OwnerAnalyzer["shouldStore"]>) =>
+    getOwnerAnalyzer().shouldStore(...args),
+}

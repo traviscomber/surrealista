@@ -2,13 +2,9 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter, Lora } from "next/font/google"
 import "./globals.css"
-import "@/components/campos/campos-inspector-accordion.css"
-import "@/components/campos/campos-five-phase-suite.css"
-import { CAMPOSFivePhaseSuite } from "@/components/campos/campos-five-phase-suite"
-import { CAMPOSSelectionResync } from "@/components/campos/campos-selection-resync"
 import { ThemeProvider } from "@/components/theme-provider"
+import { PasswordGate } from "@/components/auth/password-gate"
 import { VisitReminders } from "@/components/visits/visit-reminders"
-import { CAMPOSInspectorAccordion } from "@/components/campos/campos-inspector-accordion"
 import { Toaster } from "sonner"
 import { SentryInit } from "@/components/sentry-init"
 
@@ -25,16 +21,11 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: {
-    default: "Sur Realista | Gestión territorial interna",
-    template: "%s | Sur Realista",
-  },
+  title: "Sur-Realista Interno",
   description:
-    "Espacio interno para administrar propiedades, antecedentes territoriales, clientes, documentos y fuentes de información de Sur Realista.",
-  robots: {
-    index: false,
-    follow: false,
-  },
+    "Centro operativo interno para búsqueda, administración, análisis KMZ y documentación de Sur-Realista.",
+  keywords: "sur-realista, interno, operación, administración, kmz, análisis, documentación",
+  generator: "v0.dev",
 }
 
 export default function RootLayout({
@@ -44,7 +35,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es" suppressHydrationWarning className="scroll-smooth">
-      <body className={`${inter.variable} ${lora.variable} bg-background font-sans text-foreground antialiased`}>
+      <body className={`${inter.variable} ${lora.variable} font-sans bg-background text-foreground`}>
         <SentryInit />
         <ThemeProvider
           attribute="class"
@@ -53,12 +44,9 @@ export default function RootLayout({
           disableTransitionOnChange
           storageKey="sur-realista-theme"
         >
-          {children}
+          <PasswordGate>{children}</PasswordGate>
         </ThemeProvider>
-        <CAMPOSInspectorAccordion />
-        <CAMPOSFivePhaseSuite />
-        <CAMPOSSelectionResync />
-        <Toaster richColors closeButton />
+        <Toaster />
         <VisitReminders />
       </body>
     </html>
