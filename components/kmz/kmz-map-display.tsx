@@ -14,7 +14,6 @@ import {
   Maximize,
   Minimize,
   Route,
-  Shapes,
   Square,
 } from "lucide-react"
 import type { KMZData } from "@/lib/kmz/kmz-reader"
@@ -43,23 +42,20 @@ export interface LayerInfo {
   geometryType?: "Polygon" | "LineString" | "Point" | "Bounds" | "Reference"
   geometrySource?: "placemark" | "collection-bounds" | "selected-center"
   locationDetails?: ChileanLocationDetails
-  isLoadingLocation?: boolean
 }
 
 interface FileLayerGroup {
   fileId: string
   fileName: string
-  color: string
   layers: LayerInfo[]
   visibleCount: number
+  realCount: number
+  referenceCount: number
 }
 
 const COLORS = ["#2f6f55", "#2f6484", "#8a6336", "#6c5c8d", "#397167", "#7a4f45", "#92684f", "#46647b"]
-const RENDER_BATCH_SIZE = 120
+const RENDER_BATCH_SIZE = 150
 const FLIGHT_FILE_PATTERN = /(^|\b)(vuelo|vuelos|flight|drone|avion|avión|helicoptero|helicóptero|radio de vuelo)(\b|$)/i
-const EXTREME_TRACE_LAYER_LIMIT = 500
-const EXTREME_TRACE_VERTEX_LIMIT = 50000
-const EXTREME_SPAN_DEGREES = 12
 
 function getColor(value: string) {
   let hash = 0
@@ -71,13 +67,15 @@ function getFileId(file: any, index = 0) {
   return String(file?.id ?? file?.dbId ?? file?.metadata?.id ?? `${file?.fileName || "kmz"}-${index}`)
 }
 
-function escapeHtml(value: unknown) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;")
+function selectedFileMatches(file: any, selectedId: string) {
+  return [file?.id, file?.dbId, file?.metadata?.id]
+    .filter((value) => value !== null && value !== undefined)
+    .map(String)
+    .includes(selectedId)
+}
+
+function isValidBounds(bounds: any) {
+  return Boolean(bounds) && [bounds.north, bounds.south, bounds.east, bounds.west].every((value) => Number.isFinite(Number(value)))
 }
 
 function cleanDescription(value: unknown): string | null {
@@ -95,15 +93,11 @@ function cleanDescription(value: unknown): string | null {
   return cleaned || null
 }
 
-function selectedFileMatches(file: any, selectedId: string) {
-  return [file?.id, file?.dbId, file?.metadata?.id]
-    .filter((value) => value !== null && value !== undefined)
-    .map(String)
-    .includes(selectedId)
-}
-
-function isValidBounds(bounds: any) {
-  return Boolean(bounds) && [bounds.north, bounds.south, bounds.east, bounds.west].every((value) => Number.isFinite(Number(value)))
+function getGeometryType(placemark: any): LayerInfo["geometryType"] {
+  const type = String(placemark?.type || "").toLowerCase()
+  if (type.includes("polygon")) return "Polygon"
+  if (type.includes("line")) return "LineString"
+  return "Point"
 }
 
 function getFileDescription(file: any) {
@@ -113,78 +107,38 @@ function getFileDescription(file: any) {
   return placemarkDescription || cleanDescription(file?.description) || cleanDescription(file?.metadata?.description) || null
 }
 
-function getGeometryType(placemark: any): LayerInfo["geometryType"] {
-  const type = String(placemark?.type || "").toLowerCase()
-  if (type.includes("polygon")) return "Polygon"
-  if (type.includes("line")) return "LineString"
-  return "Point"
-}
+function getMapExclusionReason(file: any): string | null {
+  const name = String(file?.fileName || file?.file_name || "")
+  if (FLIGHT_FILE_PATTERN.test(name)) return "vuelo"
 
-function getFileQualitySummary(file: any) {
   const placemarks = Array.isArray(file?.placemarks) ? file.placemarks : []
   let polygons = 0
   let lines = 0
-  let points = 0
   let vertices = 0
-
   placemarks.forEach((placemark: any) => {
     const type = getGeometryType(placemark)
-    const coordinates = Array.isArray(placemark?.coordinates) ? placemark.coordinates : []
-    vertices += coordinates.length
     if (type === "Polygon") polygons++
-    else if (type === "LineString") lines++
-    else points++
+    if (type === "LineString") lines++
+    vertices += Array.isArray(placemark?.coordinates) ? placemark.coordinates.length : 0
   })
 
+  const lineDominant = lines >= Math.max(4, polygons * 4)
+  if (lineDominant && (placemarks.length > 500 || vertices > 50000)) return "traza excesiva"
+
   const bounds = file?.bounds
-  const width = isValidBounds(bounds) ? Math.abs(Number(bounds.east) - Number(bounds.west)) : 0
-  const height = isValidBounds(bounds) ? Math.abs(Number(bounds.north) - Number(bounds.south)) : 0
-  const declaredCount = Number(file?.placemarksCount ?? file?.placemarks_count ?? file?.metadata?.placemarks_count ?? 0)
-  const total = Math.max(placemarks.length, Number.isFinite(declaredCount) ? declaredCount : 0)
+  if (polygons === 0 && isValidBounds(bounds)) {
+    const width = Math.abs(Number(bounds.east) - Number(bounds.west))
+    const height = Math.abs(Number(bounds.north) - Number(bounds.south))
+    if (Math.max(width, height) > 12) return "traza excesiva"
+  }
 
-  return { polygons, lines, points, vertices, width, height, total }
-}
-
-function getMapExclusionReason(file: any): string | null {
-  const fileName = String(file?.fileName || file?.file_name || "")
-  if (FLIGHT_FILE_PATTERN.test(fileName)) return "vuelo"
-
-  const summary = getFileQualitySummary(file)
-  const lineDominant = summary.lines >= Math.max(4, summary.polygons * 4)
-  const noUsefulPolygons = summary.polygons === 0
-  const excessiveLinearVolume = lineDominant && summary.total > EXTREME_TRACE_LAYER_LIMIT
-  const excessiveVertices = lineDominant && summary.vertices > EXTREME_TRACE_VERTEX_LIMIT
-  const extremeGeographicTrace = noUsefulPolygons && Math.max(summary.width, summary.height) > EXTREME_SPAN_DEGREES
-
-  if (excessiveLinearVolume || excessiveVertices || extremeGeographicTrace) return "traza excesiva"
   return null
 }
 
 function GeometryIcon({ type }: { type?: LayerInfo["geometryType"] }) {
   if (type === "Polygon") return <Square className="h-3.5 w-3.5" />
   if (type === "LineString") return <Route className="h-3.5 w-3.5" />
-  if (type === "Point" || type === "Reference") return <MapPin className="h-3.5 w-3.5" />
-  return <Shapes className="h-3.5 w-3.5" />
-}
-
-function buildPopup(layer: LayerInfo, center: { lat: number; lng: number }, details?: ChileanLocationDetails) {
-  const location = details ? [details.comuna, details.provincia, details.region].filter(Boolean).join(", ") : null
-  const sourceMessage =
-    layer.geometrySource === "collection-bounds"
-      ? "Este rectángulo es solo el encuadre persistido. No reemplaza el polígono original del KMZ."
-      : layer.geometrySource === "selected-center"
-        ? "Punto de referencia calculado desde la ubicación disponible."
-        : null
-
-  return `<div style="min-width:260px;max-width:360px;font-family:system-ui,sans-serif;color:#17211c">
-    <h4 style="margin:0 0 8px;font-size:14px;font-weight:700;color:${layer.color}">${escapeHtml(layer.name)}</h4>
-    <p style="margin:0 0 4px;font-size:12px"><strong>Archivo:</strong> ${escapeHtml(layer.fileName)}</p>
-    <p style="margin:0 0 4px;font-size:12px"><strong>Geometría:</strong> ${escapeHtml(layer.geometryType || "Capa")}</p>
-    <p style="margin:0 0 4px;font-size:12px"><strong>Coordenadas:</strong> ${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}</p>
-    ${location ? `<p style="margin:0 0 4px;font-size:12px"><strong>Ubicación:</strong> ${escapeHtml(location)}</p>` : ""}
-    ${layer.description ? `<div style="margin-top:9px;padding-top:9px;border-top:1px solid #dfe5e1;font-size:12px;line-height:1.45;white-space:pre-wrap">${escapeHtml(layer.description)}</div>` : ""}
-    ${sourceMessage ? `<div style="margin-top:9px;padding:8px;border-radius:6px;background:#fff7df;color:#6f5012;font-size:11px;line-height:1.4">${escapeHtml(sourceMessage)}</div>` : ""}
-  </div>`
+  return <MapPin className="h-3.5 w-3.5" />
 }
 
 function nextFrame() {
@@ -203,7 +157,6 @@ export function KMZMapDisplay({
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<any>(null)
   const renderedRef = useRef<any[]>([])
-  const layerByKeyRef = useRef<Map<string, LayerInfo>>(new Map())
   const [leafletLoaded, setLeafletLoaded] = useState(false)
   const [mapReady, setMapReady] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -211,7 +164,8 @@ export function KMZMapDisplay({
   const [loading, setLoading] = useState(false)
   const [renderProgress, setRenderProgress] = useState({ current: 0, total: 0 })
   const [fullscreen, setFullscreen] = useState(false)
-  const [layersOpen, setLayersOpen] = useState(true)
+  const [layersOpen, setLayersOpen] = useState(false)
+  const [showReferences, setShowReferences] = useState(false)
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set())
   const [selectedLayerKey, setSelectedLayerKey] = useState<string | null>(null)
 
@@ -230,24 +184,32 @@ export function KMZMapDisplay({
     return safeFiles.filter((file) => !getMapExclusionReason(file))
   }, [safeFiles, selectedKmzId])
 
+  const realLayers = useMemo(() => layers.filter((entry) => entry.geometrySource === "placemark"), [layers])
+  const referenceLayers = useMemo(() => layers.filter((entry) => entry.geometrySource !== "placemark"), [layers])
+  const polygonCount = realLayers.filter((entry) => entry.geometryType === "Polygon").length
+  const lineCount = realLayers.filter((entry) => entry.geometryType === "LineString").length
+  const pointCount = realLayers.filter((entry) => entry.geometryType === "Point").length
+  const visibleRealCount = realLayers.filter((entry) => entry.visible).length
+
   const fileGroups = useMemo<FileLayerGroup[]>(() => {
     const grouped = new Map<string, FileLayerGroup>()
     layers.forEach((entry) => {
       const current = grouped.get(entry.fileId) || {
         fileId: entry.fileId,
         fileName: entry.fileName,
-        color: entry.color,
         layers: [],
         visibleCount: 0,
+        realCount: 0,
+        referenceCount: 0,
       }
       current.layers.push(entry)
       if (entry.visible) current.visibleCount++
+      if (entry.geometrySource === "placemark") current.realCount++
+      else current.referenceCount++
       grouped.set(entry.fileId, current)
     })
     return Array.from(grouped.values()).sort((a, b) => a.fileName.localeCompare(b.fileName, "es"))
   }, [layers])
-
-  const visibleCount = layers.filter((entry) => entry.visible).length
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -327,7 +289,6 @@ export function KMZMapDisplay({
       if (map.hasLayer(layer)) map.removeLayer(layer)
     })
     renderedRef.current = []
-    layerByKeyRef.current.clear()
 
     const expectedTotal = displayFiles.reduce((sum, file) => {
       const count = Array.isArray(file?.placemarks) ? file.placemarks.length : 0
@@ -336,25 +297,23 @@ export function KMZMapDisplay({
     setRenderProgress({ current: 0, total: expectedTotal })
 
     const nextLayers: LayerInfo[] = []
-    const allBounds: [number, number][] = []
+    const realBounds: [number, number][] = []
+    const referenceBounds: [number, number][] = []
     let renderedCount = 0
 
-    const selectLayer = async (info: LayerInfo, openPopup = true) => {
+    const selectLayer = async (info: LayerInfo) => {
       setSelectedLayerKey(info.key)
       onPlacemarkSelect?.(info)
-      const centerPoint = L.latLngBounds(info.bounds).getCenter()
-      if (openPopup) info.layer.openPopup?.()
 
-      if (enableGeocoding && !info.locationDetails && !info.isLoadingLocation) {
-        info.isLoadingLocation = true
+      if (enableGeocoding && !info.locationDetails && info.bounds.length > 0) {
+        const center = L.latLngBounds(info.bounds).getCenter()
         try {
-          const details = await reverseGeocoder.getLocationDetails(centerPoint.lat, centerPoint.lng)
+          const details = await reverseGeocoder.getLocationDetails(center.lat, center.lng)
           if (cancelled) return
           info.locationDetails = details
-          info.layer.setPopupContent(buildPopup(info, centerPoint, details))
-          setLayers((current) => current.map((entry) => (entry.key === info.key ? { ...entry, locationDetails: details, isLoadingLocation: false } : entry)))
+          setLayers((current) => current.map((entry) => (entry.key === info.key ? { ...entry, locationDetails: details } : entry)))
         } catch {
-          info.isLoadingLocation = false
+          // Geocoding is secondary; geometry remains usable.
         }
       }
     }
@@ -365,36 +324,35 @@ export function KMZMapDisplay({
       name: string,
       shape: any,
       bounds: [number, number][],
-      description: string | null,
       geometryType: LayerInfo["geometryType"],
       geometrySource: LayerInfo["geometrySource"],
       index: number,
+      description?: string | null,
     ) => {
       const fileName = file.fileName || "Archivo KMZ"
       const color = getColor(fileId)
       const key = `${fileId}:${geometrySource}:${index}:${name}`
-      const centerPoint = L.latLngBounds(bounds).getCenter()
+      const isReference = geometrySource !== "placemark"
       const info: LayerInfo = {
         key,
         fileId,
         name,
         fileName,
         layer: shape,
-        visible: true,
+        visible: !isReference,
         color,
         bounds,
         description,
         geometryType,
         geometrySource,
-        isLoadingLocation: false,
       }
 
-      shape.bindPopup(buildPopup(info, centerPoint))
-      shape.on("click", () => void selectLayer(info, false))
+      shape.on("click", () => void selectLayer(info))
+      if (!isReference) shape.addTo(map)
       renderedRef.current.push(shape)
-      layerByKeyRef.current.set(key, info)
       nextLayers.push(info)
-      allBounds.push(...bounds)
+      if (isReference) referenceBounds.push(...bounds)
+      else realBounds.push(...bounds)
       renderedCount++
     }
 
@@ -411,8 +369,8 @@ export function KMZMapDisplay({
           if (cancelled) return
           const placemark = placemarks[placemarkIndex]
           const coordinates = Array.isArray(placemark?.coordinates) ? placemark.coordinates : []
-          const description = cleanDescription(placemark?.description) || getFileDescription(file)
           const geometryType = getGeometryType(placemark)
+          const description = cleanDescription(placemark?.description) || getFileDescription(file)
 
           if (geometryType === "Point" && coordinates.length > 0) {
             const [lng, lat] = coordinates[0] || []
@@ -424,8 +382,8 @@ export function KMZMapDisplay({
               fillColor: fileColor,
               fillOpacity: 1,
               renderer: L.canvas(),
-            }).addTo(map)
-            addLayer(file, fileId, placemark.name || `Punto ${placemarkIndex + 1}`, marker, [[Number(lat), Number(lng)]], description, "Point", "placemark", placemarkIndex)
+            })
+            addLayer(file, fileId, placemark.name || `Punto ${placemarkIndex + 1}`, marker, [[Number(lat), Number(lng)]], "Point", "placemark", placemarkIndex, description)
             geometryCount++
           } else {
             const latLngs = coordinates
@@ -435,9 +393,9 @@ export function KMZMapDisplay({
 
             const shape =
               geometryType === "Polygon"
-                ? L.polygon(latLngs, { color: fileColor, weight: 2, opacity: 0.92, fillColor: fileColor, fillOpacity: 0.2, renderer: L.canvas() }).addTo(map)
-                : L.polyline(latLngs, { color: fileColor, weight: 2.5, opacity: 0.9, renderer: L.canvas() }).addTo(map)
-            addLayer(file, fileId, placemark.name || `${geometryType} ${placemarkIndex + 1}`, shape, latLngs, description, geometryType, "placemark", placemarkIndex)
+                ? L.polygon(latLngs, { color: fileColor, weight: 2, opacity: 0.95, fillColor: fileColor, fillOpacity: 0.18, renderer: L.canvas() })
+                : L.polyline(latLngs, { color: fileColor, weight: 2.5, opacity: 0.9, renderer: L.canvas() })
+            addLayer(file, fileId, placemark.name || `${geometryType} ${placemarkIndex + 1}`, shape, latLngs, geometryType, "placemark", placemarkIndex, description)
             geometryCount++
           }
 
@@ -457,15 +415,15 @@ export function KMZMapDisplay({
             [Number(bounds.south), Number(bounds.east)],
           ]
           const rectangle = L.polygon(latLngs, {
-            color: fileColor,
-            weight: 2,
+            color: "#7b847f",
+            weight: 1.5,
             dashArray: "7 6",
-            opacity: 0.95,
-            fillColor: fileColor,
-            fillOpacity: 0.1,
+            opacity: 0.8,
+            fillColor: "#7b847f",
+            fillOpacity: 0.04,
             renderer: L.canvas(),
-          }).addTo(map)
-          addLayer(file, fileId, `${file.fileName || "KMZ"} · encuadre`, rectangle, latLngs, getFileDescription(file), "Bounds", "collection-bounds", 0)
+          })
+          addLayer(file, fileId, "Solo ubicación aproximada", rectangle, latLngs, "Bounds", "collection-bounds", 0, getFileDescription(file))
         }
       }
 
@@ -476,25 +434,27 @@ export function KMZMapDisplay({
           radius: 7,
           color: "#ffffff",
           weight: 3,
-          fillColor: getColor(fileId),
+          fillColor: "#7b847f",
           fillOpacity: 1,
-        }).addTo(map)
-        addLayer(file, fileId, file.fileName || "Ubicación del KMZ", marker, [[centerCoordinates.lat, centerCoordinates.lng]], getFileDescription(file), "Reference", "selected-center", 0)
+        })
+        addLayer(file, fileId, "Solo ubicación aproximada", marker, [[centerCoordinates.lat, centerCoordinates.lng]], "Reference", "selected-center", 0, getFileDescription(file))
       }
 
       if (cancelled) return
       setLayers([...nextLayers])
       setRenderProgress({ current: renderedCount, total: expectedTotal })
-      setExpandedFiles(new Set(nextLayers.length <= 120 ? nextLayers.map((entry) => entry.fileId) : selectedKmzId ? nextLayers.map((entry) => entry.fileId) : []))
+      setExpandedFiles(new Set(selectedKmzId && nextLayers.length <= 80 ? nextLayers.map((entry) => entry.fileId) : []))
       setLoading(false)
-      if (allBounds.length === 1) map.setView(allBounds[0], 14)
-      else if (allBounds.length > 1) map.fitBounds(L.latLngBounds(allBounds), { padding: [48, 48], maxZoom: selectedKmzId ? 15 : 10 })
+
+      const fitBounds = realBounds.length > 0 ? realBounds : referenceBounds
+      if (fitBounds.length === 1) map.setView(fitBounds[0], 14)
+      else if (fitBounds.length > 1) map.fitBounds(L.latLngBounds(fitBounds), { padding: [48, 48], maxZoom: selectedKmzId ? 15 : 10 })
     }
 
     void render().catch((renderError) => {
       console.error("[KMZ map] render failed", renderError)
       if (!cancelled) {
-        setError("No se pudieron representar las capas del KMZ.")
+        setError("No se pudieron representar las geometrías del KMZ.")
         setLoading(false)
       }
     })
@@ -503,6 +463,17 @@ export function KMZMapDisplay({
       cancelled = true
     }
   }, [mapReady, displayFiles, centerCoordinates, enableGeocoding, onPlacemarkSelect, selectedKmzId])
+
+  useEffect(() => {
+    if (!mapReady) return
+    const map = mapRef.current
+    if (!map) return
+    referenceLayers.forEach((entry) => {
+      const shouldShow = showReferences && entry.visible
+      if (shouldShow && !map.hasLayer(entry.layer)) entry.layer.addTo(map)
+      if (!shouldShow && map.hasLayer(entry.layer)) map.removeLayer(entry.layer)
+    })
+  }, [showReferences, referenceLayers, mapReady])
 
   useEffect(() => {
     if (!mapReady || !containerRef.current) return
@@ -526,9 +497,9 @@ export function KMZMapDisplay({
     setLayers((current) =>
       current.map((entry) => {
         if (entry.key !== key) return entry
-        if (visible && !map.hasLayer(entry.layer)) entry.layer.addTo(map)
+        const canRender = entry.geometrySource === "placemark" || showReferences
+        if (visible && canRender && !map.hasLayer(entry.layer)) entry.layer.addTo(map)
         if (!visible && map.hasLayer(entry.layer)) map.removeLayer(entry.layer)
-        entry.visible = visible
         return { ...entry, visible }
       }),
     )
@@ -540,36 +511,22 @@ export function KMZMapDisplay({
     setLayers((current) =>
       current.map((entry) => {
         if (entry.fileId !== fileId) return entry
-        if (visible && !map.hasLayer(entry.layer)) entry.layer.addTo(map)
+        const canRender = entry.geometrySource === "placemark" || showReferences
+        if (visible && canRender && !map.hasLayer(entry.layer)) entry.layer.addTo(map)
         if (!visible && map.hasLayer(entry.layer)) map.removeLayer(entry.layer)
-        entry.visible = visible
         return { ...entry, visible }
       }),
     )
   }
 
-  const setAllVisibility = (visible: boolean) => {
+  const setAllRealVisibility = (visible: boolean) => {
     const map = mapRef.current
     if (!map) return
     setLayers((current) =>
       current.map((entry) => {
+        if (entry.geometrySource !== "placemark") return entry
         if (visible && !map.hasLayer(entry.layer)) entry.layer.addTo(map)
         if (!visible && map.hasLayer(entry.layer)) map.removeLayer(entry.layer)
-        entry.visible = visible
-        return { ...entry, visible }
-      }),
-    )
-  }
-
-  const isolateLayer = (key: string) => {
-    const map = mapRef.current
-    if (!map) return
-    setLayers((current) =>
-      current.map((entry) => {
-        const visible = entry.key === key
-        if (visible && !map.hasLayer(entry.layer)) entry.layer.addTo(map)
-        if (!visible && map.hasLayer(entry.layer)) map.removeLayer(entry.layer)
-        entry.visible = visible
         return { ...entry, visible }
       }),
     )
@@ -580,10 +537,10 @@ export function KMZMapDisplay({
     const L = (window as any).L
     if (!map || !L) return
     if (!entry.visible) setLayerVisibility(entry.key, true)
+    if (entry.geometrySource !== "placemark") setShowReferences(true)
     if (entry.bounds.length === 1) map.setView(entry.bounds[0], 15)
     else map.fitBounds(L.latLngBounds(entry.bounds), { padding: [48, 48], maxZoom: 16 })
     setSelectedLayerKey(entry.key)
-    entry.layer.openPopup?.()
     onPlacemarkSelect?.(entry)
   }
 
@@ -591,7 +548,9 @@ export function KMZMapDisplay({
     const map = mapRef.current
     const L = (window as any).L
     if (!map || !L) return
-    const bounds = group.layers.flatMap((entry) => entry.bounds)
+    const real = group.layers.filter((entry) => entry.geometrySource === "placemark")
+    const source = real.length > 0 ? real : group.layers
+    const bounds = source.flatMap((entry) => entry.bounds)
     if (bounds.length === 1) map.setView(bounds[0], 14)
     else if (bounds.length > 1) map.fitBounds(L.latLngBounds(bounds), { padding: [48, 48], maxZoom: 14 })
   }
@@ -613,98 +572,120 @@ export function KMZMapDisplay({
     )
   }
 
+  const geometryLabel = realLayers.length > 0
+    ? [polygonCount ? `${polygonCount} polígonos` : null, lineCount ? `${lineCount} líneas` : null, pointCount ? `${pointCount} puntos` : null].filter(Boolean).join(" · ")
+    : "Sin geometría real"
+
   return (
     <div ref={containerRef} className="relative overflow-hidden bg-muted" style={{ height: fullscreen ? "100vh" : height }}>
       <div ref={mapNodeRef} className="h-full w-full" />
 
       {!mapReady || loading ? (
-        <div className="pointer-events-none absolute inset-0 z-[500] flex items-center justify-center bg-background/35 backdrop-blur-[1px]">
+        <div className="pointer-events-none absolute inset-0 z-[500] flex items-center justify-center bg-background/30 backdrop-blur-[1px]">
           <div className="min-w-64 rounded-lg border bg-background/95 px-4 py-3 text-sm shadow-lg">
             <div className="flex items-center gap-2 font-medium">
               <Loader2 className="h-4 w-4 animate-spin text-primary" />
-              Representando capas KMZ
+              Representando geometrías
             </div>
             {renderProgress.total > 0 ? (
-              <div className="mt-2">
-                <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-                  <div className="h-full bg-primary transition-all" style={{ width: `${Math.min(100, (renderProgress.current / renderProgress.total) * 100)}%` }} />
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">{renderProgress.current} de {renderProgress.total} geometrías</p>
-              </div>
+              <p className="mt-1 text-xs text-muted-foreground">{renderProgress.current} de {renderProgress.total}</p>
             ) : null}
           </div>
         </div>
       ) : null}
 
-      <div className="absolute left-3 top-3 z-[600] flex gap-2">
-        <Button type="button" size="sm" variant="outline" className="bg-background/95" onClick={() => setLayersOpen((value) => !value)}>
+      <div className="absolute left-3 top-3 z-[600] flex items-center gap-2">
+        <Button type="button" size="sm" variant="outline" className="h-9 bg-background/95 px-3 shadow-sm" onClick={() => setLayersOpen((value) => !value)}>
           <Layers3 className="mr-2 h-4 w-4" />
-          {visibleCount}/{layers.length} capas · {fileGroups.length} KMZ
-          {excludedRegionalFiles.length > 0 ? ` · ${excludedRegionalFiles.length} omitidos` : ""}
+          {geometryLabel}
         </Button>
-        <Button type="button" size="icon" variant="outline" className="bg-background/95" onClick={toggleFullscreen} aria-label={fullscreen ? "Salir de pantalla completa" : "Ver en pantalla completa"}>
+        {referenceLayers.length > 0 ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className={`h-9 bg-background/95 px-3 shadow-sm ${showReferences ? "border-amber-400 text-amber-700" : "text-muted-foreground"}`}
+            onClick={() => setShowReferences((value) => !value)}
+          >
+            {showReferences ? "Ocultar referencias" : `${referenceLayers.length} referencias`}
+          </Button>
+        ) : null}
+        <Button type="button" size="icon" variant="outline" className="h-9 w-9 bg-background/95 shadow-sm" onClick={toggleFullscreen} aria-label={fullscreen ? "Salir de pantalla completa" : "Ver en pantalla completa"}>
           {fullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
         </Button>
       </div>
 
+      {realLayers.length === 0 && !loading ? (
+        <div className="absolute bottom-4 left-1/2 z-[550] w-[min(30rem,calc(100%-2rem))] -translate-x-1/2 rounded-xl border border-amber-300 bg-background/95 px-4 py-3 shadow-lg">
+          <p className="text-sm font-semibold text-foreground">Este KMZ no tiene geometría real recuperada</p>
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">Solo existe una ubicación aproximada. El rectángulo de referencia está oculto para no confundirlo con un polígono.</p>
+        </div>
+      ) : null}
+
       {layersOpen ? (
-        <div className="absolute left-3 top-14 z-[600] flex max-h-[72%] w-[min(28rem,calc(100%-1.5rem))] flex-col overflow-hidden rounded-xl border bg-background/96 shadow-lg backdrop-blur">
-          <div className="border-b p-3">
-            <div className="flex items-center justify-between gap-3">
+        <div className="absolute left-3 top-14 z-[600] flex max-h-[68%] w-[min(25rem,calc(100%-1.5rem))] flex-col overflow-hidden rounded-xl border bg-background/97 shadow-xl backdrop-blur">
+          <div className="border-b px-3 py-3">
+            <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm font-semibold">Capas del mapa</p>
-                <p className="text-xs text-muted-foreground">
-                  {fileGroups.length} archivos · {layers.length} geometrías detectadas
-                  {excludedRegionalFiles.length > 0 ? ` · ${excludedRegionalFiles.length} vuelos o trazas extremas omitidos` : ""}
-                </p>
+                <p className="text-sm font-semibold text-foreground">Geometrías del mapa</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{visibleRealCount}/{realLayers.length} reales visibles · {fileGroups.length} KMZ</p>
               </div>
               <div className="flex gap-1">
-                <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => setAllVisibility(true)}>Todas</Button>
-                <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => setAllVisibility(false)}>Ocultar</Button>
+                <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setAllRealVisibility(true)}>Mostrar</Button>
+                <Button type="button" size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setAllRealVisibility(false)}>Ocultar</Button>
               </div>
             </div>
+            {excludedRegionalFiles.length > 0 ? (
+              <p className="mt-2 text-[11px] text-muted-foreground">{excludedRegionalFiles.length} vuelos o trazas excesivas omitidos.</p>
+            ) : null}
           </div>
 
           <div className="overflow-y-auto p-2">
-            {layers.length === 0 && !loading ? (
-              <div className="p-3 text-sm text-muted-foreground">No hay geometría disponible. El archivo puede requerir reindexación desde su KMZ original.</div>
-            ) : (
-              fileGroups.map((group) => {
-                const expanded = expandedFiles.has(group.fileId)
-                const allVisible = group.visibleCount === group.layers.length
-                return (
-                  <div key={group.fileId} className="mb-2 overflow-hidden rounded-lg border bg-background">
-                    <div className="flex items-center gap-1 p-2">
-                      <button
-                        type="button"
-                        className="rounded p-1 hover:bg-muted"
-                        onClick={() => setExpandedFiles((current) => {
-                          const next = new Set(current)
-                          if (next.has(group.fileId)) next.delete(group.fileId)
-                          else next.add(group.fileId)
-                          return next
-                        })}
-                        aria-label={expanded ? "Contraer archivo" : "Expandir archivo"}
-                      >
-                        {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                      </button>
-                      <button type="button" className="rounded p-1 hover:bg-muted" onClick={() => setFileVisibility(group.fileId, !allVisible)} aria-label={allVisible ? "Ocultar archivo" : "Mostrar archivo"}>
-                        {allVisible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
-                      </button>
-                      <button type="button" className="min-w-0 flex-1 text-left" onClick={() => zoomFile(group)}>
-                        <span className="block truncate text-sm font-medium">{group.fileName}</span>
-                        <span className="block text-xs text-muted-foreground">{group.visibleCount}/{group.layers.length} capas visibles</span>
-                      </button>
-                      <button type="button" className="rounded p-1 hover:bg-muted" onClick={() => zoomFile(group)} aria-label="Centrar archivo">
-                        <Focus className="h-4 w-4" />
-                      </button>
-                    </div>
+            {fileGroups.map((group) => {
+              const expanded = expandedFiles.has(group.fileId)
+              const realGroupLayers = group.layers.filter((entry) => entry.geometrySource === "placemark")
+              const allRealVisible = realGroupLayers.length > 0 && realGroupLayers.every((entry) => entry.visible)
+              const stateLabel = group.realCount > 0 ? `${group.realCount} geometrías reales` : "Solo ubicación"
 
-                    {expanded ? (
-                      <div className="border-t bg-muted/20 p-1">
-                        {group.layers.map((entry) => (
+              return (
+                <div key={group.fileId} className="mb-2 overflow-hidden rounded-lg border bg-background">
+                  <div className="flex items-center gap-1 px-2 py-2">
+                    <button
+                      type="button"
+                      className="rounded p-1 hover:bg-muted"
+                      onClick={() => setExpandedFiles((current) => {
+                        const next = new Set(current)
+                        if (next.has(group.fileId)) next.delete(group.fileId)
+                        else next.add(group.fileId)
+                        return next
+                      })}
+                    >
+                      {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded p-1 hover:bg-muted disabled:opacity-40"
+                      disabled={realGroupLayers.length === 0}
+                      onClick={() => setFileVisibility(group.fileId, !allRealVisible)}
+                    >
+                      {allRealVisible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
+                    </button>
+                    <button type="button" className="min-w-0 flex-1 text-left" onClick={() => zoomFile(group)}>
+                      <span className="block truncate text-sm font-medium text-foreground">{group.fileName}</span>
+                      <span className={`block text-xs ${group.realCount > 0 ? "text-emerald-700" : "text-amber-700"}`}>{stateLabel}</span>
+                    </button>
+                    <button type="button" className="rounded p-1 hover:bg-muted" onClick={() => zoomFile(group)} aria-label="Centrar archivo">
+                      <Focus className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  {expanded ? (
+                    <div className="border-t bg-muted/20 p-1">
+                      {group.layers.map((entry) => {
+                        const isReference = entry.geometrySource !== "placemark"
+                        return (
                           <div key={entry.key} className={`flex items-start gap-1 rounded-md p-1.5 ${selectedLayerKey === entry.key ? "bg-primary/10 ring-1 ring-primary/30" : "hover:bg-muted/70"}`}>
-                            <button type="button" className="mt-0.5 rounded p-1" onClick={() => setLayerVisibility(entry.key, !entry.visible)} aria-label={entry.visible ? "Ocultar capa" : "Mostrar capa"}>
+                            <button type="button" className="mt-0.5 rounded p-1" onClick={() => setLayerVisibility(entry.key, !entry.visible)}>
                               {entry.visible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
                             </button>
                             <button type="button" className="min-w-0 flex-1 text-left" onClick={() => zoomLayer(entry)}>
@@ -712,19 +693,18 @@ export function KMZMapDisplay({
                                 <GeometryIcon type={entry.geometryType} />
                                 <span className="truncate">{entry.name}</span>
                               </span>
-                              <span className="mt-0.5 block text-[10px] text-muted-foreground">{entry.geometryType}{entry.geometrySource !== "placemark" ? " · referencia" : ""}</span>
-                            </button>
-                            <button type="button" className="rounded p-1 hover:bg-background" onClick={() => isolateLayer(entry.key)} aria-label="Mostrar solo esta capa">
-                              <Focus className="h-3.5 w-3.5" />
+                              <span className={`mt-0.5 block text-[10px] ${isReference ? "text-amber-700" : "text-muted-foreground"}`}>
+                                {isReference ? "Referencia, no polígono" : entry.geometryType}
+                              </span>
                             </button>
                           </div>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                )
-              })
-            )}
+                        )
+                      })}
+                    </div>
+                  ) : null}
+                </div>
+              )
+            })}
           </div>
         </div>
       ) : null}
