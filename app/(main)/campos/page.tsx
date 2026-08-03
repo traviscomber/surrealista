@@ -2,7 +2,6 @@ import type { Metadata } from "next"
 import { CAMPOSDesktopShellV2 } from "@/components/campos/campos-desktop-shell-v2"
 import { CAMPOSRegionalTagFilterV3 } from "@/components/campos/campos-regional-tag-filter-v3"
 import { CAMPOSDesktopVisualSystem } from "@/components/campos/campos-desktop-visual-system"
-import { CAMPOSDarkThemeSystem } from "@/components/campos/campos-dark-theme-system"
 import { CAMPOSPremiumPolishSystem } from "@/components/campos/campos-premium-polish-system"
 import { CAMPOSContrastControlsSystem } from "@/components/campos/campos-contrast-controls-system"
 import { CAMPOSOperationalFinishSystem } from "@/components/campos/campos-operational-finish-system"
@@ -22,7 +21,6 @@ export default function CAMPOSPage() {
       <CAMPOSDesktopShellV2 />
       <CAMPOSRegionalTagFilterV3 />
       <CAMPOSDesktopVisualSystem />
-      <CAMPOSDarkThemeSystem />
       <CAMPOSPremiumPolishSystem />
       <CAMPOSContrastControlsSystem />
       <CAMPOSOperationalFinishSystem />
