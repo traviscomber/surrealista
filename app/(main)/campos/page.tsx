@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import { CAMPOSDesktopShellV2 } from "@/components/campos/campos-desktop-shell-v2"
-import { CAMPOSRegionalTagFilterV3 } from "@/components/campos/campos-regional-tag-filter-v3"
+import { CAMPOSRegionalTagFilterSynced } from "@/components/campos/campos-regional-tag-filter-synced"
 import { CAMPOSUnifiedVisualSystem } from "@/components/campos/campos-unified-visual-system"
 import { CAMPOSMapVisualBehavior } from "@/components/campos/campos-map-visual-behavior"
 import { LeafletPopupBehavior } from "@/components/kmz/leaflet-popup-behavior"
@@ -16,7 +16,7 @@ export default function CAMPOSPage() {
       <LeafletPopupBehavior />
       <CAMPOSMapVisualBehavior />
       <CAMPOSDesktopShellV2 />
-      <CAMPOSRegionalTagFilterV3 />
+      <CAMPOSRegionalTagFilterSynced />
       <CAMPOSUnifiedVisualSystem />
     </div>
   )
