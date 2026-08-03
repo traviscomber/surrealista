@@ -17,7 +17,7 @@ import {
   Users,
 } from "lucide-react"
 
-import { CamposWorkspace } from "@/components/campos/campos-workspace"
+import { CAMPOSFolderView } from "@/components/campos/campos-folder-view"
 import { ClientRepositoryDashboard } from "@/components/client-management/client-repository-dashboard"
 import SiiRolExplorer from "@/components/sii-rol-explorer"
 import { TasksManager } from "@/components/tasks/tasks-manager"
@@ -30,12 +30,12 @@ import { createBrowserClient } from "@/lib/supabase/client"
 export const dynamic = "force-dynamic"
 
 const SimpleDriveFolderView = dynamic(
-  () => import("@/components/google-drive/simple-drive-folder-view").then((module) => module.SimpleDriveFolderView),
+  () => import("@/components/google-drive/simple-drive-folder-view").then((mod) => mod.SimpleDriveFolderView),
   { ssr: false, loading: () => <ModuleLoading label="Cargando archivos…" /> },
 )
 
 const CommunicationsManager = dynamic(
-  () => import("@/components/communications/communications-manager").then((module) => module.CommunicationsManager),
+  () => import("@/components/communications/communications-manager").then((mod) => mod.CommunicationsManager),
   { ssr: false, loading: () => <ModuleLoading label="Cargando comunicaciones…" /> },
 )
 
@@ -54,9 +54,9 @@ const modules = {
   campos: {
     label: "Campos",
     icon: Folder,
-    title: "CAMPOS",
-    description: "Superficie principal de inteligencia territorial, análisis predial y gestión de expedientes.",
-    outcome: "Explora la colección, selecciona geometrías y concentra roles, propiedad, documentos y señales de investigación.",
+    title: "Explorador de campos",
+    description: "Revisa el inventario territorial y abre cada expediente con sus antecedentes asociados.",
+    outcome: "Selecciona un campo para analizar roles, ubicación, geometría, documentos y señales de propiedad.",
   },
   clientes: {
     label: "Clientes",
@@ -103,11 +103,13 @@ const modules = {
 } as const
 
 type ModuleKey = keyof typeof modules
-type TasksState = "idle" | "loading" | "ready" | "error"
+
 type KmzCountState =
   | { status: "idle" | "loading"; count: null }
   | { status: "ready"; count: number }
   | { status: "error"; count: null }
+
+type TasksState = "idle" | "loading" | "ready" | "error"
 
 const moduleEntries = Object.entries(modules) as Array<[ModuleKey, (typeof modules)[ModuleKey]]>
 const isModuleKey = (value: string | null): value is ModuleKey => Boolean(value && value in modules)
@@ -139,7 +141,6 @@ export default function UnifiedSearchPage() {
   const [kmzState, setKmzState] = useState<KmzCountState>({ status: "idle", count: null })
 
   const currentModule = modules[activeTab]
-  const isCampos = activeTab === "campos"
 
   useEffect(() => {
     const nextModule = isModuleKey(moduleParam) ? moduleParam : "campos"
@@ -160,7 +161,12 @@ export default function UnifiedSearchPage() {
 
   const loadTasks = useCallback(async () => {
     setTasksState("loading")
-    const { data, error } = await supabase.from("tasks").select("*").order("created_at", { ascending: false }).limit(20)
+
+    const { data, error } = await supabase
+      .from("tasks")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(20)
 
     if (error) {
       console.error("[busqueda] No se pudieron cargar las tareas", error)
@@ -175,6 +181,7 @@ export default function UnifiedSearchPage() {
 
   const loadKmzCount = useCallback(async () => {
     setKmzState({ status: "loading", count: null })
+
     const { count, error } = await supabase
       .from("kmz_collection")
       .select("id", { count: "exact", head: true })
@@ -199,27 +206,20 @@ export default function UnifiedSearchPage() {
     void loadKmzCount()
   }, [activeTab, kmzState.status, loadKmzCount])
 
-  const kmzDescription =
-    kmzState.status === "error"
-      ? "No se pudo consultar la colección activa."
-      : kmzState.status === "ready"
-        ? `${new Intl.NumberFormat("es-CL").format(kmzState.count)} archivos KMZ activos registrados.`
-        : "Consultando la colección activa…"
+  const kmzDescription = (() => {
+    if (kmzState.status === "error") return "No se pudo consultar la colección activa."
+    if (kmzState.status !== "ready") return "Consultando la colección activa…"
+    return `${new Intl.NumberFormat("es-CL").format(kmzState.count)} archivos KMZ activos registrados.`
+  })()
 
   return (
-    <main
-      className={`mx-auto w-full max-w-[1800px] px-4 sm:px-6 lg:px-8 ${
-        isCampos ? "space-y-3 py-3" : "space-y-5 py-5"
-      }`}
-    >
-      {!isCampos && (
-        <WorkspaceHeading
-          eyebrow="Centro operativo"
-          title={currentModule.title}
-          description={currentModule.description}
-          outcome={currentModule.outcome}
-        />
-      )}
+    <main className="mx-auto w-full max-w-[1800px] space-y-5 px-4 py-5 sm:px-6 lg:px-8">
+      <WorkspaceHeading
+        eyebrow="Centro operativo"
+        title={currentModule.title}
+        description={currentModule.description}
+        outcome={currentModule.outcome}
+      />
 
       <Tabs value={activeTab} onValueChange={handleModuleChange} className="w-full">
         <div className="overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -230,7 +230,11 @@ export default function UnifiedSearchPage() {
             {moduleEntries.map(([key, module]) => {
               const Icon = module.icon
               return (
-                <TabsTrigger key={key} value={key} className="min-w-max gap-2 rounded-xl px-3 py-2.5 lg:min-w-0">
+                <TabsTrigger
+                  key={key}
+                  value={key}
+                  className="min-w-max gap-2 rounded-xl px-3 py-2.5 lg:min-w-0"
+                >
                   <Icon className="h-4 w-4" aria-hidden="true" />
                   {module.label}
                 </TabsTrigger>
@@ -239,8 +243,8 @@ export default function UnifiedSearchPage() {
           </TabsList>
         </div>
 
-        <TabsContent value="campos" className="mt-2 h-[calc(100dvh-8.75rem)] min-h-[680px] overflow-hidden">
-          <CamposWorkspace />
+        <TabsContent value="campos" className="mt-3 h-[calc(100dvh-17rem)] min-h-[620px] overflow-hidden">
+          <CAMPOSFolderView />
         </TabsContent>
 
         <TabsContent value="clientes" className="mt-3">
@@ -260,7 +264,9 @@ export default function UnifiedSearchPage() {
                 <AlertCircle className="h-8 w-8 text-destructive" aria-hidden="true" />
                 <div>
                   <h3 className="font-semibold">No se pudieron cargar las tareas</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">La vista no se mostrará vacía mientras exista un problema de conexión o permisos.</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    La vista no se mostrará vacía mientras exista un problema de conexión o permisos.
+                  </p>
                 </div>
                 <Button variant="outline" onClick={() => void loadTasks()}>
                   <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
