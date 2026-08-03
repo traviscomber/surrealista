@@ -1,6 +1,6 @@
 import type { Metadata } from "next"
 import { CAMPOSDesktopShellV2 } from "@/components/campos/campos-desktop-shell-v2"
-import { CAMPOSRegionalTagFilterV2 } from "@/components/campos/campos-regional-tag-filter-v2"
+import { CAMPOSRegionalTagFilterV3 } from "@/components/campos/campos-regional-tag-filter-v3"
 import { LeafletPopupBehavior } from "@/components/kmz/leaflet-popup-behavior"
 
 export const metadata: Metadata = {
@@ -13,7 +13,7 @@ export default function CAMPOSPage() {
     <div className="fixed inset-x-0 bottom-0 top-16 min-h-0 overflow-hidden bg-background">
       <LeafletPopupBehavior />
       <CAMPOSDesktopShellV2 />
-      <CAMPOSRegionalTagFilterV2 />
+      <CAMPOSRegionalTagFilterV3 />
     </div>
   )
 }
