@@ -49,6 +49,15 @@ interface PropertyRecord {
 
 type GeometryKind = "polygon" | "line" | "point" | "reference"
 
+export interface GeometryMetrics {
+  areaSquareMeters: number | null
+  perimeterMeters: number | null
+  lengthMeters: number | null
+  centroid: { lat: number; lng: number }
+  vertices: number
+  approximate: boolean
+}
+
 export interface LayerInfo {
   name: string
   fileName: string
@@ -59,17 +68,111 @@ export interface LayerInfo {
   description?: string | null
   geometrySource?: "placemark" | "collection-bounds" | "selected-center"
   geometryKind?: GeometryKind
+  geometryMetrics?: GeometryMetrics
   locationDetails?: ChileanLocationDetails
   isLoadingLocation?: boolean
   property?: PropertyRecord | null
 }
 
 const COLORS = ["#2f6f55", "#2f6484", "#8a6336", "#6c5c8d", "#397167", "#7a4f45"]
+const EARTH_RADIUS_METERS = 6_371_008.8
 
 function getColor(value: string) {
   let hash = 0
   for (let index = 0; index < value.length; index++) hash = (hash * 31 + value.charCodeAt(index)) | 0
   return COLORS[Math.abs(hash) % COLORS.length]
+}
+
+function toRadians(value: number) {
+  return (value * Math.PI) / 180
+}
+
+function haversineDistance(a: [number, number], b: [number, number]) {
+  const [lat1, lng1] = a
+  const [lat2, lng2] = b
+  const deltaLat = toRadians(lat2 - lat1)
+  const deltaLng = toRadians(lng2 - lng1)
+  const latitude1 = toRadians(lat1)
+  const latitude2 = toRadians(lat2)
+  const haversine =
+    Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(latitude1) * Math.cos(latitude2) * Math.sin(deltaLng / 2) ** 2
+  return 2 * EARTH_RADIUS_METERS * Math.asin(Math.min(1, Math.sqrt(haversine)))
+}
+
+function calculateCentroid(points: [number, number][]) {
+  if (points.length === 0) return { lat: 0, lng: 0 }
+  const totals = points.reduce(
+    (accumulator, [lat, lng]) => ({ lat: accumulator.lat + lat, lng: accumulator.lng + lng }),
+    { lat: 0, lng: 0 },
+  )
+  return { lat: totals.lat / points.length, lng: totals.lng / points.length }
+}
+
+function calculatePolygonArea(points: [number, number][]) {
+  if (points.length < 3) return null
+  const referenceLatitude = toRadians(points.reduce((sum, [lat]) => sum + lat, 0) / points.length)
+  const projected = points.map(([lat, lng]) => ({
+    x: EARTH_RADIUS_METERS * toRadians(lng) * Math.cos(referenceLatitude),
+    y: EARTH_RADIUS_METERS * toRadians(lat),
+  }))
+  let signedArea = 0
+  for (let index = 0; index < projected.length; index++) {
+    const current = projected[index]
+    const next = projected[(index + 1) % projected.length]
+    signedArea += current.x * next.y - next.x * current.y
+  }
+  return Math.abs(signedArea) / 2
+}
+
+function calculateGeometryMetrics(
+  points: [number, number][],
+  kind: GeometryKind,
+  approximate: boolean,
+): GeometryMetrics {
+  const centroid = calculateCentroid(points)
+  if (points.length <= 1) {
+    return {
+      areaSquareMeters: null,
+      perimeterMeters: null,
+      lengthMeters: null,
+      centroid,
+      vertices: points.length,
+      approximate,
+    }
+  }
+
+  let openLength = 0
+  for (let index = 1; index < points.length; index++) {
+    openLength += haversineDistance(points[index - 1], points[index])
+  }
+
+  const polygon = kind === "polygon" || (kind === "reference" && points.length >= 3)
+  const closingDistance = polygon ? haversineDistance(points[points.length - 1], points[0]) : 0
+  return {
+    areaSquareMeters: polygon ? calculatePolygonArea(points) : null,
+    perimeterMeters: polygon ? openLength + closingDistance : null,
+    lengthMeters: kind === "line" ? openLength : null,
+    centroid,
+    vertices: points.length,
+    approximate,
+  }
+}
+
+function formatMetricArea(value?: number | null) {
+  if (!value || !Number.isFinite(value)) return null
+  if (value >= 10_000) {
+    return `${new Intl.NumberFormat("es-CL", { maximumFractionDigits: 2 }).format(value / 10_000)} ha`
+  }
+  return `${new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 }).format(value)} m²`
+}
+
+function formatMetricDistance(value?: number | null) {
+  if (!value || !Number.isFinite(value)) return null
+  if (value >= 1_000) {
+    return `${new Intl.NumberFormat("es-CL", { maximumFractionDigits: 2 }).format(value / 1_000)} km`
+  }
+  return `${new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 }).format(value)} m`
 }
 
 function escapeHtml(value: unknown) {
@@ -101,7 +204,7 @@ function normalizeList(value: unknown): string[] {
   return value.map((item) => String(item ?? "").trim()).filter(Boolean)
 }
 
-function formatArea(record?: PropertyRecord | null) {
+function formatRecordArea(record?: PropertyRecord | null) {
   const metadata = record?.metadata || {}
   const area = [
     metadata.area_hectares,
@@ -173,28 +276,33 @@ function buildPopup(layer: LayerInfo, center: { lat: number; lng: number }, deta
   const roles = normalizeList(property?.rol_numbers || metadata.rolNumbers || metadata.rol_numbers)
   const location = details ? [details.comuna, details.provincia, details.region].filter(Boolean).join(", ") : null
   const description = layer.description || cleanDescription(property?.description) || cleanDescription(metadata.description)
+  const metrics = layer.geometryMetrics
   const sourceMessage =
     layer.geometrySource === "collection-bounds"
-      ? "Límite de referencia construido desde los bounds persistidos; no reemplaza el trazado original."
+      ? "Límite de referencia construido desde los bounds persistidos; sus métricas son aproximadas y no reemplazan el trazado original."
       : layer.geometrySource === "selected-center"
         ? "Punto de referencia construido desde la ubicación disponible."
         : "Geometría persistida del archivo KMZ."
 
-  return `<div style="width:320px;max-width:calc(100vw - 72px);font-family:system-ui,-apple-system,sans-serif;color:#17211c">
+  return `<div style="width:330px;max-width:calc(100vw - 72px);font-family:system-ui,-apple-system,sans-serif;color:#17211c">
     <div style="padding-bottom:10px;border-bottom:1px solid #dfe5e1">
-      <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#69766f">Ficha territorial</div>
+      <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#69766f">Ficha geométrica</div>
       <h4 style="margin:4px 0 0;font-size:15px;line-height:1.3;font-weight:750;color:${layer.color};overflow-wrap:anywhere">${escapeHtml(layer.name)}</h4>
     </div>
     <div style="margin-top:8px">
       ${detailRow("Archivo", layer.fileName)}
       ${detailRow("Tipo", layer.geometryKind || "capa")}
+      ${detailRow("Área", formatMetricArea(metrics?.areaSquareMeters) || formatRecordArea(property) || "No aplica")}
+      ${detailRow("Perímetro", formatMetricDistance(metrics?.perimeterMeters))}
+      ${detailRow("Longitud", formatMetricDistance(metrics?.lengthMeters))}
+      ${detailRow("Vértices", metrics?.vertices)}
+      ${detailRow("Centroide", metrics ? `${metrics.centroid.lat.toFixed(6)}, ${metrics.centroid.lng.toFixed(6)}` : null)}
       ${detailRow("Rol", roles.length > 0 ? roles.join(", ") : "Sin rol confirmado")}
       ${detailRow("Propietario", property?.owner || metadata.confirmed_owner || metadata.web_owner || "Sin propietario confirmado")}
-      ${detailRow("Superficie", formatArea(property) || "Sin superficie registrada")}
       ${detailRow("Región", property?.region || details?.region || "Sin dato")}
       ${detailRow("Comuna", details?.comuna || metadata.comuna || "Sin dato")}
       ${detailRow("Dirección", getAddress(property))}
-      ${detailRow("Coordenadas", `${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}`)}
+      ${detailRow("Punto mapa", `${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}`)}
     </div>
     ${description ? `<div style="margin-top:10px;max-height:128px;overflow:auto;border-radius:7px;background:#f5f7f5;padding:9px;font-size:11px;line-height:1.5;white-space:pre-wrap;color:#435049">${escapeHtml(description)}</div>` : ""}
     <div style="margin-top:9px;padding:8px;border-radius:7px;background:${layer.geometrySource === "placemark" ? "#edf6f1" : "#fff7df"};color:${layer.geometrySource === "placemark" ? "#285a43" : "#6f5012"};font-size:10px;line-height:1.45">${escapeHtml(sourceMessage)}</div>
@@ -243,6 +351,10 @@ export function KMZMapDisplay({
 
   const visibleCount = layers.filter((entry) => entry.visible).length
   const layerKey = (entry: LayerInfo, index: number) => `${entry.fileName}-${entry.name}-${index}`
+  const activeLayer = useMemo(() => {
+    if (!activeLayerKey) return null
+    return layers.find((entry, index) => layerKey(entry, index) === activeLayerKey) || null
+  }, [activeLayerKey, layers])
 
   useEffect(() => {
     let cancelled = false
@@ -367,11 +479,12 @@ export function KMZMapDisplay({
         description,
         geometrySource,
         geometryKind,
+        geometryMetrics: calculateGeometryMetrics(bounds, geometryKind, geometrySource !== "placemark"),
         isLoadingLocation: enableGeocoding,
         property: propertyRecord,
       }
 
-      const popupOptions = { autoPan: false, maxWidth: 360, minWidth: 300, closeButton: true, className: "kmz-property-popup" }
+      const popupOptions = { autoPan: false, maxWidth: 380, minWidth: 310, closeButton: true, className: "kmz-property-popup" }
       shape.bindPopup(buildPopup(info, centerPoint), popupOptions)
       shape.on("click", () => {
         const index = nextLayers.indexOf(info)
@@ -682,6 +795,48 @@ export function KMZMapDisplay({
             </div>
           </div>
 
+          {activeLayer?.geometryMetrics ? (
+            <div className="border-b bg-emerald-500/[0.06] px-3 py-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-700">Ficha geométrica activa</p>
+                  <p className="mt-1 truncate text-sm font-semibold">{activeLayer.name}</p>
+                </div>
+                {activeLayer.geometryMetrics.approximate ? (
+                  <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] font-medium text-amber-800">Aproximada</span>
+                ) : (
+                  <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-1 text-[10px] font-medium text-emerald-800">KMZ real</span>
+                )}
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <div className="rounded-lg border bg-background/80 p-2">
+                  <p className="text-muted-foreground">Área</p>
+                  <p className="mt-0.5 font-semibold">{formatMetricArea(activeLayer.geometryMetrics.areaSquareMeters) || "No aplica"}</p>
+                </div>
+                <div className="rounded-lg border bg-background/80 p-2">
+                  <p className="text-muted-foreground">{activeLayer.geometryKind === "line" ? "Longitud" : "Perímetro"}</p>
+                  <p className="mt-0.5 font-semibold">
+                    {formatMetricDistance(
+                      activeLayer.geometryKind === "line"
+                        ? activeLayer.geometryMetrics.lengthMeters
+                        : activeLayer.geometryMetrics.perimeterMeters,
+                    ) || "No aplica"}
+                  </p>
+                </div>
+                <div className="rounded-lg border bg-background/80 p-2">
+                  <p className="text-muted-foreground">Vértices</p>
+                  <p className="mt-0.5 font-semibold tabular-nums">{activeLayer.geometryMetrics.vertices}</p>
+                </div>
+                <div className="rounded-lg border bg-background/80 p-2">
+                  <p className="text-muted-foreground">Centroide</p>
+                  <p className="mt-0.5 truncate font-mono text-[10px] font-semibold">
+                    {activeLayer.geometryMetrics.centroid.lat.toFixed(5)}, {activeLayer.geometryMetrics.centroid.lng.toFixed(5)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
           <div className="min-h-0 flex-1 overflow-y-auto p-2">
             {layers.length === 0 && !loading ? (
               <div className="flex min-h-40 flex-col items-center justify-center rounded-xl border border-dashed p-5 text-center">
@@ -723,6 +878,11 @@ export function KMZMapDisplay({
                           <span aria-hidden="true">·</span>
                           <span className="truncate">{entry.fileName}</span>
                         </span>
+                        {entry.geometryMetrics && entry.geometryKind === "polygon" ? (
+                          <span className="mt-1 block text-[11px] font-medium text-emerald-700">
+                            {formatMetricArea(entry.geometryMetrics.areaSquareMeters) || "Área no calculable"}
+                          </span>
+                        ) : null}
                         {entry.locationDetails?.comuna ? (
                           <span className="mt-1 block truncate text-[11px] text-muted-foreground">
                             {entry.locationDetails.comuna}
