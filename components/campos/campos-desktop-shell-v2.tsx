@@ -1,10 +1,12 @@
 "use client"
 
 import { CAMPOSFolderView } from "@/components/campos/campos-folder-view"
+import { CAMPOSTagFilterBridge } from "@/components/campos/campos-tag-filter-bridge"
 
 export function CAMPOSDesktopShellV2() {
   return (
     <div className="campos-desktop-shell h-full min-h-0 w-full overflow-hidden">
+      <CAMPOSTagFilterBridge />
       <CAMPOSFolderView />
 
       <style jsx global>{`
