@@ -18,7 +18,6 @@ export function CAMPOSOperationalFinishSystem() {
           --sr-info-live: #8eb0bc;
         }
 
-        /* Left inventory: stronger hierarchy, quieter metadata. */
         .campos-desktop-shell > div > div:first-child .overflow-y-auto button[class*="justify-start"] {
           position: relative !important;
           gap: 8px !important;
@@ -53,7 +52,6 @@ export function CAMPOSOperationalFinishSystem() {
           line-height: 18px !important;
         }
 
-        /* Details: turn the right panel into a calm territorial summary. */
         .campos-desktop-shell [role="tabpanel"] {
           padding: 16px !important;
           color: var(--sr-ink-soft-live) !important;
@@ -158,7 +156,42 @@ export function CAMPOSOperationalFinishSystem() {
           min-height: 34px !important;
         }
 
-        /* Tabs: equal visual weight and no noisy pills. */
+        /* Main territorial summary: less card nesting, faster scanning. */
+        .campos-desktop-shell [role="tabpanel"][data-state="active"] > div:first-child > [class*="rounded"],
+        .campos-desktop-shell [role="tabpanel"][data-state="active"] > [class*="rounded"]:first-child {
+          background: var(--sr-panel-live) !important;
+          border-color: var(--sr-line-live) !important;
+        }
+
+        .campos-desktop-shell [role="tabpanel"][data-state="active"] [class*="grid-cols-2"] {
+          gap: 8px !important;
+        }
+
+        .campos-desktop-shell [role="tabpanel"][data-state="active"] [class*="grid-cols-2"] > div {
+          min-height: 76px !important;
+          padding: 11px 12px !important;
+          background: var(--sr-panel-soft-live) !important;
+          border: 1px solid var(--sr-line-live) !important;
+        }
+
+        .campos-desktop-shell [role="tabpanel"][data-state="active"] [class*="grid-cols-2"] > div p:first-child {
+          margin: 0 !important;
+          color: var(--sr-ink-muted-live) !important;
+        }
+
+        .campos-desktop-shell [role="tabpanel"][data-state="active"] [class*="grid-cols-2"] > div p:nth-child(2) {
+          margin-top: 6px !important;
+          color: var(--sr-ink-live) !important;
+          font-size: 15px !important;
+          line-height: 1.25 !important;
+          font-weight: 650 !important;
+          overflow-wrap: anywhere !important;
+        }
+
+        .campos-desktop-shell [role="tabpanel"][data-state="active"] [class*="space-y-4"] {
+          gap: 12px !important;
+        }
+
         .campos-desktop-shell [role="tablist"] {
           display: grid !important;
           grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
@@ -183,7 +216,6 @@ export function CAMPOSOperationalFinishSystem() {
           box-shadow: inset 0 -2px 0 var(--sr-brand-live) !important;
         }
 
-        /* Map controls and popups. */
         .campos-desktop-shell .leaflet-bar,
         .campos-desktop-shell .leaflet-control-layers {
           border: 0 !important;
@@ -224,7 +256,6 @@ export function CAMPOSOperationalFinishSystem() {
           stroke-opacity: 0.72 !important;
         }
 
-        /* Floating filter surface: compact and subordinate to the map. */
         .campos-desktop-shell ~ div > div {
           max-height: calc(100vh - 116px) !important;
           border-radius: 10px !important;
@@ -238,7 +269,6 @@ export function CAMPOSOperationalFinishSystem() {
           border-radius: 7px !important;
         }
 
-        /* Empty and loading states. */
         .campos-desktop-shell [class*="animate-spin"] {
           border-color: color-mix(in srgb, var(--sr-brand-live) 28%, transparent) !important;
           border-bottom-color: var(--sr-brand-live) !important;
@@ -246,6 +276,28 @@ export function CAMPOSOperationalFinishSystem() {
 
         .campos-desktop-shell [aria-busy="true"] {
           cursor: progress !important;
+        }
+
+        .campos-desktop-shell :is(button, a, input, select, textarea, [role="tab"]):focus-visible {
+          outline: 2px solid var(--sr-brand-live) !important;
+          outline-offset: 2px !important;
+        }
+
+        .campos-desktop-shell button:disabled,
+        .campos-desktop-shell [aria-disabled="true"] {
+          cursor: not-allowed !important;
+          opacity: 0.5 !important;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .campos-desktop-shell *,
+        .campos-desktop-shell *::before,
+        .campos-desktop-shell *::after {
+          scroll-behavior: auto !important;
+          transition-duration: 0.01ms !important;
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
         }
       }
     `}</style>
