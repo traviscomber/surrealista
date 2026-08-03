@@ -1,28 +1,11 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import {
-  AlertCircle,
-  Check,
-  Eye,
-  EyeOff,
-  Focus,
-  Layers3,
-  Loader2,
-  MapPin,
-  Maximize,
-  Minimize,
-  Minus,
-  MousePointer2,
-  Route,
-  Shapes,
-  Square,
-} from "lucide-react"
-
-import { Button } from "@/components/ui/button"
-import { reverseGeocoder, type ChileanLocationDetails } from "@/lib/geocoding/reverse-geocode"
+import { AlertCircle, Eye, EyeOff, Layers3, Loader2, Maximize, Minimize } from "lucide-react"
 import type { KMZData } from "@/lib/kmz/kmz-reader"
 import { createBrowserClient } from "@/lib/supabase/client"
+import { reverseGeocoder, type ChileanLocationDetails } from "@/lib/geocoding/reverse-geocode"
+import { Button } from "@/components/ui/button"
 
 interface KMZMapDisplayProps {
   kmzFiles?: KMZData[]
@@ -47,17 +30,6 @@ interface PropertyRecord {
   tags?: string[] | null
 }
 
-type GeometryKind = "polygon" | "line" | "point" | "reference"
-
-export interface GeometryMetrics {
-  areaSquareMeters: number | null
-  perimeterMeters: number | null
-  lengthMeters: number | null
-  centroid: { lat: number; lng: number }
-  vertices: number
-  approximate: boolean
-}
-
 export interface LayerInfo {
   name: string
   fileName: string
@@ -67,112 +39,17 @@ export interface LayerInfo {
   bounds: [number, number][]
   description?: string | null
   geometrySource?: "placemark" | "collection-bounds" | "selected-center"
-  geometryKind?: GeometryKind
-  geometryMetrics?: GeometryMetrics
   locationDetails?: ChileanLocationDetails
   isLoadingLocation?: boolean
   property?: PropertyRecord | null
 }
 
 const COLORS = ["#2f6f55", "#2f6484", "#8a6336", "#6c5c8d", "#397167", "#7a4f45"]
-const EARTH_RADIUS_METERS = 6_371_008.8
 
 function getColor(value: string) {
   let hash = 0
   for (let index = 0; index < value.length; index++) hash = (hash * 31 + value.charCodeAt(index)) | 0
   return COLORS[Math.abs(hash) % COLORS.length]
-}
-
-function toRadians(value: number) {
-  return (value * Math.PI) / 180
-}
-
-function haversineDistance(a: [number, number], b: [number, number]) {
-  const [lat1, lng1] = a
-  const [lat2, lng2] = b
-  const deltaLat = toRadians(lat2 - lat1)
-  const deltaLng = toRadians(lng2 - lng1)
-  const latitude1 = toRadians(lat1)
-  const latitude2 = toRadians(lat2)
-  const haversine =
-    Math.sin(deltaLat / 2) ** 2 +
-    Math.cos(latitude1) * Math.cos(latitude2) * Math.sin(deltaLng / 2) ** 2
-  return 2 * EARTH_RADIUS_METERS * Math.asin(Math.min(1, Math.sqrt(haversine)))
-}
-
-function calculateCentroid(points: [number, number][]) {
-  if (points.length === 0) return { lat: 0, lng: 0 }
-  const totals = points.reduce(
-    (accumulator, [lat, lng]) => ({ lat: accumulator.lat + lat, lng: accumulator.lng + lng }),
-    { lat: 0, lng: 0 },
-  )
-  return { lat: totals.lat / points.length, lng: totals.lng / points.length }
-}
-
-function calculatePolygonArea(points: [number, number][]) {
-  if (points.length < 3) return null
-  const referenceLatitude = toRadians(points.reduce((sum, [lat]) => sum + lat, 0) / points.length)
-  const projected = points.map(([lat, lng]) => ({
-    x: EARTH_RADIUS_METERS * toRadians(lng) * Math.cos(referenceLatitude),
-    y: EARTH_RADIUS_METERS * toRadians(lat),
-  }))
-  let signedArea = 0
-  for (let index = 0; index < projected.length; index++) {
-    const current = projected[index]
-    const next = projected[(index + 1) % projected.length]
-    signedArea += current.x * next.y - next.x * current.y
-  }
-  return Math.abs(signedArea) / 2
-}
-
-function calculateGeometryMetrics(
-  points: [number, number][],
-  kind: GeometryKind,
-  approximate: boolean,
-): GeometryMetrics {
-  const centroid = calculateCentroid(points)
-  if (points.length <= 1) {
-    return {
-      areaSquareMeters: null,
-      perimeterMeters: null,
-      lengthMeters: null,
-      centroid,
-      vertices: points.length,
-      approximate,
-    }
-  }
-
-  let openLength = 0
-  for (let index = 1; index < points.length; index++) {
-    openLength += haversineDistance(points[index - 1], points[index])
-  }
-
-  const polygon = kind === "polygon" || (kind === "reference" && points.length >= 3)
-  const closingDistance = polygon ? haversineDistance(points[points.length - 1], points[0]) : 0
-  return {
-    areaSquareMeters: polygon ? calculatePolygonArea(points) : null,
-    perimeterMeters: polygon ? openLength + closingDistance : null,
-    lengthMeters: kind === "line" ? openLength : null,
-    centroid,
-    vertices: points.length,
-    approximate,
-  }
-}
-
-function formatMetricArea(value?: number | null) {
-  if (!value || !Number.isFinite(value)) return null
-  if (value >= 10_000) {
-    return `${new Intl.NumberFormat("es-CL", { maximumFractionDigits: 2 }).format(value / 10_000)} ha`
-  }
-  return `${new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 }).format(value)} m²`
-}
-
-function formatMetricDistance(value?: number | null) {
-  if (!value || !Number.isFinite(value)) return null
-  if (value >= 1_000) {
-    return `${new Intl.NumberFormat("es-CL", { maximumFractionDigits: 2 }).format(value / 1_000)} km`
-  }
-  return `${new Intl.NumberFormat("es-CL", { maximumFractionDigits: 0 }).format(value)} m`
 }
 
 function escapeHtml(value: unknown) {
@@ -204,18 +81,16 @@ function normalizeList(value: unknown): string[] {
   return value.map((item) => String(item ?? "").trim()).filter(Boolean)
 }
 
-function formatRecordArea(record?: PropertyRecord | null) {
+function formatArea(record?: PropertyRecord | null) {
   const metadata = record?.metadata || {}
-  const area = [
+  const candidates = [
     metadata.area_hectares,
     metadata.hectares,
     metadata.superficie_hectareas,
     metadata.surface_hectares,
     metadata.area_ha,
   ]
-    .map(Number)
-    .find((value) => Number.isFinite(value) && value > 0)
-
+  const area = candidates.map(Number).find((value) => Number.isFinite(value) && value > 0)
   if (area) return `${new Intl.NumberFormat("es-CL", { maximumFractionDigits: 2 }).format(area)} ha`
 
   const squareMeters = Number(metadata.area_m2 || metadata.superficie_m2 || metadata.surface_m2)
@@ -251,7 +126,6 @@ function getFileDescription(file: any, property?: PropertyRecord | null) {
   const placemarkDescription = Array.isArray(file?.placemarks)
     ? file.placemarks.map((placemark: any) => cleanDescription(placemark?.description)).find(Boolean)
     : null
-
   return (
     placemarkDescription ||
     cleanDescription(property?.description) ||
@@ -275,46 +149,43 @@ function buildPopup(layer: LayerInfo, center: { lat: number; lng: number }, deta
   const metadata = property?.metadata || {}
   const roles = normalizeList(property?.rol_numbers || metadata.rolNumbers || metadata.rol_numbers)
   const location = details ? [details.comuna, details.provincia, details.region].filter(Boolean).join(", ") : null
-  const description = layer.description || cleanDescription(property?.description) || cleanDescription(metadata.description)
-  const metrics = layer.geometryMetrics
+  const address = getAddress(property)
+  const area = formatArea(property)
   const sourceMessage =
     layer.geometrySource === "collection-bounds"
-      ? "Límite de referencia construido desde los bounds persistidos; sus métricas son aproximadas y no reemplazan el trazado original."
+      ? "Vista construida con los límites persistidos del archivo. No representa el trazado exacto del polígono original."
       : layer.geometrySource === "selected-center"
-        ? "Punto de referencia construido desde la ubicación disponible."
+        ? "Punto de referencia construido desde la ubicación disponible para el archivo seleccionado."
         : "Geometría persistida del archivo KMZ."
 
-  return `<div style="width:330px;max-width:calc(100vw - 72px);font-family:system-ui,-apple-system,sans-serif;color:#17211c">
+  const description = layer.description || cleanDescription(property?.description) || cleanDescription(metadata.description)
+  const status = roles.length > 0 ? "Rol identificado" : "Rol pendiente"
+
+  return `<div style="width:320px;max-width:calc(100vw - 72px);font-family:system-ui,-apple-system,sans-serif;color:#17211c">
     <div style="padding-bottom:10px;border-bottom:1px solid #dfe5e1">
-      <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#69766f">Ficha geométrica</div>
-      <h4 style="margin:4px 0 0;font-size:15px;line-height:1.3;font-weight:750;color:${layer.color};overflow-wrap:anywhere">${escapeHtml(layer.name)}</h4>
+      <div style="font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#69766f">Ficha territorial</div>
+      <h4 style="margin:4px 0 0;font-size:15px;line-height:1.3;font-weight:750;color:${layer.color};overflow-wrap:anywhere">${escapeHtml(property?.file_name || layer.name)}</h4>
+      <span style="display:inline-block;margin-top:7px;padding:3px 7px;border-radius:999px;background:${roles.length > 0 ? "#e8f5ee" : "#fff5db"};color:${roles.length > 0 ? "#216044" : "#75520b"};font-size:10px;font-weight:700">${status}</span>
     </div>
+
     <div style="margin-top:8px">
       ${detailRow("Archivo", layer.fileName)}
-      ${detailRow("Tipo", layer.geometryKind || "capa")}
-      ${detailRow("Área", formatMetricArea(metrics?.areaSquareMeters) || formatRecordArea(property) || "No aplica")}
-      ${detailRow("Perímetro", formatMetricDistance(metrics?.perimeterMeters))}
-      ${detailRow("Longitud", formatMetricDistance(metrics?.lengthMeters))}
-      ${detailRow("Vértices", metrics?.vertices)}
-      ${detailRow("Centroide", metrics ? `${metrics.centroid.lat.toFixed(6)}, ${metrics.centroid.lng.toFixed(6)}` : null)}
       ${detailRow("Rol", roles.length > 0 ? roles.join(", ") : "Sin rol confirmado")}
       ${detailRow("Propietario", property?.owner || metadata.confirmed_owner || metadata.web_owner || "Sin propietario confirmado")}
+      ${detailRow("Superficie", area || "Sin superficie registrada")}
       ${detailRow("Región", property?.region || details?.region || "Sin dato")}
       ${detailRow("Comuna", details?.comuna || metadata.comuna || "Sin dato")}
-      ${detailRow("Dirección", getAddress(property))}
-      ${detailRow("Punto mapa", `${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}`)}
+      ${detailRow("Categoría", property?.category || metadata.category || "Sin categoría")}
+      ${detailRow("Dirección", address)}
+      ${detailRow("Coordenadas", `${center.lat.toFixed(6)}, ${center.lng.toFixed(6)}`)}
+      ${detailRow("Capas", property?.placemarks_count ?? metadata.placemarks_count)}
     </div>
-    ${description ? `<div style="margin-top:10px;max-height:128px;overflow:auto;border-radius:7px;background:#f5f7f5;padding:9px;font-size:11px;line-height:1.5;white-space:pre-wrap;color:#435049">${escapeHtml(description)}</div>` : ""}
-    <div style="margin-top:9px;padding:8px;border-radius:7px;background:${layer.geometrySource === "placemark" ? "#edf6f1" : "#fff7df"};color:${layer.geometrySource === "placemark" ? "#285a43" : "#6f5012"};font-size:10px;line-height:1.45">${escapeHtml(sourceMessage)}</div>
-    ${location ? `<div style="margin-top:7px;font-size:10px;color:#68756e">Ubicación: ${escapeHtml(location)}</div>` : ""}
-  </div>`
-}
 
-function GeometryIcon({ kind }: { kind?: GeometryKind }) {
-  if (kind === "polygon") return <Square className="h-3.5 w-3.5" aria-hidden="true" />
-  if (kind === "line") return <Route className="h-3.5 w-3.5" aria-hidden="true" />
-  if (kind === "point") return <MapPin className="h-3.5 w-3.5" aria-hidden="true" />
-  return <Focus className="h-3.5 w-3.5" aria-hidden="true" />
+    ${description ? `<div style="margin-top:10px;max-height:128px;overflow:auto;border-radius:7px;background:#f5f7f5;padding:9px;font-size:11px;line-height:1.5;white-space:pre-wrap;color:#435049">${escapeHtml(description)}</div>` : `<div style="margin-top:10px;border-radius:7px;background:#f5f7f5;padding:9px;font-size:11px;color:#68756e">No hay una descripción persistida para este archivo.</div>`}
+
+    <div style="margin-top:9px;padding:8px;border-radius:7px;background:${layer.geometrySource === "placemark" ? "#edf6f1" : "#fff7df"};color:${layer.geometrySource === "placemark" ? "#285a43" : "#6f5012"};font-size:10px;line-height:1.45">${escapeHtml(sourceMessage)}</div>
+    ${location ? `<div style="margin-top:7px;font-size:10px;color:#68756e">Ubicación geográfica: ${escapeHtml(location)}</div>` : ""}
+  </div>`
 }
 
 export function KMZMapDisplay({
@@ -335,8 +206,7 @@ export function KMZMapDisplay({
   const [layers, setLayers] = useState<LayerInfo[]>([])
   const [loading, setLoading] = useState(false)
   const [fullscreen, setFullscreen] = useState(false)
-  const [layersOpen, setLayersOpen] = useState(true)
-  const [activeLayerKey, setActiveLayerKey] = useState<string | null>(null)
+  const [layersOpen, setLayersOpen] = useState(false)
   const [propertyRecord, setPropertyRecord] = useState<PropertyRecord | null>(null)
 
   const supabase = useMemo(() => createBrowserClient(), [])
@@ -348,13 +218,6 @@ export function KMZMapDisplay({
     if (matched.length > 0) return matched
     return safeFiles.length === 1 ? safeFiles : []
   }, [kmzFiles, selectedKmzId])
-
-  const visibleCount = layers.filter((entry) => entry.visible).length
-  const layerKey = (entry: LayerInfo, index: number) => `${entry.fileName}-${entry.name}-${index}`
-  const activeLayer = useMemo(() => {
-    if (!activeLayerKey) return null
-    return layers.find((entry, index) => layerKey(entry, index) === activeLayerKey) || null
-  }, [activeLayerKey, layers])
 
   useEffect(() => {
     let cancelled = false
@@ -382,7 +245,6 @@ export function KMZMapDisplay({
       setLeafletLoaded(true)
       return
     }
-
     if (!document.querySelector('link[data-sur-realista-leaflet="css"]')) {
       const css = document.createElement("link")
       css.rel = "stylesheet"
@@ -390,14 +252,12 @@ export function KMZMapDisplay({
       css.dataset.surRealistaLeaflet = "css"
       document.head.appendChild(css)
     }
-
     const existingScript = document.querySelector('script[data-sur-realista-leaflet="script"]') as HTMLScriptElement | null
     if (existingScript) {
       if ((window as any).L) setLeafletLoaded(true)
       else existingScript.addEventListener("load", () => setLeafletLoaded(true), { once: true })
       return
     }
-
     const script = document.createElement("script")
     script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
     script.dataset.surRealistaLeaflet = "script"
@@ -410,7 +270,6 @@ export function KMZMapDisplay({
     if (!leafletLoaded || !mapNodeRef.current || mapRef.current) return
     const L = (window as any).L
     if (!L) return
-
     try {
       const map = L.map(mapNodeRef.current, { center: [-41, -72.5], zoom: 7, zoomControl: false })
       const streets = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -430,7 +289,6 @@ export function KMZMapDisplay({
       console.error("[KMZ map] initialization failed", mapError)
       setError("No se pudo inicializar el mapa.")
     }
-
     return () => {
       mapRef.current?.remove()
       mapRef.current = null
@@ -446,9 +304,6 @@ export function KMZMapDisplay({
 
     let cancelled = false
     setLoading(true)
-    setActiveLayerKey(null)
-    onPlacemarkSelect?.(null)
-
     renderedRef.current.forEach((layer) => {
       if (map.hasLayer(layer)) map.removeLayer(layer)
     })
@@ -464,7 +319,6 @@ export function KMZMapDisplay({
       bounds: [number, number][],
       description: string | null,
       geometrySource: LayerInfo["geometrySource"],
-      geometryKind: GeometryKind,
       pinAtCenter = false,
     ) => {
       const color = getColor(`${file.fileName}-${name}`)
@@ -478,28 +332,21 @@ export function KMZMapDisplay({
         bounds,
         description,
         geometrySource,
-        geometryKind,
-        geometryMetrics: calculateGeometryMetrics(bounds, geometryKind, geometrySource !== "placemark"),
         isLoadingLocation: enableGeocoding,
         property: propertyRecord,
       }
-
-      const popupOptions = { autoPan: false, maxWidth: 380, minWidth: 310, closeButton: true, className: "kmz-property-popup" }
+      const popupOptions = { autoPan: false, maxWidth: 360, minWidth: 300, closeButton: true, className: "kmz-property-popup" }
       shape.bindPopup(buildPopup(info, centerPoint), popupOptions)
-      shape.on("click", () => {
-        const index = nextLayers.indexOf(info)
-        setActiveLayerKey(layerKey(info, Math.max(index, 0)))
-        onPlacemarkSelect?.(info)
-      })
+      shape.on("click", () => onPlacemarkSelect?.(info))
       renderedRef.current.push(shape)
       nextLayers.push(info)
       allBounds.push(...bounds)
 
       if (pinAtCenter) {
         const pin = L.circleMarker([centerPoint.lat, centerPoint.lng], {
-          radius: 6,
+          radius: 7,
           color: "#ffffff",
-          weight: 2,
+          weight: 3,
           fillColor: color,
           fillOpacity: 1,
           isKMZ: true,
@@ -515,7 +362,8 @@ export function KMZMapDisplay({
           if (cancelled) return
           info.locationDetails = details
           info.isLoadingLocation = false
-          shape.setPopupContent(buildPopup(info, centerPoint, details))
+          const popup = buildPopup(info, centerPoint, details)
+          shape.setPopupContent(popup)
         } catch {
           info.isLoadingLocation = false
         }
@@ -526,7 +374,6 @@ export function KMZMapDisplay({
       for (const file of displayFiles) {
         const placemarks = Array.isArray(file?.placemarks) ? file.placemarks : []
         let geometryCount = 0
-
         for (const placemark of placemarks) {
           const coordinates = Array.isArray(placemark?.coordinates) ? placemark.coordinates : []
           const description = cleanDescription(placemark?.description) || getFileDescription(file, propertyRecord)
@@ -536,7 +383,7 @@ export function KMZMapDisplay({
             const [lng, lat] = coordinates[0] || []
             if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) continue
             const marker = L.marker([Number(lat), Number(lng)], { isKMZ: true }).addTo(map)
-            await addLayer(file, placemark.name || "Punto", marker, [[Number(lat), Number(lng)]], description, "placemark", "point")
+            await addLayer(file, placemark.name || "Punto", marker, [[Number(lat), Number(lng)]], description, "placemark")
             geometryCount++
             continue
           }
@@ -544,23 +391,12 @@ export function KMZMapDisplay({
           const latLngs = coordinates
             .map(([lng, lat]: [number, number]) => [Number(lat), Number(lng)] as [number, number])
             .filter(([lat, lng]: [number, number]) => Number.isFinite(lat) && Number.isFinite(lng))
-
           if (latLngs.length < 2) continue
-          const isPolygon = placemark?.type === "Polygon"
-          const shape = isPolygon
-            ? L.polygon(latLngs, { color, weight: 2.5, opacity: 0.95, fillColor: color, fillOpacity: 0.22, isKMZ: true }).addTo(map)
-            : L.polyline(latLngs, { color, weight: 3, opacity: 0.95, isKMZ: true }).addTo(map)
 
-          await addLayer(
-            file,
-            placemark.name || placemark.type || "Capa",
-            shape,
-            latLngs,
-            description,
-            "placemark",
-            isPolygon ? "polygon" : "line",
-            true,
-          )
+          const shape = placemark?.type === "Polygon"
+            ? L.polygon(latLngs, { color, weight: 2, opacity: 0.9, fillColor: color, fillOpacity: 0.22, isKMZ: true }).addTo(map)
+            : L.polyline(latLngs, { color, weight: 3, opacity: 0.9, isKMZ: true }).addTo(map)
+          await addLayer(file, placemark.name || placemark.type || "Capa", shape, latLngs, description, "placemark", true)
           geometryCount++
         }
 
@@ -584,12 +420,11 @@ export function KMZMapDisplay({
           }).addTo(map)
           await addLayer(
             file,
-            `${file.fileName || propertyRecord?.file_name || "KMZ"} · límite de referencia`,
+            `${file.fileName || propertyRecord?.file_name || "KMZ"} · ubicación`,
             rectangle,
             latLngs,
             getFileDescription(file, propertyRecord),
             "collection-bounds",
-            "reference",
             true,
           )
         }
@@ -605,7 +440,6 @@ export function KMZMapDisplay({
           [[centerCoordinates.lat, centerCoordinates.lng]],
           getFileDescription(file, propertyRecord),
           "selected-center",
-          "reference",
         )
       }
 
@@ -638,56 +472,26 @@ export function KMZMapDisplay({
     return () => document.removeEventListener("fullscreenchange", handler)
   }, [])
 
-  const setLayerVisibility = (index: number, visible: boolean) => {
+  const toggleLayer = (index: number) => {
     const map = mapRef.current
     if (!map) return
-
     setLayers((current) =>
       current.map((entry, entryIndex) => {
         if (entryIndex !== index) return entry
-        if (visible && !map.hasLayer(entry.layer)) entry.layer.addTo(map)
-        if (!visible && map.hasLayer(entry.layer)) map.removeLayer(entry.layer)
-        return { ...entry, visible }
+        if (entry.visible) map.removeLayer(entry.layer)
+        else entry.layer.addTo(map)
+        return { ...entry, visible: !entry.visible }
       }),
     )
   }
 
-  const setAllLayers = (visible: boolean) => {
-    const map = mapRef.current
-    if (!map) return
-    setLayers((current) =>
-      current.map((entry) => {
-        if (visible && !map.hasLayer(entry.layer)) entry.layer.addTo(map)
-        if (!visible && map.hasLayer(entry.layer)) map.removeLayer(entry.layer)
-        return { ...entry, visible }
-      }),
-    )
-  }
-
-  const activateLayer = (entry: LayerInfo, index: number, isolate = false) => {
+  const zoomLayer = (entry: LayerInfo) => {
     const map = mapRef.current
     const L = (window as any).L
     if (!map || !L) return
-
-    if (isolate) {
-      setLayers((current) =>
-        current.map((candidate, candidateIndex) => {
-          const visible = candidateIndex === index
-          if (visible && !map.hasLayer(candidate.layer)) candidate.layer.addTo(map)
-          if (!visible && map.hasLayer(candidate.layer)) map.removeLayer(candidate.layer)
-          return { ...candidate, visible }
-        }),
-      )
-    } else if (!map.hasLayer(entry.layer)) {
-      entry.layer.addTo(map)
-      setLayerVisibility(index, true)
-    }
-
-    if (entry.bounds.length === 1) map.setView(entry.bounds[0], 14)
-    else map.fitBounds(L.latLngBounds(entry.bounds), { padding: [80, 80], maxZoom: 15 })
-
+    if (entry.bounds.length === 1) map.setView(entry.bounds[0], 13)
+    else map.fitBounds(L.latLngBounds(entry.bounds), { padding: [80, 80], maxZoom: 13 })
     entry.layer.openPopup?.()
-    setActiveLayerKey(layerKey(entry, index))
     onPlacemarkSelect?.(entry)
   }
 
@@ -701,13 +505,14 @@ export function KMZMapDisplay({
     return (
       <div className={`flex items-center justify-center rounded-xl border bg-destructive/5 ${height === "100%" ? "absolute inset-0" : ""}`} style={height !== "100%" ? { height } : undefined}>
         <div className="max-w-sm text-center">
-          <AlertCircle className="mx-auto mb-3 h-9 w-9 text-destructive" aria-hidden="true" />
+          <AlertCircle className="mx-auto mb-3 h-9 w-9 text-destructive" />
           <p className="font-medium text-destructive">{error}</p>
         </div>
       </div>
     )
   }
 
+  // When height is "100%", use absolute inset so Leaflet gets a real pixel height from its positioned ancestor.
   const isFluid = !fullscreen && height === "100%"
 
   return (
@@ -719,195 +524,44 @@ export function KMZMapDisplay({
       <div ref={mapNodeRef} className="h-full w-full" />
 
       {!mapReady || loading ? (
-        <div className="pointer-events-none absolute inset-0 z-[500] flex items-center justify-center bg-background/45 backdrop-blur-[1px]" role="status" aria-live="polite">
+        <div className="pointer-events-none absolute inset-0 z-[500] flex items-center justify-center bg-background/45 backdrop-blur-[1px]">
           <div className="flex items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm shadow-sm">
-            <Loader2 className="h-4 w-4 animate-spin text-primary" aria-hidden="true" />
-            Cargando geometrías y capas…
+            <Loader2 className="h-4 w-4 animate-spin text-primary" />
+            Cargando ubicación y ficha…
           </div>
         </div>
       ) : null}
 
       <div className="absolute left-3 top-3 z-[600] flex gap-2">
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          className="border-slate-300 bg-background/95 shadow-md backdrop-blur"
-          onClick={() => setLayersOpen((value) => !value)}
-          aria-expanded={layersOpen}
-        >
-          <Layers3 className="mr-2 h-4 w-4" aria-hidden="true" />
-          Capas
-          <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-[11px] tabular-nums">
-            {visibleCount}/{layers.length}
-          </span>
+        <Button type="button" size="sm" variant="outline" className="bg-background/95" onClick={() => setLayersOpen((value) => !value)}>
+          <Layers3 className="mr-2 h-4 w-4" />
+          {layers.length} {layers.length === 1 ? "capa" : "capas"}
         </Button>
-        <Button
-          type="button"
-          size="icon"
-          variant="outline"
-          className="border-slate-300 bg-background/95 shadow-md backdrop-blur"
-          onClick={toggleFullscreen}
-          aria-label={fullscreen ? "Salir de pantalla completa" : "Ver mapa en pantalla completa"}
-        >
+        <Button type="button" size="icon" variant="outline" className="bg-background/95" onClick={toggleFullscreen} aria-label={fullscreen ? "Salir de pantalla completa" : "Ver en pantalla completa"}>
           {fullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
         </Button>
       </div>
 
       {layersOpen ? (
-        <aside
-          className="absolute bottom-3 left-3 top-14 z-[600] flex w-[min(24rem,calc(100%-1.5rem))] flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-background/95 shadow-2xl backdrop-blur"
-          aria-label="Capas del mapa"
-        >
-          <div className="border-b px-3 py-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-sm font-semibold">Capas del mapa</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  {visibleCount} visibles de {layers.length}
-                </p>
+        <div className="absolute left-3 top-14 z-[600] max-h-[55%] w-80 overflow-y-auto rounded-lg border bg-background/95 p-2 shadow-sm backdrop-blur">
+          {layers.length === 0 && !loading ? (
+            <div className="p-3 text-sm text-muted-foreground">No hay geometría ni ubicación disponible para este archivo.</div>
+          ) : (
+            layers.map((entry, index) => (
+              <div key={`${entry.fileName}-${entry.name}-${index}`} className="flex items-start gap-2 rounded-md p-2 hover:bg-muted/60">
+                <button type="button" className="mt-0.5" onClick={() => toggleLayer(index)} aria-label={entry.visible ? "Ocultar capa" : "Mostrar capa"}>
+                  {entry.visible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4 text-muted-foreground" />}
+                </button>
+                <button type="button" className="min-w-0 flex-1 text-left" onClick={() => zoomLayer(entry)}>
+                  <span className="block truncate text-sm font-medium">{entry.name}</span>
+                  <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                    {entry.geometrySource === "placemark" ? entry.fileName : "Ubicación recuperada"}
+                  </span>
+                </button>
               </div>
-              <Shapes className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-            </div>
-            <div className="mt-3 grid grid-cols-3 gap-1.5">
-              <Button type="button" size="sm" variant="outline" className="h-8 px-2 text-xs" onClick={() => setAllLayers(true)} disabled={layers.length === 0 || visibleCount === layers.length}>
-                <Eye className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                Todas
-              </Button>
-              <Button type="button" size="sm" variant="outline" className="h-8 px-2 text-xs" onClick={() => setAllLayers(false)} disabled={layers.length === 0 || visibleCount === 0}>
-                <EyeOff className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                Ocultar
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-8 px-2 text-xs"
-                disabled={!activeLayerKey}
-                onClick={() => {
-                  const index = layers.findIndex((entry, entryIndex) => layerKey(entry, entryIndex) === activeLayerKey)
-                  if (index >= 0) activateLayer(layers[index], index, true)
-                }}
-              >
-                <MousePointer2 className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
-                Solo activa
-              </Button>
-            </div>
-          </div>
-
-          {activeLayer?.geometryMetrics ? (
-            <div className="border-b bg-emerald-500/[0.06] px-3 py-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-700">Ficha geométrica activa</p>
-                  <p className="mt-1 truncate text-sm font-semibold">{activeLayer.name}</p>
-                </div>
-                {activeLayer.geometryMetrics.approximate ? (
-                  <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] font-medium text-amber-800">Aproximada</span>
-                ) : (
-                  <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-1 text-[10px] font-medium text-emerald-800">KMZ real</span>
-                )}
-              </div>
-              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                <div className="rounded-lg border bg-background/80 p-2">
-                  <p className="text-muted-foreground">Área</p>
-                  <p className="mt-0.5 font-semibold">{formatMetricArea(activeLayer.geometryMetrics.areaSquareMeters) || "No aplica"}</p>
-                </div>
-                <div className="rounded-lg border bg-background/80 p-2">
-                  <p className="text-muted-foreground">{activeLayer.geometryKind === "line" ? "Longitud" : "Perímetro"}</p>
-                  <p className="mt-0.5 font-semibold">
-                    {formatMetricDistance(
-                      activeLayer.geometryKind === "line"
-                        ? activeLayer.geometryMetrics.lengthMeters
-                        : activeLayer.geometryMetrics.perimeterMeters,
-                    ) || "No aplica"}
-                  </p>
-                </div>
-                <div className="rounded-lg border bg-background/80 p-2">
-                  <p className="text-muted-foreground">Vértices</p>
-                  <p className="mt-0.5 font-semibold tabular-nums">{activeLayer.geometryMetrics.vertices}</p>
-                </div>
-                <div className="rounded-lg border bg-background/80 p-2">
-                  <p className="text-muted-foreground">Centroide</p>
-                  <p className="mt-0.5 truncate font-mono text-[10px] font-semibold">
-                    {activeLayer.geometryMetrics.centroid.lat.toFixed(5)}, {activeLayer.geometryMetrics.centroid.lng.toFixed(5)}
-                  </p>
-                </div>
-              </div>
-            </div>
-          ) : null}
-
-          <div className="min-h-0 flex-1 overflow-y-auto p-2">
-            {layers.length === 0 && !loading ? (
-              <div className="flex min-h-40 flex-col items-center justify-center rounded-xl border border-dashed p-5 text-center">
-                <Minus className="h-5 w-5 text-muted-foreground" aria-hidden="true" />
-                <p className="mt-3 text-sm font-medium">Sin capas disponibles</p>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  El KMZ seleccionado no contiene geometrías renderizables ni una ubicación de referencia.
-                </p>
-              </div>
-            ) : (
-              layers.map((entry, index) => {
-                const key = layerKey(entry, index)
-                const active = key === activeLayerKey
-                return (
-                  <div
-                    key={key}
-                    className={`group mb-1.5 rounded-xl border p-2.5 transition-colors ${active ? "border-emerald-500/50 bg-emerald-500/10" : "border-transparent hover:border-border hover:bg-muted/60"}`}
-                  >
-                    <div className="flex items-start gap-2.5">
-                      <button
-                        type="button"
-                        className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg border bg-background"
-                        onClick={() => setLayerVisibility(index, !entry.visible)}
-                        aria-label={entry.visible ? `Ocultar ${entry.name}` : `Mostrar ${entry.name}`}
-                        aria-pressed={entry.visible}
-                      >
-                        {entry.visible ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5 text-muted-foreground" />}
-                      </button>
-
-                      <button type="button" className="min-w-0 flex-1 text-left" onClick={() => activateLayer(entry, index)}>
-                        <span className="flex items-center gap-2">
-                          <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: entry.color }} />
-                          <span className="truncate text-sm font-medium">{entry.name}</span>
-                          {active ? <Check className="h-3.5 w-3.5 flex-shrink-0 text-emerald-600" aria-hidden="true" /> : null}
-                        </span>
-                        <span className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                          <GeometryIcon kind={entry.geometryKind} />
-                          <span className="capitalize">{entry.geometryKind === "reference" ? "referencia" : entry.geometryKind || "capa"}</span>
-                          <span aria-hidden="true">·</span>
-                          <span className="truncate">{entry.fileName}</span>
-                        </span>
-                        {entry.geometryMetrics && entry.geometryKind === "polygon" ? (
-                          <span className="mt-1 block text-[11px] font-medium text-emerald-700">
-                            {formatMetricArea(entry.geometryMetrics.areaSquareMeters) || "Área no calculable"}
-                          </span>
-                        ) : null}
-                        {entry.locationDetails?.comuna ? (
-                          <span className="mt-1 block truncate text-[11px] text-muted-foreground">
-                            {entry.locationDetails.comuna}
-                            {entry.locationDetails.region ? `, ${entry.locationDetails.region}` : ""}
-                          </span>
-                        ) : null}
-                      </button>
-
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7 flex-shrink-0 opacity-70 group-hover:opacity-100"
-                        onClick={() => activateLayer(entry, index, true)}
-                        aria-label={`Mostrar solo ${entry.name}`}
-                      >
-                        <Focus className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-                )
-              })
-            )}
-          </div>
-        </aside>
+            ))
+          )}
+        </div>
       ) : null}
     </div>
   )
