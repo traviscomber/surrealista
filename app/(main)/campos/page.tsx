@@ -1,5 +1,5 @@
 import type { Metadata } from "next"
-import { CAMPOSFolderView } from "@/components/campos/campos-folder-view"
+import { CAMPOSDesktopShell } from "@/components/campos/campos-desktop-shell"
 import { LeafletPopupBehavior } from "@/components/kmz/leaflet-popup-behavior"
 
 export const metadata: Metadata = {
@@ -11,7 +11,7 @@ export default function CAMPOSPage() {
   return (
     <div className="fixed inset-x-0 bottom-0 top-16 min-h-0 overflow-hidden bg-background">
       <LeafletPopupBehavior />
-      <CAMPOSFolderView />
+      <CAMPOSDesktopShell />
     </div>
   )
 }
