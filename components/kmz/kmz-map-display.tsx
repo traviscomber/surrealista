@@ -56,6 +56,10 @@ interface FileLayerGroup {
 
 const COLORS = ["#2f6f55", "#2f6484", "#8a6336", "#6c5c8d", "#397167", "#7a4f45", "#92684f", "#46647b"]
 const RENDER_BATCH_SIZE = 120
+const FLIGHT_FILE_PATTERN = /(^|\b)(vuelo|vuelos|flight|drone|avion|avión|helicoptero|helicóptero|radio de vuelo)(\b|$)/i
+const EXTREME_TRACE_LAYER_LIMIT = 500
+const EXTREME_TRACE_VERTEX_LIMIT = 50000
+const EXTREME_SPAN_DEGREES = 12
 
 function getColor(value: string) {
   let hash = 0
@@ -116,6 +120,46 @@ function getGeometryType(placemark: any): LayerInfo["geometryType"] {
   return "Point"
 }
 
+function getFileQualitySummary(file: any) {
+  const placemarks = Array.isArray(file?.placemarks) ? file.placemarks : []
+  let polygons = 0
+  let lines = 0
+  let points = 0
+  let vertices = 0
+
+  placemarks.forEach((placemark: any) => {
+    const type = getGeometryType(placemark)
+    const coordinates = Array.isArray(placemark?.coordinates) ? placemark.coordinates : []
+    vertices += coordinates.length
+    if (type === "Polygon") polygons++
+    else if (type === "LineString") lines++
+    else points++
+  })
+
+  const bounds = file?.bounds
+  const width = isValidBounds(bounds) ? Math.abs(Number(bounds.east) - Number(bounds.west)) : 0
+  const height = isValidBounds(bounds) ? Math.abs(Number(bounds.north) - Number(bounds.south)) : 0
+  const declaredCount = Number(file?.placemarksCount ?? file?.placemarks_count ?? file?.metadata?.placemarks_count ?? 0)
+  const total = Math.max(placemarks.length, Number.isFinite(declaredCount) ? declaredCount : 0)
+
+  return { polygons, lines, points, vertices, width, height, total }
+}
+
+function getMapExclusionReason(file: any): string | null {
+  const fileName = String(file?.fileName || file?.file_name || "")
+  if (FLIGHT_FILE_PATTERN.test(fileName)) return "vuelo"
+
+  const summary = getFileQualitySummary(file)
+  const lineDominant = summary.lines >= Math.max(4, summary.polygons * 4)
+  const noUsefulPolygons = summary.polygons === 0
+  const excessiveLinearVolume = lineDominant && summary.total > EXTREME_TRACE_LAYER_LIMIT
+  const excessiveVertices = lineDominant && summary.vertices > EXTREME_TRACE_VERTEX_LIMIT
+  const extremeGeographicTrace = noUsefulPolygons && Math.max(summary.width, summary.height) > EXTREME_SPAN_DEGREES
+
+  if (excessiveLinearVolume || excessiveVertices || extremeGeographicTrace) return "traza excesiva"
+  return null
+}
+
 function GeometryIcon({ type }: { type?: LayerInfo["geometryType"] }) {
   if (type === "Polygon") return <Square className="h-3.5 w-3.5" />
   if (type === "LineString") return <Route className="h-3.5 w-3.5" />
@@ -171,13 +215,20 @@ export function KMZMapDisplay({
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set())
   const [selectedLayerKey, setSelectedLayerKey] = useState<string | null>(null)
 
+  const safeFiles = useMemo(() => (Array.isArray(kmzFiles) ? (kmzFiles as any[]) : []), [kmzFiles])
+  const excludedRegionalFiles = useMemo(
+    () => (selectedKmzId ? [] : safeFiles.filter((file) => Boolean(getMapExclusionReason(file)))),
+    [safeFiles, selectedKmzId],
+  )
+
   const displayFiles = useMemo(() => {
-    const safeFiles = Array.isArray(kmzFiles) ? (kmzFiles as any[]) : []
-    if (!selectedKmzId) return safeFiles
-    const matched = safeFiles.filter((file) => selectedFileMatches(file, String(selectedKmzId)))
-    if (matched.length > 0) return matched
-    return safeFiles.length === 1 ? safeFiles : []
-  }, [kmzFiles, selectedKmzId])
+    if (selectedKmzId) {
+      const matched = safeFiles.filter((file) => selectedFileMatches(file, String(selectedKmzId)))
+      if (matched.length > 0) return matched
+      return safeFiles.length === 1 ? safeFiles : []
+    }
+    return safeFiles.filter((file) => !getMapExclusionReason(file))
+  }, [safeFiles, selectedKmzId])
 
   const fileGroups = useMemo<FileLayerGroup[]>(() => {
     const grouped = new Map<string, FileLayerGroup>()
@@ -589,6 +640,7 @@ export function KMZMapDisplay({
         <Button type="button" size="sm" variant="outline" className="bg-background/95" onClick={() => setLayersOpen((value) => !value)}>
           <Layers3 className="mr-2 h-4 w-4" />
           {visibleCount}/{layers.length} capas · {fileGroups.length} KMZ
+          {excludedRegionalFiles.length > 0 ? ` · ${excludedRegionalFiles.length} omitidos` : ""}
         </Button>
         <Button type="button" size="icon" variant="outline" className="bg-background/95" onClick={toggleFullscreen} aria-label={fullscreen ? "Salir de pantalla completa" : "Ver en pantalla completa"}>
           {fullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
@@ -601,7 +653,10 @@ export function KMZMapDisplay({
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold">Capas del mapa</p>
-                <p className="text-xs text-muted-foreground">{fileGroups.length} archivos · {layers.length} geometrías detectadas</p>
+                <p className="text-xs text-muted-foreground">
+                  {fileGroups.length} archivos · {layers.length} geometrías detectadas
+                  {excludedRegionalFiles.length > 0 ? ` · ${excludedRegionalFiles.length} vuelos o trazas extremas omitidos` : ""}
+                </p>
               </div>
               <div className="flex gap-1">
                 <Button type="button" size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => setAllVisibility(true)}>Todas</Button>
