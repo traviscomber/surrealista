@@ -5,6 +5,7 @@ import { CAMPOSDesktopVisualSystem } from "@/components/campos/campos-desktop-vi
 import { CAMPOSDarkThemeSystem } from "@/components/campos/campos-dark-theme-system"
 import { CAMPOSPremiumPolishSystem } from "@/components/campos/campos-premium-polish-system"
 import { CAMPOSContrastControlsSystem } from "@/components/campos/campos-contrast-controls-system"
+import { CAMPOSOperationalFinishSystem } from "@/components/campos/campos-operational-finish-system"
 import { CAMPOSMapVisualBehavior } from "@/components/campos/campos-map-visual-behavior"
 import { LeafletPopupBehavior } from "@/components/kmz/leaflet-popup-behavior"
 
@@ -24,6 +25,7 @@ export default function CAMPOSPage() {
       <CAMPOSDarkThemeSystem />
       <CAMPOSPremiumPolishSystem />
       <CAMPOSContrastControlsSystem />
+      <CAMPOSOperationalFinishSystem />
     </div>
   )
 }
