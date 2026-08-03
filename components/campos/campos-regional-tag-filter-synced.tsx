@@ -77,7 +77,7 @@ export function CAMPOSRegionalTagFilterSynced() {
     [searchParams, sidebarRegions],
   )
 
-  const key = `${canonicalRegions.join("|")}::${searchParams.get("tags") || ""}::${searchParams.get("q") || ""}`
+  const key = canonicalRegions.join("|") || "no-region"
 
   const protectCanonicalRegion = (event: React.MouseEvent<HTMLDivElement>) => {
     if (!sidebarRegions.length) return
