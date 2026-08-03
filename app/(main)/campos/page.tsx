@@ -4,6 +4,7 @@ import { CAMPOSRegionalTagFilterV3 } from "@/components/campos/campos-regional-t
 import { CAMPOSDesktopVisualSystem } from "@/components/campos/campos-desktop-visual-system"
 import { CAMPOSDarkThemeSystem } from "@/components/campos/campos-dark-theme-system"
 import { CAMPOSPremiumPolishSystem } from "@/components/campos/campos-premium-polish-system"
+import { CAMPOSContrastControlsSystem } from "@/components/campos/campos-contrast-controls-system"
 import { CAMPOSMapVisualBehavior } from "@/components/campos/campos-map-visual-behavior"
 import { LeafletPopupBehavior } from "@/components/kmz/leaflet-popup-behavior"
 
@@ -22,6 +23,7 @@ export default function CAMPOSPage() {
       <CAMPOSDesktopVisualSystem />
       <CAMPOSDarkThemeSystem />
       <CAMPOSPremiumPolishSystem />
+      <CAMPOSContrastControlsSystem />
     </div>
   )
 }
