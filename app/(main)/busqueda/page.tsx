@@ -2,7 +2,8 @@
 
 import dynamic from "next/dynamic"
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   CheckSquare,
   Database,
@@ -16,7 +17,6 @@ import {
 import { CAMPOSFolderView } from "@/components/campos/campos-folder-view"
 import { ClientRepositoryDashboard } from "@/components/client-management/client-repository-dashboard"
 import SiiRolExplorer from "@/components/sii-rol-explorer"
-import { TaskCreationDialog } from "@/components/tasks/task-creation-dialog"
 import { TasksManager } from "@/components/tasks/tasks-manager"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -87,6 +87,8 @@ const modules = {
 
 type ModuleKey = keyof typeof modules
 
+const isModuleKey = (value: string | null): value is ModuleKey => Boolean(value && value in modules)
+
 function ModuleLoading({ label }: { label: string }) {
   return (
     <div className="flex min-h-[420px] items-center justify-center rounded-2xl border border-dashed bg-muted/20 text-sm text-muted-foreground">
@@ -97,17 +99,36 @@ function ModuleLoading({ label }: { label: string }) {
 
 export default function UnifiedSearchPage() {
   const supabase = useMemo(() => createBrowserClient(), [])
-  const [activeTab, setActiveTab] = useState<ModuleKey>("campos")
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const moduleParam = searchParams.get("modulo")
+  const [activeTab, setActiveTab] = useState<ModuleKey>(() => (isModuleKey(moduleParam) ? moduleParam : "campos"))
   const [tasks, setTasks] = useState<Task[]>([])
-  const [taskDialogOpen, setTaskDialogOpen] = useState(false)
   const [taskRefreshTrigger, setTaskRefreshTrigger] = useState(0)
-  const [currentUser, setCurrentUser] = useState<unknown>(null)
   const [kmzCount, setKmzCount] = useState<number | null>(null)
   const [kmzCountError, setKmzCountError] = useState(false)
 
   const currentModule = modules[activeTab]
 
-  const loadTasks = async () => {
+  useEffect(() => {
+    const nextModule = isModuleKey(moduleParam) ? moduleParam : "campos"
+    setActiveTab((current) => (current === nextModule ? current : nextModule))
+  }, [moduleParam])
+
+  const handleModuleChange = (value: string) => {
+    if (!isModuleKey(value)) return
+
+    setActiveTab(value)
+    const params = new URLSearchParams(searchParams.toString())
+    if (value === "campos") params.delete("modulo")
+    else params.set("modulo", value)
+
+    const query = params.toString()
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+  }
+
+  const loadTasks = useCallback(async () => {
     const { data, error } = await supabase
       .from("tasks")
       .select("*")
@@ -121,11 +142,15 @@ export default function UnifiedSearchPage() {
 
     setTasks((data || []) as Task[])
     setTaskRefreshTrigger((value) => value + 1)
-  }
+  }, [supabase])
 
   useEffect(() => {
-    void supabase.auth.getUser().then(({ data }) => setCurrentUser(data.user || null))
+    if (activeTab !== "tareas") return
     void loadTasks()
+  }, [activeTab, loadTasks])
+
+  useEffect(() => {
+    if (activeTab !== "kmz" || kmzCount !== null || kmzCountError) return
 
     void supabase
       .from("kmz_collection")
@@ -140,7 +165,7 @@ export default function UnifiedSearchPage() {
 
         setKmzCount(count ?? 0)
       })
-  }, [supabase])
+  }, [activeTab, kmzCount, kmzCountError, supabase])
 
   return (
     <main className="mx-auto w-full max-w-[1800px] space-y-6 px-4 py-5 sm:px-6 lg:px-8">
@@ -151,7 +176,7 @@ export default function UnifiedSearchPage() {
         outcome={currentModule.outcome}
       />
 
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as ModuleKey)} className="w-full">
+      <Tabs value={activeTab} onValueChange={handleModuleChange} className="w-full">
         <TabsList className="grid h-auto w-full grid-cols-2 gap-1 rounded-2xl border bg-muted/40 p-1 sm:grid-cols-4 xl:grid-cols-7">
           <TabsTrigger value="campos" className="gap-2 rounded-xl py-2.5"><Folder className="h-4 w-4" />Campos</TabsTrigger>
           <TabsTrigger value="clientes" className="gap-2 rounded-xl py-2.5"><Users className="h-4 w-4" />Clientes</TabsTrigger>
@@ -209,16 +234,6 @@ export default function UnifiedSearchPage() {
           <SiiRolExplorer />
         </TabsContent>
       </Tabs>
-
-      <TaskCreationDialog
-        open={taskDialogOpen}
-        onOpenChange={setTaskDialogOpen}
-        currentUser={currentUser}
-        onTaskCreated={() => {
-          void loadTasks()
-          setTaskDialogOpen(false)
-        }}
-      />
     </main>
   )
 }
