@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { CAMPOSDesktopShellV2 } from "@/components/campos/campos-desktop-shell-v2"
 import { CAMPOSRegionalTagFilterV3 } from "@/components/campos/campos-regional-tag-filter-v3"
 import { CAMPOSDesktopVisualSystem } from "@/components/campos/campos-desktop-visual-system"
+import { CAMPOSDarkThemeSystem } from "@/components/campos/campos-dark-theme-system"
 import { CAMPOSMapVisualBehavior } from "@/components/campos/campos-map-visual-behavior"
 import { LeafletPopupBehavior } from "@/components/kmz/leaflet-popup-behavior"
 
@@ -18,6 +19,7 @@ export default function CAMPOSPage() {
       <CAMPOSDesktopShellV2 />
       <CAMPOSRegionalTagFilterV3 />
       <CAMPOSDesktopVisualSystem />
+      <CAMPOSDarkThemeSystem />
     </div>
   )
 }
