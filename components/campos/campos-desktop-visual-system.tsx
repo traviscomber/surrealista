@@ -9,7 +9,7 @@ export function CAMPOSDesktopVisualSystem() {
           --campos-rail: 34px;
           --campos-details: 400px;
           --campos-header: 44px;
-          color: #17212b;
+          color: var(--sr-ink-live, #1f2824);
         }
 
         .campos-desktop-shell > div > div:first-child {
@@ -48,7 +48,9 @@ export function CAMPOSDesktopVisualSystem() {
           > div[class*="transition-[height]"] {
           width: var(--campos-details) !important;
           min-width: var(--campos-details) !important;
-          background: #fff !important;
+          background: var(--sr-panel-live, #ffffff) !important;
+          color: var(--sr-ink-live, #1f2824) !important;
+          border-color: var(--sr-line-live, #cdd3cf) !important;
         }
 
         .campos-desktop-shell
@@ -86,7 +88,8 @@ export function CAMPOSDesktopVisualSystem() {
           min-height: 38px !important;
           padding: 3px !important;
           border-radius: 8px !important;
-          background: #eef2f5 !important;
+          background: var(--sr-panel-soft-live, #f3f1ec) !important;
+          border-color: var(--sr-line-live, #cdd3cf) !important;
         }
 
         .campos-desktop-shell [role="tab"] {
@@ -99,6 +102,8 @@ export function CAMPOSDesktopVisualSystem() {
 
         .campos-desktop-shell [role="tabpanel"] {
           padding: 10px 12px 18px !important;
+          background: var(--sr-panel-live, #ffffff) !important;
+          color: var(--sr-ink-soft-live, #4a5550) !important;
         }
 
         .campos-desktop-shell [role="tabpanel"] h2,
@@ -135,9 +140,10 @@ export function CAMPOSDesktopVisualSystem() {
           padding-left: 10px !important;
           padding-right: 10px !important;
           font-size: 11px !important;
-          border-color: rgba(15, 23, 42, 0.14) !important;
-          background: rgba(255, 255, 255, 0.94) !important;
-          box-shadow: 0 4px 14px rgba(15, 23, 42, 0.1) !important;
+          border-color: var(--sr-line-live, #cdd3cf) !important;
+          background: color-mix(in srgb, var(--sr-panel-live, #ffffff) 94%, transparent) !important;
+          color: var(--sr-ink-live, #1f2824) !important;
+          box-shadow: 0 4px 14px color-mix(in srgb, var(--sr-ink-live, #1f2824) 10%, transparent) !important;
           backdrop-filter: blur(8px) !important;
         }
 
@@ -148,30 +154,36 @@ export function CAMPOSDesktopVisualSystem() {
 
         .campos-desktop-shell .leaflet-control-layers,
         .campos-desktop-shell .leaflet-bar {
-          border: 1px solid rgba(15, 23, 42, 0.14) !important;
+          border: 1px solid var(--sr-line-live, #cdd3cf) !important;
           border-radius: 8px !important;
           overflow: hidden !important;
-          box-shadow: 0 4px 14px rgba(15, 23, 42, 0.1) !important;
+          box-shadow: 0 4px 14px color-mix(in srgb, var(--sr-ink-live, #1f2824) 10%, transparent) !important;
         }
 
         .campos-desktop-shell .leaflet-bar a {
           width: 30px !important;
           height: 30px !important;
           line-height: 30px !important;
-          color: #25313d !important;
-          background: rgba(255, 255, 255, 0.96) !important;
+          color: var(--sr-ink-live, #1f2824) !important;
+          background: color-mix(in srgb, var(--sr-panel-live, #ffffff) 96%, transparent) !important;
         }
 
         .campos-desktop-shell .leaflet-control-attribution {
           padding: 2px 6px !important;
           font-size: 9px !important;
-          color: #64748b !important;
-          background: rgba(255, 255, 255, 0.82) !important;
+          color: var(--sr-ink-muted-live, #6d7772) !important;
+          background: color-mix(in srgb, var(--sr-panel-live, #ffffff) 82%, transparent) !important;
         }
 
         .campos-desktop-shell .leaflet-popup-content-wrapper {
           border-radius: 10px !important;
-          box-shadow: 0 10px 30px rgba(15, 23, 42, 0.18) !important;
+          background: var(--sr-panel-live, #ffffff) !important;
+          color: var(--sr-ink-live, #1f2824) !important;
+          box-shadow: 0 10px 30px color-mix(in srgb, var(--sr-ink-live, #1f2824) 18%, transparent) !important;
+        }
+
+        .campos-desktop-shell .leaflet-popup-tip {
+          background: var(--sr-panel-live, #ffffff) !important;
         }
 
         .campos-desktop-shell .leaflet-popup-content {
@@ -190,7 +202,9 @@ export function CAMPOSDesktopVisualSystem() {
         .campos-desktop-shell ~ div > div {
           max-width: 1060px !important;
           border-radius: 10px !important;
-          box-shadow: 0 8px 24px rgba(15, 23, 42, 0.13) !important;
+          background: color-mix(in srgb, var(--sr-panel-live, #ffffff) 96%, transparent) !important;
+          border-color: var(--sr-line-live, #cdd3cf) !important;
+          box-shadow: 0 8px 24px color-mix(in srgb, var(--sr-ink-live, #1f2824) 13%, transparent) !important;
         }
 
         .campos-desktop-shell ~ div > div > div:first-child {
