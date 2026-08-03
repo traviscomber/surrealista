@@ -109,13 +109,19 @@ type KmzCountState =
   | { status: "ready"; count: number }
   | { status: "error"; count: null }
 
+type TasksState = "idle" | "loading" | "ready" | "error"
+
 const moduleEntries = Object.entries(modules) as Array<[ModuleKey, (typeof modules)[ModuleKey]]>
 const isModuleKey = (value: string | null): value is ModuleKey => Boolean(value && value in modules)
 
 function ModuleLoading({ label }: { label: string }) {
   return (
-    <div className="flex min-h-[420px] items-center justify-center rounded-2xl border border-dashed bg-muted/20 text-sm text-muted-foreground">
-      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+    <div
+      className="flex min-h-[420px] items-center justify-center rounded-2xl border border-dashed bg-muted/20 text-sm text-muted-foreground"
+      role="status"
+      aria-live="polite"
+    >
+      <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
       {label}
     </div>
   )
@@ -130,7 +136,7 @@ export default function UnifiedSearchPage() {
 
   const [activeTab, setActiveTab] = useState<ModuleKey>(() => (isModuleKey(moduleParam) ? moduleParam : "campos"))
   const [tasks, setTasks] = useState<Task[]>([])
-  const [tasksLoaded, setTasksLoaded] = useState(false)
+  const [tasksState, setTasksState] = useState<TasksState>("idle")
   const [taskRefreshTrigger, setTaskRefreshTrigger] = useState(0)
   const [kmzState, setKmzState] = useState<KmzCountState>({ status: "idle", count: null })
 
@@ -154,6 +160,8 @@ export default function UnifiedSearchPage() {
   }
 
   const loadTasks = useCallback(async () => {
+    setTasksState("loading")
+
     const { data, error } = await supabase
       .from("tasks")
       .select("*")
@@ -162,11 +170,12 @@ export default function UnifiedSearchPage() {
 
     if (error) {
       console.error("[busqueda] No se pudieron cargar las tareas", error)
+      setTasksState("error")
       return
     }
 
     setTasks((data || []) as Task[])
-    setTasksLoaded(true)
+    setTasksState("ready")
     setTaskRefreshTrigger((value) => value + 1)
   }, [supabase])
 
@@ -188,9 +197,9 @@ export default function UnifiedSearchPage() {
   }, [supabase])
 
   useEffect(() => {
-    if (activeTab !== "tareas" || tasksLoaded) return
+    if (activeTab !== "tareas" || tasksState !== "idle") return
     void loadTasks()
-  }, [activeTab, loadTasks, tasksLoaded])
+  }, [activeTab, loadTasks, tasksState])
 
   useEffect(() => {
     if (activeTab !== "kmz" || kmzState.status !== "idle") return
@@ -214,7 +223,10 @@ export default function UnifiedSearchPage() {
 
       <Tabs value={activeTab} onValueChange={handleModuleChange} className="w-full">
         <div className="overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <TabsList className="inline-flex h-auto min-w-full justify-start gap-1 rounded-2xl border bg-muted/40 p-1 lg:grid lg:grid-cols-7">
+          <TabsList
+            className="inline-flex h-auto min-w-full justify-start gap-1 rounded-2xl border bg-muted/40 p-1 lg:grid lg:grid-cols-7"
+            aria-label="Módulos del centro operativo"
+          >
             {moduleEntries.map(([key, module]) => {
               const Icon = module.icon
               return (
@@ -223,7 +235,7 @@ export default function UnifiedSearchPage() {
                   value={key}
                   className="min-w-max gap-2 rounded-xl px-3 py-2.5 lg:min-w-0"
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className="h-4 w-4" aria-hidden="true" />
                   {module.label}
                 </TabsTrigger>
               )
@@ -244,7 +256,27 @@ export default function UnifiedSearchPage() {
         </TabsContent>
 
         <TabsContent value="tareas" className="mt-3 min-h-[620px]">
-          <TasksManager tasks={tasks} refreshTrigger={taskRefreshTrigger} onTasksUpdate={loadTasks} />
+          {tasksState === "loading" || tasksState === "idle" ? (
+            <ModuleLoading label="Cargando tareas…" />
+          ) : tasksState === "error" ? (
+            <Card className="rounded-2xl border-destructive/30 shadow-none">
+              <CardContent className="flex min-h-[320px] flex-col items-center justify-center gap-4 p-6 text-center">
+                <AlertCircle className="h-8 w-8 text-destructive" aria-hidden="true" />
+                <div>
+                  <h3 className="font-semibold">No se pudieron cargar las tareas</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    La vista no se mostrará vacía mientras exista un problema de conexión o permisos.
+                  </p>
+                </div>
+                <Button variant="outline" onClick={() => void loadTasks()}>
+                  <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
+                  Reintentar
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <TasksManager tasks={tasks} refreshTrigger={taskRefreshTrigger} onTasksUpdate={loadTasks} />
+          )}
         </TabsContent>
 
         <TabsContent value="drive" className="mt-3 min-h-[620px]">
@@ -255,9 +287,9 @@ export default function UnifiedSearchPage() {
           <Card className="rounded-2xl border-border/70 shadow-none">
             <CardHeader className="pb-4">
               <CardTitle>Colección territorial</CardTitle>
-              <CardDescription className="flex items-center gap-2">
-                {kmzState.status === "loading" && <Loader2 className="h-4 w-4 animate-spin" />}
-                {kmzState.status === "error" && <AlertCircle className="h-4 w-4 text-destructive" />}
+              <CardDescription className="flex items-center gap-2" aria-live="polite">
+                {kmzState.status === "loading" && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+                {kmzState.status === "error" && <AlertCircle className="h-4 w-4 text-destructive" aria-hidden="true" />}
                 {kmzDescription}
               </CardDescription>
             </CardHeader>
@@ -268,13 +300,13 @@ export default function UnifiedSearchPage() {
               <div className="flex flex-wrap gap-2">
                 {kmzState.status === "error" && (
                   <Button variant="outline" onClick={() => void loadKmzCount()}>
-                    <RefreshCw className="mr-2 h-4 w-4" />
+                    <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
                     Reintentar
                   </Button>
                 )}
                 <Button asChild>
                   <Link href="/admin/kmz-collection">
-                    <Database className="mr-2 h-4 w-4" />
+                    <Database className="mr-2 h-4 w-4" aria-hidden="true" />
                     Administrar colección
                   </Link>
                 </Button>
