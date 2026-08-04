@@ -51,23 +51,38 @@ export interface KmzInventoryFilters {
   search?: string
 }
 
+const PAGE_SIZE = 1000
+
 export async function loadKmzInventory(
   supabase: SupabaseClient,
   filters: KmzInventoryFilters = {},
 ): Promise<KmzInventoryRecord[]> {
-  let query = supabase
-    .from("kmz_inventory_status")
-    .select("*")
-    .order("region", { ascending: true })
-    .order("file_name", { ascending: true })
+  const records: KmzInventoryRecord[] = []
+  let from = 0
 
-  if (filters.regions?.length) query = query.in("region", filters.regions)
-  if (filters.ids?.length) query = query.in("id", filters.ids)
-  if (filters.search?.trim()) query = query.ilike("file_name", `%${filters.search.trim()}%`)
+  while (true) {
+    let query = supabase
+      .from("kmz_inventory_status")
+      .select("*")
+      .order("region", { ascending: true })
+      .order("file_name", { ascending: true })
+      .range(from, from + PAGE_SIZE - 1)
 
-  const { data, error } = await query
-  if (error) throw error
-  return (data || []) as KmzInventoryRecord[]
+    if (filters.regions?.length) query = query.in("region", filters.regions)
+    if (filters.ids?.length) query = query.in("id", filters.ids)
+    if (filters.search?.trim()) query = query.ilike("file_name", `%${filters.search.trim()}%`)
+
+    const { data, error } = await query
+    if (error) throw error
+
+    const page = (data || []) as KmzInventoryRecord[]
+    records.push(...page)
+
+    if (page.length < PAGE_SIZE) break
+    from += PAGE_SIZE
+  }
+
+  return records
 }
 
 export async function loadKmzInventoryRegionSummary(
