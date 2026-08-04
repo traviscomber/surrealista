@@ -1,5 +1,4 @@
 import { AIAssistantChat } from "@/components/ai-assistant/ai-assistant-chat"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Database, FileSearch, FileText, FolderOpen, MapPin, Search, ShieldCheck } from "lucide-react"
 import { WorkspaceHeading } from "@/components/ui/workspace-heading"
 
@@ -35,72 +34,66 @@ const examples = [
 
 export default function AsistenteIAPage() {
   return (
-    <main className="container mx-auto px-4 py-8">
-      <div className="mx-auto max-w-7xl space-y-8">
-        <WorkspaceHeading
-          eyebrow="Herramienta de apoyo"
-          title="Asistente de análisis"
-          description="Realiza consultas sobre los datos y documentos accesibles dentro de la plataforma. Las respuestas dependen de las fuentes disponibles y deben revisarse antes de utilizarse en decisiones comerciales, técnicas o legales."
-          outcome="Una síntesis inicial de la información encontrada, con referencias para continuar la revisión en los módulos correspondientes."
-        />
+    <main className="mx-auto w-full max-w-[1800px] space-y-6 px-4 py-5 sm:px-6 lg:px-8">
+      <WorkspaceHeading
+        eyebrow="Herramienta de apoyo"
+        title="Asistente de análisis"
+        description="Realiza consultas sobre los datos y documentos accesibles dentro de la plataforma. Las respuestas dependen de las fuentes disponibles y deben revisarse antes de utilizarlas en decisiones comerciales, técnicas o legales."
+        outcome="Una síntesis inicial de la información encontrada, con referencias para continuar la revisión en los módulos correspondientes."
+      />
 
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-          <section className="min-w-0">
-            <AIAssistantChat />
+      <div className="grid gap-0 border border-border/70 bg-card xl:grid-cols-[minmax(0,1fr)_360px]">
+        <section className="min-w-0 border-b border-border/70 xl:border-b-0 xl:border-r">
+          <AIAssistantChat />
+        </section>
+
+        <aside className="min-w-0 bg-background/55">
+          <section className="border-b border-border/70 px-5 py-5">
+            <div className="flex items-center gap-2">
+              <Database className="h-4 w-4 text-primary" />
+              <h2 className="sr-panel-title">Qué puede entregar</h2>
+            </div>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+              Capacidades sujetas a la información realmente conectada.
+            </p>
+
+            <div className="mt-5 divide-y divide-border/60">
+              {capabilities.map((capability) => (
+                <div key={capability.title} className="flex items-start gap-3 py-4 first:pt-0 last:pb-0">
+                  <capability.icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">{capability.title}</p>
+                    <p className="mt-1 text-sm leading-6 text-muted-foreground">{capability.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
           </section>
 
-          <aside className="space-y-5">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Database className="h-4 w-4 text-primary" />
-                  Qué puede entregar
-                </CardTitle>
-                <CardDescription>Capacidades sujetas a la información realmente conectada.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {capabilities.map((capability) => (
-                  <div key={capability.title} className="flex items-start gap-3 border-b border-border/60 pb-4 last:border-0 last:pb-0">
-                    <capability.icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                    <div>
-                      <p className="text-sm font-medium text-foreground">{capability.title}</p>
-                      <p className="mt-1 text-xs leading-5 text-muted-foreground">{capability.description}</p>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
+          <section className="border-b border-border/70 px-5 py-5">
+            <div className="flex items-center gap-2">
+              <FileSearch className="h-4 w-4 text-primary" />
+              <h2 className="sr-panel-title">Consultas sugeridas</h2>
+            </div>
+            <div className="mt-4 divide-y divide-border/60">
+              {examples.map((example) => (
+                <p key={example} className="py-3 text-sm leading-6 text-foreground first:pt-0 last:pb-0">
+                  {example}
+                </p>
+              ))}
+            </div>
+          </section>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <FileSearch className="h-4 w-4 text-primary" />
-                  Consultas sugeridas
-                </CardTitle>
-                <CardDescription>Ejemplos orientados al trabajo interno.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {examples.map((example) => (
-                  <div key={example} className="rounded-md border border-border/70 bg-muted/30 px-3 py-2.5 text-sm leading-5 text-foreground">
-                    {example}
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <ShieldCheck className="h-4 w-4 text-primary" />
-                  Alcance de la respuesta
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="text-sm leading-6 text-muted-foreground">
-                El asistente no acredita dominio, tasación, vigencia documental ni exactitud legal. Cuando una fuente no está disponible, debe indicarlo en lugar de completar información por inferencia.
-              </CardContent>
-            </Card>
-          </aside>
-        </div>
+          <section className="px-5 py-5">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-4 w-4 text-primary" />
+              <h2 className="sr-panel-title">Alcance de la respuesta</h2>
+            </div>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              El asistente no acredita dominio, tasación, vigencia documental ni exactitud legal. Cuando una fuente no está disponible, debe indicarlo en lugar de completar información por inferencia.
+            </p>
+          </section>
+        </aside>
       </div>
     </main>
   )
