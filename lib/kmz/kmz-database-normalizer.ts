@@ -2,6 +2,7 @@ import { createHash } from "node:crypto"
 
 export type Coordinate = [number, number, number?]
 export type GeometryType = "Point" | "LineString" | "Polygon"
+export type GeometryStatus = "real_geometry" | "direct_reference" | "metadata_reference" | "sii_reference" | "bounds_reference"
 
 export interface StoredPlacemark {
   name?: string | null
@@ -54,6 +55,13 @@ export interface NormalizationProposal {
   validationErrors: string[]
 }
 
+interface FallbackLocation {
+  coordinate: Coordinate
+  status: Exclude<GeometryStatus, "real_geometry">
+  label: string
+  source: string
+}
+
 function asCoordinate(value: unknown): Coordinate | null {
   if (!Array.isArray(value) || value.length < 2) return null
   const lng = Number(value[0])
@@ -81,18 +89,37 @@ function readObjectPoint(value: unknown): Coordinate | null {
   )
 }
 
-function getFallbackLocation(record: KmzCollectionRecord): Coordinate | null {
+function makeFallback(
+  coordinate: Coordinate | null,
+  status: FallbackLocation["status"],
+  label: string,
+  source: string,
+): FallbackLocation | null {
+  return coordinate ? { coordinate, status, label, source } : null
+}
+
+function getFallbackLocation(record: KmzCollectionRecord): FallbackLocation | null {
   const metadata = (record.metadata || {}) as Record<string, unknown>
   const siiResolution = metadata.sii_point_resolution as Record<string, unknown> | undefined
   const siiCenter = siiResolution?.center
 
-  const candidates: Array<Coordinate | null> = [
-    asLocationPoint(record.lat ?? record.latitude, record.lng ?? record.longitude),
-    readObjectPoint(record.location),
-    asLocationPoint(metadata.lat ?? metadata.latitude, metadata.lng ?? metadata.lon ?? metadata.longitude),
-    readObjectPoint(metadata.location),
-    readObjectPoint(metadata.center),
-    readObjectPoint(siiCenter),
+  const candidates: Array<FallbackLocation | null> = [
+    makeFallback(
+      asLocationPoint(record.lat ?? record.latitude, record.lng ?? record.longitude),
+      "direct_reference",
+      "Punto registrado",
+      "kmz_collection.lat_lng",
+    ),
+    makeFallback(readObjectPoint(record.location), "direct_reference", "Punto registrado", "kmz_collection.location"),
+    makeFallback(
+      asLocationPoint(metadata.lat ?? metadata.latitude, metadata.lng ?? metadata.lon ?? metadata.longitude),
+      "metadata_reference",
+      "Punto de metadata",
+      "metadata.lat_lng",
+    ),
+    makeFallback(readObjectPoint(metadata.location), "metadata_reference", "Punto de metadata", "metadata.location"),
+    makeFallback(readObjectPoint(metadata.center), "metadata_reference", "Centro de metadata", "metadata.center"),
+    makeFallback(readObjectPoint(siiCenter), "sii_reference", "Centro territorial SII", "metadata.sii_point_resolution.center"),
   ]
 
   for (const candidate of candidates) {
@@ -106,7 +133,12 @@ function getFallbackLocation(record: KmzCollectionRecord): Coordinate | null {
     const east = Number(bounds.east)
     const west = Number(bounds.west)
     if ([north, south, east, west].every(Number.isFinite)) {
-      return asLocationPoint((north + south) / 2, (east + west) / 2)
+      return makeFallback(
+        asLocationPoint((north + south) / 2, (east + west) / 2),
+        "bounds_reference",
+        "Centro aproximado",
+        "kmz_collection.bounds",
+      )
     }
   }
 
@@ -187,6 +219,8 @@ function createPlacemark(
       rol: record.rol_numbers?.[index] || (stored?.properties?.rol as string | undefined) || "",
       category: record.category || (stored?.properties?.category as string | undefined) || "general",
       recoveredFrom: stored ? "kmz_placemarks" : "kmz_collection.coordinates",
+      geometryStatus: "real_geometry" satisfies GeometryStatus,
+      isReferenceLocation: false,
     },
     center: calculateCenter(coordinates),
     bounds: calculateBounds(coordinates),
@@ -194,18 +228,20 @@ function createPlacemark(
   }
 }
 
-function createLocationPlacemark(record: KmzCollectionRecord, coordinate: Coordinate): NormalizedPlacemark {
-  const coordinates = [coordinate]
+function createLocationPlacemark(record: KmzCollectionRecord, fallback: FallbackLocation): NormalizedPlacemark {
+  const coordinates = [fallback.coordinate]
   return {
-    name: `${record.file_name} · Ubicación referencial`,
-    description: record.description || "Ubicación disponible sin geometría detallada recuperada.",
+    name: `${record.file_name} · ${fallback.label}`,
+    description: record.description || `${fallback.label} disponible sin geometría detallada recuperada.`,
     coordinates,
     type: "Point",
     properties: {
       rol: record.rol_numbers?.[0] || "",
       category: record.category || "general",
       recoveredFrom: "record_location",
-      geometryStatus: "reference_point",
+      geometryStatus: fallback.status,
+      geometrySource: fallback.source,
+      referenceLabel: fallback.label,
       isReferenceLocation: true,
     },
     center: calculateCenter(coordinates),
@@ -236,7 +272,7 @@ export function normalizeKmzRecord(record: KmzCollectionRecord, storedPlacemarks
     if (fallbackLocation) {
       placemarks = [createLocationPlacemark(record, fallbackLocation)]
       source = "record_location"
-      validationErrors.push("Sin geometría detallada; se usa la ubicación referencial disponible")
+      validationErrors.push(`Sin geometría detallada; se usa ${fallbackLocation.label.toLowerCase()}`)
     } else {
       validationErrors.push("No existe geometría válida ni ubicación recuperable en la base de datos")
     }
