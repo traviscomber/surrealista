@@ -1,0 +1,411 @@
+"use client"
+
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { ChevronDown, ChevronRight, File, Folder, FolderOpen, Loader2, MapPin, RefreshCw, Search } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { KMZMapDisplay, type LayerInfo } from "@/components/kmz/kmz-map-display"
+import { createBrowserClient } from "@/lib/supabase/client"
+import {
+  loadKmzInventory,
+  loadKmzInventoryRegionSummary,
+  type KmzInventoryRecord,
+  type KmzInventoryRegionSummary,
+} from "@/lib/kmz/kmz-inventory-service"
+import { CAMPOSFolderView } from "@/components/campos/campos-folder-view"
+
+const STATUS_STYLE: Record<string, { label: string; className: string }> = {
+  real_geometry: {
+    label: "Capa KMZ",
+    className: "border-emerald-300 bg-emerald-50 text-emerald-800",
+  },
+  sii_reference: {
+    label: "Centro SII",
+    className: "border-sky-300 bg-sky-50 text-sky-800",
+  },
+  bounds_reference: {
+    label: "Centro del KMZ",
+    className: "border-violet-300 bg-violet-50 text-violet-800",
+  },
+  direct_reference: {
+    label: "Punto",
+    className: "border-cyan-300 bg-cyan-50 text-cyan-800",
+  },
+  metadata_reference: {
+    label: "Punto territorial",
+    className: "border-blue-300 bg-blue-50 text-blue-800",
+  },
+  real_or_reference: {
+    label: "Ubicación KMZ",
+    className: "border-slate-300 bg-slate-50 text-slate-800",
+  },
+  missing: {
+    label: "Ubicación pendiente",
+    className: "border-amber-300 bg-amber-50 text-amber-800",
+  },
+}
+
+function geometryBadge(record: KmzInventoryRecord) {
+  return STATUS_STYLE[record.geometry_status] || STATUS_STYLE.real_or_reference
+}
+
+function toPointPlacemark(record: KmzInventoryRecord) {
+  const status = geometryBadge(record)
+  return {
+    name: `${record.file_name} · ${status.label}`,
+    type: "Point",
+    coordinates: [[Number(record.longitude), Number(record.latitude)]],
+    description: `${status.label} del inventario Surrealista`,
+    properties: {
+      geometryStatus: record.geometry_status,
+      referenceLabel: status.label,
+      isReferenceLocation: record.geometry_status !== "real_geometry",
+      rol: record.rol_numbers?.[0] || "",
+      category: record.category || "general",
+    },
+  }
+}
+
+function normalizeCoordinates(value: unknown): number[][] {
+  if (!Array.isArray(value)) return []
+  const direct = value
+    .filter((item) => Array.isArray(item) && item.length >= 2)
+    .map((item) => [Number(item[0]), Number(item[1])])
+    .filter(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat))
+  if (direct.length > 0) return direct
+  if (value.length === 1) return normalizeCoordinates(value[0])
+  return []
+}
+
+function inferType(coordinates: number[][], declared?: string | null) {
+  if (declared === "Polygon" || declared === "LineString" || declared === "Point") return declared
+  if (coordinates.length <= 1) return "Point"
+  const first = coordinates[0]
+  const last = coordinates[coordinates.length - 1]
+  return coordinates.length >= 4 && first?.[0] === last?.[0] && first?.[1] === last?.[1] ? "Polygon" : "LineString"
+}
+
+function centerFromBounds(bounds: any, fallback: { lat: number; lng: number }) {
+  const north = Number(bounds?.north)
+  const south = Number(bounds?.south)
+  const east = Number(bounds?.east)
+  const west = Number(bounds?.west)
+  if ([north, south, east, west].every(Number.isFinite)) {
+    return { lat: (north + south) / 2, lng: (east + west) / 2 }
+  }
+  return fallback
+}
+
+export function CAMPOSFolderViewIntegrated() {
+  const supabase = useMemo(() => createBrowserClient(), [])
+  const [summaries, setSummaries] = useState<KmzInventoryRegionSummary[]>([])
+  const [recordsByRegion, setRecordsByRegion] = useState<Record<string, KmzInventoryRecord[]>>({})
+  const [openRegions, setOpenRegions] = useState<Set<string>>(new Set())
+  const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
+  const [selectedRecord, setSelectedRecord] = useState<KmzInventoryRecord | null>(null)
+  const [selectedLayer, setSelectedLayer] = useState<LayerInfo | null>(null)
+  const [kmzFiles, setKmzFiles] = useState<any[]>([])
+  const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null)
+  const [search, setSearch] = useState("")
+  const [loadingRegions, setLoadingRegions] = useState<Set<string>>(new Set())
+  const [loadingInitial, setLoadingInitial] = useState(true)
+  const [loadingMap, setLoadingMap] = useState(false)
+  const [fatalError, setFatalError] = useState(false)
+
+  const loadSummaries = useCallback(async () => {
+    setLoadingInitial(true)
+    try {
+      const data = await loadKmzInventoryRegionSummary(supabase)
+      setSummaries(data)
+      setFatalError(false)
+    } catch (error) {
+      console.error("[CAMPOS] unified inventory summary failed", error)
+      setFatalError(true)
+    } finally {
+      setLoadingInitial(false)
+    }
+  }, [supabase])
+
+  useEffect(() => {
+    loadSummaries()
+  }, [loadSummaries])
+
+  const ensureRegionRecords = useCallback(async (region: string) => {
+    if (recordsByRegion[region]) return recordsByRegion[region]
+    setLoadingRegions((current) => new Set(current).add(region))
+    try {
+      const records = await loadKmzInventory(supabase, { regions: [region] })
+      setRecordsByRegion((current) => ({ ...current, [region]: records }))
+      return records
+    } finally {
+      setLoadingRegions((current) => {
+        const next = new Set(current)
+        next.delete(region)
+        return next
+      })
+    }
+  }, [recordsByRegion, supabase])
+
+  const loadRegionMap = useCallback(async (region: string) => {
+    setSelectedRegion(region)
+    setSelectedRecord(null)
+    setSelectedLayer(null)
+    setLoadingMap(true)
+    try {
+      const records = await ensureRegionRecords(region)
+      const files = records.map((record) => ({
+        id: record.id,
+        dbId: record.id,
+        fileName: record.file_name,
+        placemarks: [toPointPlacemark(record)],
+        bounds: record.bounds,
+        metadata: {
+          id: record.id,
+          region: record.region,
+          geometryStatus: record.geometry_status,
+          geometryLabel: geometryBadge(record).label,
+          rolNumbers: record.rol_numbers || [],
+        },
+      }))
+      setKmzFiles(files)
+      const summary = summaries.find((item) => item.region === region)
+      setMapCenter({
+        lat: Number(summary?.center_latitude || records[0]?.latitude || -39.8),
+        lng: Number(summary?.center_longitude || records[0]?.longitude || -73.2),
+      })
+    } catch (error) {
+      console.error("[CAMPOS] region inventory failed", error)
+      setKmzFiles([])
+    } finally {
+      setLoadingMap(false)
+    }
+  }, [ensureRegionRecords, summaries])
+
+  const toggleRegion = useCallback(async (region: string) => {
+    const isOpen = openRegions.has(region)
+    setOpenRegions((current) => {
+      const next = new Set(current)
+      if (next.has(region)) next.delete(region)
+      else next.add(region)
+      return next
+    })
+    if (!isOpen) await ensureRegionRecords(region)
+  }, [ensureRegionRecords, openRegions])
+
+  const loadSelectedKmz = useCallback(async (record: KmzInventoryRecord) => {
+    setSelectedRecord(record)
+    setSelectedRegion(record.region)
+    setSelectedLayer(null)
+    setLoadingMap(true)
+    setMapCenter({ lat: Number(record.latitude), lng: Number(record.longitude) })
+
+    try {
+      const [{ data: collection, error: collectionError }, { data: storedPlacemarks }] = await Promise.all([
+        supabase.from("kmz_collection").select("*").eq("id", record.id).single(),
+        supabase.from("kmz_placemarks").select("*").eq("kmz_id", record.id).limit(5000),
+      ])
+      if (collectionError || !collection) throw collectionError
+
+      const placemarks = (storedPlacemarks || []).flatMap((placemark: any) => {
+        const coordinates = normalizeCoordinates(placemark.coordinates)
+        if (coordinates.length === 0) return []
+        return [{
+          name: placemark.name || record.file_name,
+          type: inferType(coordinates, placemark.type),
+          coordinates,
+          description: placemark.description || collection.description || "",
+          styleUrl: placemark.style_url || undefined,
+          properties: {
+            ...(placemark.properties || {}),
+            geometryStatus: "real_geometry",
+            isReferenceLocation: false,
+          },
+        }]
+      })
+
+      if (placemarks.length === 0 && Array.isArray(collection.coordinates)) {
+        collection.coordinates.forEach((raw: unknown, index: number) => {
+          const coordinates = normalizeCoordinates(raw)
+          if (coordinates.length === 0) return
+          placemarks.push({
+            name: `${record.file_name} · Capa ${index + 1}`,
+            type: inferType(coordinates),
+            coordinates,
+            description: collection.description || "",
+            properties: { geometryStatus: "real_geometry", isReferenceLocation: false },
+          })
+        })
+      }
+
+      if (placemarks.length === 0) placemarks.push(toPointPlacemark(record))
+
+      setKmzFiles([{
+        id: record.id,
+        dbId: record.id,
+        fileName: record.file_name,
+        placemarks,
+        bounds: collection.bounds || record.bounds,
+        metadata: {
+          id: record.id,
+          region: record.region,
+          geometryStatus: record.geometry_status,
+          geometryLabel: geometryBadge(record).label,
+          rolNumbers: record.rol_numbers || [],
+        },
+      }])
+      setMapCenter(centerFromBounds(collection.bounds, { lat: Number(record.latitude), lng: Number(record.longitude) }))
+    } catch (error) {
+      console.error("[CAMPOS] selected KMZ failed", error)
+      setKmzFiles([{
+        id: record.id,
+        dbId: record.id,
+        fileName: record.file_name,
+        placemarks: [toPointPlacemark(record)],
+        bounds: record.bounds,
+        metadata: { id: record.id, region: record.region },
+      }])
+    } finally {
+      setLoadingMap(false)
+    }
+  }, [supabase])
+
+  const filteredSummaries = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase("es")
+    if (!query) return summaries
+    return summaries.filter((summary) => summary.region.toLocaleLowerCase("es").includes(query))
+  }, [search, summaries])
+
+  const visibleRegionRecords = useCallback((region: string) => {
+    const records = recordsByRegion[region] || []
+    const query = search.trim().toLocaleLowerCase("es")
+    if (!query) return records
+    return records.filter((record) =>
+      [record.file_name, record.region, record.owner, ...(record.rol_numbers || [])]
+        .filter(Boolean)
+        .some((value) => String(value).toLocaleLowerCase("es").includes(query)),
+    )
+  }, [recordsByRegion, search])
+
+  if (fatalError) return <CAMPOSFolderView />
+
+  return (
+    <div className="flex h-full min-h-0 w-full overflow-hidden bg-slate-50">
+      <aside className="flex w-[360px] min-w-[360px] flex-col border-r bg-white">
+        <div className="space-y-3 border-b p-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-slate-950">Colección de campos</h2>
+              <p className="text-xs text-slate-500">{summaries.reduce((sum, item) => sum + Number(item.total_kmz || 0), 0)} KMZ · {summaries.length} regiones</p>
+            </div>
+            <Button variant="outline" size="icon" onClick={loadSummaries} disabled={loadingInitial}>
+              <RefreshCw className={`h-4 w-4 ${loadingInitial ? "animate-spin" : ""}`} />
+            </Button>
+          </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar región, KMZ, ROL..." className="pl-9" />
+          </div>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-2">
+          {loadingInitial ? (
+            <div className="flex h-40 items-center justify-center gap-2 text-sm text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Cargando inventario...</div>
+          ) : filteredSummaries.map((summary) => {
+            const isOpen = openRegions.has(summary.region)
+            const isLoading = loadingRegions.has(summary.region)
+            const records = visibleRegionRecords(summary.region)
+            return (
+              <div key={summary.region} className="mb-1 overflow-hidden rounded-xl border border-transparent hover:border-slate-200">
+                <div className={`flex items-center gap-1 p-1 ${selectedRegion === summary.region ? "bg-slate-100" : ""}`}>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => toggleRegion(summary.region)}>
+                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  </Button>
+                  <Button variant="ghost" className="h-auto min-w-0 flex-1 justify-start px-2 py-2" onClick={() => loadRegionMap(summary.region)}>
+                    {isOpen ? <FolderOpen className="mr-2 h-4 w-4 shrink-0" /> : <Folder className="mr-2 h-4 w-4 shrink-0" />}
+                    <span className="min-w-0 flex-1 truncate text-left text-sm font-medium">{summary.region}</span>
+                    <Badge variant="outline" className="ml-2">{summary.total_kmz}</Badge>
+                  </Button>
+                </div>
+                {isOpen ? (
+                  <div className="ml-5 border-l border-slate-200 pl-2">
+                    {records.map((record) => {
+                      const badge = geometryBadge(record)
+                      return (
+                        <button
+                          key={record.id}
+                          type="button"
+                          onClick={() => loadSelectedKmz(record)}
+                          className={`mb-1 flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left hover:bg-slate-100 ${selectedRecord?.id === record.id ? "bg-slate-100" : ""}`}
+                        >
+                          <File className="h-3.5 w-3.5 shrink-0 text-slate-500" />
+                          <span className="min-w-0 flex-1 truncate text-xs text-slate-800">{record.file_name}</span>
+                          <Badge variant="outline" className={`shrink-0 text-[10px] ${badge.className}`}>{badge.label}</Badge>
+                        </button>
+                      )
+                    })}
+                  </div>
+                ) : null}
+              </div>
+            )
+          })}
+        </div>
+      </aside>
+
+      <main className="flex min-w-0 flex-1 flex-col">
+        <header className="flex h-14 items-center justify-between border-b bg-white px-4">
+          <div className="min-w-0">
+            <h1 className="truncate text-lg font-semibold text-slate-950">CAMPOS</h1>
+            <p className="truncate text-xs text-slate-500">
+              {selectedRecord ? selectedRecord.file_name : selectedRegion ? `${selectedRegion} · ${kmzFiles.length} KMZ visibles` : "Selecciona una región"}
+            </p>
+          </div>
+          {selectedRecord ? <Badge className={geometryBadge(selectedRecord).className}>{geometryBadge(selectedRecord).label}</Badge> : null}
+        </header>
+
+        <div className="relative min-h-0 flex-1">
+          {loadingMap ? (
+            <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/70 backdrop-blur-sm"><Loader2 className="h-7 w-7 animate-spin text-slate-700" /></div>
+          ) : null}
+          {kmzFiles.length > 0 && mapCenter ? (
+            <KMZMapDisplay
+              kmzFiles={kmzFiles}
+              centerCoordinates={mapCenter}
+              height="100%"
+              enableGeocoding
+              selectedKmzId={selectedRecord?.id || null}
+              onPlacemarkSelect={setSelectedLayer}
+            />
+          ) : (
+            <div className="flex h-full items-center justify-center bg-slate-100">
+              <div className="text-center text-slate-500"><MapPin className="mx-auto mb-3 h-12 w-12" /><p className="text-sm">Selecciona una región para ver sus KMZ</p></div>
+            </div>
+          )}
+        </div>
+
+        {selectedRecord ? (
+          <section className="border-t bg-white p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">KMZ seleccionado</p>
+                <h2 className="mt-1 truncate text-base font-semibold text-slate-950">{selectedRecord.file_name}</h2>
+                <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-600">
+                  <span>{selectedRecord.region}</span>
+                  <span>·</span>
+                  <span>{selectedRecord.rol_numbers?.[0] ? `ROL ${selectedRecord.rol_numbers[0]}` : "ROL pendiente"}</span>
+                  <span>·</span>
+                  <span>{selectedRecord.owner || "Propietario pendiente"}</span>
+                </div>
+              </div>
+              <div className="flex flex-wrap justify-end gap-2">
+                <Badge variant="outline" className={geometryBadge(selectedRecord).className}>{geometryBadge(selectedRecord).label}</Badge>
+                <Badge variant="outline">{Math.round(Number(selectedRecord.completeness_score || 0))}% completo</Badge>
+                {selectedLayer ? <Badge variant="outline">{selectedLayer.name}</Badge> : null}
+              </div>
+            </div>
+          </section>
+        ) : null}
+      </main>
+    </div>
+  )
+}
