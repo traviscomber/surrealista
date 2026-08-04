@@ -1,57 +1,18 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import {
-  Search,
-  Upload,
-  Users,
-  TrendingUp,
-  MoreHorizontal,
-  Eye,
-  Edit,
-  Trash2,
-  FolderOpen,
-  Calendar,
-  Building,
-  Phone,
-  Mail,
-  Settings,
-  AlertCircle,
-  Clock,
-  Star,
-  Activity,
-  Filter,
-  RefreshCw,
-  ExternalLink,
-  Plus,
-  MapPin,
-  DollarSign,
-  Target,
-  Zap,
-  Loader2,
-  ChevronLeft,
-  ChevronRight,
-  BarChart3,
-} from "lucide-react"
-import { getClientsPaginated, getClientStatistics, deleteClient } from "@/app/actions/clients"
+import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
+import { BarChart3, ChevronLeft, ChevronRight, Mail, MoreHorizontal, Plus, RefreshCw, Search, Trash2, Upload, Users } from "lucide-react"
+
+import { deleteClient, getClientStatistics, getClientsPaginated } from "@/app/actions/clients"
 import { ClientEmailDialog } from "@/components/email/client-email-dialog"
 import { PipelineKanban } from "@/components/features/pipeline-kanban/pipeline-kanban"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 
 interface Client {
   id: string
@@ -69,847 +30,157 @@ interface Client {
   budget_min?: number
   budget_max?: number
   last_contact_date?: string
-  notes?: string
   created_at?: string
   properties_bought?: number
   properties_sold?: number
   properties_quoted?: number
 }
 
-const statusConfig = {
-  hot: {
-    label: "Caliente",
-    color: "bg-red-500",
-    textColor: "text-red-700",
-    bgColor: "bg-red-50",
-    icon: <Zap className="w-4 h-4" />,
-    description: "Alta probabilidad de cierre",
-  },
-  warm: {
-    label: "Tibio",
-    color: "bg-yellow-500",
-    textColor: "text-yellow-700",
-    bgColor: "bg-yellow-50",
-    icon: <Target className="w-4 h-4" />,
-    description: "Interés moderado, seguimiento activo",
-  },
-  cold: {
-    label: "Frío",
-    color: "bg-blue-500",
-    textColor: "text-blue-700",
-    bgColor: "bg-blue-50",
-    icon: <Clock className="w-4 h-4" />,
-    description: "Interés bajo, seguimiento espaciado",
-  },
-  inactive: {
-    label: "Inactivo",
-    color: "bg-gray-500",
-    textColor: "text-gray-700",
-    bgColor: "bg-gray-50",
-    icon: <AlertCircle className="w-4 h-4" />,
-    description: "Sin actividad reciente",
-  },
+const statusLabels: Record<string, string> = {
+  hot: "Caliente",
+  warm: "Tibio",
+  cold: "Frío",
+  inactive: "Inactivo",
+}
+
+function fullName(client: Client) {
+  return [client.first_name, client.last_name, client.second_last_name].filter(Boolean).join(" ") || client.company_name || "Cliente sin nombre"
+}
+
+function formatCurrency(value?: number) {
+  if (!value) return "Sin presupuesto"
+  return new Intl.NumberFormat("es-CL", { style: "currency", currency: "CLP", maximumFractionDigits: 0 }).format(value)
 }
 
 export function ClientRepositoryDashboard() {
+  const router = useRouter()
   const [clients, setClients] = useState<Client[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [statistics, setStatistics] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("all")
   const [industryFilter, setIndustryFilter] = useState("all")
   const [sortBy, setSortBy] = useState<"completeness" | "created_at">("completeness")
   const [currentPage, setCurrentPage] = useState(1)
-  const [itemsPerPage] = useState(10)
-  const [viewMode, setViewMode] = useState<"table" | "pipeline">("table")
-  const [totalClients, setTotalClients] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
-  const [statistics, setStatistics] = useState<any>(null)
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null)
-  const [selectedClientForEmail, setSelectedClientForEmail] = useState<Client | null>(null)
-  const [emailDialogOpen, setEmailDialogOpen] = useState(false)
-  const pageSize = 10
-  const router = useRouter()
+  const [totalClients, setTotalClients] = useState(0)
+  const [viewMode, setViewMode] = useState<"table" | "pipeline">("table")
+  const [emailClient, setEmailClient] = useState<Client | null>(null)
 
-  useEffect(() => {
-    loadClients()
-  }, [currentPage, statusFilter, industryFilter, sortBy])
-
-  useEffect(() => {
-    loadStatistics()
-  }, [])
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (searchTerm) {
-        setCurrentPage(1)
-        loadClients()
-      }
-    }, 500)
-    return () => clearTimeout(timer)
-  }, [searchTerm])
-
-  const loadClients = async () => {
-    console.log("[v0] Loading clients page", currentPage)
-    setIsLoading(true)
-
-    const filters: any = {}
+  const load = async () => {
+    setLoading(true)
+    const filters: Record<string, string> = { sortBy }
     if (searchTerm) filters.search = searchTerm
     if (statusFilter !== "all") filters.status = statusFilter
     if (industryFilter !== "all") filters.industry = industryFilter
-    filters.sortBy = sortBy
 
-    const result = await getClientsPaginated(currentPage, pageSize, filters)
+    const [clientsResult, statsResult] = await Promise.all([
+      getClientsPaginated(currentPage, 10, filters),
+      getClientStatistics(),
+    ])
 
-    if (result.success) {
-      console.log("[v0] Loaded", result.data.length, "clients of", result.total, "total")
-      setClients(result.data)
-      setTotalPages(result.totalPages || 0)
-      setTotalClients(result.total || 0)
+    if (clientsResult.success) {
+      setClients(clientsResult.data || [])
+      setTotalPages(clientsResult.totalPages || 0)
+      setTotalClients(clientsResult.total || 0)
     }
-
-    setIsLoading(false)
+    if (statsResult.success) setStatistics(statsResult)
+    setLoading(false)
   }
 
-  const loadStatistics = async () => {
-    const result = await getClientStatistics()
-    if (result.success) {
-      setStatistics(result)
-    }
+  useEffect(() => {
+    const timer = window.setTimeout(() => void load(), searchTerm ? 350 : 0)
+    return () => window.clearTimeout(timer)
+  }, [currentPage, statusFilter, industryFilter, sortBy, searchTerm])
+
+  const managedProperties = useMemo(
+    () => clients.reduce((sum, client) => sum + (client.properties_bought || 0) + (client.properties_sold || 0) + (client.properties_quoted || 0), 0),
+    [clients],
+  )
+
+  const handleDelete = async (client: Client) => {
+    if (!window.confirm(`¿Eliminar a ${fullName(client)}?`)) return
+    const result = await deleteClient(client.id)
+    if (result.success) await load()
   }
 
-  const filteredClients = clients
-
-  const stats = {
-    total: totalClients || statistics?.total || 0,
-    hot: statistics?.byStatus?.hot || 0,
-    warm: statistics?.byStatus?.warm || 0,
-    cold: statistics?.byStatus?.cold || 0,
-    inactive: statistics?.byStatus?.inactive || 0,
-    totalValue: clients.reduce((sum, c) => sum + (c.budget_max || 0), 0),
-    totalDocuments: clients.reduce(
-      (sum, c) => sum + ((c.properties_bought || 0) + (c.properties_sold || 0) + (c.properties_quoted || 0)),
-      0,
-    ),
-    avgBudget:
-      totalClients > 0 ? Math.round(clients.reduce((sum, c) => sum + (c.budget_max || 0), 0) / clients.length) : 0,
-  }
-
-  const handleRefresh = async () => {
-    await Promise.all([loadClients(), loadStatistics()])
-  }
-
-  const handleDelete = async (id: string) => {
-    if (confirm("¿Estás seguro de que deseas eliminar este cliente?")) {
-      const result = await deleteClient(id)
-      if (result.success) {
-        await loadClients()
-        await loadStatistics()
-      }
-    }
-  }
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("es-CL", {
-      style: "currency",
-      currency: "CLP",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(value)
-  }
-
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return "text-green-600"
-    if (score >= 60) return "text-yellow-600"
-    return "text-red-600"
-  }
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Cargando clientes...</p>
-        </div>
-      </div>
-    )
+  if (loading && clients.length === 0) {
+    return <div className="flex min-h-[420px] items-center justify-center border-y border-border text-sm text-muted-foreground">Cargando clientes…</div>
   }
 
   return (
-    <div className="space-y-6 p-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+    <section className="space-y-6 py-2">
+      <div className="flex flex-col gap-4 border-b border-border pb-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Repositorio de Clientes</h1>
-          <p className="text-gray-600">Gestión Inteligente de Clientes</p>
+          <p className="sr-meta">Relaciones comerciales</p>
+          <h2 className="sr-section-title mt-1">Clientes</h2>
+          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">Consulta contactos, estado comercial, presupuesto y actividad reciente desde una vista única.</p>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          {/* View Mode Toggle */}
-          <div className="flex gap-2 border border-gray-200 rounded-lg p-1 bg-white">
-            <Button
-              variant={viewMode === "table" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setViewMode("table")}
-              className="flex items-center gap-1"
-            >
-              <Users className="w-4 h-4" />
-              Tabla
-            </Button>
-            <Button
-              variant={viewMode === "pipeline" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => setViewMode("pipeline")}
-              className="flex items-center gap-1"
-            >
-              <BarChart3 className="w-4 h-4" />
-              Pipeline
-            </Button>
-          </div>
-
-          <Button
-            variant="outline"
-            onClick={handleRefresh}
-            disabled={isLoading}
-            className="flex items-center gap-2 bg-transparent"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin" : ""}`} />
-            Actualizar
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={() => setViewMode(viewMode === "table" ? "pipeline" : "table")}>
+            {viewMode === "table" ? <BarChart3 className="h-4 w-4" /> : <Users className="h-4 w-4" />}
+            {viewMode === "table" ? "Pipeline" : "Tabla"}
           </Button>
-          <Button
-            variant="outline"
-            className="flex items-center gap-2 bg-transparent"
-            onClick={() => router.push("/admin/clientes")}
-          >
-            <Upload className="w-4 h-4" />
-            Importar
-          </Button>
-          <Button className="flex items-center gap-2" onClick={() => router.push("/admin/clientes/nuevo")}>
-            <Plus className="w-4 h-4" />
-            Nuevo Cliente
-          </Button>
+          <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />Actualizar</Button>
+          <Button variant="outline" size="sm" onClick={() => router.push("/admin/clientes")}><Upload className="h-4 w-4" />Importar</Button>
+          <Button size="sm" onClick={() => router.push("/admin/clientes/nuevo")}><Plus className="h-4 w-4" />Nuevo cliente</Button>
         </div>
       </div>
 
-      {/* Conditional View - Show Pipeline or Table View */}
-      {viewMode === "pipeline" ? (
-        <PipelineKanban />
-      ) : (
+      {viewMode === "pipeline" ? <PipelineKanban /> : (
         <>
-          {/* Traffic Light Status Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card className="border-sage/30 bg-sage/5">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-sage-dark">Total Clientes</CardTitle>
-            <Users className="h-4 w-4 text-sage" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-sage-dark">{stats.total}</div>
-            <p className="text-xs text-sage">{stats.totalDocuments} propiedades gestionadas</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-sage/30 bg-sage/5">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-sage-dark">Clientes Calientes</CardTitle>
-            <Zap className="h-4 w-4 text-red-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-sage-dark">{stats.hot}</div>
-            <p className="text-xs text-sage">Alta probabilidad de cierre</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-sage/30 bg-sage/5">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-sage-dark">Clientes Tibios</CardTitle>
-            <Target className="h-4 w-4 text-yellow-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-sage-dark">{stats.warm}</div>
-            <p className="text-xs text-sage">Seguimiento activo</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-sage/30 bg-sage/5">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-sage-dark">Clientes Fríos</CardTitle>
-            <Clock className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-sage-dark">{stats.cold}</div>
-            <p className="text-xs text-sage">Seguimiento espaciado</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-sage/30 bg-sage/5">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-sage-dark">Presupuesto Promedio</CardTitle>
-            <TrendingUp className="h-4 w-4 text-sage" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-sage-dark">{formatCurrency(stats.avgBudget)}</div>
-            <p className="text-xs text-sage">Valor total: {formatCurrency(stats.totalValue)}</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="w-5 h-5" />
-            Filtros y Búsqueda Avanzada
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex-1">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-                <Input
-                  placeholder="Buscar por nombre, empresa o email..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
+          <div className="grid border-y border-border md:grid-cols-4">
+            {[
+              ["Total", totalClients || statistics?.total || 0],
+              ["Calientes", statistics?.byStatus?.hot || 0],
+              ["Seguimiento", (statistics?.byStatus?.warm || 0) + (statistics?.byStatus?.cold || 0)],
+              ["Propiedades gestionadas", managedProperties],
+            ].map(([label, value], index) => (
+              <div key={String(label)} className={`px-4 py-4 ${index > 0 ? "border-t border-border md:border-l md:border-t-0" : ""}`}>
+                <p className="sr-meta">{label}</p>
+                <p className="mt-1 text-2xl font-semibold tracking-tight">{value}</p>
               </div>
-            </div>
-            <Select value={sortBy} onValueChange={(value: "completeness" | "created_at") => setSortBy(value)}>
-              <SelectTrigger className="w-full sm:w-[200px]">
-                <SelectValue placeholder="Ordenar por" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="completeness">⭐ Más Completos</SelectItem>
-                <SelectItem value="created_at">📅 Más Recientes</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-[200px]">
-                <SelectValue placeholder="Estado del cliente" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos los estados</SelectItem>
-                <SelectItem value="hot">🔥 Calientes</SelectItem>
-                <SelectItem value="warm">🎯 Tibios</SelectItem>
-                <SelectItem value="cold">❄️ Fríos</SelectItem>
-                <SelectItem value="inactive">⚫ Inactivos</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={industryFilter} onValueChange={setIndustryFilter}>
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="Industria" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas las industrias</SelectItem>
-                <SelectItem value="Inmobiliaria">Inmobiliaria</SelectItem>
-                <SelectItem value="Turismo">Turismo</SelectItem>
-                <SelectItem value="Forestal">Forestal</SelectItem>
-                <SelectItem value="Construcción">Construcción</SelectItem>
-                <SelectItem value="Agricultura">Agricultura</SelectItem>
-              </SelectContent>
-            </Select>
+            ))}
           </div>
-        </CardContent>
-      </Card>
 
-      {/* Clients Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center justify-between">
-            <span>
-              Lista de Clientes ({totalClients.toLocaleString()} total, mostrando {filteredClients.length})
-            </span>
-          </CardTitle>
-          <CardDescription>
-            Página {currentPage} de {totalPages} - Sistema con paginación optimizada para grandes volúmenes
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
+          <div className="flex flex-col gap-3 border-b border-border pb-4 xl:flex-row">
+            <div className="relative min-w-0 flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input className="pl-9" value={searchTerm} onChange={(event) => { setSearchTerm(event.target.value); setCurrentPage(1) }} placeholder="Buscar por nombre, empresa o email…" />
+            </div>
+            <Select value={sortBy} onValueChange={(value: "completeness" | "created_at") => setSortBy(value)}><SelectTrigger className="w-full xl:w-48"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="completeness">Más completos</SelectItem><SelectItem value="created_at">Más recientes</SelectItem></SelectContent></Select>
+            <Select value={statusFilter} onValueChange={(value) => { setStatusFilter(value); setCurrentPage(1) }}><SelectTrigger className="w-full xl:w-44"><SelectValue placeholder="Estado" /></SelectTrigger><SelectContent><SelectItem value="all">Todos los estados</SelectItem><SelectItem value="hot">Calientes</SelectItem><SelectItem value="warm">Tibios</SelectItem><SelectItem value="cold">Fríos</SelectItem><SelectItem value="inactive">Inactivos</SelectItem></SelectContent></Select>
+            <Select value={industryFilter} onValueChange={(value) => { setIndustryFilter(value); setCurrentPage(1) }}><SelectTrigger className="w-full xl:w-44"><SelectValue placeholder="Industria" /></SelectTrigger><SelectContent><SelectItem value="all">Todas las industrias</SelectItem><SelectItem value="Inmobiliaria">Inmobiliaria</SelectItem><SelectItem value="Turismo">Turismo</SelectItem><SelectItem value="Forestal">Forestal</SelectItem><SelectItem value="Agricultura">Agricultura</SelectItem></SelectContent></Select>
+          </div>
+
+          <div className="overflow-hidden border-b border-border">
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Contacto</TableHead>
-                  <TableHead>Presupuesto</TableHead>
-                  <TableHead>Propiedades</TableHead>
-                  <TableHead>Último Contacto</TableHead>
-                  <TableHead>Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
+              <TableHeader><TableRow><TableHead>Cliente</TableHead><TableHead>Contacto</TableHead><TableHead>Ubicación</TableHead><TableHead>Estado</TableHead><TableHead>Presupuesto</TableHead><TableHead className="w-12" /></TableRow></TableHeader>
               <TableBody>
-                {filteredClients.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-gray-500">
-                      No se encontraron clientes. Importa datos desde Excel para comenzar.
+                {clients.length === 0 ? <TableRow><TableCell colSpan={6} className="h-40 text-center text-muted-foreground">No hay clientes para los filtros seleccionados.</TableCell></TableRow> : clients.map((client) => (
+                  <TableRow key={client.id} className="cursor-pointer" onClick={() => router.push(`/admin/clientes/${client.id}`)}>
+                    <TableCell><div className="font-medium">{fullName(client)}</div><div className="text-xs text-muted-foreground">{client.company_name || client.industry || "Sin empresa"}</div></TableCell>
+                    <TableCell><div className="text-sm">{client.email || "Sin email"}</div><div className="text-xs text-muted-foreground">{client.mobile || client.phone || "Sin teléfono"}</div></TableCell>
+                    <TableCell>{[client.city, client.region].filter(Boolean).join(", ") || "Sin ubicación"}</TableCell>
+                    <TableCell><Badge variant="outline">{statusLabels[client.status || ""] || "Sin estado"}</Badge></TableCell>
+                    <TableCell>{formatCurrency(client.budget_max)}</TableCell>
+                    <TableCell onClick={(event) => event.stopPropagation()}>
+                      <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => router.push(`/admin/clientes/${client.id}`)}>Abrir ficha</DropdownMenuItem><DropdownMenuItem onClick={() => setEmailClient(client)}><Mail className="h-4 w-4" />Enviar correo</DropdownMenuItem><DropdownMenuItem className="text-destructive" onClick={() => void handleDelete(client)}><Trash2 className="h-4 w-4" />Eliminar</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
                     </TableCell>
                   </TableRow>
-                ) : (
-                  filteredClients.map((client) => (
-                    <TableRow key={client.id} className="hover:bg-gray-50">
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                            <Building className="w-5 h-5 text-white" />
-                          </div>
-                          <div>
-                            <div className="font-medium">{`${client.first_name || ""} ${client.last_name || ""}`}</div>
-                            <div className="text-sm text-gray-500">{client.company_name || "-"}</div>
-                            <div className="text-xs text-gray-400 flex items-center gap-1">
-                              <MapPin className="w-3 h-3" />
-                              {client.city || client.region || "-"}
-                            </div>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {client.status && statusConfig[client.status as keyof typeof statusConfig] ? (
-                          <div
-                            className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium ${statusConfig[client.status as keyof typeof statusConfig].bgColor} ${statusConfig[client.status as keyof typeof statusConfig].textColor}`}
-                          >
-                            {statusConfig[client.status as keyof typeof statusConfig].icon}
-                            {statusConfig[client.status as keyof typeof statusConfig].label}
-                          </div>
-                        ) : (
-                          <Badge variant="outline">Sin estado</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          <div className="text-sm flex items-center gap-1">
-                            <Mail className="w-3 h-3 text-gray-400" />
-                            {client.email || "-"}
-                          </div>
-                          <div className="text-sm flex items-center gap-1">
-                            <Phone className="w-3 h-3 text-gray-400" />
-                            {client.phone || client.mobile || "-"}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          {client.budget_max ? (
-                            <>
-                              <div className="font-medium flex items-center gap-1">
-                                <DollarSign className="w-4 h-4 text-green-600" />
-                                {formatCurrency(client.budget_max)}
-                              </div>
-                              {client.budget_min && (
-                                <div className="text-xs text-gray-500">Min: {formatCurrency(client.budget_min)}</div>
-                              )}
-                            </>
-                          ) : (
-                            <span className="text-gray-400">-</span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          <div>Compradas: {client.properties_bought || 0}</div>
-                          <div>Vendidas: {client.properties_sold || 0}</div>
-                          <div>Cotizadas: {client.properties_quoted || 0}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Calendar className="w-4 h-4 text-gray-400" />
-                          <span className="text-sm">
-                            {client.last_contact_date
-                              ? new Date(client.last_contact_date).toLocaleDateString("es-CL")
-                              : "-"}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                            {client.email && (
-                              <>
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    setSelectedClientForEmail(client)
-                                    setEmailDialogOpen(true)
-                                  }}
-                                >
-                                  <Mail className="mr-2 h-4 w-4" />
-                                  Enviar Email
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                              </>
-                            )}
-                            <DropdownMenuItem onClick={() => setSelectedClient(client)}>
-                              <Eye className="mr-2 h-4 w-4" />
-                              Ver detalles
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => router.push(`/clientes/${client.id}`)}>
-                              <Activity className="mr-2 h-4 w-4" />
-                              Ficha 360°
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => router.push(`/admin/clientes/${client.id}`)}>
-                              <Edit className="mr-2 h-4 w-4" />
-                              Editar
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem className="text-red-600" onClick={() => handleDelete(client.id)}>
-                              <Trash2 className="mr-2 h-4 w-4" />
-                              Eliminar
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
+                ))}
               </TableBody>
             </Table>
           </div>
 
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-6 pt-6 border-t">
-              <div className="text-sm text-gray-600">
-                Mostrando {(currentPage - 1) * pageSize + 1} a {Math.min(currentPage * pageSize, totalClients)} de{" "}
-                {totalClients.toLocaleString()} clientes
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1 || isLoading}
-                >
-                  <ChevronLeft className="w-4 h-4 mr-1" />
-                  Anterior
-                </Button>
-                <div className="text-sm font-medium px-3">
-                  Página {currentPage} de {totalPages}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages || isLoading}
-                >
-                  Siguiente
-                  <ChevronRight className="w-4 h-4 ml-1" />
-                </Button>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Google Drive Integration Status */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FolderOpen className="w-5 h-5" />
-            Integración con Google Drive - API Key Disponible
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                <span className="font-medium text-blue-800">API Key Recibida - Lista para Configurar</span>
-              </div>
-              <div className="text-sm text-blue-700 mb-2">
-                <strong>API Key:</strong>{" "}
-                <code className="bg-white px-2 py-1 rounded text-xs">AIzaSyB6AVo8HT0RyEmiu8YRKj3skR3ujXyjHTU</code>
-              </div>
-              <p className="text-sm text-blue-700">
-                La API key de Google Drive ha sido proporcionada por Sur-Realista. Se han identificado 5 carpetas de
-                casos de éxito reales que pueden ser procesadas ahora.
-              </p>
-            </div>
-
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                <span className="font-medium text-green-800">Casos de Éxito Disponibles</span>
-              </div>
-              <p className="text-sm text-green-700">
-                Cada carpeta contiene documentos con números de rol que pueden ser extraídos automáticamente una vez
-                configurada la integración.
-              </p>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                <span className="font-medium">Estado de conexión API</span>
-              </div>
-              <Badge className="bg-blue-100 text-blue-800">
-                <Settings className="w-3 h-3 mr-1" />
-                API Disponible - Lista para Configurar
-              </Badge>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="text-center p-4 bg-green-50 rounded-lg border border-green-200">
-                <div className="text-2xl font-bold text-green-600">5</div>
-                <div className="text-sm text-green-600">Casos de Éxito</div>
-                <div className="text-xs text-green-500 mt-1">Identificados</div>
-              </div>
-              <div className="text-center p-4 bg-orange-50 rounded-lg border border-orange-200">
-                <div className="text-2xl font-bold text-orange-600">0/5</div>
-                <div className="text-sm text-orange-600">Números de Rol</div>
-                <div className="text-xs text-orange-500 mt-1">Por extraer</div>
-              </div>
-              <div className="text-center p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <div className="text-2xl font-bold text-blue-600">Disponible</div>
-                <div className="text-sm text-blue-600">API Google Drive</div>
-                <div className="text-xs text-blue-500 mt-1">Lista para configurar</div>
-              </div>
-              <div className="text-center p-4 bg-purple-50 rounded-lg border border-purple-200">
-                <div className="text-2xl font-bold text-purple-600">Etapa 1</div>
-                <div className="text-sm text-purple-600">Fase Actual</div>
-                <div className="text-xs text-purple-500 mt-1">Configuración</div>
-              </div>
-            </div>
-
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="font-medium text-blue-800 mb-2">Documentos por Procesar:</h4>
-              <ul className="text-sm text-blue-700 space-y-1">
-                <li>• Inscripciones de propiedades</li>
-                <li>• Mandatos de venta</li>
-                <li>• Tasaciones oficiales</li>
-                <li>• Documentos legales complementarios</li>
-              </ul>
-              <p className="text-xs text-blue-600 mt-2">
-                Con la API key disponible, los números de rol pueden ser extraídos automáticamente de cada documento.
-              </p>
-            </div>
-
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" className="bg-blue-600 text-white hover:bg-blue-700">
-                <Settings className="w-4 h-4 mr-2" />
-                Configurar API
-              </Button>
-              <Button variant="outline" size="sm">
-                <RefreshCw className="w-4 h-4 mr-2" />
-                Probar Conexión
-              </Button>
-              <Button variant="outline" size="sm">
-                <Activity className="w-4 h-4 mr-2" />
-                Ver Casos de Éxito
-              </Button>
-            </div>
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <span>Página {currentPage} de {Math.max(totalPages, 1)}</span>
+            <div className="flex gap-2"><Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setCurrentPage((page) => page - 1)}><ChevronLeft className="h-4 w-4" />Anterior</Button><Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => setCurrentPage((page) => page + 1)}>Siguiente<ChevronRight className="h-4 w-4" /></Button></div>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Client Detail Modal */}
-      <Dialog open={!!selectedClient} onOpenChange={() => setSelectedClient(null)}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          {selectedClient && (
-            <>
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                    <Building className="w-6 h-6 text-white" />
-                  </div>
-                  <div>
-                    <div className="text-xl">{`${selectedClient.first_name || ""} ${selectedClient.last_name || ""}`}</div>
-                    <div className="text-sm text-gray-500 font-normal">{selectedClient.company_name || "-"}</div>
-                  </div>
-                  {selectedClient.status && statusConfig[selectedClient.status as keyof typeof statusConfig] && (
-                    <div
-                      className={`ml-auto inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm font-medium ${statusConfig[selectedClient.status as keyof typeof statusConfig].bgColor} ${statusConfig[selectedClient.status as keyof typeof statusConfig].textColor}`}
-                    >
-                      {statusConfig[selectedClient.status as keyof typeof statusConfig].icon}
-                      {statusConfig[selectedClient.status as keyof typeof statusConfig].label}
-                    </div>
-                  )}
-                </DialogTitle>
-                <DialogDescription>
-                  {selectedClient.status && statusConfig[selectedClient.status as keyof typeof statusConfig]
-                    ? statusConfig[selectedClient.status as keyof typeof statusConfig].description
-                    : "Información no disponible"}
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">Información de Contacto</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Mail className="w-4 h-4 text-gray-400" />
-                        <span>{selectedClient.email || "-"}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Phone className="w-4 h-4 text-gray-400" />
-                        <span>{selectedClient.phone || selectedClient.mobile || "-"}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-gray-400" />
-                        <span>{selectedClient.city || selectedClient.region || "-"}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Building className="w-4 h-4 text-gray-400" />
-                        <span>{selectedClient.industry || "-"}</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">Métricas del Cliente</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span>Score del Cliente</span>
-                        <div className="flex items-center gap-2">
-                          {/* Assuming a score field exists or using a placeholder */}
-                          <Star className={`w-4 h-4 ${getScoreColor(selectedClient.score || 0)}`} />
-                          <span className={`font-bold ${getScoreColor(selectedClient.score || 0)}`}>
-                            {selectedClient.score || 0}/100
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span>Probabilidad de Cierre</span>
-                        <div className="flex items-center gap-2">
-                          <div className="w-20 bg-gray-200 rounded-full h-2">
-                            <div
-                              className={`h-2 rounded-full ${
-                                (selectedClient.properties_quoted || 0) >= 80 // Placeholder for probability logic
-                                  ? "bg-green-500"
-                                  : (selectedClient.properties_quoted || 0) >= 60
-                                    ? "bg-yellow-500"
-                                    : (selectedClient.properties_quoted || 0) >= 40
-                                      ? "bg-orange-500"
-                                      : "bg-red-500"
-                              }`}
-                              style={{ width: `${selectedClient.properties_quoted || 0}%` }} // Placeholder for probability logic
-                            />
-                          </div>
-                          <span className="font-bold">{selectedClient.properties_quoted || 0}%</span>{" "}
-                          {/* Placeholder for probability logic */}
-                        </div>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span>Interacciones</span>
-                        <span className="font-bold">{selectedClient.properties_bought || 0}</span>{" "}
-                        {/* Placeholder for interactions */}
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span>Fuente</span>
-                        <Badge variant="outline">{selectedClient.created_at ? "Sistema" : "-"}</Badge>{" "}
-                        {/* Placeholder for source */}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <div className="space-y-4">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">Proyecto</CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span>Valor del Proyecto</span>
-                        <span className="font-bold text-green-600">
-                          {selectedClient.budget_max ? formatCurrency(selectedClient.budget_max) : "-"}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span>Asignado a</span>
-                        <Badge>{selectedClient.industry || "-"}</Badge> {/* Placeholder for assignedTo */}
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span>Último Contacto</span>
-                        <span>
-                          {selectedClient.last_contact_date
-                            ? new Date(selectedClient.last_contact_date).toLocaleDateString("es-CL")
-                            : "-"}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span>Próximo Seguimiento</span>
-                        <span className="font-medium text-blue-600">
-                          {selectedClient.created_at
-                            ? new Date(selectedClient.created_at).toLocaleDateString("es-CL")
-                            : "-"}
-                        </span>{" "}
-                        {/* Placeholder for nextFollowUp */}
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        <FolderOpen className="w-5 h-5" />
-                        Documentos
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span>Total de Documentos</span>
-                        <span className="font-bold">
-                          {selectedClient.properties_bought ||
-                            0 + (selectedClient.properties_sold || 0) + (selectedClient.properties_quoted || 0)}
-                        </span>
-                      </div>
-                      <Button className="w-full" onClick={() => window.open(selectedClient.notes || "#", "_blank")}>
-                        {" "}
-                        {/* Placeholder for driveFolder */}
-                        <ExternalLink className="w-4 h-4 mr-2" />
-                        Abrir Carpeta en Google Drive
-                      </Button>
-                    </CardContent>
-                  </Card>
-
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-lg">Tags</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex flex-wrap gap-2">
-                        {/* Placeholder for tags, assuming industry can be used as a tag */}
-                        <Badge variant="secondary">{selectedClient.industry || "Sin categoría"}</Badge>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </div>
-              </div>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-lg">Notas del Cliente</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-700">{selectedClient.notes || "No hay notas adicionales."}</p>
-                </CardContent>
-              </Card>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Email Dialog Component */}
-      {selectedClientForEmail && (
-        <ClientEmailDialog
-          open={emailDialogOpen}
-          onOpenChange={setEmailDialogOpen}
-          clientName={`${selectedClientForEmail.first_name || ""} ${selectedClientForEmail.last_name || ""}`}
-          clientEmail={selectedClientForEmail.email}
-          clientId={selectedClientForEmail.id}
-        />
-      )}
         </>
       )}
-    </div>
+
+      {emailClient ? <ClientEmailDialog open={Boolean(emailClient)} onOpenChange={(open) => !open && setEmailClient(null)} clientName={fullName(emailClient)} clientEmail={emailClient.email || ""} clientId={emailClient.id} /> : null}
+    </section>
   )
 }
