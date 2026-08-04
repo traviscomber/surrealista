@@ -3,7 +3,7 @@
 import type React from "react"
 
 import { useEffect, useState } from "react"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -22,6 +22,7 @@ const PUBLIC_ROUTES = ["/ayuda", "/docs"]
 
 export function PasswordGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const router = useRouter()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -81,6 +82,7 @@ export function PasswordGate({ children }: { children: React.ReactNode }) {
       setPassword("")
       setError("")
       captureMessage("Login exitoso", "info")
+      router.replace("/campos")
       return
     }
 
