@@ -22,7 +22,6 @@ import { ClientRepositoryDashboard } from "@/components/client-management/client
 import SiiRolExplorer from "@/components/sii-rol-explorer"
 import { TasksManager } from "@/components/tasks/tasks-manager"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { WorkspaceHeading } from "@/components/ui/workspace-heading"
 import { createBrowserClient } from "@/lib/supabase/client"
@@ -117,7 +116,7 @@ const isModuleKey = (value: string | null): value is ModuleKey => Boolean(value 
 function ModuleLoading({ label }: { label: string }) {
   return (
     <div
-      className="flex min-h-[420px] items-center justify-center rounded-2xl border border-dashed bg-muted/20 text-sm text-muted-foreground"
+      className="flex min-h-[420px] items-center justify-center border-y border-border/70 bg-secondary/35 text-sm text-muted-foreground"
       role="status"
       aria-live="polite"
     >
@@ -213,7 +212,7 @@ export default function UnifiedSearchPage() {
   })()
 
   return (
-    <main className="mx-auto w-full max-w-[1800px] space-y-5 px-4 py-5 sm:px-6 lg:px-8">
+    <main className="mx-auto w-full max-w-[1800px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
       <WorkspaceHeading
         eyebrow="Centro operativo"
         title={currentModule.title}
@@ -222,9 +221,9 @@ export default function UnifiedSearchPage() {
       />
 
       <Tabs value={activeTab} onValueChange={handleModuleChange} className="w-full">
-        <div className="overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="overflow-x-auto border-b border-border [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <TabsList
-            className="inline-flex h-auto min-w-full justify-start gap-1 rounded-2xl border bg-muted/40 p-1 lg:grid lg:grid-cols-7"
+            className="inline-flex h-auto min-w-full justify-start gap-1 bg-transparent p-0 lg:grid lg:grid-cols-7"
             aria-label="Módulos del centro operativo"
           >
             {moduleEntries.map(([key, module]) => {
@@ -233,7 +232,7 @@ export default function UnifiedSearchPage() {
                 <TabsTrigger
                   key={key}
                   value={key}
-                  className="min-w-max gap-2 rounded-xl px-3 py-2.5 lg:min-w-0"
+                  className="min-w-max gap-2 px-3 py-3 lg:min-w-0"
                 >
                   <Icon className="h-4 w-4" aria-hidden="true" />
                   {module.label}
@@ -243,60 +242,59 @@ export default function UnifiedSearchPage() {
           </TabsList>
         </div>
 
-        <TabsContent value="campos" className="mt-3 h-[calc(100dvh-17rem)] min-h-[620px] overflow-hidden">
+        <TabsContent value="campos" className="mt-4 h-[calc(100dvh-17rem)] min-h-[620px] overflow-hidden border border-border bg-card">
           <CAMPOSFolderView />
         </TabsContent>
 
-        <TabsContent value="clientes" className="mt-3">
+        <TabsContent value="clientes" className="mt-4">
           <ClientRepositoryDashboard />
         </TabsContent>
 
-        <TabsContent value="comunicaciones" className="mt-3">
+        <TabsContent value="comunicaciones" className="mt-4">
           <CommunicationsManager />
         </TabsContent>
 
-        <TabsContent value="tareas" className="mt-3 min-h-[620px]">
+        <TabsContent value="tareas" className="mt-4 min-h-[620px]">
           {tasksState === "loading" || tasksState === "idle" ? (
             <ModuleLoading label="Cargando tareas…" />
           ) : tasksState === "error" ? (
-            <Card className="rounded-2xl border-destructive/30 shadow-none">
-              <CardContent className="flex min-h-[320px] flex-col items-center justify-center gap-4 p-6 text-center">
-                <AlertCircle className="h-8 w-8 text-destructive" aria-hidden="true" />
-                <div>
-                  <h3 className="font-semibold">No se pudieron cargar las tareas</h3>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    La vista no se mostrará vacía mientras exista un problema de conexión o permisos.
-                  </p>
-                </div>
-                <Button variant="outline" onClick={() => void loadTasks()}>
-                  <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
-                  Reintentar
-                </Button>
-              </CardContent>
-            </Card>
+            <section className="flex min-h-[320px] flex-col items-center justify-center gap-4 border-y border-destructive/30 bg-destructive/5 px-6 py-10 text-center">
+              <AlertCircle className="h-8 w-8 text-destructive" aria-hidden="true" />
+              <div>
+                <h3 className="text-base font-semibold">No se pudieron cargar las tareas</h3>
+                <p className="mt-1 max-w-xl text-sm leading-6 text-muted-foreground">
+                  La vista no se mostrará vacía mientras exista un problema de conexión o permisos.
+                </p>
+              </div>
+              <Button variant="outline" onClick={() => void loadTasks()}>
+                <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
+                Reintentar
+              </Button>
+            </section>
           ) : (
             <TasksManager tasks={tasks} refreshTrigger={taskRefreshTrigger} onTasksUpdate={loadTasks} />
           )}
         </TabsContent>
 
-        <TabsContent value="drive" className="mt-3 min-h-[620px]">
+        <TabsContent value="drive" className="mt-4 min-h-[620px]">
           <SimpleDriveFolderView />
         </TabsContent>
 
-        <TabsContent value="kmz" className="mt-3">
-          <Card className="rounded-2xl border-border/70 shadow-none">
-            <CardHeader className="pb-4">
-              <CardTitle>Colección territorial</CardTitle>
-              <CardDescription className="flex items-center gap-2" aria-live="polite">
-                {kmzState.status === "loading" && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-                {kmzState.status === "error" && <AlertCircle className="h-4 w-4 text-destructive" aria-hidden="true" />}
-                {kmzDescription}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-5 border-t border-border/60 pt-5 sm:flex-row sm:items-center sm:justify-between">
-              <p className="max-w-3xl text-sm leading-6 text-muted-foreground">
-                Revisa la fuente territorial, su indexación y la disponibilidad de geometrías. La administración queda separada del análisis diario para reducir errores operativos.
-              </p>
+        <TabsContent value="kmz" className="mt-4">
+          <section className="border-y border-border bg-card px-5 py-6 md:px-6">
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+              <div>
+                <p className="sr-meta">Inventario territorial</p>
+                <h2 className="mt-2 text-xl font-semibold text-foreground">Colección KMZ</h2>
+                <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground" aria-live="polite">
+                  {kmzState.status === "loading" && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
+                  {kmzState.status === "error" && <AlertCircle className="h-4 w-4 text-destructive" aria-hidden="true" />}
+                  {kmzDescription}
+                </div>
+                <p className="mt-5 max-w-3xl text-sm leading-6 text-muted-foreground">
+                  Revisa la fuente territorial, su indexación y la disponibilidad de geometrías. La administración queda separada del análisis diario para reducir errores operativos.
+                </p>
+              </div>
               <div className="flex flex-wrap gap-2">
                 {kmzState.status === "error" && (
                   <Button variant="outline" onClick={() => void loadKmzCount()}>
@@ -311,11 +309,11 @@ export default function UnifiedSearchPage() {
                   </Link>
                 </Button>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </section>
         </TabsContent>
 
-        <TabsContent value="sii-roles" className="mt-3 min-h-[620px]">
+        <TabsContent value="sii-roles" className="mt-4 min-h-[620px]">
           <SiiRolExplorer />
         </TabsContent>
       </Tabs>
