@@ -6,6 +6,8 @@ export type GeometryStatus =
   | "bounds_reference"
   | "missing"
 
+export const GEOMETRY_INVENTORY_OWNER = "Surrealista"
+
 export interface GeometryStatusPresentation {
   label: string
   shortLabel: string
@@ -23,9 +25,9 @@ export interface GeometryStatusPresentation {
 
 const PRESENTATION: Record<GeometryStatus, GeometryStatusPresentation> = {
   real_geometry: {
-    label: "Geometría real",
-    shortLabel: "Geometría",
-    description: "Polígono, línea o punto recuperado desde el archivo KMZ.",
+    label: "Capa KMZ disponible",
+    shortLabel: "Capa KMZ",
+    description: "Polígono, línea o punto contenido en un archivo del inventario Surrealista.",
     kind: "real",
     marker: {
       radius: 5,
@@ -36,9 +38,9 @@ const PRESENTATION: Record<GeometryStatus, GeometryStatusPresentation> = {
     },
   },
   direct_reference: {
-    label: "Coordenada directa",
+    label: "Punto de ubicación",
     shortLabel: "Punto",
-    description: "Ubicación tomada desde latitud y longitud almacenadas en el registro.",
+    description: "Ubicación del archivo Surrealista tomada desde sus coordenadas registradas.",
     kind: "reference",
     marker: {
       radius: 6,
@@ -49,9 +51,9 @@ const PRESENTATION: Record<GeometryStatus, GeometryStatusPresentation> = {
     },
   },
   metadata_reference: {
-    label: "Referencia geográfica",
-    shortLabel: "Referencia",
-    description: "Ubicación recuperada desde los metadatos territoriales del registro.",
+    label: "Punto territorial",
+    shortLabel: "Punto territorial",
+    description: "Ubicación del archivo Surrealista recuperada desde sus metadatos territoriales.",
     kind: "reference",
     marker: {
       radius: 6,
@@ -64,7 +66,7 @@ const PRESENTATION: Record<GeometryStatus, GeometryStatusPresentation> = {
   sii_reference: {
     label: "Centro territorial SII",
     shortLabel: "Centro SII",
-    description: "Punto territorial de referencia resuelto mediante información del SII.",
+    description: "Centro de referencia territorial asociado al archivo Surrealista mediante información del SII.",
     kind: "reference",
     marker: {
       radius: 7,
@@ -75,9 +77,9 @@ const PRESENTATION: Record<GeometryStatus, GeometryStatusPresentation> = {
     },
   },
   bounds_reference: {
-    label: "Ubicación aproximada",
-    shortLabel: "Aproximada",
-    description: "Centro calculado desde los límites geográficos disponibles.",
+    label: "Centro aproximado",
+    shortLabel: "Centro aproximado",
+    description: "Ubicación aproximada del archivo Surrealista calculada desde sus límites geográficos.",
     kind: "reference",
     marker: {
       radius: 6,
@@ -89,9 +91,9 @@ const PRESENTATION: Record<GeometryStatus, GeometryStatusPresentation> = {
     },
   },
   missing: {
-    label: "Sin ubicación",
-    shortLabel: "Sin ubicación",
-    description: "No existe geometría ni referencia espacial recuperable.",
+    label: "Ubicación pendiente",
+    shortLabel: "Pendiente",
+    description: "El archivo pertenece al inventario Surrealista, pero aún no tiene una ubicación espacial recuperable.",
     kind: "missing",
     marker: {
       radius: 5,
