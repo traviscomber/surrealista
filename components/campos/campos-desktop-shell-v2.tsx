@@ -159,7 +159,7 @@ export function CAMPOSDesktopShellV2() {
             > div:nth-child(3)
             > div:nth-child(2):has(> div[class*="transition-[height]"]) {
             display: grid !important;
-            grid-template-columns: minmax(0, 1fr) 420px !important;
+            grid-template-columns: minmax(0, 1fr) minmax(460px, 31vw) !important;
             grid-template-rows: minmax(0, 1fr) !important;
           }
 
@@ -181,8 +181,8 @@ export function CAMPOSDesktopShellV2() {
             > div[class*="transition-[height]"] {
             grid-column: 2 !important;
             grid-row: 1 !important;
-            width: 420px !important;
-            min-width: 420px !important;
+            width: minmax(460px, 31vw) !important;
+            min-width: 460px !important;
             height: 100% !important;
             max-height: none !important;
             border-top: 0 !important;
@@ -201,24 +201,6 @@ export function CAMPOSDesktopShellV2() {
             padding: 0 14px !important;
             border-bottom-color: rgba(15, 23, 42, 0.08) !important;
             background: #ffffff !important;
-          }
-
-          .campos-desktop-shell [role="tablist"] {
-            gap: 3px !important;
-            padding: 4px !important;
-            border-radius: 10px !important;
-            background: #f1f5f9 !important;
-          }
-
-          .campos-desktop-shell [role="tab"] {
-            min-height: 32px !important;
-            padding: 6px 8px !important;
-            border-radius: 7px !important;
-            font-size: 11px !important;
-          }
-
-          .campos-desktop-shell [role="tabpanel"] {
-            padding: 12px !important;
           }
 
           .campos-desktop-shell [role="tabpanel"] > div,
@@ -256,7 +238,7 @@ export function CAMPOSDesktopShellV2() {
             > div
             > div:nth-child(3)
             > div:nth-child(2):has(> div[class*="transition-[height]"]) {
-            grid-template-columns: minmax(0, 1fr) 440px !important;
+            grid-template-columns: minmax(0, 1fr) 500px !important;
           }
 
           .campos-desktop-shell
@@ -264,8 +246,8 @@ export function CAMPOSDesktopShellV2() {
             > div:nth-child(3)
             > div:nth-child(2)
             > div[class*="transition-[height]"] {
-            width: 440px !important;
-            min-width: 440px !important;
+            width: 500px !important;
+            min-width: 500px !important;
           }
         }
       `}</style>
