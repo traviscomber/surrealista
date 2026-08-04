@@ -77,17 +77,16 @@ const PRESENTATION: Record<GeometryStatus, GeometryStatusPresentation> = {
     },
   },
   bounds_reference: {
-    label: "Centro aproximado",
-    shortLabel: "Centro aproximado",
-    description: "Ubicación aproximada del archivo Surrealista calculada desde sus límites geográficos.",
+    label: "Centro del KMZ",
+    shortLabel: "Centro KMZ",
+    description: "Punto de ubicación calculado desde el centro geográfico registrado para el archivo KMZ.",
     kind: "reference",
     marker: {
       radius: 6,
-      color: "#64748b",
-      fillColor: "#cbd5e1",
-      fillOpacity: 0.8,
+      color: "#ffffff",
+      fillColor: "#64748b",
+      fillOpacity: 0.9,
       weight: 2,
-      dashArray: "3 3",
     },
   },
   missing: {
