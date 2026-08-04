@@ -181,8 +181,9 @@ export function CAMPOSDesktopShellV2() {
             > div[class*="transition-[height]"] {
             grid-column: 2 !important;
             grid-row: 1 !important;
-            width: minmax(460px, 31vw) !important;
+            width: 31vw !important;
             min-width: 460px !important;
+            max-width: 500px !important;
             height: 100% !important;
             max-height: none !important;
             border-top: 0 !important;
@@ -248,6 +249,7 @@ export function CAMPOSDesktopShellV2() {
             > div[class*="transition-[height]"] {
             width: 500px !important;
             min-width: 500px !important;
+            max-width: 500px !important;
           }
         }
       `}</style>
