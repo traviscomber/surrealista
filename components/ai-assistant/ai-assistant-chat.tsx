@@ -1,26 +1,13 @@
 "use client"
 
-import type React from "react"
-import { useState, useRef, useEffect } from "react"
-import { createClient } from "@supabase/supabase-js"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Textarea } from "@/components/ui/textarea"
-import {
-  Bot,
-  Send,
-  User,
-  Sparkles,
-  HelpCircle,
-  FolderOpen,
-  Search,
-  TrendingUp,
-  MapPin,
-  FileText,
-  Database,
-} from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { Bot, Database, HelpCircle, Send, User } from "lucide-react"
 import { v4 as uuidv4 } from "uuid"
+
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
+import { createBrowserClient } from "@/lib/supabase/client"
 
 interface Message {
   id: string
@@ -28,176 +15,45 @@ interface Message {
   content: string
   timestamp: Date
   metadata?: {
-    type?:
-      | "property_recommendation"
-      | "market_analysis"
-      | "price_estimate"
-      | "contact_info"
-      | "general"
-      | "search_results"
-      | "connection_error"
-      | "folder_list"
-      | "kmz_list"
-      | "no_data"
-      | "search_help"
-      | "no_results"
-      | "help"
-      | "error"
-    properties?: any[]
-    analysis?: any
+    type?: string
     confidence?: number
-    searchResults?: any
-    isComplex?: boolean
   }
 }
 
-interface QuickAction {
-  id: string
-  label: string
-  icon: React.ReactNode
-  prompt: string
-  category: "search" | "analysis" | "contact" | "info"
-}
-
-const quickActions: QuickAction[] = [
-  {
-    id: "market_metro",
-    label: "🏙️ Mercado Metropolitana",
-    icon: <TrendingUp className="h-4 w-4" />,
-    prompt: "¿Cómo está el mercado inmobiliario en la Metropolitana?",
-    category: "analysis",
-  },
-  {
-    id: "invest_advice",
-    label: "💼 Asesoramiento Inversión",
-    icon: <Sparkles className="h-4 w-4" />,
-    prompt: "¿Dónde debería invertir en real estate en Chile?",
-    category: "analysis",
-  },
-  {
-    id: "price_analysis",
-    label: "💰 Análisis de Precios",
-    icon: <TrendingUp className="h-4 w-4" />,
-    prompt: "¿Cuáles son los precios promedio de terrenos en Valparaíso?",
-    category: "analysis",
-  },
-  {
-    id: "region_files",
-    label: "🗺️ Archivos por Región",
-    icon: <MapPin className="h-4 w-4" />,
-    prompt: "¿Cuántos archivos KMZ tengo en Los Lagos?",
-    category: "search",
-  },
-  {
-    id: "property_search",
-    label: "🔍 Buscar Propiedades",
-    icon: <Search className="h-4 w-4" />,
-    prompt: "¿Qué campos están disponibles en el sur de Chile?",
-    category: "search",
-  },
-  {
-    id: "statistics",
-    label: "📊 Estadísticas",
-    icon: <Database className="h-4 w-4" />,
-    prompt: "Dame estadísticas completas de mis datos",
-    category: "analysis",
-  },
-]
-
-const complexQuestions: QuickAction[] = []
-
-const processBulkFiles = async (files: File[]) => {
-  const results = []
-  for (const file of files) {
-    try {
-      const formData = new FormData()
-      formData.append("file", file)
-
-      const response = await fetch("/api/v1/documents/classify", {
-        method: "POST",
-        body: formData,
-      })
-
-      const result = await response.json()
-      results.push({ file: file.name, ...result })
-    } catch (error) {
-      results.push({ file: file.name, error: error.message })
-    }
-  }
-  return results
-}
-
-const analyzeDocumentContent = async (documentId: string) => {
-  try {
-    const response = await fetch(`/api/v1/documents/${documentId}/analyze`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-    })
-    return await response.json()
-  } catch (error) {
-    console.error("Document analysis error:", error)
-    return { error: "Failed to analyze document" }
-  }
+const initialMessage: Message = {
+  id: "initial",
+  role: "assistant",
+  content:
+    "Puedo ayudarte a consultar la información disponible en la plataforma: inventario KMZ, regiones, roles, propiedades y documentos conectados. Cuando una fuente no esté disponible o un dato requiera validación oficial, lo indicaré expresamente.",
+  timestamp: new Date(),
+  metadata: { type: "general" },
 }
 
 export function AIAssistantChat() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "1",
-      role: "assistant",
-      content:
-        "¡Hola! Soy tu experto en real estate de Chile. Puedo ayudarte a:\n\n💼 **Analizar el mercado inmobiliario** - Tendencias de precios, zonas de inversión, y análisis comparativos\n🗺️ **Explorar tus datos geográficos** - Buscar archivos KMZ por región, visualizar ubicaciones y propiedades\n📊 **Obtener estadísticas** - Información sobre tus campos, terrenos y activos inmobiliarios\n💡 **Asesoramiento de inversión** - Recomendaciones basadas en datos del mercado chileno\n\n¿Qué deseas saber sobre el mercado inmobiliario o tus propiedades?",
-      timestamp: new Date(),
-      metadata: { type: "general", confidence: 1.0 },
-    },
-  ])
+  const supabase = useMemo(() => createBrowserClient(), [])
+  const [messages, setMessages] = useState<Message[]>([initialMessage])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [sessionId] = useState(uuidv4())
-  const [showQuickActions, setShowQuickActions] = useState(true)
-  const [showComplexQuestions, setShowComplexQuestions] = useState(false)
-  const [supabase, setSupabase] = useState<any>(null)
+  const [sessionId] = useState(() => uuidv4())
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    setSupabase(
-      createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
-      )
-    )
-  }, [])
-
-  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages])
+  }, [messages, isLoading])
 
-  const searchDocuments = async (query: string, filters?: any) => {
-    try {
-      const response = await fetch("/api/v1/documents/search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query, ...filters }),
-      })
-      return await response.json()
-    } catch (error) {
-      console.error("Search error:", error)
-      return { results: [], total: 0 }
-    }
+  const recordInteraction = async (message: Message) => {
+    const { error } = await supabase.from("agent_interactions").insert({
+      session_id: sessionId,
+      role: message.role,
+      content: message.content,
+      timestamp: message.timestamp.toISOString(),
+      metadata: message.metadata || {},
+    })
+
+    if (error) console.warn("[assistant] interaction log unavailable", error)
   }
 
-  const searchProperties = async (filters: any) => {
-    try {
-      const params = new URLSearchParams(filters)
-      const response = await fetch(`/api/v1/properties?${params}`)
-      return await response.json()
-    } catch (error) {
-      console.error("Property search error:", error)
-      return { properties: [], total: 0 }
-    }
-  }
-
-  const getIntelligentResponse = async (userMessage: string): Promise<Message> => {
+  const getResponse = async (userMessage: string): Promise<Message> => {
     try {
       const response = await fetch("/api/ai-assistant", {
         method: "POST",
@@ -205,35 +61,34 @@ export function AIAssistantChat() {
         body: JSON.stringify({ message: userMessage }),
       })
 
-      const data = await response.json()
+      if (!response.ok) throw new Error(`Assistant request failed with ${response.status}`)
 
+      const data = await response.json()
       return {
         id: uuidv4(),
         role: "assistant",
-        content: data.response || "No pude procesar tu consulta.",
+        content:
+          data.response ||
+          "No encontré una respuesta verificable con las fuentes disponibles. Revisa el módulo correspondiente o reformula la consulta.",
         timestamp: new Date(),
-        metadata: { type: data.type || "general", confidence: 0.95 },
+        metadata: { type: data.type || "general", confidence: data.confidence },
       }
-    } catch (error: any) {
-      console.error("AI Assistant error:", error)
+    } catch (error) {
+      console.error("[assistant] request failed", error)
       return {
         id: uuidv4(),
         role: "assistant",
-        content: "Error al procesar tu consulta. Intenta de nuevo.",
+        content:
+          "No fue posible procesar la consulta en este momento. Intenta nuevamente; si el problema continúa, revisa la disponibilidad del servicio.",
         timestamp: new Date(),
-        metadata: { type: "error", confidence: 0.5 },
+        metadata: { type: "error" },
       }
     }
   }
 
   const handleSendMessage = async (messageText?: string) => {
-    const textToSend = messageText || input
-    if (!textToSend.trim()) return
-
-    if (textToSend.startsWith("/")) {
-      setShowQuickActions(false)
-      setShowComplexQuestions(false)
-    }
+    const textToSend = (messageText || input).trim()
+    if (!textToSend || isLoading) return
 
     const userMessage: Message = {
       id: uuidv4(),
@@ -242,187 +97,127 @@ export function AIAssistantChat() {
       timestamp: new Date(),
     }
 
-    setMessages((prev) => [...prev, userMessage])
+    setMessages((current) => [...current, userMessage])
     setInput("")
     setIsLoading(true)
+    void recordInteraction(userMessage)
 
-    try {
-      await supabase.from("agent_interactions").insert({
-        session_id: sessionId,
-        role: "user",
-        content: userMessage.content,
-        timestamp: userMessage.timestamp.toISOString(),
-      })
-
-      const assistantMessage = await getIntelligentResponse(textToSend)
-
-      const processingTime = textToSend.length > 200 ? 3000 : 1500
-      await new Promise((resolve) => setTimeout(resolve, processingTime))
-
-      setMessages((prev) => [...prev, assistantMessage])
-
-      await supabase.from("agent_interactions").insert({
-        session_id: sessionId,
-        role: "assistant",
-        content: assistantMessage.content,
-        timestamp: assistantMessage.timestamp.toISOString(),
-        metadata: assistantMessage.metadata,
-      })
-    } catch (error) {
-      console.error("Error:", error)
-      const errorMessage: Message = {
-        id: uuidv4(),
-        role: "assistant",
-        content:
-          "Disculpa, hubo un error procesando tu consulta. Por favor intenta nuevamente o contacta directamente a nuestros agentes al +56 9 1234 5678.",
-        timestamp: new Date(),
-        metadata: { type: "error", confidence: 0 },
-      }
-      setMessages((prev) => [...prev, errorMessage])
-    } finally {
-      setIsLoading(false)
-    }
+    const assistantMessage = await getResponse(textToSend)
+    setMessages((current) => [...current, assistantMessage])
+    void recordInteraction(assistantMessage)
+    setIsLoading(false)
   }
 
-  const handleQuickAction = (action: QuickAction) => {
-    handleSendMessage(action.prompt)
-  }
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      handleSendMessage()
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault()
+      void handleSendMessage()
     }
   }
 
   return (
-    <Card className="border-2 h-[800px] flex flex-col w-full overflow-hidden">
-      <CardContent className="p-0 flex-1 flex flex-col w-full">
-        <div className="bg-gradient-to-r from-green-600 to-blue-600 text-white p-4 rounded-t-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                <Sparkles className="h-5 w-5" />
-              </div>
-              <div>
-                <h3 className="font-semibold">Asistente IA de Datos</h3>
-                <div className="flex items-center gap-2 text-sm opacity-90">
-                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                  <span>IA Conversacional • Datos en Tiempo Real</span>
-                </div>
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleSendMessage("ayuda")}
-                className="text-white hover:bg-white/20"
-              >
-                <HelpCircle className="h-4 w-4 mr-2" />
-                Ayuda
-              </Button>
-            </div>
+    <section className="flex h-[760px] w-full flex-col overflow-hidden border border-border bg-card">
+      <header className="flex items-center justify-between gap-4 border-b border-border px-5 py-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <Bot className="h-4 w-4" aria-hidden="true" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="sr-panel-title truncate">Asistente de análisis</h2>
+            <p className="sr-meta mt-0.5 truncate">Consulta las fuentes conectadas a la plataforma</p>
           </div>
         </div>
+        <Button variant="ghost" size="sm" onClick={() => void handleSendMessage("Explica qué fuentes puedes consultar y cuáles son tus límites.")}>
+          <HelpCircle className="mr-2 h-4 w-4" aria-hidden="true" />
+          Alcance
+        </Button>
+      </header>
 
-        {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 min-h-0" style={{ maxHeight: "calc(100% - 180px)" }}>
-          <div className="space-y-4">
-            {messages.map((message) => (
-              <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"} gap-2`}>
-              <div
-                className={`flex items-start max-w-[70%] ${
-                  message.role === "user"
-                    ? "bg-gradient-to-r from-green-600 to-blue-600 text-white"
-                    : "bg-gradient-to-r from-teal-50 to-cyan-50 border border-teal-200 text-gray-900"
-                } rounded-lg px-4 py-3 break-words`}
-              >
-                {message.role === "assistant" && (
-                  <div className="w-8 h-8 bg-gradient-to-r from-green-600 to-blue-600 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
-                    <Bot className="h-4 w-4 text-white" />
+      <div className="min-h-0 flex-1 overflow-y-auto bg-background/45 px-5 py-5">
+        <div className="space-y-5">
+          {messages.map((message) => {
+            const isUser = message.role === "user"
+            return (
+              <article key={message.id} className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"}`}>
+                {!isUser ? (
+                  <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border bg-card text-primary">
+                    <Bot className="h-3.5 w-3.5" aria-hidden="true" />
                   </div>
-                )}
-                <div className="flex-1">
-                  <div className="whitespace-pre-wrap text-sm leading-relaxed">{message.content}</div>
-                  <div className="flex items-center justify-between mt-2">
-                    <p className="text-xs opacity-70">
-                      {message.timestamp.toLocaleTimeString([], {
+                ) : null}
+
+                <div
+                  className={`max-w-[78%] px-4 py-3 text-sm leading-6 ${
+                    isUser
+                      ? "rounded-md bg-primary text-primary-foreground"
+                      : "rounded-md border border-border bg-card text-foreground"
+                  }`}
+                >
+                  <div className="whitespace-pre-wrap break-words">{message.content}</div>
+                  <div className={`mt-2 flex items-center gap-3 text-[11px] ${isUser ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
+                    <time>
+                      {message.timestamp.toLocaleTimeString("es-CL", {
                         hour: "2-digit",
                         minute: "2-digit",
                       })}
-                    </p>
-                    {message.metadata?.confidence && (
-                      <Badge variant="outline" className="text-xs">
-                        {Math.round(message.metadata.confidence * 100)}% confianza
+                    </time>
+                    {!isUser && typeof message.metadata?.confidence === "number" ? (
+                      <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-normal">
+                        Confianza informada: {Math.round(message.metadata.confidence * 100)}%
                       </Badge>
-                    )}
+                    ) : null}
                   </div>
                 </div>
-                {message.role === "user" && (
-                  <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center ml-3 flex-shrink-0">
-                    <User className="h-4 w-4 text-white" />
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
 
-          {/* Loading indicator */}
-          {isLoading && (
-            <div className="flex justify-start">
-              <div className="flex items-start bg-gradient-to-r from-teal-50 to-cyan-50 border border-teal-200 rounded-lg px-4 py-3 max-w-[70%]">
-                <div className="w-8 h-8 bg-gradient-to-r from-green-600 to-blue-600 rounded-full flex items-center justify-center mr-3 flex-shrink-0">
-                  <Bot className="h-4 w-4 text-white" />
-                </div>
-                <div className="flex items-center space-x-1">
-                  <div className="w-2 h-2 bg-green-600 rounded-full animate-bounce"></div>
-                  <div
-                    className="w-2 h-2 bg-green-600 rounded-full animate-bounce"
-                    style={{ animationDelay: "0.1s" }}
-                  ></div>
-                  <div
-                    className="w-2 h-2 bg-green-600 rounded-full animate-bounce"
-                    style={{ animationDelay: "0.2s" }}
-                  ></div>
-                  <span className="text-sm text-gray-600 ml-2">Consultando datos...</span>
-                </div>
+                {isUser ? (
+                  <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground">
+                    <User className="h-3.5 w-3.5" aria-hidden="true" />
+                  </div>
+                ) : null}
+              </article>
+            )
+          })}
+
+          {isLoading ? (
+            <div className="flex items-center gap-3" role="status" aria-live="polite">
+              <div className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-card text-primary">
+                <Bot className="h-3.5 w-3.5" aria-hidden="true" />
+              </div>
+              <div className="flex items-center gap-2 rounded-md border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
+                <span className="h-2 w-2 animate-pulse rounded-full bg-primary" />
+                Consultando fuentes disponibles…
               </div>
             </div>
-          )}
+          ) : null}
 
           <div ref={messagesEndRef} />
-          </div>
         </div>
+      </div>
 
-        {/* Input Area */}
-        <div className="border-t p-4 w-full flex-shrink-0">
-          <div className="flex gap-2 w-full">
-            <Textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyPress={handleKeyPress}
-              placeholder="Pregunta sobre tus datos: carpetas, archivos, KMZ, documentos..."
-              className="flex-1 min-h-[44px] max-h-32 resize-none"
-              disabled={isLoading}
-            />
-            <Button
-              onClick={() => handleSendMessage()}
-              size="sm"
-              disabled={isLoading || !input.trim()}
-              className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 px-4"
-            >
-              <Send className="h-4 w-4" />
-            </Button>
-          </div>
-          <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
-            <div className="flex items-center gap-1">
-              <Database className="h-3 w-3" />
-              <span>Consulta Conversacional • Datos en Tiempo Real</span>
-            </div>
-          </div>
+      <footer className="border-t border-border bg-card px-5 py-4">
+        <div className="flex items-end gap-2">
+          <Textarea
+            value={input}
+            onChange={(event) => setInput(event.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="Pregunta por KMZ, regiones, roles, propiedades o documentos…"
+            className="min-h-[46px] max-h-32 flex-1 resize-none"
+            disabled={isLoading}
+            aria-label="Consulta para el asistente"
+          />
+          <Button
+            onClick={() => void handleSendMessage()}
+            disabled={isLoading || !input.trim()}
+            className="h-[46px] w-[46px] px-0"
+            aria-label="Enviar consulta"
+          >
+            <Send className="h-4 w-4" aria-hidden="true" />
+          </Button>
         </div>
-      </CardContent>
-    </Card>
+        <div className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <Database className="h-3 w-3" aria-hidden="true" />
+          Las respuestas dependen de las fuentes conectadas y requieren validación cuando corresponda.
+        </div>
+      </footer>
+    </section>
   )
 }
