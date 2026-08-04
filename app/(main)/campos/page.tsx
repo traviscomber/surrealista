@@ -4,7 +4,6 @@ import { CAMPOSUniversalTagFilter } from "@/components/campos/campos-universal-t
 import { CAMPOSUnifiedVisualSystem } from "@/components/campos/campos-unified-visual-system"
 import { CAMPOSMapVisualBehavior } from "@/components/campos/campos-map-visual-behavior"
 import { CAMPOSTagFilterBridge } from "@/components/campos/campos-tag-filter-bridge"
-import { CAMPOSDetailPanelRedesign } from "@/components/campos/campos-detail-panel-redesign"
 import { LeafletPopupBehavior } from "@/components/kmz/leaflet-popup-behavior"
 
 export const metadata: Metadata = {
@@ -21,7 +20,6 @@ export default function CAMPOSPage() {
       <CAMPOSDesktopShellV2 />
       <CAMPOSUniversalTagFilter />
       <CAMPOSUnifiedVisualSystem />
-      <CAMPOSDetailPanelRedesign />
     </div>
   )
 }
