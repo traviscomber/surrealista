@@ -1,0 +1,132 @@
+.root {
+  width: 100%;
+}
+
+.root :global(section) {
+  max-width: none !important;
+  border-radius: 0 !important;
+  border-color: hsl(var(--border)) !important;
+  background: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+  box-shadow: none !important;
+}
+
+.root :global([class*="bg-slate-950"]),
+.root :global([class*="bg-slate-900"]),
+.root :global([class*="bg-slate-800"]) {
+  background: hsl(var(--card)) !important;
+}
+
+.root :global([class*="border-slate-"]) {
+  border-color: hsl(var(--border)) !important;
+}
+
+.root :global([class*="text-white"]),
+.root :global([class*="text-slate-100"]),
+.root :global([class*="text-slate-200"]) {
+  color: hsl(var(--foreground)) !important;
+}
+
+.root :global([class*="text-slate-300"]),
+.root :global([class*="text-slate-400"]),
+.root :global([class*="text-slate-500"]) {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.root :global([class*="bg-emerald-950"]),
+.root :global([class*="bg-emerald-900"]),
+.root :global([class*="bg-emerald-500/10"]),
+.root :global([class*="bg-emerald-400/10"]),
+.root :global([class*="bg-sky-500/10"]),
+.root :global([class*="bg-sky-400/10"]),
+.root :global([class*="bg-amber-500/10"]),
+.root :global([class*="bg-red-950"]) {
+  background: hsl(var(--secondary) / 0.55) !important;
+}
+
+.root :global([class*="text-emerald-"]),
+.root :global([class*="text-sky-"]),
+.root :global([class*="text-amber-"]) {
+  color: hsl(var(--primary)) !important;
+}
+
+.root :global([class*="border-emerald-"]),
+.root :global([class*="border-sky-"]),
+.root :global([class*="border-amber-"]) {
+  border-color: hsl(var(--border)) !important;
+}
+
+.root :global([class*="bg-emerald-500"]),
+.root :global([class*="bg-emerald-400"]),
+.root :global([class*="bg-sky-500"]),
+.root :global([class*="bg-sky-400"]),
+.root :global([class*="bg-amber-500"]),
+.root :global([class*="bg-amber-400"]) {
+  background: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+}
+
+.root :global(input),
+.root :global(textarea),
+.root :global(select) {
+  border-color: hsl(var(--input)) !important;
+  background: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+.root :global(input::placeholder),
+.root :global(textarea::placeholder) {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.root :global(.rounded-3xl),
+.root :global(.rounded-2xl),
+.root :global(.rounded-xl) {
+  border-radius: var(--sr-radius-panel, 8px) !important;
+}
+
+.root :global(.shadow-2xl),
+.root :global(.shadow-xl),
+.root :global(.shadow-lg) {
+  box-shadow: none !important;
+}
+
+.root :global(h2) {
+  font-size: 1.5rem !important;
+  line-height: 1.25 !important;
+  font-weight: 600 !important;
+  letter-spacing: -0.02em !important;
+}
+
+.root :global(h3) {
+  font-size: 1rem !important;
+  line-height: 1.4 !important;
+  font-weight: 600 !important;
+}
+
+.root :global([class*="tracking-[0.25em]"]),
+.root :global([class*="tracking-[0.2em]"]),
+.root :global([class*="tracking-[0.18em]"]) {
+  letter-spacing: 0.12em !important;
+}
+
+.root :global(a) {
+  text-underline-offset: 3px;
+}
+
+.root :global(button),
+.root :global(a) {
+  transition-duration: 160ms !important;
+}
+
+.root :global([class*="text-red-"]) {
+  color: hsl(var(--destructive)) !important;
+}
+
+.root :global([class*="bg-red-"]) {
+  background: hsl(var(--destructive) / 0.08) !important;
+}
+
+.root :global([class*="border-red-"]) {
+  border-color: hsl(var(--destructive) / 0.35) !important;
+}
