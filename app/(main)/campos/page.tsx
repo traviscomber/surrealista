@@ -4,7 +4,6 @@ import { CAMPOSUniversalTagFilter } from "@/components/campos/campos-universal-t
 import { CAMPOSUnifiedVisualSystem } from "@/components/campos/campos-unified-visual-system"
 import { CAMPOSMapVisualBehavior } from "@/components/campos/campos-map-visual-behavior"
 import { CAMPOSTagFilterBridge } from "@/components/campos/campos-tag-filter-bridge"
-import { CAMPOSDetailPanelBehavior } from "@/components/campos/campos-detail-panel-behavior"
 import { CAMPOSDetailPanelRedesign } from "@/components/campos/campos-detail-panel-redesign"
 import { LeafletPopupBehavior } from "@/components/kmz/leaflet-popup-behavior"
 
@@ -19,7 +18,6 @@ export default function CAMPOSPage() {
       <LeafletPopupBehavior />
       <CAMPOSMapVisualBehavior />
       <CAMPOSTagFilterBridge />
-      <CAMPOSDetailPanelBehavior />
       <CAMPOSDesktopShellV2 />
       <CAMPOSUniversalTagFilter />
       <CAMPOSUnifiedVisualSystem />
