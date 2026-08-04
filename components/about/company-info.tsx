@@ -1,82 +1,72 @@
-import { BasicImage } from "@/components/ui/basic-image"
+const capabilities = [
+  {
+    title: "Corretaje de campos",
+    description: "Organización de antecedentes, lectura territorial y seguimiento comercial para propiedades rurales.",
+  },
+  {
+    title: "Proyectos y planes maestros",
+    description: "Análisis del territorio, oportunidades de desarrollo y coordinación de información para decisiones de largo plazo.",
+  },
+  {
+    title: "Arquitectura",
+    description: "Una mirada integrada entre paisaje, forma de habitar, restricciones del lugar y propósito del proyecto.",
+  },
+]
+
+const principles = [
+  "La información territorial debe ser trazable y comprensible.",
+  "El paisaje y el contexto pesan tanto como el activo inmobiliario.",
+  "La tecnología debe reducir fricción, no reemplazar el criterio profesional.",
+  "Cada propiedad requiere una lectura propia, no una ficha genérica.",
+]
 
 export function CompanyInfo() {
   return (
-    <div className="mb-16">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
-        <div>
-          <h2 className="text-2xl font-bold mb-4">Nuestra Historia</h2>
-          <p className="text-foreground/80 mb-4">
-            Sur-Realista nació en 2015 con la visión de transformar el mercado inmobiliario en el sur de Chile,
-            combinando el conocimiento local con tecnología de punta para ofrecer un servicio excepcional a nuestros
-            clientes.
-          </p>
-          <p className="text-foreground/80 mb-4">
-            Desde nuestros inicios, nos hemos especializado en propiedades únicas que capturan la esencia y belleza del
-            sur de Chile, desde casas con vista al lago en Puerto Varas hasta parcelas en la Carretera Austral.
-          </p>
-          <p className="text-gray-700">
-            Hoy, Sur-Realista es reconocida como la inmobiliaria líder en innovación tecnológica, ofreciendo
-            herramientas como mapas interactivos, cotizador con IA y asistencia virtual para facilitar la búsqueda de
-            propiedades a nuestros clientes.
-          </p>
+    <section className="sr-section">
+      <div className="mx-auto max-w-[1320px] px-6 lg:px-12">
+        <div className="grid gap-12 lg:grid-cols-[0.85fr_1.15fr] lg:gap-20">
+          <div>
+            <p className="sr-meta text-primary">Cómo trabajamos</p>
+            <h2 className="sr-section-title mt-3">Una lectura integral del territorio.</h2>
+          </div>
+          <div className="space-y-5 text-muted-foreground">
+            <p className="sr-body">
+              Sur Realista combina gestión inmobiliaria, arquitectura e información geográfica para ordenar decisiones
+              sobre campos, propiedades y proyectos. La prioridad es comprender el lugar antes de simplificarlo en una
+              oferta comercial.
+            </p>
+            <p className="sr-body">
+              La plataforma interna reúne mapas, KMZ, roles, documentos y seguimiento operativo para que el equipo pueda
+              trabajar sobre una misma base de información.
+            </p>
+          </div>
         </div>
-        <div className="rounded-lg overflow-hidden shadow-lg">
-          <BasicImage
-            src="https://images.unsplash.com/photo-1577415124269-fc1140a69e91?auto=format&fit=crop&w=1170&q=80"
-            alt="Oficina Sur-Realista"
-            className="w-full h-auto"
-          />
-        </div>
-      </div>
 
-      <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div className="bg-card p-6 rounded-lg shadow-md">
-          <div className="h-40 mb-4 rounded-md overflow-hidden">
-            <BasicImage
-              src="https://images.unsplash.com/photo-1600880292089-90a7e086ee0c?auto=format&fit=crop&w=500&q=80"
-              alt="Misión"
-              className="w-full h-full object-cover"
-            />
-          </div>
-          <h3 className="text-xl font-semibold mb-3">Misión</h3>
-          <p className="text-gray-700">
-            Conectar a las personas con propiedades excepcionales en el sur de Chile, brindando un servicio
-            personalizado y utilizando tecnología innovadora para simplificar el proceso de compra, venta y arriendo.
-          </p>
+        <div className="mt-16 grid border-y md:grid-cols-3">
+          {capabilities.map((capability, index) => (
+            <article
+              key={capability.title}
+              className={`py-8 md:px-8 ${index > 0 ? "border-t md:border-l md:border-t-0" : ""}`}
+            >
+              <p className="sr-meta text-muted-foreground">0{index + 1}</p>
+              <h3 className="sr-panel-title mt-4">{capability.title}</h3>
+              <p className="mt-3 text-[15px] leading-7 text-muted-foreground">{capability.description}</p>
+            </article>
+          ))}
         </div>
-        <div className="bg-card p-6 rounded-lg shadow-md">
-          <div className="h-40 mb-4 rounded-md overflow-hidden">
-            <BasicImage
-              src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=500&q=80"
-              alt="Visión"
-              className="w-full h-full object-cover"
-            />
-          </div>
-          <h3 className="text-xl font-semibold mb-3">Visión</h3>
-          <p className="text-gray-700">
-            Ser la inmobiliaria líder en el sur de Chile, reconocida por nuestra excelencia en servicio, innovación
-            tecnológica y compromiso con el desarrollo sostenible de las comunidades donde operamos.
-          </p>
-        </div>
-        <div className="bg-card p-6 rounded-lg shadow-md">
-          <div className="h-40 mb-4 rounded-md overflow-hidden">
-            <BasicImage
-              src="https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&w=500&q=80"
-              alt="Valores"
-              className="w-full h-full object-cover"
-            />
-          </div>
-          <h3 className="text-xl font-semibold mb-3">Valores</h3>
-          <ul className="text-foreground/80 space-y-2">
-            <li>• Excelencia en el servicio</li>
-            <li>• Innovación constante</li>
-            <li>• Transparencia y honestidad</li>
-            <li>• Compromiso con la comunidad</li>
-            <li>• Respeto por el medio ambiente</li>
-          </ul>
+
+        <div className="mt-16 grid gap-10 lg:grid-cols-[0.85fr_1.15fr]">
+          <h2 className="sr-section-title">Principios de trabajo</h2>
+          <ol className="divide-y border-y">
+            {principles.map((principle, index) => (
+              <li key={principle} className="grid grid-cols-[2.5rem_1fr] gap-4 py-5">
+                <span className="sr-meta text-primary">0{index + 1}</span>
+                <p className="text-[15px] leading-7 text-foreground">{principle}</p>
+              </li>
+            ))}
+          </ol>
         </div>
       </div>
-    </div>
+    </section>
   )
 }
