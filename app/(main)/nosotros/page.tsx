@@ -3,21 +3,20 @@ import { TeamSection } from "@/components/about/team-section"
 
 export default function AboutPage() {
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-16">
-        <div className="text-center mb-16">
-          <h1 className="text-4xl md:text-5xl font-bold text-primary mb-6">
-            Sobre Sur-Realista
-          </h1>
-          <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-            Somos la inmobiliaria líder en el sur de Chile, combinando experiencia local con tecnología de vanguardia
-            para ofrecer el mejor servicio inmobiliario.
+    <main className="min-h-screen bg-background">
+      <header className="border-b bg-card">
+        <div className="mx-auto max-w-[1320px] px-6 py-16 lg:px-12 lg:py-24">
+          <p className="sr-meta text-primary">Sur Realista</p>
+          <h1 className="sr-page-title mt-4 max-w-4xl">Territorio, arquitectura y gestión inmobiliaria con contexto real.</h1>
+          <p className="sr-body mt-6 max-w-3xl text-muted-foreground">
+            Trabajamos con campos, propiedades y proyectos del sur de Chile integrando información territorial,
+            documentación y conocimiento del entorno en un mismo proceso de análisis.
           </p>
         </div>
+      </header>
 
-        <CompanyInfo />
-        <TeamSection />
-      </div>
-    </div>
+      <CompanyInfo />
+      <TeamSection />
+    </main>
   )
 }
