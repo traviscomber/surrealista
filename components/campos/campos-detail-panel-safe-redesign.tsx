@@ -10,7 +10,7 @@ export function CAMPOSDetailPanelSafeRedesign() {
           > div:nth-child(2)
           > div[class*="transition-[height]"] {
           background: var(--campos-surface, #18201c) !important;
-          border-left: 1px solid var(--campos-border, rgba(255,255,255,.12)) !important;
+          border-left: 1px solid var(--campos-border, rgba(255, 255, 255, 0.12)) !important;
           color: var(--campos-text, #f3f1ea) !important;
         }
 
@@ -20,11 +20,11 @@ export function CAMPOSDetailPanelSafeRedesign() {
           > div:nth-child(2)
           > div[class*="transition-[height]"]
           > div:first-child {
-          min-height: 54px !important;
-          height: 54px !important;
+          min-height: 52px !important;
+          height: 52px !important;
           padding: 0 14px !important;
           background: var(--campos-surface, #18201c) !important;
-          border-bottom: 1px solid var(--campos-border, rgba(255,255,255,.12)) !important;
+          border-bottom: 1px solid var(--campos-border, rgba(255, 255, 255, 0.12)) !important;
         }
 
         .campos-desktop-shell
@@ -33,26 +33,10 @@ export function CAMPOSDetailPanelSafeRedesign() {
           > div:nth-child(2)
           > div[class*="transition-[height]"]
           > div:first-child h2 {
-          max-width: 320px !important;
           font-size: 13px !important;
-          line-height: 1.25 !important;
-          font-weight: 650 !important;
-          letter-spacing: -0.01em !important;
-          color: var(--campos-text, #f3f1ea) !important;
-        }
-
-        .campos-desktop-shell
-          > div
-          > div:nth-child(3)
-          > div:nth-child(2)
-          > div[class*="transition-[height]"]
-          > div:first-child p {
-          display: block !important;
-          max-width: 320px !important;
-          margin-top: 2px !important;
-          font-size: 10px !important;
           line-height: 1.2 !important;
-          color: var(--campos-text-muted, #aba89f) !important;
+          font-weight: 650 !important;
+          color: var(--campos-text, #f3f1ea) !important;
         }
 
         .campos-desktop-shell
@@ -65,7 +49,7 @@ export function CAMPOSDetailPanelSafeRedesign() {
           height: 30px !important;
           min-width: 30px !important;
           border-radius: 8px !important;
-          border: 1px solid var(--campos-border, rgba(255,255,255,.12)) !important;
+          border: 1px solid var(--campos-border, rgba(255, 255, 255, 0.12)) !important;
           background: var(--campos-surface-raised, #232c27) !important;
           color: var(--campos-text, #f3f1ea) !important;
         }
@@ -74,16 +58,16 @@ export function CAMPOSDetailPanelSafeRedesign() {
           position: sticky !important;
           top: 0 !important;
           z-index: 12 !important;
-          display: flex !important;
+          display: grid !important;
+          grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
           width: 100% !important;
-          height: 40px !important;
-          min-height: 40px !important;
-          gap: 2px !important;
+          height: auto !important;
+          min-height: 72px !important;
+          gap: 0 !important;
           padding: 0 10px !important;
-          overflow-x: auto !important;
-          overflow-y: hidden !important;
+          overflow: visible !important;
           border-radius: 0 !important;
-          border-bottom: 1px solid var(--campos-border, rgba(255,255,255,.12)) !important;
+          border-bottom: 1px solid var(--campos-border, rgba(255, 255, 255, 0.12)) !important;
           background: var(--campos-surface, #18201c) !important;
           box-shadow: none !important;
           pointer-events: auto !important;
@@ -92,13 +76,14 @@ export function CAMPOSDetailPanelSafeRedesign() {
         .campos-desktop-shell [role="tab"] {
           position: relative !important;
           z-index: 13 !important;
-          display: inline-flex !important;
-          flex: 0 0 auto !important;
+          display: flex !important;
+          min-width: 0 !important;
+          height: 36px !important;
+          min-height: 36px !important;
           align-items: center !important;
           justify-content: center !important;
-          height: 40px !important;
-          min-height: 40px !important;
-          padding: 0 10px !important;
+          padding: 0 8px !important;
+          overflow: hidden !important;
           border: 0 !important;
           border-radius: 0 !important;
           background: transparent !important;
@@ -107,6 +92,7 @@ export function CAMPOSDetailPanelSafeRedesign() {
           line-height: 1 !important;
           font-weight: 560 !important;
           white-space: nowrap !important;
+          text-overflow: ellipsis !important;
           cursor: pointer !important;
           pointer-events: auto !important;
           opacity: 1 !important;
@@ -119,7 +105,7 @@ export function CAMPOSDetailPanelSafeRedesign() {
 
         .campos-desktop-shell [role="tab"][data-state="active"] {
           color: var(--campos-text, #f3f1ea) !important;
-          background: transparent !important;
+          background: color-mix(in srgb, var(--campos-accent, #8db79e) 8%, transparent) !important;
           box-shadow: inset 0 -2px 0 var(--campos-accent, #8db79e) !important;
         }
 
@@ -129,30 +115,50 @@ export function CAMPOSDetailPanelSafeRedesign() {
         }
 
         .campos-desktop-shell [role="tabpanel"] {
-          padding: 12px !important;
+          min-width: 0 !important;
+          padding: 14px !important;
+          overflow-x: hidden !important;
           font-size: 12px !important;
           line-height: 1.5 !important;
           color: var(--campos-text-secondary, #cbc8bf) !important;
         }
 
+        .campos-desktop-shell [role="tabpanel"] .grid,
+        .campos-desktop-shell [role="tabpanel"] [class*="grid-cols"],
+        .campos-desktop-shell [role="tabpanel"] [class*="xl:grid-cols"],
+        .campos-desktop-shell [role="tabpanel"] [class*="sm:grid-cols"],
+        .campos-desktop-shell [role="tabpanel"] [class*="md:grid-cols"] {
+          grid-template-columns: minmax(0, 1fr) !important;
+        }
+
+        .campos-desktop-shell [role="tabpanel"] *,
+        .campos-desktop-shell [role="tabpanel"] .min-w-0 {
+          min-width: 0 !important;
+          max-width: 100% !important;
+        }
+
         .campos-desktop-shell [role="tabpanel"] h2,
         .campos-desktop-shell [role="tabpanel"] h3 {
-          font-size: 15px !important;
-          line-height: 1.3 !important;
+          font-size: 16px !important;
+          line-height: 1.28 !important;
           font-weight: 650 !important;
           letter-spacing: -0.01em !important;
+          overflow-wrap: anywhere !important;
         }
 
         .campos-desktop-shell [role="tabpanel"] h4 {
           font-size: 13px !important;
           line-height: 1.35 !important;
           font-weight: 620 !important;
+          overflow-wrap: anywhere !important;
         }
 
         .campos-desktop-shell [role="tabpanel"] p,
         .campos-desktop-shell [role="tabpanel"] label,
         .campos-desktop-shell [role="tabpanel"] span {
           font-size: 11px !important;
+          overflow-wrap: anywhere !important;
+          word-break: normal !important;
         }
 
         .campos-desktop-shell [role="tabpanel"] .text-3xl,
@@ -160,8 +166,9 @@ export function CAMPOSDetailPanelSafeRedesign() {
         .campos-desktop-shell [role="tabpanel"] [class*="text-3xl"],
         .campos-desktop-shell [role="tabpanel"] [class*="text-4xl"] {
           font-size: 20px !important;
-          line-height: 1.15 !important;
-          letter-spacing: -0.025em !important;
+          line-height: 1.18 !important;
+          letter-spacing: -0.02em !important;
+          overflow-wrap: anywhere !important;
         }
 
         .campos-desktop-shell [role="tabpanel"] .text-2xl,
@@ -180,13 +187,15 @@ export function CAMPOSDetailPanelSafeRedesign() {
         }
 
         .campos-desktop-shell [role="tabpanel"] [class*="p-4"] {
-          padding: 10px !important;
+          padding: 11px !important;
         }
 
-        .campos-desktop-shell [role="tabpanel"] [class*="space-y-6"] > :not([hidden]) ~ :not([hidden]) {
-          margin-top: 12px !important;
+        .campos-desktop-shell [role="tabpanel"] [class*="gap-4"],
+        .campos-desktop-shell [role="tabpanel"] [class*="gap-3"] {
+          gap: 10px !important;
         }
 
+        .campos-desktop-shell [role="tabpanel"] [class*="space-y-6"] > :not([hidden]) ~ :not([hidden]),
         .campos-desktop-shell [role="tabpanel"] [class*="space-y-5"] > :not([hidden]) ~ :not([hidden]),
         .campos-desktop-shell [role="tabpanel"] [class*="space-y-4"] > :not([hidden]) ~ :not([hidden]) {
           margin-top: 10px !important;
@@ -198,7 +207,7 @@ export function CAMPOSDetailPanelSafeRedesign() {
         }
 
         .campos-desktop-shell [role="tabpanel"] [class*="tracking-[0.24em]"] {
-          letter-spacing: 0.12em !important;
+          letter-spacing: 0.11em !important;
         }
       }
     `}</style>
