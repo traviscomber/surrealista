@@ -19,7 +19,7 @@ import {
 
 import { CAMPOSFolderView } from "@/components/campos/campos-folder-view"
 import { ClientRepositoryDashboard } from "@/components/client-management/client-repository-dashboard"
-import SiiRolExplorer from "@/components/sii-rol-explorer"
+import { SiiRolExplorerBranded } from "@/components/sii/sii-rol-explorer-branded"
 import { TasksManager } from "@/components/tasks/tasks-manager"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -314,7 +314,7 @@ export default function UnifiedSearchPage() {
         </TabsContent>
 
         <TabsContent value="sii-roles" className="mt-4 min-h-[620px]">
-          <SiiRolExplorer />
+          <SiiRolExplorerBranded />
         </TabsContent>
       </Tabs>
     </main>
