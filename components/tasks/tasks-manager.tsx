@@ -1,7 +1,6 @@
 "use client"
 
 import { useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { CheckSquare, Plus, AlertCircle, Clock, MapPin, Calendar, Zap } from "lucide-react"
@@ -31,9 +30,20 @@ interface TasksManagerProps {
   currentUser?: any
 }
 
+const priorityLabel = (priority: string) => {
+  if (priority === "urgent" || priority === "high") return "Urgente"
+  if (priority === "medium") return "Media"
+  return "Baja"
+}
+
+const statusLabel = (status: string) => {
+  if (status === "completed") return "Completada"
+  if (status === "in_progress") return "En progreso"
+  return "Pendiente"
+}
+
 export function TasksManager({
   tasks,
-  refreshTrigger,
   onTasksUpdate,
   selectedTask: initialSelectedTask,
   onTaskClick: onTaskClickProp,
@@ -61,134 +71,97 @@ export function TasksManager({
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {/* Tasks List */}
-      <div className="space-y-4">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <CheckSquare className="h-5 w-5" />
-                Nuevas Tareas
-              </CardTitle>
-              <div className="flex gap-2">
-                <Button
-                  size="sm"
-                  onClick={() => setQuickTaskOpen(true)}
-                  variant="outline"
-                  className="gap-2 border-orange-500 text-orange-600 hover:bg-orange-50"
-                >
-                  <Zap className="h-4 w-4" />
-                  Rápida
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={() => setTaskDialogOpen(true)}
-                  className="gap-2 bg-orange-500 hover:bg-orange-600"
-                >
-                  <Plus className="h-4 w-4" />
-                  Nueva
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {/* Filter/sort quick actions */}
-            <div className="flex items-center gap-2 pb-2 border-b">
-              <Button size="sm" variant="ghost" className="text-xs">
-                <AlertCircle className="h-3 w-3 mr-1 text-red-500" />
-                Urgente
-              </Button>
-              <Button size="sm" variant="ghost" className="text-xs">
-                <Clock className="h-3 w-3 mr-1 text-blue-500" />
-                Hoy
-              </Button>
-              <Button size="sm" variant="ghost" className="text-xs">
-                <MapPin className="h-3 w-3 mr-1 text-purple-500" />
-                Con ubicación
-              </Button>
-            </div>
+    <div className="grid min-h-[620px] grid-cols-1 border border-border/70 bg-card lg:grid-cols-[minmax(340px,0.85fr)_minmax(0,1.15fr)]">
+      <section className="min-w-0 border-b border-border/70 lg:border-b-0 lg:border-r">
+        <header className="flex flex-wrap items-start justify-between gap-4 border-b border-border/70 px-5 py-4">
+          <div>
+            <p className="sr-meta">Gestión operativa</p>
+            <h2 className="sr-panel-title mt-1">Tareas</h2>
+            <p className="mt-1 text-sm text-muted-foreground">{tasks.length} tareas disponibles</p>
+          </div>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" onClick={() => setQuickTaskOpen(true)}>
+              <Zap className="h-4 w-4" />
+              Rápida
+            </Button>
+            <Button size="sm" onClick={() => setTaskDialogOpen(true)}>
+              <Plus className="h-4 w-4" />
+              Nueva tarea
+            </Button>
+          </div>
+        </header>
 
-            <div className="max-h-[600px] overflow-y-auto space-y-2 pr-2">
-              {tasks.map((task) => (
-                <div
-                  key={task.id}
-                  onClick={() => handleTaskClick(task)}
-                  className={`p-4 border rounded-lg hover:bg-blue-50 cursor-pointer transition-colors ${
-                    selectedTask?.id === task.id ? "bg-blue-100 border-blue-500" : ""
-                  }`}
-                >
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
-                      <p className="font-medium">{task.title}</p>
-                      {task.description && (
-                        <p className="text-sm text-gray-600 mt-1 line-clamp-2">{task.description}</p>
-                      )}
-                      {task.location && (
-                        <p className="text-sm text-gray-500 flex items-center gap-1 mt-2">
-                          <MapPin className="h-4 w-4" />
-                          {task.location}
-                        </p>
-                      )}
-                    </div>
-                    <Badge
-                      className={
-                        task.priority === "urgent" || task.priority === "high"
-                          ? "bg-red-100 text-red-700"
-                          : task.priority === "medium"
-                            ? "bg-yellow-100 text-yellow-700"
-                            : "bg-green-100 text-green-700"
-                      }
-                    >
-                      {task.priority === "urgent" || task.priority === "high"
-                        ? "Urgente"
-                        : task.priority === "medium"
-                          ? "Media"
-                          : "Baja"}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Badge
-                      variant="outline"
-                      className={
-                        task.status === "completed"
-                          ? "bg-green-50 text-green-700"
-                          : task.status === "in_progress"
-                            ? "bg-blue-50 text-blue-700"
-                            : "bg-gray-50 text-gray-700"
-                      }
-                    >
-                      {task.status === "completed"
-                        ? "Completada"
-                        : task.status === "in_progress"
-                          ? "En progreso"
-                          : "Pendiente"}
-                    </Badge>
-                    {task.due_date && (
-                      <span className="text-sm text-gray-500 flex items-center gap-1">
-                        <Calendar className="h-4 w-4" />
-                        {new Date(task.due_date).toLocaleDateString()}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {tasks.length === 0 && (
-                <div className="text-center py-12">
-                  <CheckSquare className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500 font-medium text-lg">No hay tareas</p>
-                  <p className="text-sm text-gray-400 mt-2 text-center max-w-sm mx-auto">
-                    Crea tu primera tarea usando el botón "Rápida" o "Nueva" arriba
-                  </p>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+        <div className="flex items-center gap-1 overflow-x-auto border-b border-border/70 px-4 py-2">
+          <Button size="sm" variant="ghost" className="shrink-0 text-xs">
+            <AlertCircle className="h-3.5 w-3.5 text-destructive" />
+            Urgentes
+          </Button>
+          <Button size="sm" variant="ghost" className="shrink-0 text-xs">
+            <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+            Hoy
+          </Button>
+          <Button size="sm" variant="ghost" className="shrink-0 text-xs">
+            <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+            Con ubicación
+          </Button>
+        </div>
 
-      {/* Task Details Panel */}
-      <div className="space-y-4">
+        <div className="max-h-[620px] overflow-y-auto">
+          {tasks.map((task) => {
+            const isSelected = selectedTask?.id === task.id
+            return (
+              <button
+                key={task.id}
+                type="button"
+                onClick={() => handleTaskClick(task)}
+                className={`w-full border-b border-border/60 px-5 py-4 text-left transition-colors hover:bg-secondary/45 ${
+                  isSelected ? "bg-secondary/70" : "bg-card"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-foreground">{task.title}</p>
+                    {task.description ? (
+                      <p className="mt-1 line-clamp-2 text-sm leading-6 text-muted-foreground">{task.description}</p>
+                    ) : null}
+                  </div>
+                  <Badge variant="outline" className={task.priority === "urgent" || task.priority === "high" ? "border-destructive/35 text-destructive" : ""}>
+                    {priorityLabel(task.priority)}
+                  </Badge>
+                </div>
+
+                <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
+                  <Badge variant="secondary">{statusLabel(task.status)}</Badge>
+                  {task.location ? (
+                    <span className="inline-flex items-center gap-1">
+                      <MapPin className="h-3.5 w-3.5" />
+                      {task.location}
+                    </span>
+                  ) : null}
+                  {task.due_date ? (
+                    <span className="inline-flex items-center gap-1">
+                      <Calendar className="h-3.5 w-3.5" />
+                      {new Date(task.due_date).toLocaleDateString("es-CL")}
+                    </span>
+                  ) : null}
+                </div>
+              </button>
+            )
+          })}
+
+          {tasks.length === 0 ? (
+            <div className="flex min-h-[360px] flex-col items-center justify-center px-8 text-center">
+              <CheckSquare className="h-10 w-10 text-muted-foreground/45" />
+              <h3 className="mt-4 text-base font-semibold text-foreground">No hay tareas</h3>
+              <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
+                Crea una tarea rápida o abre el formulario completo para registrar el próximo paso.
+              </p>
+            </div>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="min-w-0 bg-background/55">
         {selectedTask ? (
           <TaskActionsPanel
             task={selectedTask}
@@ -199,17 +172,15 @@ export function TasksManager({
             }}
           />
         ) : (
-          <Card className="h-full min-h-[400px]">
-            <CardContent className="flex flex-col items-center justify-center h-full py-12">
-              <CheckSquare className="h-16 w-16 text-gray-300 mb-4" />
-              <p className="text-gray-500 font-medium text-lg">Selecciona una tarea</p>
-              <p className="text-sm text-gray-400 mt-2 text-center max-w-sm">
-                Haz clic en una tarea de la lista para ver sus detalles y opciones de gestión
-              </p>
-            </CardContent>
-          </Card>
+          <div className="flex h-full min-h-[460px] flex-col items-center justify-center px-8 text-center">
+            <CheckSquare className="h-10 w-10 text-muted-foreground/45" />
+            <h3 className="mt-4 text-base font-semibold text-foreground">Selecciona una tarea</h3>
+            <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
+              Abre una tarea de la lista para revisar detalles, estado y acciones disponibles.
+            </p>
+          </div>
         )}
-      </div>
+      </section>
 
       <QuickTaskCreation
         open={quickTaskOpen}
@@ -229,16 +200,6 @@ export function TasksManager({
         open={taskDialogOpen}
         onOpenChange={setTaskDialogOpen}
         currentUser={currentUser || { email: "system@sur-realista.com" }}
-        onTaskCreated={() => {
-          handleTaskCreated()
-          setTaskDialogOpen(false)
-        }}
-      />
-
-      <TaskCreationDialog
-        open={taskDialogOpen}
-        onOpenChange={setTaskDialogOpen}
-        currentUser={currentUser}
         onTaskCreated={() => {
           handleTaskCreated()
           setTaskDialogOpen(false)
