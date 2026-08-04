@@ -3,185 +3,109 @@
 import React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { ArrowLeft, BarChart3, Database, Home, Map, Package } from "lucide-react"
+
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import { Bell, Search, Settings, User, LogOut, HelpCircle, ArrowLeft, Home, Map, Plus, BarChart3, Package } from "lucide-react"
-import { Input } from "@/components/ui/input"
 
 const getPageTitle = (pathname: string): string => {
   const routes: Record<string, string> = {
-    "/admin": "Dashboard",
-    "/admin/dashboard": "Dashboard",
+    "/admin": "Administración",
+    "/admin/dashboard": "Panel de datos",
     "/admin/propiedades": "Propiedades",
-    "/admin/propiedades/nueva": "Nueva Propiedad",
-    "/admin/importar-propiedades": "Importar Propiedades",
-    "/admin/verificar-destacadas": "Verificar Destacadas",
-    "/admin/usuarios": "Gestión de Usuarios",
-    "/admin/mensajes": "Centro de Mensajes",
-    "/admin/analytics": "Analytics y Reportes",
-    "/admin/ia-workspace": "IA Workspace",
-    "/admin/analisis-integral": "Análisis Integral",
-    "/admin/conexiones-datos": "Conexiones de Datos",
-    "/admin/ciren-dashboard": "Dashboard CIREN",
-    "/admin/ciren-demo": "Demo CIREN",
+    "/admin/propiedades/nueva": "Nueva propiedad",
+    "/admin/importar-propiedades": "Importar propiedades",
+    "/admin/verificar-destacadas": "Verificar destacadas",
+    "/admin/usuarios": "Usuarios",
+    "/admin/mensajes": "Mensajes",
+    "/admin/analytics": "Análisis y reportes",
+    "/admin/ia-workspace": "Espacio de IA",
+    "/admin/analisis-integral": "Análisis integral",
+    "/admin/conexiones-datos": "Conexiones de datos",
+    "/admin/ciren-dashboard": "Panel CIREN",
+    "/admin/ciren-demo": "Demostración CIREN",
     "/admin/ciren-integration": "Integración CIREN",
-    "/admin/seed": "Seed Database",
-    "/admin/scraper-guide": "Guía de Scraper",
-    "/admin/import-data": "Importar Datos",
-    "/admin/kmz-vecindario": "Análisis de Vecindario KMZ",
+    "/admin/seed": "Datos iniciales",
+    "/admin/scraper-guide": "Guía de extracción",
+    "/admin/import-data": "Importar datos",
+    "/admin/kmz-vecindario": "Análisis de vecindario KMZ",
+    "/admin/kmz-collection": "Colección KMZ",
+    "/admin/clientes": "Administración de clientes",
+    "/admin/clientes/nuevo": "Nuevo cliente",
   }
 
-  return routes[pathname] || "Panel de Administración"
+  return routes[pathname] || "Administración"
 }
 
 const getBreadcrumbs = (pathname: string): Array<{ label: string; href?: string }> => {
-  const segments = pathname.split("/").filter(Boolean)
-  const breadcrumbs = [{ label: "Admin", href: "/admin" }]
-
-  if (segments.length > 1) {
-    const currentPage = getPageTitle(pathname)
-    breadcrumbs.push({ label: currentPage })
-  }
-
+  const breadcrumbs: Array<{ label: string; href?: string }> = [{ label: "Administración", href: "/admin" }]
+  if (pathname !== "/admin") breadcrumbs.push({ label: getPageTitle(pathname) })
   return breadcrumbs
 }
+
+const quickNavItems = [
+  { label: "Inicio", href: "/", icon: Home },
+  { label: "Campos", href: "/campos", icon: Map },
+  { label: "Panel de datos", href: "/admin/dashboard", icon: BarChart3 },
+  { label: "Colección KMZ", href: "/admin/kmz-collection", icon: Package },
+  { label: "Conexiones", href: "/admin/conexiones-datos", icon: Database },
+]
 
 export function AdminHeader() {
   const pathname = usePathname()
   const pageTitle = getPageTitle(pathname)
   const breadcrumbs = getBreadcrumbs(pathname)
 
-  const quickNavItems = [
-    { label: "Sur-Realista", href: "/", icon: Home },
-    { label: "Explorador de Campos", href: "/busqueda", icon: Map },
-    { label: "Nueva búsqueda", href: "/busqueda", icon: Plus },
-    { label: "Panel de datos", href: "/admin/dashboard", icon: BarChart3 },
-    { label: "Inventario Sur Realista", href: "/admin/dashboard", icon: Package },
-  ]
-
   return (
-    <header className="bg-card border-b border-border">
-      {/* Main Header */}
-      <div className="px-6 py-4 border-b border-border">
-        <div className="flex items-center justify-between">
-          {/* Left side - Back button and Title */}
-          <div className="flex-1 flex items-center gap-4">
-            <Link href="/busqueda">
-              <Button variant="outline" size="sm" className="gap-2">
-                <ArrowLeft className="h-4 w-4" />
-                Volver a Búsqueda
-              </Button>
+    <header className="border-b border-border bg-card">
+      <div className="flex flex-col gap-5 px-5 py-5 lg:flex-row lg:items-end lg:justify-between lg:px-8">
+        <div className="flex items-start gap-4">
+          <Button asChild variant="outline" size="icon" aria-label="Volver a Campos">
+            <Link href="/campos">
+              <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             </Link>
-            <div>
-              <div className="flex items-center space-x-2 text-sm text-muted-foreground mb-1">
-                {breadcrumbs.map((crumb, index) => (
-                  <React.Fragment key={crumb.label}>
-                    {index > 0 && <span>/</span>}
-                    <span className={index === breadcrumbs.length - 1 ? "text-foreground font-medium" : ""}>
+          </Button>
+
+          <div>
+            <div className="mb-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              {breadcrumbs.map((crumb, index) => (
+                <React.Fragment key={`${crumb.label}-${index}`}>
+                  {index > 0 && <span aria-hidden="true">/</span>}
+                  {crumb.href ? (
+                    <Link href={crumb.href} className="transition-colors hover:text-foreground">
                       {crumb.label}
-                    </span>
-                  </React.Fragment>
-                ))}
-              </div>
-              <h1 className="text-2xl font-bold text-foreground">{pageTitle}</h1>
+                    </Link>
+                  ) : (
+                    <span className="font-medium text-foreground">{crumb.label}</span>
+                  )}
+                </React.Fragment>
+              ))}
             </div>
-          </div>
-
-          {/* Center - Search */}
-          <div className="flex-1 max-w-md mx-8">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input type="search" placeholder="Buscar propiedades, usuarios..." className="pl-10 pr-4 w-full bg-background text-foreground border-border" />
-            </div>
-          </div>
-
-          {/* Right side - Actions and Profile */}
-          <div className="flex items-center space-x-4">
-            {/* Notifications */}
-            <Button variant="ghost" size="sm" className="relative">
-              <Bell className="h-5 w-5" />
-              <Badge className="absolute -top-1 -right-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs bg-red-500">
-                3
-              </Badge>
-            </Button>
-
-            {/* Help */}
-            <Button variant="ghost" size="sm">
-              <HelpCircle className="h-5 w-5" />
-            </Button>
-
-            {/* Settings */}
-            <Button variant="ghost" size="sm">
-              <Settings className="h-5 w-5" />
-            </Button>
-
-            {/* Profile Dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                  <Avatar className="h-10 w-10">
-                    <AvatarImage src="/placeholder.svg?height=40&width=40" alt="Admin" />
-                    <AvatarFallback className="bg-gradient-to-br from-blue-600 to-purple-600 text-white">
-                      AD
-                    </AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end" forceMount>
-                <DropdownMenuLabel className="font-normal">
-                  <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">Administrador</p>
-                    <p className="text-xs leading-none text-muted-foreground">admin@sur-realista.cl</p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <User className="mr-2 h-4 w-4" />
-                  <span>Perfil</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem>
-                  <Settings className="mr-2 h-4 w-4" />
-                  <span>Configuración</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Cerrar Sesión</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <p className="sr-meta uppercase tracking-[0.18em]">Operación interna</p>
+            <h1 className="mt-1 sr-page-title">{pageTitle}</h1>
           </div>
         </div>
-      </div>
 
-      {/* Quick Navigation Bar */}
-      <nav className="bg-muted/50 px-6 py-3 flex items-center gap-2 overflow-x-auto">
-        {quickNavItems.map((item) => {
-          const Icon = item.icon
-          const isActive = pathname === item.href || (item.href === "/admin/dashboard" && pathname === "/admin/dashboard")
-          return (
-            <Link key={item.label} href={item.href}>
-              <Button
-                variant={isActive ? "default" : "ghost"}
-                size="sm"
-                className="gap-2 whitespace-nowrap"
+        <nav className="flex max-w-full gap-1 overflow-x-auto border-b border-border" aria-label="Navegación administrativa">
+          {quickNavItems.map((item) => {
+            const Icon = item.icon
+            const isActive = pathname === item.href
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`flex min-h-10 shrink-0 items-center gap-2 border-b-2 px-3 text-sm transition-colors ${
+                  isActive
+                    ? "border-primary font-medium text-foreground"
+                    : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
+                }`}
               >
-                <Icon className="h-4 w-4" />
-                <span className="hidden sm:inline">{item.label}</span>
-              </Button>
-            </Link>
-          )
-        })}
-      </nav>
+                <Icon className="h-4 w-4" aria-hidden="true" />
+                {item.label}
+              </Link>
+            )
+          })}
+        </nav>
+      </div>
     </header>
   )
 }
