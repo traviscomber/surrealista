@@ -30,11 +30,11 @@ const PRESENTATION: Record<GeometryStatus, GeometryStatusPresentation> = {
     description: "Polígono, línea o punto contenido en un archivo del inventario Surrealista.",
     kind: "real",
     marker: {
-      radius: 5,
+      radius: 8,
       color: "#ffffff",
       fillColor: "#2f6f55",
       fillOpacity: 1,
-      weight: 2,
+      weight: 2.5,
     },
   },
   direct_reference: {
@@ -43,11 +43,11 @@ const PRESENTATION: Record<GeometryStatus, GeometryStatusPresentation> = {
     description: "Ubicación del archivo Surrealista tomada desde sus coordenadas registradas.",
     kind: "reference",
     marker: {
-      radius: 6,
+      radius: 10,
       color: "#ffffff",
       fillColor: "#2f6484",
-      fillOpacity: 0.95,
-      weight: 2,
+      fillOpacity: 0.98,
+      weight: 3,
     },
   },
   metadata_reference: {
@@ -56,11 +56,11 @@ const PRESENTATION: Record<GeometryStatus, GeometryStatusPresentation> = {
     description: "Ubicación del archivo Surrealista recuperada desde sus metadatos territoriales.",
     kind: "reference",
     marker: {
-      radius: 6,
+      radius: 10,
       color: "#ffffff",
       fillColor: "#6c5c8d",
-      fillOpacity: 0.92,
-      weight: 2,
+      fillOpacity: 0.96,
+      weight: 3,
     },
   },
   sii_reference: {
@@ -69,11 +69,11 @@ const PRESENTATION: Record<GeometryStatus, GeometryStatusPresentation> = {
     description: "Centro de referencia territorial asociado al archivo Surrealista mediante información del SII.",
     kind: "reference",
     marker: {
-      radius: 7,
+      radius: 11,
       color: "#ffffff",
       fillColor: "#2563eb",
-      fillOpacity: 0.95,
-      weight: 2,
+      fillOpacity: 0.98,
+      weight: 3,
     },
   },
   bounds_reference: {
@@ -82,11 +82,11 @@ const PRESENTATION: Record<GeometryStatus, GeometryStatusPresentation> = {
     description: "Punto de ubicación calculado desde el centro geográfico registrado para el archivo KMZ.",
     kind: "reference",
     marker: {
-      radius: 6,
+      radius: 10,
       color: "#ffffff",
       fillColor: "#64748b",
-      fillOpacity: 0.9,
-      weight: 2,
+      fillOpacity: 0.96,
+      weight: 3,
     },
   },
   missing: {
@@ -95,11 +95,11 @@ const PRESENTATION: Record<GeometryStatus, GeometryStatusPresentation> = {
     description: "El archivo pertenece al inventario Surrealista, pero aún no tiene una ubicación espacial recuperable.",
     kind: "missing",
     marker: {
-      radius: 5,
+      radius: 8,
       color: "#991b1b",
       fillColor: "#fecaca",
-      fillOpacity: 0.75,
-      weight: 2,
+      fillOpacity: 0.8,
+      weight: 2.5,
       dashArray: "3 3",
     },
   },
