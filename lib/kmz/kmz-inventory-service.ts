@@ -37,6 +37,17 @@ export interface KmzInventoryFilters {
   search?: string
 }
 
+export interface KmzInventoryRegionGroup {
+  region: string
+  records: KmzInventoryRecord[]
+  total: number
+  withRol: number
+  withOwner: number
+  withSiiCenter: number
+  withKmzCenter: number
+  withLayer: number
+}
+
 export async function loadKmzInventory(
   supabase: SupabaseClient,
   filters: KmzInventoryFilters = {},
@@ -60,9 +71,40 @@ export function filterInventoryByIds(
   records: KmzInventoryRecord[],
   ids: string[] | null | undefined,
 ): KmzInventoryRecord[] {
-  if (!ids?.length) return records
+  if (ids === null || ids === undefined) return records
+  if (ids.length === 0) return []
   const allowed = new Set(ids.map(String))
   return records.filter((record) => allowed.has(String(record.id)))
+}
+
+export function groupKmzInventoryByRegion(records: KmzInventoryRecord[]): KmzInventoryRegionGroup[] {
+  const groups = new Map<string, KmzInventoryRecord[]>()
+
+  records.forEach((record) => {
+    const region = record.region?.trim() || "Sin región"
+    const current = groups.get(region) || []
+    current.push(record)
+    groups.set(region, current)
+  })
+
+  return Array.from(groups.entries())
+    .map(([region, regionRecords]) => ({
+      region,
+      records: regionRecords.sort((a, b) => a.file_name.localeCompare(b.file_name, "es")),
+      total: regionRecords.length,
+      withRol: regionRecords.filter((record) => record.has_rol).length,
+      withOwner: regionRecords.filter((record) => record.has_owner).length,
+      withSiiCenter: regionRecords.filter((record) => record.geometry_status === "sii_reference").length,
+      withKmzCenter: regionRecords.filter((record) => record.geometry_status === "bounds_reference").length,
+      withLayer: regionRecords.filter((record) =>
+        record.geometry_status === "real_geometry" || record.geometry_status === "real_or_reference",
+      ).length,
+    }))
+    .sort((a, b) => b.total - a.total || a.region.localeCompare(b.region, "es"))
+}
+
+export function getInventoryRecordIds(records: KmzInventoryRecord[]): string[] {
+  return records.map((record) => String(record.id))
 }
 
 export function summarizeKmzInventory(records: KmzInventoryRecord[]) {
