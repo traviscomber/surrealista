@@ -270,6 +270,14 @@ export function CAMPOSFolderViewIntegrated() {
     }
   }, [supabase])
 
+  const handlePlacemarkSelect = useCallback((layer: LayerInfo | null) => {
+    setSelectedLayer(layer)
+    if (!layer || selectedRecord || !selectedRegion) return
+
+    const record = (recordsByRegion[selectedRegion] || []).find((item) => String(item.id) === String(layer.fileId))
+    if (record) void loadSelectedKmz(record)
+  }, [loadSelectedKmz, recordsByRegion, selectedRecord, selectedRegion])
+
   const filteredSummaries = useMemo(() => {
     const query = search.trim().toLocaleLowerCase("es")
     if (!query) return summaries
@@ -374,7 +382,7 @@ export function CAMPOSFolderViewIntegrated() {
               height="100%"
               enableGeocoding
               selectedKmzId={selectedRecord?.id || null}
-              onPlacemarkSelect={setSelectedLayer}
+              onPlacemarkSelect={handlePlacemarkSelect}
             />
           ) : (
             <div className="flex h-full items-center justify-center bg-slate-100">
