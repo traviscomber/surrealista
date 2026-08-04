@@ -24,6 +24,11 @@ export interface KmzCollectionRecord {
   rol_numbers?: string[] | null
   metadata?: Record<string, unknown> | null
   placemarks_count?: number | null
+  latitude?: number | string | null
+  longitude?: number | string | null
+  lat?: number | string | null
+  lng?: number | string | null
+  location?: unknown
 }
 
 export interface NormalizedPlacemark {
@@ -44,7 +49,7 @@ export interface NormalizationProposal {
   bounds: { north: number; south: number; east: number; west: number }
   region?: string
   counts: { total: number; points: number; lines: number; polygons: number }
-  source: "kmz_placemarks" | "kmz_collection.coordinates"
+  source: "kmz_placemarks" | "kmz_collection.coordinates" | "record_location"
   hash: string
   validationErrors: string[]
 }
@@ -57,6 +62,55 @@ function asCoordinate(value: unknown): Coordinate | null {
   if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null
   if (lng < -180 || lng > 180 || lat < -90 || lat > 90) return null
   return Number.isFinite(alt) ? [lng, lat, alt] : [lng, lat]
+}
+
+function asLocationPoint(latValue: unknown, lngValue: unknown): Coordinate | null {
+  const lat = Number(latValue)
+  const lng = Number(lngValue)
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null
+  if (lng < -180 || lng > 180 || lat < -90 || lat > 90) return null
+  return [lng, lat]
+}
+
+function readObjectPoint(value: unknown): Coordinate | null {
+  if (!value || typeof value !== "object") return null
+  const item = value as Record<string, unknown>
+  return (
+    asLocationPoint(item.lat ?? item.latitude, item.lng ?? item.lon ?? item.long ?? item.longitude) ||
+    asCoordinate(item.coordinates)
+  )
+}
+
+function getFallbackLocation(record: KmzCollectionRecord): Coordinate | null {
+  const metadata = (record.metadata || {}) as Record<string, unknown>
+  const siiResolution = metadata.sii_point_resolution as Record<string, unknown> | undefined
+  const siiCenter = siiResolution?.center
+
+  const candidates: Array<Coordinate | null> = [
+    asLocationPoint(record.lat ?? record.latitude, record.lng ?? record.longitude),
+    readObjectPoint(record.location),
+    asLocationPoint(metadata.lat ?? metadata.latitude, metadata.lng ?? metadata.lon ?? metadata.longitude),
+    readObjectPoint(metadata.location),
+    readObjectPoint(metadata.center),
+    readObjectPoint(siiCenter),
+  ]
+
+  for (const candidate of candidates) {
+    if (candidate) return candidate
+  }
+
+  if (record.bounds && typeof record.bounds === "object") {
+    const bounds = record.bounds as Record<string, unknown>
+    const north = Number(bounds.north)
+    const south = Number(bounds.south)
+    const east = Number(bounds.east)
+    const west = Number(bounds.west)
+    if ([north, south, east, west].every(Number.isFinite)) {
+      return asLocationPoint((north + south) / 2, (east + west) / 2)
+    }
+  }
+
+  return null
 }
 
 function normalizeCoordinates(value: unknown): Coordinate[] {
@@ -140,10 +194,30 @@ function createPlacemark(
   }
 }
 
+function createLocationPlacemark(record: KmzCollectionRecord, coordinate: Coordinate): NormalizedPlacemark {
+  const coordinates = [coordinate]
+  return {
+    name: `${record.file_name} · Ubicación referencial`,
+    description: record.description || "Ubicación disponible sin geometría detallada recuperada.",
+    coordinates,
+    type: "Point",
+    properties: {
+      rol: record.rol_numbers?.[0] || "",
+      category: record.category || "general",
+      recoveredFrom: "record_location",
+      geometryStatus: "reference_point",
+      isReferenceLocation: true,
+    },
+    center: calculateCenter(coordinates),
+    bounds: calculateBounds(coordinates),
+    region: record.region || undefined,
+  }
+}
+
 export function normalizeKmzRecord(record: KmzCollectionRecord, storedPlacemarks: StoredPlacemark[] = []): NormalizationProposal {
   const validationErrors: string[] = []
   const sourceRows = storedPlacemarks.length > 0 ? storedPlacemarks : (Array.isArray(record.coordinates) ? record.coordinates : [])
-  const placemarks = dedupePlacemarks(
+  let placemarks = dedupePlacemarks(
     sourceRows.flatMap((row, index) => {
       const stored = storedPlacemarks.length > 0 ? (row as StoredPlacemark) : undefined
       const coordinates = normalizeCoordinates(stored ? stored.coordinates : row)
@@ -155,7 +229,19 @@ export function normalizeKmzRecord(record: KmzCollectionRecord, storedPlacemarks
     }),
   )
 
-  if (placemarks.length === 0) validationErrors.push("No existe geometría válida recuperable en la base de datos")
+  let source: NormalizationProposal["source"] = storedPlacemarks.length > 0 ? "kmz_placemarks" : "kmz_collection.coordinates"
+
+  if (placemarks.length === 0) {
+    const fallbackLocation = getFallbackLocation(record)
+    if (fallbackLocation) {
+      placemarks = [createLocationPlacemark(record, fallbackLocation)]
+      source = "record_location"
+      validationErrors.push("Sin geometría detallada; se usa la ubicación referencial disponible")
+    } else {
+      validationErrors.push("No existe geometría válida ni ubicación recuperable en la base de datos")
+    }
+  }
+
   const counts = {
     total: placemarks.length,
     points: placemarks.filter(({ type }) => type === "Point").length,
@@ -168,7 +254,7 @@ export function normalizeKmzRecord(record: KmzCollectionRecord, storedPlacemarks
     bounds: placemarks.length > 0 ? mergeBounds(placemarks) : { north: 0, south: 0, east: 0, west: 0 },
     region: record.region || undefined,
     counts,
-    source: storedPlacemarks.length > 0 ? ("kmz_placemarks" as const) : ("kmz_collection.coordinates" as const),
+    source,
     validationErrors,
   }
   return { ...proposalWithoutHash, hash: createHash("sha256").update(JSON.stringify(proposalWithoutHash)).digest("hex") }
