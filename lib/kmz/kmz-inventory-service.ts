@@ -31,21 +31,24 @@ export interface KmzInventoryRecord {
   completeness_score: number
 }
 
+export interface KmzInventoryRegionSummary {
+  region: string
+  total_kmz: number
+  sii_reference_count: number
+  kmz_center_count: number
+  layer_count: number
+  with_rol_count: number
+  with_owner_count: number
+  missing_rol_count: number
+  center_latitude: number
+  center_longitude: number
+  average_completeness: number
+}
+
 export interface KmzInventoryFilters {
   regions?: string[]
   ids?: string[]
   search?: string
-}
-
-export interface KmzInventoryRegionGroup {
-  region: string
-  records: KmzInventoryRecord[]
-  total: number
-  withRol: number
-  withOwner: number
-  withSiiCenter: number
-  withKmzCenter: number
-  withLayer: number
 }
 
 export async function loadKmzInventory(
@@ -67,6 +70,19 @@ export async function loadKmzInventory(
   return (data || []) as KmzInventoryRecord[]
 }
 
+export async function loadKmzInventoryRegionSummary(
+  supabase: SupabaseClient,
+): Promise<KmzInventoryRegionSummary[]> {
+  const { data, error } = await supabase
+    .from("kmz_inventory_region_summary")
+    .select("*")
+    .order("total_kmz", { ascending: false })
+    .order("region", { ascending: true })
+
+  if (error) throw error
+  return (data || []) as KmzInventoryRegionSummary[]
+}
+
 export function filterInventoryByIds(
   records: KmzInventoryRecord[],
   ids: string[] | null | undefined,
@@ -77,34 +93,23 @@ export function filterInventoryByIds(
   return records.filter((record) => allowed.has(String(record.id)))
 }
 
-export function groupKmzInventoryByRegion(records: KmzInventoryRecord[]): KmzInventoryRegionGroup[] {
-  const groups = new Map<string, KmzInventoryRecord[]>()
+export function groupInventoryByRegion(records: KmzInventoryRecord[]) {
+  const grouped = new Map<string, KmzInventoryRecord[]>()
 
   records.forEach((record) => {
-    const region = record.region?.trim() || "Sin región"
-    const current = groups.get(region) || []
+    const region = record.region || "Sin Región"
+    const current = grouped.get(region) || []
     current.push(record)
-    groups.set(region, current)
+    grouped.set(region, current)
   })
 
-  return Array.from(groups.entries())
-    .map(([region, regionRecords]) => ({
+  return Array.from(grouped.entries())
+    .map(([region, items]) => ({
       region,
-      records: regionRecords.sort((a, b) => a.file_name.localeCompare(b.file_name, "es")),
-      total: regionRecords.length,
-      withRol: regionRecords.filter((record) => record.has_rol).length,
-      withOwner: regionRecords.filter((record) => record.has_owner).length,
-      withSiiCenter: regionRecords.filter((record) => record.geometry_status === "sii_reference").length,
-      withKmzCenter: regionRecords.filter((record) => record.geometry_status === "bounds_reference").length,
-      withLayer: regionRecords.filter((record) =>
-        record.geometry_status === "real_geometry" || record.geometry_status === "real_or_reference",
-      ).length,
+      items: items.sort((a, b) => a.file_name.localeCompare(b.file_name, "es")),
+      summary: summarizeKmzInventory(items),
     }))
-    .sort((a, b) => b.total - a.total || a.region.localeCompare(b.region, "es"))
-}
-
-export function getInventoryRecordIds(records: KmzInventoryRecord[]): string[] {
-  return records.map((record) => String(record.id))
+    .sort((a, b) => b.items.length - a.items.length || a.region.localeCompare(b.region, "es"))
 }
 
 export function summarizeKmzInventory(records: KmzInventoryRecord[]) {
@@ -114,13 +119,18 @@ export function summarizeKmzInventory(records: KmzInventoryRecord[]) {
       summary.byGeometry[record.geometry_status] = (summary.byGeometry[record.geometry_status] || 0) + 1
       if (!record.has_rol) summary.withoutRol += 1
       if (!record.has_owner) summary.withoutOwner += 1
+      summary.completenessTotal += Number(record.completeness_score || 0)
       return summary
     },
     {
       total: 0,
       withoutRol: 0,
       withoutOwner: 0,
+      completenessTotal: 0,
       byGeometry: {} as Partial<Record<KmzInventoryGeometryStatus, number>>,
+      get averageCompleteness() {
+        return this.total > 0 ? Math.round((this.completenessTotal / this.total) * 10) / 10 : 0
+      },
     },
   )
 }
