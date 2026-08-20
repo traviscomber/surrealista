@@ -173,20 +173,41 @@ export async function GET(request: NextRequest) {
       { found: 0, inserted: 0, updated: 0, skipped: 0, errors: 0 }
     )
 
-    console.log(requestId, "[v0] Nightly property scraper cron finished", {
-      durationMs: Date.now() - startedAt,
-      totals,
-      maintenance,
-    })
+    const failedSources = sources
+      .filter((source) => source.errors.length > 0)
+      .map((source) => ({ source: source.source, errors: source.errors }))
+    const maintenanceErrors = Object.entries(maintenance)
+      .filter(([, status]) => status !== "ok")
+      .map(([name, status]) => ({ name, status }))
+    const success = failedSources.length === 0 && maintenanceErrors.length === 0
 
-    return NextResponse.json({
-      success: true,
-      timestamp: new Date().toISOString(),
+    const summary = {
       durationMs: Date.now() - startedAt,
       totals,
       maintenance,
-      sources,
-    })
+      failedSources: failedSources.map((item) => item.source),
+    }
+
+    if (success) {
+      console.log(requestId, "[v0] Nightly property scraper cron finished", summary)
+    } else {
+      console.error(requestId, "[v0] Nightly property scraper cron finished with errors", summary)
+    }
+
+    return NextResponse.json(
+      {
+        success,
+        partial: !success,
+        timestamp: new Date().toISOString(),
+        durationMs: Date.now() - startedAt,
+        totals,
+        maintenance,
+        maintenanceErrors,
+        failedSources,
+        sources,
+      },
+      { status: success ? 200 : 503 }
+    )
   } catch (error) {
     console.error(requestId, "[v0] Nightly property scraper cron failed", error)
     return NextResponse.json(
