@@ -230,22 +230,43 @@ export async function GET(request: NextRequest) {
       { found: 0, inserted: 0, updated: 0, skipped: 0, errors: 0 }
     )
 
-    console.log(requestId, "[v0] Retry failed property scrapers cron finished", {
+    const failedSources = sources
+      .filter((source) => source.errors.length > 0)
+      .map((source) => ({ source: source.source, errors: source.errors }))
+    const maintenanceErrors = Object.entries(maintenance)
+      .filter(([, status]) => status !== "ok")
+      .map(([name, status]) => ({ name, status }))
+    const success = failedSources.length === 0 && maintenanceErrors.length === 0
+
+    const summary = {
       durationMs: Date.now() - startedAt,
       retrySources,
       totals,
       maintenance,
-    })
+      failedSources: failedSources.map((item) => item.source),
+    }
 
-    return NextResponse.json({
-      success: true,
-      timestamp: new Date().toISOString(),
-      durationMs: Date.now() - startedAt,
-      retriedSources: retrySources,
-      totals,
-      maintenance,
-      sources,
-    })
+    if (success) {
+      console.log(requestId, "[v0] Retry failed property scrapers cron finished", summary)
+    } else {
+      console.error(requestId, "[v0] Retry failed property scrapers cron finished with errors", summary)
+    }
+
+    return NextResponse.json(
+      {
+        success,
+        partial: !success,
+        timestamp: new Date().toISOString(),
+        durationMs: Date.now() - startedAt,
+        retriedSources: retrySources,
+        totals,
+        maintenance,
+        maintenanceErrors,
+        failedSources,
+        sources,
+      },
+      { status: success ? 200 : 503 }
+    )
   } catch (error) {
     console.error(requestId, "[v0] Retry failed property scrapers cron failed", error)
     return NextResponse.json(
