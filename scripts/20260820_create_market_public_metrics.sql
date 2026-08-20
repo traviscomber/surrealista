@@ -30,5 +30,8 @@ create index if not exists market_public_metrics_commune_metric_idx
 
 alter table public.market_public_metrics enable row level security;
 
+revoke all on table public.market_public_metrics from anon, authenticated;
+grant select, insert, update, delete on table public.market_public_metrics to service_role;
+
 comment on table public.market_public_metrics is
   'Structured market metrics extracted from publicly accessible market intelligence pages. Writes are server-side via service role.';
