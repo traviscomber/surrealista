@@ -4,8 +4,6 @@
  */
 import { createClient } from '@supabase/supabase-js'
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 export type ScraperSource =
   | 'portal_inmobiliario'
   | 'yapo'
@@ -92,9 +90,6 @@ export interface ScrapeResult {
   durationMs: number
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/** Fetch the current UF value from mindicador.cl */
 let _ufCache: { value: number; fetchedAt: number } | null = null
 
 export async function getUFValue(): Promise<number> {
@@ -113,7 +108,6 @@ export async function getUFValue(): Promise<number> {
   }
 }
 
-/** Parse a Chilean price string into a numeric value + detected currency */
 export function parseChileanPrice(raw: string | number | null | undefined): {
   value: number | null
   currency: 'CLP' | 'UF' | 'USD'
@@ -129,27 +123,22 @@ export function parseChileanPrice(raw: string | number | null | undefined): {
     ? 'USD'
     : 'CLP'
 
-  // Strip currency symbols, dots as thousands separators, keep comma as decimal
   const cleaned = str
     .replace(/uf|usd|us\$|\$|clp/gi, '')
     .replace(/\s/g, '')
-    .replace(/\./g, '')   // dot = thousands
-    .replace(',', '.')    // comma = decimal
+    .replace(/\./g, '')
+    .replace(',', '.')
     .trim()
 
   const value = parseFloat(cleaned)
   return { value: isNaN(value) ? null : value, currency }
 }
 
-/** Parse area strings — supports m², hectáreas (ha), and plain numbers.
- *  "0.5 hectáreas" → 5000 m²  |  "63 has" → 630000 m²  |  "150 m2" → 150 m²
- */
 export function parseArea(raw: string | number | null | undefined): number | null {
   if (raw == null) return null
   const str = String(raw).trim().toLowerCase()
   if (!str || str === '-') return null
 
-  // Hectáreas: "ha", "has", "hectárea", "hectáreas"
   const haMatch = str.match(/^([\d.,]+)\s*(ha|has|hect[aá]rea[s]?)/)
   if (haMatch) {
     const n = parseFloat(haMatch[1].replace(',', '.'))
@@ -161,7 +150,6 @@ export function parseArea(raw: string | number | null | undefined): number | nul
   return isNaN(n) || n <= 0 ? null : n
 }
 
-/** Normalise region names to standard Chilean region strings */
 export function normaliseRegion(raw: string | null | undefined): string | null {
   if (!raw) return null
   const r = raw.trim().toLowerCase()
@@ -171,7 +159,7 @@ export function normaliseRegion(raw: string | null | undefined): string | null {
   if (r.includes('araucanía') || r.includes('araucania')) return 'Región de La Araucanía'
   if (r.includes('los lagos')) return 'Región de Los Lagos'
   if (r.includes('los ríos') || r.includes('los rios')) return 'Región de Los Ríos'
-  if (r.includes('o\'higgins') || r.includes('ohiggins')) return "Región del Libertador General Bernardo O'Higgins"
+  if (r.includes("o'higgins") || r.includes('ohiggins')) return "Región del Libertador General Bernardo O'Higgins"
   if (r.includes('maule')) return 'Región del Maule'
   if (r.includes('ñuble') || r.includes('nuble')) return 'Región de Ñuble'
   if (r.includes('coquimbo')) return 'Región de Coquimbo'
@@ -182,7 +170,6 @@ export function normaliseRegion(raw: string | null | undefined): string | null {
   if (r.includes('aysén') || r.includes('aysen')) return 'Región de Aysén'
   if (r.includes('magallanes')) return 'Región de Magallanes'
   if (r.includes('la araucanía')) return 'Región de La Araucanía'
-  // Localidades del sur que no incluyen el nombre de región
   if (r.includes('chiloé') || r.includes('chiloe') || r.includes('castro') || r.includes('ancud') ||
       r.includes('quellón') || r.includes('quellon') || r.includes('dalcahue') || r.includes('chonchi') ||
       r.includes('quemchi') || r.includes('curaco') || r.includes('quinchao') || r.includes('puqueldón') ||
@@ -196,8 +183,6 @@ export function normaliseRegion(raw: string | null | undefined): string | null {
       r.includes('tierra del fuego') || r.includes('torres del paine')) return 'Región de Magallanes'
   return raw.trim()
 }
-
-// ─── Normalise raw → DB row ────────────────────────────────────────────────────
 
 export async function normaliseProperty(raw: RawProperty): Promise<NormalisedProperty> {
   const ufValue = await getUFValue()
@@ -214,16 +199,14 @@ export async function normaliseProperty(raw: RawProperty): Promise<NormalisedPro
       price_clp = Math.round(priceValue)
       price_uf = parseFloat((priceValue / ufValue).toFixed(2))
     } else if (currency === 'USD') {
-      price_clp = Math.round(priceValue * 950) // approximate
+      price_clp = Math.round(priceValue * 950)
       price_uf = parseFloat((price_clp / ufValue).toFixed(2))
     }
   }
 
   const area_m2 = parseArea(raw.areaRaw)
-  const price_per_m2_clp =
-    price_clp && area_m2 ? Math.round(price_clp / area_m2) : null
-  const price_per_m2_uf =
-    price_uf && area_m2 ? parseFloat((price_uf / area_m2).toFixed(4)) : null
+  const price_per_m2_clp = price_clp && area_m2 ? Math.round(price_clp / area_m2) : null
+  const price_per_m2_uf = price_uf && area_m2 ? parseFloat((price_uf / area_m2).toFixed(4)) : null
 
   return {
     external_id: raw.externalId,
@@ -258,8 +241,6 @@ export async function normaliseProperty(raw: RawProperty): Promise<NormalisedPro
   }
 }
 
-// ─── DB upsert ────────────────────────────────────────────────────────────────
-
 export function getAdminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -277,28 +258,47 @@ export async function upsertProperties(
   let updated = 0
   let skipped = 0
 
-  // A portal can repeat the same listing across categories/pages. PostgreSQL cannot
-  // update the same conflict target twice in one statement, so keep the richest last copy.
   const unique = Array.from(new Map(normalised.map((property) => [property.external_id, property])).values())
 
-  // Batch in chunks of 100
   const CHUNK = 100
   for (let i = 0; i < unique.length; i += CHUNK) {
     const chunk = unique.slice(i, i + CHUNK)
+    const externalIds = chunk.map((property) => property.external_id)
+    const { data: existingRows, error: lookupError } = await supabase
+      .from('properties_external')
+      .select('external_id')
+      .in('external_id', externalIds)
+
+    if (lookupError) {
+      errors.push(`Lookup ${i}-${i + CHUNK}: ${lookupError.message}`)
+      skipped += chunk.length
+      continue
+    }
+
+    const existingIds = new Set((existingRows ?? []).map((row) => row.external_id))
     const { data, error } = await supabase
       .from('properties_external')
       .upsert(chunk, {
-        // external_id is globally namespaced by every scraper (for example `ichiloe-*`).
         onConflict: 'external_id',
         ignoreDuplicates: false,
       })
-      .select('id')
+      .select('external_id')
 
     if (error) {
       errors.push(`Chunk ${i}-${i + CHUNK}: ${error.message}`)
       skipped += chunk.length
-    } else {
-      inserted += data?.length ?? 0
+      continue
+    }
+
+    const persistedIds = new Set((data ?? []).map((row) => row.external_id))
+    for (const property of chunk) {
+      if (!persistedIds.has(property.external_id)) {
+        skipped++
+      } else if (existingIds.has(property.external_id)) {
+        updated++
+      } else {
+        inserted++
+      }
     }
   }
 
