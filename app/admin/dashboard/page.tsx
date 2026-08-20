@@ -49,6 +49,12 @@ function AdminDashboardContent() {
                   Inventario Sur Realista
                 </Link>
               </Button>
+              <Button asChild variant="outline" className="gap-2">
+                <Link href="/admin/inciti-market">
+                  <Globe className="h-4 w-4" />
+                  Mercado Inciti
+                </Link>
+              </Button>
               <Button asChild className="gap-2">
                 <Link href="/propiedades">
                   <Building className="h-4 w-4" />
