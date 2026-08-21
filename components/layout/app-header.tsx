@@ -1,13 +1,14 @@
 "use client"
 
 import Link from "next/link"
-import { Building2, LayoutDashboard, Map, Menu, Plus, Store } from "lucide-react"
+import { BriefcaseBusiness, Building2, LayoutDashboard, Map, Menu, Plus, Store } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 
 const NAV_ITEMS = [
   { href: "/", label: "Explorador de Campos", icon: Map },
   { href: "/nueva-tarea", label: "Nueva búsqueda", icon: Plus },
+  { href: "/admin/operaciones-comerciales", label: "Operaciones", icon: BriefcaseBusiness },
   { href: "/admin/dashboard", label: "Panel de datos", icon: LayoutDashboard },
   { href: "/admin/surealista", label: "Inventario Sur Realista", icon: Store },
   { href: "/admin/propiedades", label: "Gestión de propiedades", icon: Building2 },
