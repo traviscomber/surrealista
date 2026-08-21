@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { BarChart3, Building, Globe, PlusCircle, Store } from "lucide-react"
+import { BarChart3, BriefcaseBusiness, Building, Globe, PlusCircle, Store } from "lucide-react"
 import { AppHeader } from "@/components/layout/app-header"
 import { ScrapersPanel } from "@/components/admin/scrapers-panel"
 import { ScrapedPropertiesDashboard } from "@/components/admin/scraped-properties-dashboard"
@@ -37,6 +37,12 @@ function AdminDashboardContent() {
           outcome="Obtienes una visión única del estado de los datos, puedes revisar propiedades activas y administrar las fuentes que alimentan el sistema."
           actions={
             <>
+              <Button asChild className="gap-2">
+                <Link href="/admin/operaciones-comerciales">
+                  <BriefcaseBusiness className="h-4 w-4" />
+                  Operaciones comerciales
+                </Link>
+              </Button>
               <Button asChild variant="outline" className="gap-2">
                 <Link href="/admin/propiedades/nueva">
                   <PlusCircle className="h-4 w-4" />
@@ -55,7 +61,7 @@ function AdminDashboardContent() {
                   Mercado Inciti
                 </Link>
               </Button>
-              <Button asChild className="gap-2">
+              <Button asChild variant="outline" className="gap-2">
                 <Link href="/propiedades">
                   <Building className="h-4 w-4" />
                   Ver propiedades
