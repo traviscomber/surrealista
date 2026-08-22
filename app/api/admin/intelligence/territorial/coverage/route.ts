@@ -10,10 +10,15 @@ export async function GET(req: NextRequest) {
 
   try {
     const supabase = getAdminClient()
-    const { data, error } = await supabase.rpc('get_internal_kmz_market_coverage')
-    if (error) throw error
+    const [coverageResult, totalResult] = await Promise.all([
+      supabase.rpc('get_internal_kmz_market_coverage'),
+      supabase.from('kmz_collection').select('id', { count: 'exact', head: true }),
+    ])
 
-    const rows = (data || []).map((row: any) => ({
+    if (coverageResult.error) throw coverageResult.error
+    if (totalResult.error) throw totalResult.error
+
+    const rows = (coverageResult.data || []).map((row: any) => ({
       commune: String(row.commune || ''),
       kmzCount: Number(row.kmz_count) || 0,
       incitiMetricCount: Number(row.inciti_metric_count) || 0,
@@ -21,16 +26,21 @@ export async function GET(req: NextRequest) {
       lastIncitiScrape: row.last_inciti_scrape || null,
     }))
 
+    const totalKmz = totalResult.count || 0
     const classifiedKmz = rows.reduce((sum: number, row: any) => sum + row.kmzCount, 0)
     const kmzWithInciti = rows.reduce((sum: number, row: any) => sum + (row.hasIncitiData ? row.kmzCount : 0), 0)
+    const unresolvedKmz = Math.max(totalKmz - classifiedKmz, 0)
 
     return NextResponse.json({
       success: true,
       internalOnly: true,
       summary: {
+        totalKmz,
+        classifiedKmz,
+        unresolvedKmz,
+        classificationPct: totalKmz ? Math.round((classifiedKmz / totalKmz) * 1000) / 10 : 0,
         communes: rows.length,
         communesWithInciti: rows.filter((row: any) => row.hasIncitiData).length,
-        classifiedKmz,
         kmzWithInciti,
         kmzWithoutInciti: classifiedKmz - kmzWithInciti,
         coveragePct: classifiedKmz ? Math.round((kmzWithInciti / classifiedKmz) * 1000) / 10 : 0,
