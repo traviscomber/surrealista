@@ -41,6 +41,7 @@ type CommuneProfile = {
   salesPer100Properties: number | null
   apartmentsSharePct: number | null
   marketDepthScore: number | null
+  kmzCount: number
   coveragePct: number
   scrapedAt: string | null
 }
@@ -63,18 +64,29 @@ export async function GET(req: NextRequest) {
 
   try {
     const supabase = getAdminClient()
-    const { data, error } = await supabase
-      .from('market_public_metrics')
-      .select('commune, region, metric, value, unit, scraped_at, metadata')
-      .eq('source', SOURCE)
-      .in('metric', [...METRICS])
-      .not('commune', 'is', null)
+    const [metricsResult, kmzResult] = await Promise.all([
+      supabase
+        .from('market_public_metrics')
+        .select('commune, region, metric, value, unit, scraped_at, metadata')
+        .eq('source', SOURCE)
+        .in('metric', [...METRICS])
+        .not('commune', 'is', null),
+      supabase.rpc('get_internal_kmz_commune_counts'),
+    ])
 
-    if (error) throw error
+    if (metricsResult.error) throw metricsResult.error
+    if (kmzResult.error) throw kmzResult.error
+
+    const kmzByCommune = new Map<string, number>()
+    for (const row of kmzResult.data || []) {
+      const commune = typeof row.commune === 'string' ? row.commune.trim().toUpperCase() : ''
+      if (!commune) continue
+      kmzByCommune.set(commune, Number(row.kmz_count) || 0)
+    }
 
     const byCommune = new Map<string, { region: string | null; metrics: Partial<Record<MetricName, MetricRow>>; scrapedAt: string | null }>()
 
-    for (const row of (data || []) as MetricRow[]) {
+    for (const row of (metricsResult.data || []) as MetricRow[]) {
       if (!row.commune || !METRICS.includes(row.metric as MetricName)) continue
       const current = byCommune.get(row.commune) || { region: row.region, metrics: {}, scrapedAt: null }
       const metric = row.metric as MetricName
@@ -115,6 +127,7 @@ export async function GET(req: NextRequest) {
         salesPer100Properties: properties && sales != null ? (sales / properties) * 100 : null,
         apartmentsSharePct: housing && apartments != null ? (apartments / housing) * 100 : null,
         marketDepthScore: null,
+        kmzCount: kmzByCommune.get(commune.trim().toUpperCase()) || 0,
         coveragePct: Math.round((present / METRICS.length) * 100),
         scrapedAt: item.scrapedAt,
       }
@@ -147,12 +160,13 @@ export async function GET(req: NextRequest) {
       generatedAt: new Date().toISOString(),
       formula: {
         label: 'Market Depth Score',
-        note: 'Índice interno de profundidad de mercado; no es una tasación ni recomendación de inversión.',
+        note: 'Índice interno de profundidad de mercado; no es una tasación ni recomendación de inversión. El inventario KMZ se muestra separado y no altera el score.',
         weights,
       },
       coverage: {
         communes: profiles.length,
         metrics: METRICS,
+        kmzMatched: profiles.reduce((sum, profile) => sum + profile.kmzCount, 0),
       },
       profiles,
     })
