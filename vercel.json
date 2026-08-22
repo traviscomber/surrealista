@@ -16,7 +16,7 @@
     { "path": "/api/cron/retry-failed-property-scrapers", "schedule": "30 9 * * *" },
     { "path": "/api/cron/inciti-public-market", "schedule": "15 11 * * *" },
     { "path": "/api/cron/inciti-data-hub", "schedule": "45 11 * * *" },
-    { "path": "/api/cron/resolve-kmz-communes", "schedule": "15 12 * * *" },
+    { "path": "/api/cron/resolve-kmz-communes", "schedule": "* * * * *" },
     { "path": "/api/cron/verify-kmz-sii", "schedule": "45 12 * * *" }
   ]
 }
