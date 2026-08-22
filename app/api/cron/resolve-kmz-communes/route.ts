@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveUnresolvedKmzCommunes } from '@/lib/kmz/unresolved-commune-resolver'
+import { verifyPendingSiiTerritorialResolutions } from '@/lib/kmz/sii-verification-worker'
 import { getAdminClient } from '@/lib/scrapers/base-scraper'
 
 export const maxDuration = 300
@@ -23,7 +24,12 @@ export async function GET(req: NextRequest) {
 
     const claimed = claimedRows?.[0]
     if (!claimed) {
-      return NextResponse.json({ success: true, skipped: true, reason: 'No pending one-shot job' })
+      const siiResult = await verifyPendingSiiTerritorialResolutions({ limit: 6, persist: true })
+      return NextResponse.json({
+        success: siiResult.errored === 0,
+        skippedCommuneBatch: true,
+        roleDiscovery: siiResult,
+      })
     }
 
     const requestedLimit = Number(claimed.payload?.limit) || 20
