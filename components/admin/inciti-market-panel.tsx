@@ -11,6 +11,14 @@ import { Input } from "@/components/ui/input"
 
 const DEFAULT_ARTICLE = "https://www.inciti.com/cl/prensa/2026-03-30-elmercurio-iva-vivienda-entrega-inmediata"
 
+type MetricMetadata = {
+  parserVersion?: string | number
+  canonicalMetric?: string
+  extractor?: string
+  operation?: string | null
+  propertyType?: string | null
+}
+
 type MetricRow = {
   id?: string
   article_url: string
@@ -24,6 +32,7 @@ type MetricRow = {
   value: number | null
   unit: string | null
   raw_label: string | null
+  metadata?: MetricMetadata
   scraped_at: string
 }
 
@@ -46,6 +55,7 @@ export function IncitiMarketPanel() {
   const [articleUrl, setArticleUrl] = useState(DEFAULT_ARTICLE)
   const [storedRows, setStoredRows] = useState<MetricRow[]>([])
   const [previewRows, setPreviewRows] = useState<MetricRow[]>([])
+  const [versions, setVersions] = useState<Record<string, number>>({})
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
@@ -72,6 +82,7 @@ export function IncitiMarketPanel() {
       const data = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`)
       setStoredRows(data.rows || [])
+      setVersions(data.versions || {})
       setTotal(data.total || 0)
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo cargar la data guardada")
@@ -123,7 +134,7 @@ export function IncitiMarketPanel() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-3 md:grid-cols-[1fr_auto_auto]">
-            <Input value={articleUrl} onChange={(event) => setArticleUrl(event.target.value)} placeholder="URL pública /cl/prensa/..." />
+            <Input value={articleUrl} onChange={(event) => setArticleUrl(event.target.value)} placeholder="URL pública /.../prensa/..." />
             <Button variant="outline" onClick={() => void run(false)} disabled={loading}>
               {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlayCircle className="mr-2 h-4 w-4" />}
               Probar sin guardar
@@ -135,6 +146,9 @@ export function IncitiMarketPanel() {
           </div>
           <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             <Badge variant="outline">{total.toLocaleString("es-CL")} métricas guardadas</Badge>
+            {Object.entries(versions).map(([version, count]) => (
+              <Badge key={version} variant="secondary">v{version}: {count.toLocaleString("es-CL")}</Badge>
+            ))}
             <span>La tabla está cerrada a anon/authenticated y se escribe solo con service role.</span>
             <Button variant="ghost" size="sm" className="h-7" onClick={() => void loadStored()} disabled={refreshing}>
               <RefreshCw className={`mr-1 h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />Actualizar
@@ -152,11 +166,13 @@ export function IncitiMarketPanel() {
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-left text-sm">
+            <table className="w-full min-w-[1100px] text-left text-sm">
               <thead className="border-b text-xs uppercase text-muted-foreground">
                 <tr>
                   <th className="py-2 pr-4">Comuna</th>
-                  <th className="py-2 pr-4">Métrica</th>
+                  <th className="py-2 pr-4">Métrica canónica</th>
+                  <th className="py-2 pr-4">Métrica origen</th>
+                  <th className="py-2 pr-4">Versión</th>
                   <th className="py-2 pr-4">Periodo</th>
                   <th className="py-2 pr-4 text-right">Valor</th>
                   <th className="py-2 pr-4">Unidad</th>
@@ -165,21 +181,27 @@ export function IncitiMarketPanel() {
                 </tr>
               </thead>
               <tbody>
-                {visibleRows.slice(0, 100).map((row, index) => (
-                  <tr key={row.id || `${row.article_url}-${row.metric}-${row.commune}-${row.period}-${index}`} className="border-b last:border-0">
-                    <td className="py-2 pr-4">{row.commune || row.raw_label || "—"}</td>
-                    <td className="py-2 pr-4 font-medium">{row.metric}</td>
-                    <td className="py-2 pr-4">{row.period || "—"}</td>
-                    <td className="py-2 pr-4 text-right tabular-nums">{row.value == null ? "—" : Number(row.value).toLocaleString("es-CL")}</td>
-                    <td className="py-2 pr-4">{row.unit || "—"}</td>
-                    <td className="py-2 pr-4">{row.dataset}</td>
-                    <td className="py-2">
-                      <a href={row.article_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
-                        Inciti <ExternalLink className="h-3 w-3" />
-                      </a>
-                    </td>
-                  </tr>
-                ))}
+                {visibleRows.slice(0, 100).map((row, index) => {
+                  const canonicalMetric = row.metadata?.canonicalMetric || row.metric
+                  const parserVersion = row.metadata?.parserVersion ?? (previewRows.length ? 2 : "—")
+                  return (
+                    <tr key={row.id || `${row.article_url}-${row.metric}-${row.commune}-${row.period}-${index}`} className="border-b last:border-0">
+                      <td className="py-2 pr-4">{row.commune || row.raw_label || "—"}</td>
+                      <td className="py-2 pr-4 font-medium">{canonicalMetric}</td>
+                      <td className="py-2 pr-4 text-muted-foreground">{row.metric}</td>
+                      <td className="py-2 pr-4"><Badge variant="outline">v{String(parserVersion)}</Badge></td>
+                      <td className="py-2 pr-4">{row.period || "—"}</td>
+                      <td className="py-2 pr-4 text-right tabular-nums">{row.value == null ? "—" : Number(row.value).toLocaleString("es-CL")}</td>
+                      <td className="py-2 pr-4">{row.unit || "—"}</td>
+                      <td className="py-2 pr-4">{row.dataset}</td>
+                      <td className="py-2">
+                        <a href={row.article_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
+                          Inciti <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
             {visibleRows.length === 0 && <div className="py-10 text-center text-sm text-muted-foreground">Todavía no hay métricas para mostrar.</div>}
