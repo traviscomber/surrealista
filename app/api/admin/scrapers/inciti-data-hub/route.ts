@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { scrapeIncitiDataHub } from '@/lib/scrapers/inciti-data-hub-scraper'
+import { scrapeIncitiDataHubSouth } from '@/lib/scrapers/inciti-data-hub-south-scraper'
 import { validateScraperAccess } from '@/lib/scrapers/route-auth'
 
 export const maxDuration = 300
@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     const communeCodes = Array.isArray(body.communeCodes)
       ? body.communeCodes.filter((value: unknown): value is string => typeof value === 'string')
       : undefined
-    const result = await scrapeIncitiDataHub({
+    const result = await scrapeIncitiDataHubSouth({
       persist: body.persist === true,
       communeCodes,
     })
