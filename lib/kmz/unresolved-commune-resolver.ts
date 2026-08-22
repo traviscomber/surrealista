@@ -78,15 +78,7 @@ export async function resolveUnresolvedKmzCommunes(options: { limit?: number; pe
   const provider = new SiiMapasPublicProvider()
   const result: UnresolvedCommuneResolutionResult = { attempted: 0, resolved: 0, unresolved: 0, skipped: 0, errors: [], rows: [] }
 
-  const { data, error } = await supabase
-    .from('kmz_collection')
-    .select('id,file_name,region,bounds,metadata')
-    .eq('is_active', true)
-    .is('metadata->sii_point_resolution->record->>comuna', null)
-    .in('region', ['Los Lagos', 'Los Ríos', 'Región de Aysén del General Carlos Ibáñez del Campo'])
-    .order('updated_at', { ascending: true })
-    .limit(limit)
-
+  const { data, error } = await supabase.rpc('get_unresolved_kmz_for_resolution', { p_limit: limit })
   if (error) throw error
 
   for (const row of (data || []) as KmzRow[]) {
