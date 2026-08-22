@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { BarChart3, Building, Globe, PlusCircle, Store } from "lucide-react"
+import { BarChart3, Building, Globe, MapPinned, PlusCircle, Store } from "lucide-react"
 import { AppHeader } from "@/components/layout/app-header"
 import { ScrapersPanel } from "@/components/admin/scrapers-panel"
 import { ScrapedPropertiesDashboard } from "@/components/admin/scraped-properties-dashboard"
@@ -53,6 +53,12 @@ function AdminDashboardContent() {
                 <Link href="/admin/inciti-market">
                   <Globe className="h-4 w-4" />
                   Mercado Inciti
+                </Link>
+              </Button>
+              <Button asChild variant="outline" className="gap-2">
+                <Link href="/admin/inteligencia-territorial">
+                  <MapPinned className="h-4 w-4" />
+                  Inteligencia territorial
                 </Link>
               </Button>
               <Button asChild className="gap-2">
