@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const result = await resolveUnresolvedKmzCommunes({ limit: 20, persist: true })
+    const result = await resolveUnresolvedKmzCommunes({ limit: 8, persist: true })
     return NextResponse.json({ success: result.errors.length === 0, result })
   } catch (error) {
     return NextResponse.json({ success: false, error: (error as Error).message }, { status: 500 })
