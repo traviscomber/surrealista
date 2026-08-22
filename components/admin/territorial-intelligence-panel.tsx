@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Activity, Building2, Database, FileArchive, Loader2, MapPinned, RefreshCw, TrendingUp } from "lucide-react"
+import { Activity, Building2, Database, FileArchive, Loader2, MapPinned, RefreshCw } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -27,15 +27,24 @@ type Profile = {
   scrapedAt: string | null
 }
 
+type KmzRow = {
+  id: string
+  file_name: string
+  region: string | null
+  rol_numbers: string[] | null
+  owner: string | null
+  pic: string | null
+  updated_at: string | null
+  sii_commune: string | null
+  sii_commune_code: string | null
+  sii_destination: string | null
+  sii_total_assessment: number | string | null
+}
+
 type IntelligenceResponse = {
   success: boolean
   generatedAt?: string
-  formula?: {
-    label: string
-    note: string
-    weights: Record<string, number>
-  }
-  coverage?: { communes: number; metrics: string[]; kmzMatched?: number }
+  formula?: { note: string }
   profiles?: Profile[]
   error?: string
 }
@@ -45,6 +54,13 @@ function formatNumber(value: number | null, maximumFractionDigits = 0) {
   return value.toLocaleString("es-CL", { maximumFractionDigits })
 }
 
+function formatMoney(value: number | string | null) {
+  if (value == null) return "—"
+  const parsed = typeof value === "number" ? value : Number(value)
+  if (!Number.isFinite(parsed)) return "—"
+  return `$${parsed.toLocaleString("es-CL", { maximumFractionDigits: 0 })}`
+}
+
 export function TerritorialIntelligencePanel() {
   const supabase = useMemo(() => createClient(), [])
   const [profiles, setProfiles] = useState<Profile[]>([])
@@ -52,6 +68,10 @@ export function TerritorialIntelligencePanel() {
   const [error, setError] = useState<string | null>(null)
   const [generatedAt, setGeneratedAt] = useState<string | null>(null)
   const [formulaNote, setFormulaNote] = useState<string | null>(null)
+  const [selectedCommune, setSelectedCommune] = useState<string | null>(null)
+  const [kmzRows, setKmzRows] = useState<KmzRow[]>([])
+  const [kmzLoading, setKmzLoading] = useState(false)
+  const [kmzError, setKmzError] = useState<string | null>(null)
 
   const getHeaders = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -81,6 +101,27 @@ export function TerritorialIntelligencePanel() {
     }
   }, [getHeaders])
 
+  const loadKmz = useCallback(async (commune: string) => {
+    setSelectedCommune(commune)
+    setKmzLoading(true)
+    setKmzError(null)
+    setKmzRows([])
+    try {
+      const headers = await getHeaders()
+      const response = await fetch(`/api/admin/intelligence/territorial/kmz?commune=${encodeURIComponent(commune)}&limit=100`, {
+        headers,
+        cache: "no-store",
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok || !data.success) throw new Error(data.error || `HTTP ${response.status}`)
+      setKmzRows(data.rows || [])
+    } catch (err) {
+      setKmzError(err instanceof Error ? err.message : "No se pudieron cargar los KMZ")
+    } finally {
+      setKmzLoading(false)
+    }
+  }, [getHeaders])
+
   useEffect(() => { void load() }, [load])
 
   const totals = useMemo(() => ({
@@ -94,70 +135,39 @@ export function TerritorialIntelligencePanel() {
     <div className="space-y-6">
       <Alert>
         <AlertDescription>
-          Uso interno Sur Realista. Este ranking prioriza profundidad de mercado para investigación; los KMZ muestran nuestro footprint interno y no alteran el score.
+          Uso interno Sur Realista. El score mide profundidad de mercado; el footprint KMZ muestra dónde ya tenemos inventario e investigación propia.
         </AlertDescription>
       </Alert>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-medium"><MapPinned className="h-4 w-4" />Comunas con cobertura</CardTitle></CardHeader>
-          <CardContent><div className="text-3xl font-semibold tabular-nums">{formatNumber(totals.communes)}</div></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-medium"><Building2 className="h-4 w-4" />Propiedades observadas</CardTitle></CardHeader>
-          <CardContent><div className="text-3xl font-semibold tabular-nums">{formatNumber(totals.properties)}</div></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-medium"><Activity className="h-4 w-4" />Ventas históricas</CardTitle></CardHeader>
-          <CardContent><div className="text-3xl font-semibold tabular-nums">{formatNumber(totals.sales)}</div></CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-medium"><FileArchive className="h-4 w-4" />KMZ Sur Realista</CardTitle></CardHeader>
-          <CardContent><div className="text-3xl font-semibold tabular-nums">{formatNumber(totals.kmz)}</div></CardContent>
-        </Card>
+        <Card><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-medium"><MapPinned className="h-4 w-4" />Comunas con cobertura</CardTitle></CardHeader><CardContent><div className="text-3xl font-semibold tabular-nums">{formatNumber(totals.communes)}</div></CardContent></Card>
+        <Card><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-medium"><Building2 className="h-4 w-4" />Propiedades observadas</CardTitle></CardHeader><CardContent><div className="text-3xl font-semibold tabular-nums">{formatNumber(totals.properties)}</div></CardContent></Card>
+        <Card><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-medium"><Activity className="h-4 w-4" />Ventas históricas</CardTitle></CardHeader><CardContent><div className="text-3xl font-semibold tabular-nums">{formatNumber(totals.sales)}</div></CardContent></Card>
+        <Card><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-medium"><FileArchive className="h-4 w-4" />KMZ Sur Realista</CardTitle></CardHeader><CardContent><div className="text-3xl font-semibold tabular-nums">{formatNumber(totals.kmz)}</div></CardContent></Card>
       </div>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-4">
           <div>
             <CardTitle className="text-base">Ranking interno de profundidad de mercado</CardTitle>
-            <p className="mt-1 text-sm text-muted-foreground">25% población · 25% propiedades · 30% ventas · 20% proyectos residenciales. KMZ se muestra aparte.</p>
+            <p className="mt-1 text-sm text-muted-foreground">25% población · 25% propiedades · 30% ventas · 20% proyectos residenciales. KMZ se mantiene como señal interna separada.</p>
           </div>
           <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
-            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-            Actualizar
+            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}Actualizar
           </Button>
         </CardHeader>
         <CardContent>
           {error && <Alert variant="destructive" className="mb-4"><AlertDescription>{error}</AlertDescription></Alert>}
           <div className="overflow-x-auto">
             <table className="w-full min-w-[1180px] text-left text-sm">
-              <thead className="border-b text-xs uppercase text-muted-foreground">
-                <tr>
-                  <th className="py-2 pr-4">#</th>
-                  <th className="py-2 pr-4">Comuna</th>
-                  <th className="py-2 pr-4 text-right">Score</th>
-                  <th className="py-2 pr-4 text-right">KMZ SR</th>
-                  <th className="py-2 pr-4 text-right">Población</th>
-                  <th className="py-2 pr-4 text-right">Propiedades</th>
-                  <th className="py-2 pr-4 text-right">Ventas</th>
-                  <th className="py-2 pr-4 text-right">Ventas / 100 prop.</th>
-                  <th className="py-2 pr-4 text-right">Proyectos</th>
-                  <th className="py-2 pr-4 text-right">Ocupación</th>
-                  <th className="py-2 pr-4 text-right">Deptos.</th>
-                  <th className="py-2">Cobertura</th>
-                </tr>
-              </thead>
+              <thead className="border-b text-xs uppercase text-muted-foreground"><tr><th className="py-2 pr-4">#</th><th className="py-2 pr-4">Comuna</th><th className="py-2 pr-4 text-right">Score</th><th className="py-2 pr-4 text-right">KMZ SR</th><th className="py-2 pr-4 text-right">Población</th><th className="py-2 pr-4 text-right">Propiedades</th><th className="py-2 pr-4 text-right">Ventas</th><th className="py-2 pr-4 text-right">Ventas / 100 prop.</th><th className="py-2 pr-4 text-right">Proyectos</th><th className="py-2 pr-4 text-right">Ocupación</th><th className="py-2 pr-4 text-right">Deptos.</th><th className="py-2">Cobertura</th></tr></thead>
               <tbody>
                 {profiles.map((profile, index) => (
                   <tr key={profile.commune} className="border-b last:border-0">
                     <td className="py-3 pr-4 text-muted-foreground">{index + 1}</td>
-                    <td className="py-3 pr-4">
-                      <div className="font-medium">{profile.commune}</div>
-                      <div className="text-xs text-muted-foreground">{profile.region || "—"}</div>
-                    </td>
+                    <td className="py-3 pr-4"><div className="font-medium">{profile.commune}</div><div className="text-xs text-muted-foreground">{profile.region || "—"}</div></td>
                     <td className="py-3 pr-4 text-right"><Badge variant="secondary">{profile.marketDepthScore ?? "—"}</Badge></td>
-                    <td className="py-3 pr-4 text-right tabular-nums font-medium">{formatNumber(profile.kmzCount)}</td>
+                    <td className="py-3 pr-4 text-right"><Button variant="ghost" size="sm" className="h-7 px-2 tabular-nums" disabled={!profile.kmzCount} onClick={() => void loadKmz(profile.commune)}>{formatNumber(profile.kmzCount)}</Button></td>
                     <td className="py-3 pr-4 text-right tabular-nums">{formatNumber(profile.population)}</td>
                     <td className="py-3 pr-4 text-right tabular-nums">{formatNumber(profile.properties)}</td>
                     <td className="py-3 pr-4 text-right tabular-nums">{formatNumber(profile.sales)}</td>
@@ -170,17 +180,31 @@ export function TerritorialIntelligencePanel() {
                 ))}
               </tbody>
             </table>
-            {!loading && profiles.length === 0 && <div className="py-10 text-center text-sm text-muted-foreground">No hay comunas disponibles todavía.</div>}
           </div>
-          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <Database className="h-3.5 w-3.5" />
-            <span>Fuente externa: Inciti Data Hub público · parser v2.</span>
-            <span>Fuente interna: KMZ resueltos por comuna SII.</span>
-            {generatedAt && <span>Generado {new Date(generatedAt).toLocaleString("es-CL")}.</span>}
-            {formulaNote && <span>{formulaNote}</span>}
-          </div>
+          <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted-foreground"><Database className="h-3.5 w-3.5" /><span>Inciti Data Hub público · parser v2.</span><span>KMZ: resolución SII interna.</span>{generatedAt && <span>Generado {new Date(generatedAt).toLocaleString("es-CL")}.</span>}{formulaNote && <span>{formulaNote}</span>}</div>
         </CardContent>
       </Card>
+
+      {selectedCommune && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between gap-4">
+            <div><CardTitle className="text-base">KMZ internos · {selectedCommune}</CardTitle><p className="mt-1 text-sm text-muted-foreground">Vista limitada para investigación: archivo, roles, destino SII, avalúo y contacto disponible.</p></div>
+            <Button variant="ghost" size="sm" onClick={() => { setSelectedCommune(null); setKmzRows([]); setKmzError(null) }}>Cerrar</Button>
+          </CardHeader>
+          <CardContent>
+            {kmzError && <Alert variant="destructive" className="mb-4"><AlertDescription>{kmzError}</AlertDescription></Alert>}
+            {kmzLoading ? <div className="flex items-center justify-center py-10 text-sm text-muted-foreground"><Loader2 className="mr-2 h-4 w-4 animate-spin" />Cargando KMZ…</div> : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[900px] text-left text-sm">
+                  <thead className="border-b text-xs uppercase text-muted-foreground"><tr><th className="py-2 pr-4">Archivo</th><th className="py-2 pr-4">Roles</th><th className="py-2 pr-4">Destino SII</th><th className="py-2 pr-4 text-right">Avalúo SII</th><th className="py-2 pr-4">Propietario</th><th className="py-2">PIC</th></tr></thead>
+                  <tbody>{kmzRows.map((row) => <tr key={row.id} className="border-b last:border-0"><td className="py-3 pr-4 font-medium">{row.file_name}</td><td className="py-3 pr-4">{row.rol_numbers?.slice(0, 3).join(", ") || "—"}</td><td className="py-3 pr-4">{row.sii_destination || "—"}</td><td className="py-3 pr-4 text-right tabular-nums">{formatMoney(row.sii_total_assessment)}</td><td className="py-3 pr-4">{row.owner || "—"}</td><td className="py-3">{row.pic || "—"}</td></tr>)}</tbody>
+                </table>
+                {!kmzRows.length && <div className="py-8 text-center text-sm text-muted-foreground">No hay KMZ activos para esta comuna.</div>}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }
