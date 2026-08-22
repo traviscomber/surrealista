@@ -1,52 +1,22 @@
 {
   "buildCommand": "next build",
   "functions": {
-    "app/api/cron/nightly-property-scrapers/route.ts": {
-      "maxDuration": 300
-    },
-    "app/api/cron/retry-failed-property-scrapers/route.ts": {
-      "maxDuration": 300
-    },
-    "app/api/cron/inciti-public-market/route.ts": {
-      "maxDuration": 300
-    },
-    "app/api/cron/inciti-data-hub/route.ts": {
-      "maxDuration": 300
-    },
-    "app/api/cron/resolve-kmz-communes/route.ts": {
-      "maxDuration": 300
-    },
-    "app/api/admin/kmz/resolve-unresolved-communes/route.ts": {
-      "maxDuration": 300
-    },
-    "app/api/**/*.ts": {
-      "maxDuration": 60
-    }
+    "app/api/cron/nightly-property-scrapers/route.ts": { "maxDuration": 300 },
+    "app/api/cron/retry-failed-property-scrapers/route.ts": { "maxDuration": 300 },
+    "app/api/cron/inciti-public-market/route.ts": { "maxDuration": 300 },
+    "app/api/cron/inciti-data-hub/route.ts": { "maxDuration": 300 },
+    "app/api/cron/resolve-kmz-communes/route.ts": { "maxDuration": 300 },
+    "app/api/cron/verify-kmz-sii/route.ts": { "maxDuration": 300 },
+    "app/api/admin/kmz/resolve-unresolved-communes/route.ts": { "maxDuration": 300 },
+    "app/api/**/*.ts": { "maxDuration": 60 }
   },
   "crons": [
-    {
-      "path": "/api/cron/index-kmz",
-      "schedule": "0 * * * *"
-    },
-    {
-      "path": "/api/cron/nightly-property-scrapers",
-      "schedule": "0 7 * * *"
-    },
-    {
-      "path": "/api/cron/retry-failed-property-scrapers",
-      "schedule": "30 9 * * *"
-    },
-    {
-      "path": "/api/cron/inciti-public-market",
-      "schedule": "15 11 * * *"
-    },
-    {
-      "path": "/api/cron/inciti-data-hub",
-      "schedule": "45 11 * * *"
-    },
-    {
-      "path": "/api/cron/resolve-kmz-communes",
-      "schedule": "15 12 * * *"
-    }
+    { "path": "/api/cron/index-kmz", "schedule": "0 * * * *" },
+    { "path": "/api/cron/nightly-property-scrapers", "schedule": "0 7 * * *" },
+    { "path": "/api/cron/retry-failed-property-scrapers", "schedule": "30 9 * * *" },
+    { "path": "/api/cron/inciti-public-market", "schedule": "15 11 * * *" },
+    { "path": "/api/cron/inciti-data-hub", "schedule": "45 11 * * *" },
+    { "path": "/api/cron/resolve-kmz-communes", "schedule": "15 12 * * *" },
+    { "path": "/api/cron/verify-kmz-sii", "schedule": "45 12 * * *" }
   ]
 }
