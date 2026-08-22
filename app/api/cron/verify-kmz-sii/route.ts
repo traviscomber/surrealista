@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const result = await verifyPendingSiiTerritorialResolutions({ limit: 3, persist: true })
+    const result = await verifyPendingSiiTerritorialResolutions({ limit: 6, persist: true })
     return NextResponse.json({ success: result.errored === 0, result })
   } catch (error) {
     return NextResponse.json({ success: false, error: (error as Error).message }, { status: 500 })
