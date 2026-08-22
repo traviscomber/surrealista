@@ -1,3 +1,4 @@
+import { CHILEAN_REGIONS_DETAILED } from '@/lib/chile-geographic-data'
 import { getAdminClient } from '@/lib/scrapers/base-scraper'
 import { SiiMapasPublicProvider } from '@/lib/sii/sii-mapas-public-client'
 
@@ -28,8 +29,11 @@ const REGION_COMMUNES: Record<string, Array<{ code: string; name: string }>> = {
   ],
 }
 
+const MAX_COMMUNE_CANDIDATES = 5
+
 type Bounds = { north?: number; south?: number; east?: number; west?: number }
 type KmzRow = { id: string; file_name: string; region: string | null; bounds: Bounds | null; metadata: Record<string, unknown> | null }
+type Point = { lat: number; lng: number }
 
 export type UnresolvedCommuneResolutionResult = {
   attempted: number
@@ -52,7 +56,7 @@ function regionKey(region: string | null) {
   return null
 }
 
-function centerFromBounds(bounds: Bounds | null) {
+function centerFromBounds(bounds: Bounds | null): Point | null {
   const north = Number(bounds?.north)
   const south = Number(bounds?.south)
   const east = Number(bounds?.east)
@@ -71,8 +75,41 @@ function spanFromBounds(bounds: Bounds | null) {
   return Math.min(Math.max(natural * 1.5, 0.02), 0.12)
 }
 
+function distanceKm(a: Point, b: Point) {
+  const earthRadiusKm = 6371
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180
+  const lat1 = (a.lat * Math.PI) / 180
+  const lat2 = (b.lat * Math.PI) / 180
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2
+  return 2 * earthRadiusKm * Math.asin(Math.sqrt(h))
+}
+
+const COMMUNE_CAPITALS = CHILEAN_REGIONS_DETAILED.flatMap((region) =>
+  region.provinces.flatMap((province) =>
+    province.comunas.map((commune) => ({
+      name: normalize(commune.name),
+      coordinates: commune.capitalCoords,
+    })),
+  ),
+)
+
+function prioritizeCandidates(candidates: Array<{ code: string; name: string }>, center: Point) {
+  return candidates
+    .map((candidate) => {
+      const capital = COMMUNE_CAPITALS.find((item) => item.name === normalize(candidate.name))
+      return {
+        candidate,
+        distance: capital ? distanceKm(center, capital.coordinates) : Number.POSITIVE_INFINITY,
+      }
+    })
+    .sort((a, b) => a.distance - b.distance)
+    .slice(0, MAX_COMMUNE_CANDIDATES)
+    .map((item) => item.candidate)
+}
+
 export async function resolveUnresolvedKmzCommunes(options: { limit?: number; persist?: boolean } = {}): Promise<UnresolvedCommuneResolutionResult> {
-  const limit = Math.min(Math.max(options.limit || 12, 1), 20)
+  const limit = Math.min(Math.max(options.limit || 8, 1), 12)
   const persist = options.persist === true
   const supabase = getAdminClient()
   const provider = new SiiMapasPublicProvider()
@@ -84,13 +121,14 @@ export async function resolveUnresolvedKmzCommunes(options: { limit?: number; pe
   for (const row of (data || []) as KmzRow[]) {
     const key = regionKey(row.region)
     const center = centerFromBounds(row.bounds)
-    const candidates = key ? REGION_COMMUNES[key] : null
-    if (!center || !candidates?.length) {
+    const regionalCandidates = key ? REGION_COMMUNES[key] : null
+    if (!center || !regionalCandidates?.length) {
       result.skipped++
       result.rows.push({ id: row.id, fileName: row.file_name, status: 'skipped' })
       continue
     }
 
+    const candidates = prioritizeCandidates(regionalCandidates, center)
     result.attempted++
     let resolved = false
     let attemptCount = 0
