@@ -9,7 +9,7 @@ const CURATED_ARTICLES = [
   'https://www.inciti.com/cl/prensa/2026-03-30-elmercurio-iva-vivienda-entrega-inmediata',
   'https://www.inciti.com/cl/prensa/2025-12-06-emol-acceso-vivienda-uf',
   'https://www.inciti.com/cl/prensa/2026-07-10-emol-arrendatarios-rm-subsidio',
-  'https://www.inciti.com/cl/prensa/2026-06-05-elmercurio-oferta-viviendas-4000uf',
+  'https://www.inciti.com/cl/prensa/subsidio-4000uf-oferta',
   'https://www.inciti.com/cl/prensa/2026-05-23-lun-subsidio-4000uf-comunas',
   'https://www.inciti.com/cl/prensa/2026-05-17-lun-cerro-alegre-von-schroeders',
   'https://www.inciti.com/cl/prensa/2025-04-14-elmercurio-departamentos-achican',
