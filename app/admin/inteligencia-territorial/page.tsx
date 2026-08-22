@@ -1,4 +1,5 @@
 import { AppHeader } from "@/components/layout/app-header"
+import { TerritorialCoverageSummary } from "@/components/admin/territorial-coverage-summary"
 import { TerritorialIntelligencePanel } from "@/components/admin/territorial-intelligence-panel"
 import { WorkspaceHeading } from "@/components/ui/workspace-heading"
 
@@ -11,8 +12,9 @@ export default function TerritorialIntelligencePage() {
           eyebrow="Uso interno · Sur Realista"
           title="Inteligencia territorial"
           description="Prioriza comunas para investigación comercial usando señales públicas estructuradas del Data Hub de Inciti y métricas operacionales de Sur Realista."
-          outcome="El equipo puede comparar profundidad de mercado y cobertura antes de abrir una investigación de terreno, KMZ o propietario."
+          outcome="El equipo puede medir la cobertura del inventario completo, comparar profundidad de mercado y bajar desde una comuna a sus KMZ concretos."
         />
+        <TerritorialCoverageSummary />
         <TerritorialIntelligencePanel />
       </main>
     </>
