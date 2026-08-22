@@ -46,7 +46,7 @@
     },
     {
       "path": "/api/cron/resolve-kmz-communes",
-      "schedule": "15 12 * * *"
+      "schedule": "* * * * *"
     }
   ]
 }
