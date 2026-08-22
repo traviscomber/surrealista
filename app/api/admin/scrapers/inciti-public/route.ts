@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
     const [{ data, error }, { count, error: countError }] = await Promise.all([
       supabase
         .from('market_public_metrics')
-        .select('id, source, article_url, article_title, published_at, region, commune, dataset, metric, period, value, unit, raw_label, scraped_at')
+        .select('id, source, article_url, article_title, published_at, region, commune, dataset, metric, period, value, unit, raw_label, metadata, scraped_at')
         .order('published_at', { ascending: false, nullsFirst: false })
         .order('created_at', { ascending: false })
         .limit(limit),
@@ -29,10 +29,19 @@ export async function GET(req: NextRequest) {
     if (error) throw error
     if (countError) throw countError
 
+    const rows = data ?? []
+    const versions = rows.reduce<Record<string, number>>((acc, row) => {
+      const metadata = (row.metadata ?? {}) as Record<string, unknown>
+      const version = String(metadata.parserVersion ?? 'unknown')
+      acc[version] = (acc[version] ?? 0) + 1
+      return acc
+    }, {})
+
     return NextResponse.json({
       success: true,
       total: count ?? 0,
-      rows: data ?? [],
+      versions,
+      rows,
     })
   } catch (error) {
     return NextResponse.json(
