@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
-import { Activity, Building2, Database, Loader2, MapPinned, RefreshCw, TrendingUp } from "lucide-react"
+import { Activity, Building2, Database, FileArchive, Loader2, MapPinned, RefreshCw, TrendingUp } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -22,6 +22,7 @@ type Profile = {
   salesPer100Properties: number | null
   apartmentsSharePct: number | null
   marketDepthScore: number | null
+  kmzCount: number
   coveragePct: number
   scrapedAt: string | null
 }
@@ -34,7 +35,7 @@ type IntelligenceResponse = {
     note: string
     weights: Record<string, number>
   }
-  coverage?: { communes: number; metrics: string[] }
+  coverage?: { communes: number; metrics: string[]; kmzMatched?: number }
   profiles?: Profile[]
   error?: string
 }
@@ -86,14 +87,14 @@ export function TerritorialIntelligencePanel() {
     communes: profiles.length,
     properties: profiles.reduce((sum, item) => sum + (item.properties || 0), 0),
     sales: profiles.reduce((sum, item) => sum + (item.sales || 0), 0),
-    projects: profiles.reduce((sum, item) => sum + (item.residentialProjects || 0), 0),
+    kmz: profiles.reduce((sum, item) => sum + (item.kmzCount || 0), 0),
   }), [profiles])
 
   return (
     <div className="space-y-6">
       <Alert>
         <AlertDescription>
-          Uso interno Sur Realista. Este ranking prioriza profundidad de mercado para investigación; no reemplaza tasación, due diligence ni criterio comercial.
+          Uso interno Sur Realista. Este ranking prioriza profundidad de mercado para investigación; los KMZ muestran nuestro footprint interno y no alteran el score.
         </AlertDescription>
       </Alert>
 
@@ -111,8 +112,8 @@ export function TerritorialIntelligencePanel() {
           <CardContent><div className="text-3xl font-semibold tabular-nums">{formatNumber(totals.sales)}</div></CardContent>
         </Card>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-medium"><TrendingUp className="h-4 w-4" />Proyectos residenciales</CardTitle></CardHeader>
-          <CardContent><div className="text-3xl font-semibold tabular-nums">{formatNumber(totals.projects)}</div></CardContent>
+          <CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-sm font-medium"><FileArchive className="h-4 w-4" />KMZ Sur Realista</CardTitle></CardHeader>
+          <CardContent><div className="text-3xl font-semibold tabular-nums">{formatNumber(totals.kmz)}</div></CardContent>
         </Card>
       </div>
 
@@ -120,7 +121,7 @@ export function TerritorialIntelligencePanel() {
         <CardHeader className="flex flex-row items-center justify-between gap-4">
           <div>
             <CardTitle className="text-base">Ranking interno de profundidad de mercado</CardTitle>
-            <p className="mt-1 text-sm text-muted-foreground">25% población · 25% propiedades · 30% ventas · 20% proyectos residenciales.</p>
+            <p className="mt-1 text-sm text-muted-foreground">25% población · 25% propiedades · 30% ventas · 20% proyectos residenciales. KMZ se muestra aparte.</p>
           </div>
           <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
@@ -130,12 +131,13 @@ export function TerritorialIntelligencePanel() {
         <CardContent>
           {error && <Alert variant="destructive" className="mb-4"><AlertDescription>{error}</AlertDescription></Alert>}
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1100px] text-left text-sm">
+            <table className="w-full min-w-[1180px] text-left text-sm">
               <thead className="border-b text-xs uppercase text-muted-foreground">
                 <tr>
                   <th className="py-2 pr-4">#</th>
                   <th className="py-2 pr-4">Comuna</th>
                   <th className="py-2 pr-4 text-right">Score</th>
+                  <th className="py-2 pr-4 text-right">KMZ SR</th>
                   <th className="py-2 pr-4 text-right">Población</th>
                   <th className="py-2 pr-4 text-right">Propiedades</th>
                   <th className="py-2 pr-4 text-right">Ventas</th>
@@ -155,6 +157,7 @@ export function TerritorialIntelligencePanel() {
                       <div className="text-xs text-muted-foreground">{profile.region || "—"}</div>
                     </td>
                     <td className="py-3 pr-4 text-right"><Badge variant="secondary">{profile.marketDepthScore ?? "—"}</Badge></td>
+                    <td className="py-3 pr-4 text-right tabular-nums font-medium">{formatNumber(profile.kmzCount)}</td>
                     <td className="py-3 pr-4 text-right tabular-nums">{formatNumber(profile.population)}</td>
                     <td className="py-3 pr-4 text-right tabular-nums">{formatNumber(profile.properties)}</td>
                     <td className="py-3 pr-4 text-right tabular-nums">{formatNumber(profile.sales)}</td>
@@ -171,7 +174,8 @@ export function TerritorialIntelligencePanel() {
           </div>
           <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <Database className="h-3.5 w-3.5" />
-            <span>Fuente: Inciti Data Hub público · parser v2.</span>
+            <span>Fuente externa: Inciti Data Hub público · parser v2.</span>
+            <span>Fuente interna: KMZ resueltos por comuna SII.</span>
             {generatedAt && <span>Generado {new Date(generatedAt).toLocaleString("es-CL")}.</span>}
             {formulaNote && <span>{formulaNote}</span>}
           </div>
