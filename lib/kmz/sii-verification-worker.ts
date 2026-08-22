@@ -46,7 +46,18 @@ function pushCoordinates(value: unknown, bucket: Point[]) {
     for (const nested of value) pushCoordinates(nested,bucket)
     return
   }
-  if (typeof value === 'object') for (const nested of Object.values(value as Record<string,unknown>)) pushCoordinates(nested,bucket)
+  if (typeof value === 'object') {
+    const obj=value as Record<string,unknown>
+    const lat=Number(obj.latitude ?? obj.lat)
+    const lng=Number(obj.longitude ?? obj.lng ?? obj.lon)
+    if (Number.isFinite(lat)&&Number.isFinite(lng)&&Math.abs(lat)<=90&&Math.abs(lng)<=180) {
+      bucket.push({lat,lng,label:`coordinate-${bucket.length+1}`,source:'coordinates'})
+    }
+    for (const [key,nested] of Object.entries(obj)) {
+      if (['latitude','lat','longitude','lng','lon'].includes(key)) continue
+      pushCoordinates(nested,bucket)
+    }
+  }
 }
 function dedupe(points: Point[]) {
   const seen=new Set<string>(); return points.filter((p)=>{const k=`${p.lat.toFixed(7)},${p.lng.toFixed(7)}`; if(seen.has(k)) return false; seen.add(k); return true})
