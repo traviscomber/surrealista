@@ -1,6 +1,7 @@
 import { CHILEAN_REGIONS_DETAILED } from '@/lib/chile-geographic-data'
 import { getAdminClient } from '@/lib/scrapers/base-scraper'
 import { SiiMapasPublicProvider } from '@/lib/sii/sii-mapas-public-client'
+import { resolveDpaCommuneByPoint } from '@/lib/territory/subdere-dpa-client'
 
 const REGION_COMMUNES: Record<string, Array<{ code: string; name: string }>> = {
   'los rios': [
@@ -38,10 +39,23 @@ type Point = { lat: number; lng: number }
 export type UnresolvedCommuneResolutionResult = {
   attempted: number
   resolved: number
+  dpaResolved: number
+  siiVerified: number
   unresolved: number
   skipped: number
   errors: string[]
-  rows: Array<{ id: string; fileName: string; status: 'resolved' | 'unresolved' | 'skipped' | 'error'; commune?: string; code?: string; attempts?: number; error?: string }>
+  rows: Array<{
+    id: string
+    fileName: string
+    status: 'resolved' | 'unresolved' | 'skipped' | 'error'
+    commune?: string
+    cutCode?: string
+    siiCode?: string
+    source?: 'subdere-dpa-2023' | 'sii-fallback'
+    siiVerified?: boolean
+    attempts?: number
+    error?: string
+  }>
 }
 
 function normalize(value: string | null | undefined) {
@@ -87,10 +101,7 @@ function distanceKm(a: Point, b: Point) {
 
 const COMMUNE_CAPITALS = CHILEAN_REGIONS_DETAILED.flatMap((region) =>
   region.provinces.flatMap((province) =>
-    province.comunas.map((commune) => ({
-      name: normalize(commune.name),
-      coordinates: commune.capitalCoords,
-    })),
+    province.comunas.map((commune) => ({ name: normalize(commune.name), coordinates: commune.capitalCoords })),
   ),
 )
 
@@ -98,66 +109,134 @@ function prioritizeCandidates(candidates: Array<{ code: string; name: string }>,
   return candidates
     .map((candidate) => {
       const capital = COMMUNE_CAPITALS.find((item) => item.name === normalize(candidate.name))
-      return {
-        candidate,
-        distance: capital ? distanceKm(center, capital.coordinates) : Number.POSITIVE_INFINITY,
-      }
+      return { candidate, distance: capital ? distanceKm(center, capital.coordinates) : Number.POSITIVE_INFINITY }
     })
     .sort((a, b) => a.distance - b.distance)
     .slice(0, MAX_COMMUNE_CANDIDATES)
     .map((item) => item.candidate)
 }
 
+function findSiiCandidateByName(region: string | null, commune: string) {
+  const key = regionKey(region)
+  if (!key) return null
+  return REGION_COMMUNES[key]?.find((candidate) => normalize(candidate.name) === normalize(commune)) || null
+}
+
 export async function resolveUnresolvedKmzCommunes(options: { limit?: number; persist?: boolean } = {}): Promise<UnresolvedCommuneResolutionResult> {
-  const limit = Math.min(Math.max(options.limit || 8, 1), 12)
+  const limit = Math.min(Math.max(options.limit || 20, 1), 50)
   const persist = options.persist === true
   const supabase = getAdminClient()
   const provider = new SiiMapasPublicProvider()
-  const result: UnresolvedCommuneResolutionResult = { attempted: 0, resolved: 0, unresolved: 0, skipped: 0, errors: [], rows: [] }
+  const result: UnresolvedCommuneResolutionResult = {
+    attempted: 0, resolved: 0, dpaResolved: 0, siiVerified: 0, unresolved: 0, skipped: 0, errors: [], rows: [],
+  }
 
   const { data, error } = await supabase.rpc('get_unresolved_kmz_for_resolution', { p_limit: limit })
   if (error) throw error
 
   for (const row of (data || []) as KmzRow[]) {
-    const key = regionKey(row.region)
     const center = centerFromBounds(row.bounds)
-    const regionalCandidates = key ? REGION_COMMUNES[key] : null
-    if (!center || !regionalCandidates?.length) {
+    if (!center) {
       result.skipped++
       result.rows.push({ id: row.id, fileName: row.file_name, status: 'skipped' })
       continue
     }
 
-    const candidates = prioritizeCandidates(regionalCandidates, center)
     result.attempted++
-    let resolved = false
-    let attemptCount = 0
 
-    for (const candidate of candidates) {
-      attemptCount++
-      try {
-        const record = await provider.getByPoint({ comuna: candidate.code, lat: center.lat, lng: center.lng, span: spanFromBounds(row.bounds) })
-        if (!record) continue
+    try {
+      const dpa = await resolveDpaCommuneByPoint(center)
+      if (dpa) {
+        result.dpaResolved++
+        const siiCandidate = findSiiCandidateByName(row.region, dpa.commune)
+        let siiRecord = null
 
-        const actualCode = String(record.comunaCodigo || '')
-        const actualName = normalize(record.comuna)
-        if (actualCode !== candidate.code || (actualName && actualName !== normalize(candidate.name))) continue
+        if (siiCandidate) {
+          siiRecord = await provider.getByPoint({ comuna: siiCandidate.code, lat: center.lat, lng: center.lng, span: spanFromBounds(row.bounds) })
+          if (siiRecord && normalize(siiRecord.comuna) === normalize(dpa.commune)) result.siiVerified++
+          else siiRecord = null
+        }
 
         if (persist) {
-          const metadata = {
+          const metadata: Record<string, unknown> = {
             ...(row.metadata || {}),
-            sii_point_resolution: {
+            territorial_resolution: {
               center,
-              comuna: candidate.code,
-              record,
+              commune: dpa.commune,
+              cutCode: dpa.code,
+              province: dpa.province,
+              region: dpa.region,
+              source: dpa.source,
+              resolved_at: new Date().toISOString(),
+              resolutionMethod: 'dpa-point-intersection',
+              siiVerification: siiRecord
+                ? { verified: true, siiCode: siiCandidate?.code || null, record: siiRecord }
+                : { verified: false, siiCode: siiCandidate?.code || null },
+            },
+          }
+
+          if (siiRecord && siiCandidate) {
+            metadata.sii_point_resolution = {
+              center,
+              comuna: siiCandidate.code,
+              record: siiRecord,
               source: 'SII Mapas getFeatureInfo',
               attempts: [{ ...center, span: spanFromBounds(row.bounds), found: true, label: 'center', source: 'bounds' }],
               sampling: { spans: [spanFromBounds(row.bounds)], total: 1, boundsSamples: 1, coordinateSamples: 0 },
               resolved_at: new Date().toISOString(),
               matchedPoint: { ...center, label: 'center', source: 'bounds' },
-              textAttempts: [],
-              extractedRoles: [],
-              resolutionMethod: 'point-batch',
+              textAttempts: [], extractedRoles: [], resolutionMethod: 'dpa-verified-point',
+            }
+          }
+
+          const { error: updateError } = await supabase.from('kmz_collection').update({ metadata }).eq('id', row.id)
+          if (updateError) throw updateError
+        }
+
+        result.resolved++
+        result.rows.push({
+          id: row.id, fileName: row.file_name, status: 'resolved', commune: dpa.commune, cutCode: dpa.code,
+          siiCode: siiCandidate?.code, source: 'subdere-dpa-2023', siiVerified: Boolean(siiRecord), attempts: siiCandidate ? 2 : 1,
+        })
+        continue
+      }
+
+      const key = regionKey(row.region)
+      const regionalCandidates = key ? REGION_COMMUNES[key] : null
+      if (!regionalCandidates?.length) {
+        result.unresolved++
+        result.rows.push({ id: row.id, fileName: row.file_name, status: 'unresolved', attempts: 1 })
+        continue
+      }
+
+      const candidates = prioritizeCandidates(regionalCandidates, center)
+      let fallbackResolved = false
+      let attemptCount = 1
+
+      for (const candidate of candidates) {
+        attemptCount++
+        const record = await provider.getByPoint({ comuna: candidate.code, lat: center.lat, lng: center.lng, span: spanFromBounds(row.bounds) })
+        if (!record || normalize(record.comuna) !== normalize(candidate.name)) continue
+
+        if (persist) {
+          const metadata = {
+            ...(row.metadata || {}),
+            territorial_resolution: {
+              center,
+              commune: record.comuna || candidate.name,
+              cutCode: null,
+              province: null,
+              region: row.region,
+              source: 'sii-fallback',
+              resolved_at: new Date().toISOString(),
+              resolutionMethod: 'sii-point-fallback',
+            },
+            sii_point_resolution: {
+              center, comuna: candidate.code, record, source: 'SII Mapas getFeatureInfo',
+              attempts: [{ ...center, span: spanFromBounds(row.bounds), found: true, label: 'center', source: 'bounds' }],
+              sampling: { spans: [spanFromBounds(row.bounds)], total: 1, boundsSamples: 1, coordinateSamples: 0 },
+              resolved_at: new Date().toISOString(), matchedPoint: { ...center, label: 'center', source: 'bounds' },
+              textAttempts: [], extractedRoles: [], resolutionMethod: 'point-batch-fallback',
             },
           }
           const { error: updateError } = await supabase.from('kmz_collection').update({ metadata }).eq('id', row.id)
@@ -165,21 +244,20 @@ export async function resolveUnresolvedKmzCommunes(options: { limit?: number; pe
         }
 
         result.resolved++
-        result.rows.push({ id: row.id, fileName: row.file_name, status: 'resolved', commune: record.comuna || candidate.name, code: candidate.code, attempts: attemptCount })
-        resolved = true
-        break
-      } catch (candidateError) {
-        const message = `${row.file_name} / ${candidate.code}: ${(candidateError as Error).message}`
-        result.errors.push(message)
-        result.rows.push({ id: row.id, fileName: row.file_name, status: 'error', attempts: attemptCount, error: message })
-        resolved = true
+        result.siiVerified++
+        result.rows.push({ id: row.id, fileName: row.file_name, status: 'resolved', commune: record.comuna || candidate.name, siiCode: candidate.code, source: 'sii-fallback', siiVerified: true, attempts: attemptCount })
+        fallbackResolved = true
         break
       }
-    }
 
-    if (!resolved) {
-      result.unresolved++
-      result.rows.push({ id: row.id, fileName: row.file_name, status: 'unresolved', attempts: attemptCount })
+      if (!fallbackResolved) {
+        result.unresolved++
+        result.rows.push({ id: row.id, fileName: row.file_name, status: 'unresolved', attempts: attemptCount })
+      }
+    } catch (resolutionError) {
+      const message = `${row.file_name}: ${(resolutionError as Error).message}`
+      result.errors.push(message)
+      result.rows.push({ id: row.id, fileName: row.file_name, status: 'error', error: message })
     }
   }
 
