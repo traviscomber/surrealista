@@ -26,7 +26,14 @@ export type SiiVerificationResult = {
 }
 
 function normalize(value: string | null | undefined) {
-  return (value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase()
+  const normalized = (value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase()
+  return normalized === 'coihaique' ? 'coyhaique' : normalized
+}
+
+function inferredSiiCode(commune: string, explicitCode: unknown) {
+  const explicit = String(explicitCode || '').trim()
+  if (explicit) return explicit
+  return normalize(commune) === 'coyhaique' ? '11401' : ''
 }
 
 function spanFromBounds(bounds: Bounds | null) {
@@ -55,9 +62,24 @@ export async function verifyPendingSiiTerritorialResolutions(options: { limit?: 
     const lat = Number(center.lat)
     const lng = Number(center.lng)
     const commune = String(territorial.commune || '').trim()
-    const siiCode = String(territorial.siiVerification?.siiCode || '').trim()
+    const siiCode = inferredSiiCode(commune, territorial.siiVerification?.siiCode)
 
     if (!Number.isFinite(lat) || !Number.isFinite(lng) || !commune || !siiCode) {
+      if (persist && commune && Number.isFinite(lat) && Number.isFinite(lng)) {
+        const metadata: Record<string, any> = {
+          ...(row.metadata || {}),
+          territorial_resolution: {
+            ...territorial,
+            siiVerification: {
+              ...(territorial.siiVerification || {}),
+              status: 'missing_sii_code',
+              verified: false,
+              checked_at: new Date().toISOString(),
+            },
+          },
+        }
+        await supabase.from('kmz_collection').update({ metadata }).eq('id', row.id)
+      }
       result.rows.push({ id: row.id, fileName: row.file_name, status: 'skipped', commune, siiCode })
       continue
     }
