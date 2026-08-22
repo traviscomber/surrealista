@@ -1,17 +1,20 @@
-export type DpaSource = 'patrimonio-dpa' | 'subpesca-ide' | 'minvu-dpa-2020'
+export type DpaSource = 'subpesca-ide' | 'minvu-dpa-2020' | 'patrimonio-dpa'
 
-const DPA_SOURCES: Array<{ source: DpaSource; url: string }> = [
-  {
-    source: 'patrimonio-dpa',
-    url: 'https://idepat.patrimoniocultural.gob.cl/server/rest/services/Hosted/Mapa_limites/FeatureServer/4/query',
-  },
+const DPA_SOURCES: Array<{ source: DpaSource; url: string; timeoutMs: number }> = [
   {
     source: 'subpesca-ide',
     url: 'https://geoportal.subpesca.cl/server/rest/services/Hosted/COMUNA/FeatureServer/0/query',
+    timeoutMs: 4_000,
   },
   {
     source: 'minvu-dpa-2020',
     url: 'https://geoide.minvu.cl/server/rest/services/Hosted/DS19/FeatureServer/3/query',
+    timeoutMs: 4_000,
+  },
+  {
+    source: 'patrimonio-dpa',
+    url: 'https://idepat.patrimoniocultural.gob.cl/server/rest/services/Hosted/Mapa_limites/FeatureServer/4/query',
+    timeoutMs: 6_000,
   },
 ]
 
@@ -44,7 +47,7 @@ function readAttribute(attributes: ArcGisFeature['attributes'], ...keys: string[
 }
 
 async function querySource(
-  source: { source: DpaSource; url: string },
+  source: { source: DpaSource; url: string; timeoutMs: number },
   point: { lat: number; lng: number },
 ): Promise<DpaCommuneResolution | null> {
   const params = new URLSearchParams({
@@ -53,17 +56,17 @@ async function querySource(
     geometryType: 'esriGeometryPoint',
     inSR: '4326',
     spatialRel: 'esriSpatialRelIntersects',
-    outFields: 'cut_com,comuna,provincia,region,CUT_COM,COMUNA,PROVINCIA,REGION',
+    outFields: '*',
     returnGeometry: 'false',
   })
 
   const response = await fetch(`${source.url}?${params.toString()}`, {
     headers: {
       Accept: 'application/json',
-      'User-Agent': 'SurRealistaTerritorialResolver/1.1 (+https://sur-realista.vercel.app)',
+      'User-Agent': 'SurRealistaTerritorialResolver/1.2 (+https://sur-realista.vercel.app)',
     },
     cache: 'no-store',
-    signal: AbortSignal.timeout(5_000),
+    signal: AbortSignal.timeout(source.timeoutMs),
   })
 
   if (!response.ok) throw new Error(`${source.source}: HTTP ${response.status}`)
