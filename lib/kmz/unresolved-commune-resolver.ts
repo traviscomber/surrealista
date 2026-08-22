@@ -1,83 +1,157 @@
-import { CHILEAN_REGIONS_DETAILED } from '@/lib/chile-geographic-data'
 import { getAdminClient } from '@/lib/scrapers/base-scraper'
-import { SiiMapasPublicProvider } from '@/lib/sii/sii-mapas-public-client'
 import { resolveDpaCommuneByPoint } from '@/lib/territory/subdere-dpa-client'
 
-const REGION_COMMUNES: Record<string, Array<{ code: string; name: string }>> = {
-  'los rios': [
-    { code: '10101', name: 'VALDIVIA' }, { code: '10102', name: 'MARIQUINA' }, { code: '10103', name: 'LANCO' },
-    { code: '10104', name: 'LOS LAGOS' }, { code: '10105', name: 'FUTRONO' }, { code: '10106', name: 'CORRAL' },
-    { code: '10107', name: 'MAFIL' }, { code: '10108', name: 'PANGUIPULLI' }, { code: '10109', name: 'LA UNION' },
-    { code: '10110', name: 'PAILLACO' }, { code: '10111', name: 'RIO BUENO' }, { code: '10112', name: 'LAGO RANCO' },
-  ],
-  'los lagos': [
-    { code: '10201', name: 'OSORNO' }, { code: '10202', name: 'SAN PABLO' }, { code: '10203', name: 'PUERTO OCTAY' },
-    { code: '10204', name: 'PUYEHUE' }, { code: '10205', name: 'RIO NEGRO' }, { code: '10206', name: 'PURRANQUE' },
-    { code: '10207', name: 'SAN JUAN DE LA COSTA' }, { code: '10301', name: 'PUERTO MONTT' }, { code: '10302', name: 'COCHAMO' },
-    { code: '10303', name: 'PUERTO VARAS' }, { code: '10304', name: 'FRESIA' }, { code: '10305', name: 'FRUTILLAR' },
-    { code: '10306', name: 'LLANQUIHUE' }, { code: '10307', name: 'MAULLIN' }, { code: '10308', name: 'LOS MUERMOS' },
-    { code: '10309', name: 'CALBUCO' }, { code: '10401', name: 'CASTRO' }, { code: '10402', name: 'CHONCHI' },
-    { code: '10403', name: 'QUEILEN' }, { code: '10404', name: 'QUELLON' }, { code: '10405', name: 'PUQUELDON' },
-    { code: '10406', name: 'ANCUD' }, { code: '10407', name: 'QUEMCHI' }, { code: '10408', name: 'DALCAHUE' },
-    { code: '10410', name: 'CURACO DE VELEZ' }, { code: '10415', name: 'QUINCHAO' }, { code: '10501', name: 'CHAITEN' },
-    { code: '10502', name: 'HUALAIHUE' }, { code: '10503', name: 'FUTALEUFU' }, { code: '10504', name: 'PALENA' },
-  ],
-  aysen: [
-    { code: '11101', name: 'AYSEN' }, { code: '11102', name: 'CISNES' }, { code: '11104', name: 'GUAITECAS' },
-    { code: '11201', name: 'CHILE CHICO' }, { code: '11203', name: 'RIO IBANEZ' }, { code: '11301', name: 'COCHRANE' },
-    { code: '11302', name: "O'HIGGINS" }, { code: '11303', name: 'TORTEL' }, { code: '11401', name: 'COYHAIQUE' },
-    { code: '11402', name: 'LAGO VERDE' },
-  ],
-}
-
-const MAX_COMMUNE_CANDIDATES = 5
-type Bounds = { north?: number; south?: number; east?: number; west?: number }
-type KmzRow = { id: string; file_name: string; region: string | null; bounds: Bounds | null; metadata: Record<string, unknown> | null }
-type Point = { lat: number; lng: number }
+ type Bounds = { north?: number; south?: number; east?: number; west?: number }
+ type Coordinates = { latitude?: number; longitude?: number; bounds?: Bounds } | null
+ type KmzRow = {
+  id: string
+  file_name: string
+  region: string | null
+  bounds: Bounds | null
+  coordinates: Coordinates
+  metadata: Record<string, unknown> | null
+ }
+ type Point = { lat: number; lng: number }
 
 export type UnresolvedCommuneResolutionResult = {
-  attempted: number; resolved: number; dpaResolved: number; siiVerified: number; unresolved: number; skipped: number; errors: string[]
-  rows: Array<{ id: string; fileName: string; status: 'resolved' | 'unresolved' | 'skipped' | 'error'; commune?: string; cutCode?: string; siiCode?: string; source?: string; siiVerified?: boolean; attempts?: number; error?: string }>
+  attempted: number
+  resolved: number
+  dpaResolved: number
+  siiVerified: number
+  unresolved: number
+  skipped: number
+  errors: string[]
+  rows: Array<{
+    id: string
+    fileName: string
+    status: 'resolved' | 'unresolved' | 'skipped' | 'error'
+    commune?: string
+    cutCode?: string
+    source?: string
+    siiVerified?: boolean
+    attempts?: number
+    error?: string
+  }>
 }
 
-function normalize(value: string | null | undefined) { return (value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase() }
-function regionKey(region: string | null) { const value = normalize(region); if (value.includes('los lagos')) return 'los lagos'; if (value.includes('los rios')) return 'los rios'; if (value.includes('aysen')) return 'aysen'; return null }
-function centerFromBounds(bounds: Bounds | null): Point | null { const north = Number(bounds?.north), south = Number(bounds?.south), east = Number(bounds?.east), west = Number(bounds?.west); if (![north,south,east,west].every(Number.isFinite)) return null; return { lat:(north+south)/2, lng:(east+west)/2 } }
-function spanFromBounds(bounds: Bounds | null) { const north=Number(bounds?.north), south=Number(bounds?.south), east=Number(bounds?.east), west=Number(bounds?.west); if (![north,south,east,west].every(Number.isFinite)) return 0.02; const natural=Math.max(Math.abs(north-south),Math.abs(east-west)); return Math.min(Math.max(natural*1.5,0.02),0.12) }
-function distanceKm(a: Point,b: Point){const r=6371,dLat=((b.lat-a.lat)*Math.PI)/180,dLng=((b.lng-a.lng)*Math.PI)/180,lat1=(a.lat*Math.PI)/180,lat2=(b.lat*Math.PI)/180,h=Math.sin(dLat/2)**2+Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLng/2)**2;return 2*r*Math.asin(Math.sqrt(h))}
-const COMMUNE_CAPITALS=CHILEAN_REGIONS_DETAILED.flatMap((region)=>region.provinces.flatMap((province)=>province.comunas.map((commune)=>({name:normalize(commune.name),coordinates:commune.capitalCoords}))))
-function prioritizeCandidates(candidates:Array<{code:string;name:string}>,center:Point){return candidates.map((candidate)=>{const capital=COMMUNE_CAPITALS.find((item)=>item.name===normalize(candidate.name));return{candidate,distance:capital?distanceKm(center,capital.coordinates):Number.POSITIVE_INFINITY}}).sort((a,b)=>a.distance-b.distance).slice(0,MAX_COMMUNE_CANDIDATES).map((item)=>item.candidate)}
-function findSiiCandidateByName(region:string|null,commune:string){const key=regionKey(region);if(!key)return null;return REGION_COMMUNES[key]?.find((candidate)=>normalize(candidate.name)===normalize(commune))||null}
+function centerFromBounds(bounds: Bounds | null): Point | null {
+  const north = Number(bounds?.north)
+  const south = Number(bounds?.south)
+  const east = Number(bounds?.east)
+  const west = Number(bounds?.west)
+  if (![north, south, east, west].every(Number.isFinite)) return null
+  return { lat: (north + south) / 2, lng: (east + west) / 2 }
+}
 
-export async function resolveUnresolvedKmzCommunes(options:{limit?:number;persist?:boolean}={}):Promise<UnresolvedCommuneResolutionResult>{
-  const limit=Math.min(Math.max(options.limit||20,1),50),persist=options.persist===true,supabase=getAdminClient(),provider=new SiiMapasPublicProvider()
-  const result:UnresolvedCommuneResolutionResult={attempted:0,resolved:0,dpaResolved:0,siiVerified:0,unresolved:0,skipped:0,errors:[],rows:[]}
-  const {data,error}=await supabase.rpc('get_unresolved_kmz_for_resolution',{p_limit:limit});if(error)throw error
-  for(const row of (data||[]) as KmzRow[]){
-    const center=centerFromBounds(row.bounds);if(!center){result.skipped++;result.rows.push({id:row.id,fileName:row.file_name,status:'skipped'});continue}
-    result.attempted++
-    try{
-      const dpa=await resolveDpaCommuneByPoint(center)
-      if(dpa){
-        result.dpaResolved++
-        const siiCandidate=findSiiCandidateByName(row.region,dpa.commune)
-        if(persist){
-          const metadata:Record<string,unknown>={...(row.metadata||{}),territorial_resolution:{center,commune:dpa.commune,cutCode:dpa.code,province:dpa.province,region:dpa.region,source:dpa.source,resolved_at:new Date().toISOString(),resolutionMethod:'dpa-point-intersection',siiVerification:{status:'pending',verified:false,siiCode:siiCandidate?.code||null}}}
-          const {error:updateError}=await supabase.from('kmz_collection').update({metadata}).eq('id',row.id);if(updateError)throw updateError
-        }
-        result.resolved++;result.rows.push({id:row.id,fileName:row.file_name,status:'resolved',commune:dpa.commune,cutCode:dpa.code,siiCode:siiCandidate?.code,source:dpa.source,siiVerified:false,attempts:1});continue
-      }
-      const key=regionKey(row.region),regionalCandidates=key?REGION_COMMUNES[key]:null
-      if(!regionalCandidates?.length){result.unresolved++;result.rows.push({id:row.id,fileName:row.file_name,status:'unresolved',attempts:1});continue}
-      const candidates=prioritizeCandidates(regionalCandidates,center);let fallbackResolved=false,attemptCount=1
-      for(const candidate of candidates){
-        attemptCount++;const record=await provider.getByPoint({comuna:candidate.code,lat:center.lat,lng:center.lng,span:spanFromBounds(row.bounds)})
-        if(!record||normalize(record.comuna)!==normalize(candidate.name))continue
-        if(persist){const metadata={...(row.metadata||{}),territorial_resolution:{center,commune:record.comuna||candidate.name,cutCode:null,province:null,region:row.region,source:'sii-fallback',resolved_at:new Date().toISOString(),resolutionMethod:'sii-point-fallback',siiVerification:{status:'verified',verified:true,siiCode:candidate.code,record}},sii_point_resolution:{center,comuna:candidate.code,record,source:'SII Mapas getFeatureInfo',resolved_at:new Date().toISOString(),resolutionMethod:'point-batch-fallback'}};const {error:updateError}=await supabase.from('kmz_collection').update({metadata}).eq('id',row.id);if(updateError)throw updateError}
-        result.resolved++;result.siiVerified++;result.rows.push({id:row.id,fileName:row.file_name,status:'resolved',commune:record.comuna||candidate.name,siiCode:candidate.code,source:'sii-fallback',siiVerified:true,attempts:attemptCount});fallbackResolved=true;break
-      }
-      if(!fallbackResolved){result.unresolved++;result.rows.push({id:row.id,fileName:row.file_name,status:'unresolved',attempts:attemptCount})}
-    }catch(resolutionError){const message=`${row.file_name}: ${(resolutionError as Error).message}`;result.errors.push(message);result.rows.push({id:row.id,fileName:row.file_name,status:'error',error:message})}
+function preferredPoint(row: KmzRow): Point | null {
+  const latitude = Number(row.coordinates?.latitude)
+  const longitude = Number(row.coordinates?.longitude)
+  if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+    return { lat: latitude, lng: longitude }
   }
+  return centerFromBounds(row.bounds)
+}
+
+function mergeMetadata(
+  metadata: Record<string, unknown> | null,
+  patch: Record<string, unknown>,
+): Record<string, unknown> {
+  return { ...(metadata || {}), ...patch }
+}
+
+export async function resolveUnresolvedKmzCommunes(
+  options: { limit?: number; persist?: boolean } = {},
+): Promise<UnresolvedCommuneResolutionResult> {
+  const limit = Math.min(Math.max(options.limit || 20, 1), 50)
+  const persist = options.persist === true
+  const supabase = getAdminClient()
+  const result: UnresolvedCommuneResolutionResult = {
+    attempted: 0,
+    resolved: 0,
+    dpaResolved: 0,
+    siiVerified: 0,
+    unresolved: 0,
+    skipped: 0,
+    errors: [],
+    rows: [],
+  }
+
+  const { data, error } = await supabase.rpc('get_unresolved_kmz_for_resolution', { p_limit: limit })
+  if (error) throw error
+
+  for (const row of (data || []) as KmzRow[]) {
+    const point = preferredPoint(row)
+    if (!point) {
+      result.skipped++
+      result.rows.push({ id: row.id, fileName: row.file_name, status: 'skipped' })
+      continue
+    }
+
+    result.attempted++
+    try {
+      const dpa = await resolveDpaCommuneByPoint(point)
+      if (dpa) {
+        if (persist) {
+          const now = new Date().toISOString()
+          const metadata = mergeMetadata(row.metadata, {
+            territorial_resolution: {
+              center: point,
+              commune: dpa.commune,
+              cutCode: dpa.code,
+              province: dpa.province,
+              region: dpa.region,
+              source: dpa.source,
+              resolved_at: now,
+              resolutionMethod: 'dpa-point-intersection',
+              siiVerification: { status: 'pending', verified: false },
+            },
+            territorial_resolution_attempt: {
+              status: 'resolved',
+              method: 'dpa-point-intersection',
+              point,
+              attempted_at: now,
+            },
+          })
+          const { error: updateError } = await supabase.from('kmz_collection').update({ metadata }).eq('id', row.id)
+          if (updateError) throw updateError
+        }
+
+        result.resolved++
+        result.dpaResolved++
+        result.rows.push({
+          id: row.id,
+          fileName: row.file_name,
+          status: 'resolved',
+          commune: dpa.commune,
+          cutCode: dpa.code,
+          source: dpa.source,
+          siiVerified: false,
+          attempts: 1,
+        })
+        continue
+      }
+
+      if (persist) {
+        const metadata = mergeMetadata(row.metadata, {
+          territorial_resolution_attempt: {
+            status: 'dpa_no_match',
+            method: 'dpa-point-intersection',
+            point,
+            attempted_at: new Date().toISOString(),
+          },
+        })
+        const { error: updateError } = await supabase.from('kmz_collection').update({ metadata }).eq('id', row.id)
+        if (updateError) throw updateError
+      }
+
+      result.unresolved++
+      result.rows.push({ id: row.id, fileName: row.file_name, status: 'unresolved', attempts: 1 })
+    } catch (resolutionError) {
+      const message = `${row.file_name}: ${(resolutionError as Error).message}`
+      result.errors.push(message)
+      result.rows.push({ id: row.id, fileName: row.file_name, status: 'error', error: message })
+    }
+  }
+
   return result
 }
