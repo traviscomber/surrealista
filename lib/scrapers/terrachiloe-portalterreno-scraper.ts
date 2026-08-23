@@ -192,9 +192,11 @@ export async function scrapePortalTerreno(opts: {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
-  const requestedRegions = regions.map((region) => simplify(region
-    .replace(/^region-de-/, '')
-    .replaceAll('-', ' ')))
+    .replace(/^region\s+(?:de\s+la|de\s+los|de\s+las|del|de)\s+/, '')
+    .replace(/^region-de-(?:la-|los-|las-)?/, '')
+    .replaceAll('-', ' ')
+    .trim()
+  const requestedRegions = regions.map(simplify).filter(Boolean)
 
   for (let page = 1; page <= pages; page++) {
     try {
