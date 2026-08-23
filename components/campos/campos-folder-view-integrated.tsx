@@ -13,6 +13,7 @@ import {
   type KmzInventoryRecord,
   type KmzInventoryRegionSummary,
 } from "@/lib/kmz/kmz-inventory-service"
+import { extractKmzGeometry, isRenderableKmzPolygon } from "@/lib/kmz/kmz-geometry-compat"
 import { CAMPOSFolderView } from "@/components/campos/campos-folder-view"
 
 const STATUS_STYLE: Record<string, { label: string; className: string }> = {
@@ -46,36 +47,12 @@ function toPointPlacemark(record: KmzInventoryRecord) {
   }
 }
 
-function normalizeCoordinates(value: unknown): number[][] {
-  if (!Array.isArray(value)) return []
-  const direct = value
-    .filter((item) => Array.isArray(item) && item.length >= 2)
-    .map((item) => [Number(item[0]), Number(item[1])])
-    .filter(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat))
-  if (direct.length > 0) return direct
-  if (value.length === 1) return normalizeCoordinates(value[0])
-  return []
-}
-
-function inferType(coordinates: number[][], declared?: string | null) {
-  if (declared === "Polygon" || declared === "LineString" || declared === "Point") return declared
-  if (coordinates.length <= 1) return "Point"
-  const first = coordinates[0]
-  const last = coordinates[coordinates.length - 1]
-  return coordinates.length >= 4 && first?.[0] === last?.[0] && first?.[1] === last?.[1] ? "Polygon" : "LineString"
-}
-
-function isRenderablePolygon(coordinates: number[][]) {
-  if (coordinates.length < 4) return false
-  const unique = new Set(coordinates.map(([lng, lat]) => `${lng.toFixed(8)}:${lat.toFixed(8)}`))
-  return unique.size >= 3
-}
-
-function centerFromBounds(bounds: any, fallback: { lat: number; lng: number }) {
-  const north = Number(bounds?.north)
-  const south = Number(bounds?.south)
-  const east = Number(bounds?.east)
-  const west = Number(bounds?.west)
+function centerFromBounds(bounds: unknown, fallback: { lat: number; lng: number }) {
+  const value = bounds && typeof bounds === "object" ? bounds as Record<string, unknown> : {}
+  const north = Number(value.north)
+  const south = Number(value.south)
+  const east = Number(value.east)
+  const west = Number(value.west)
   if ([north, south, east, west].every(Number.isFinite)) {
     return { lat: (north + south) / 2, lng: (east + west) / 2 }
   }
@@ -155,21 +132,47 @@ export function CAMPOSFolderViewIntegrated() {
       placemarkResponses.forEach(({ data, error }) => {
         if (error) throw error
         ;(data || []).forEach((placemark: any) => {
-          const coordinates = normalizeCoordinates(placemark.coordinates)
-          if (!isRenderablePolygon(coordinates)) return
-          const key = String(placemark.kmz_id)
-          const current = polygonsByKmz.get(key) || []
-          current.push({
+          const geometries = extractKmzGeometry(placemark.coordinates, {
             name: placemark.name || "Polígono KMZ",
-            type: "Polygon",
-            coordinates,
             description: placemark.description || "",
+            declaredType: placemark.type,
             styleUrl: placemark.style_url || undefined,
-            properties: { ...(placemark.properties || {}), geometryStatus: "real_geometry", isReferenceLocation: false },
-          })
-          polygonsByKmz.set(key, current)
+            properties: placemark.properties || {},
+          }).filter((geometry) => geometry.type === "Polygon" && isRenderableKmzPolygon(geometry.coordinates))
+          if (geometries.length === 0) return
+          const key = String(placemark.kmz_id)
+          polygonsByKmz.set(key, [...(polygonsByKmz.get(key) || []), ...geometries])
         })
       })
+
+      const missingIds = records
+        .filter((record) => (polygonsByKmz.get(String(record.id)) || []).length === 0)
+        .map((record) => record.id)
+
+      if (missingIds.length > 0) {
+        const missingChunks: string[][] = []
+        for (let index = 0; index < missingIds.length; index += 150) missingChunks.push(missingIds.slice(index, index + 150))
+        const legacyResponses = await Promise.all(
+          missingChunks.map((chunk) =>
+            supabase
+              .from("kmz_collection")
+              .select("id,file_name,description,coordinates")
+              .in("id", chunk)
+              .limit(5000),
+          ),
+        )
+
+        legacyResponses.forEach(({ data, error }) => {
+          if (error) throw error
+          ;(data || []).forEach((collection: any) => {
+            const geometries = extractKmzGeometry(collection.coordinates, {
+              name: collection.file_name || "Polígono KMZ histórico",
+              description: collection.description || "",
+            }).filter((geometry) => geometry.type === "Polygon" && isRenderableKmzPolygon(geometry.coordinates))
+            if (geometries.length > 0) polygonsByKmz.set(String(collection.id), geometries)
+          })
+        })
+      }
 
       setKmzFiles(records.map((record) => {
         const polygons = polygonsByKmz.get(String(record.id)) || []
@@ -222,44 +225,32 @@ export function CAMPOSFolderViewIntegrated() {
     setMapCenter({ lat: Number(record.latitude), lng: Number(record.longitude) })
 
     try {
-      const [{ data: collection, error: collectionError }, { data: storedPlacemarks }] = await Promise.all([
+      const [{ data: collection, error: collectionError }, { data: storedPlacemarks, error: placemarkError }] = await Promise.all([
         supabase.from("kmz_collection").select("*").eq("id", record.id).single(),
         supabase.from("kmz_placemarks").select("*").eq("kmz_id", record.id).limit(5000),
       ])
-      if (collectionError || !collection) throw collectionError
+      if (collectionError || !collection) throw collectionError || new Error("KMZ collection record missing")
+      if (placemarkError) console.warn("[CAMPOS] placemark lookup failed; using legacy geometry", placemarkError)
 
-      const placemarks = (storedPlacemarks || []).flatMap((placemark: any) => {
-        const coordinates = normalizeCoordinates(placemark.coordinates)
-        if (coordinates.length === 0) return []
-        const type = inferType(coordinates, placemark.type)
-        if (type === "Polygon" && !isRenderablePolygon(coordinates)) return []
-        return [{
+      const placemarks = (storedPlacemarks || []).flatMap((placemark: any) =>
+        extractKmzGeometry(placemark.coordinates, {
           name: placemark.name || record.file_name,
-          type,
-          coordinates,
           description: placemark.description || collection.description || "",
+          declaredType: placemark.type,
           styleUrl: placemark.style_url || undefined,
-          properties: { ...(placemark.properties || {}), geometryStatus: "real_geometry", isReferenceLocation: false },
-        }]
-      })
+          properties: placemark.properties || {},
+        }),
+      )
 
-      if (placemarks.length === 0 && Array.isArray(collection.coordinates)) {
-        collection.coordinates.forEach((raw: unknown, index: number) => {
-          const coordinates = normalizeCoordinates(raw)
-          if (coordinates.length === 0) return
-          const type = inferType(coordinates)
-          if (type === "Polygon" && !isRenderablePolygon(coordinates)) return
-          placemarks.push({
-            name: `${record.file_name} · Capa ${index + 1}`,
-            type,
-            coordinates,
-            description: collection.description || "",
-            properties: { geometryStatus: "real_geometry", isReferenceLocation: false },
-          })
-        })
+      if (placemarks.length === 0) {
+        placemarks.push(...extractKmzGeometry(collection.coordinates, {
+          name: record.file_name,
+          description: collection.description || "",
+        }))
       }
 
       if (placemarks.length === 0) placemarks.push(toPointPlacemark(record))
+      const hasRealGeometry = placemarks.some((placemark) => placemark.properties?.isReferenceLocation === false)
       setKmzFiles([{
         id: record.id,
         dbId: record.id,
@@ -269,8 +260,8 @@ export function CAMPOSFolderViewIntegrated() {
         metadata: {
           id: record.id,
           region: record.region,
-          geometryStatus: record.geometry_status,
-          geometryLabel: geometryBadge(record).label,
+          geometryStatus: hasRealGeometry ? "real_geometry" : record.geometry_status,
+          geometryLabel: hasRealGeometry ? "Geometría KMZ" : geometryBadge(record).label,
           rolNumbers: record.rol_numbers || [],
         },
       }])
