@@ -12,7 +12,7 @@ export interface CirenNeighbor {
   relation: CirenNeighborRelation
   distanceM: number
   geometry: { type: "Polygon" | "MultiPolygon"; coordinates: unknown }
-  properties: Record<string, unknown>
+  properties: { rol: string | null; comuna: string | null }
 }
 
 const SERVICE = "https://esri.ciren.cl/server/rest/services/IDEMINAGRI/PROPIEDADES_RURALES/MapServer"
@@ -146,7 +146,7 @@ export async function discoverCirenNeighbors(input: {
     const attrs = feature.properties || {}
     const candidateBbox = bboxFromGeometry(feature.geometry)
     if (!candidateBbox) return []
-    const rol = normalizeRol(pick(attrs, ["rol", "rol_sii", "rolpred", "rol_predio", "rolprop"]));
+    const rol = normalizeRol(pick(attrs, ["rol", "rol_sii", "rolpred", "rol_predio", "rolprop"]))
     const comuna = pick(attrs, ["desccomu", "comuna", "nom_comuna", "comuna_nom"])
     const objectId = pick(attrs, ["objectid", "objectid_1", "fid", "id"]) || `${rol || "parcel"}:${candidateBbox.west}:${candidateBbox.south}`
     const gap = bboxGapMeters(targetBbox, candidateBbox)
@@ -158,14 +158,15 @@ export async function discoverCirenNeighbors(input: {
     else if (gap <= 20) relation = "adjacent"
     if (relation === "nearby" && gap > radiusM) return []
 
+    const safeComuna = comuna ? String(comuna) : null
     return [{
       sourceObjectId: String(objectId),
       rol,
-      comuna: comuna ? String(comuna) : null,
+      comuna: safeComuna,
       relation,
       distanceM: Math.round(relation === "same_property" ? 0 : Math.min(gap, centerDistance)),
       geometry: feature.geometry,
-      properties: attrs,
+      properties: { rol, comuna: safeComuna },
     }]
   })
 
