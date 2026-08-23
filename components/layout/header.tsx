@@ -35,7 +35,6 @@ import {
   Brain,
   Tag,
   Settings,
-  Globe,
   HelpCircle,
   FileText,
 } from "lucide-react"
@@ -82,11 +81,10 @@ const operationItems: MenuItem[] = [
     description: "Trabajo operativo y seguimiento diario.",
   },
   {
-    title: "Cotizador IA",
+    title: "Cotizador",
     href: "/cotizador",
     icon: Calculator,
-    description: "Estimación rápida del valor de propiedades.",
-    badge: "IA",
+    description: "Referencia de valor basada en comparables activos.",
   },
   {
     title: "Asistente IA",
@@ -117,12 +115,6 @@ const adminItems: MenuItem[] = [
     description: "Inventario y estado de archivos.",
   },
   {
-    title: "IA Workspace",
-    href: "/admin/ia-workspace",
-    icon: Brain,
-    description: "Herramientas y agentes internos.",
-  },
-  {
     title: "Agentes",
     href: "/admin/agentes",
     icon: Brain,
@@ -133,12 +125,6 @@ const adminItems: MenuItem[] = [
     href: "/admin/tags",
     icon: Tag,
     description: "Clasificación y organización interna.",
-  },
-  {
-    title: "Integraciones",
-    href: "/admin/conexiones-datos",
-    icon: Globe,
-    description: "Conexiones con fuentes y servicios.",
   },
   {
     title: "Configuración",
