@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createClient } from "@supabase/supabase-js"
 import { discoverCirenNeighbors } from "@/lib/kmz/ciren-neighbors"
-import { extractKmzGeometry } from "@/lib/kmz/kmz-geometry-compat"
+import { extractKmzGeometry, isRenderableKmzPolygon } from "@/lib/kmz/kmz-geometry-compat"
 
 export const dynamic = "force-dynamic"
+export const runtime = "nodejs"
+
+function getSupabaseAdmin() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !serviceRoleKey) return null
+  return createClient(url, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } })
+}
 
 function polygonToGeoJson(coordinates: number[][]) {
   return { type: "Polygon" as const, coordinates: [coordinates] }
@@ -15,51 +23,33 @@ export async function GET(request: NextRequest) {
     const radiusM = Number(request.nextUrl.searchParams.get("radiusM") || 1200)
     if (!kmzId) return NextResponse.json({ error: "kmzId is required" }, { status: 400 })
 
-    const supabase = await createClient()
+    const supabase = getSupabaseAdmin()
+    if (!supabase) return NextResponse.json({ error: "Server data connection is not configured" }, { status: 503 })
+
     const [{ data: collection, error: collectionError }, { data: stored, error: placemarkError }] = await Promise.all([
       supabase.from("kmz_collection").select("id,file_name,region,rol_numbers,coordinates").eq("id", kmzId).single(),
-      supabase.from("kmz_placemarks").select("coordinates,type").eq("kmz_id", kmzId).eq("type", "Polygon").limit(100),
+      supabase.from("kmz_placemarks").select("coordinates,type").eq("kmz_id", kmzId).eq("type", "Polygon").limit(250),
     ])
     if (collectionError || !collection) return NextResponse.json({ error: "KMZ not found" }, { status: 404 })
-    if (placemarkError) console.warn("[CIREN neighbors] placemark lookup failed", placemarkError)
+    if (placemarkError) console.warn("[CIREN neighbors] placemark lookup failed", placemarkError.message)
 
     const polygons = (stored || []).flatMap((row: any) =>
       extractKmzGeometry(row.coordinates, { name: collection.file_name, declaredType: row.type })
-        .filter((geometry) => geometry.type === "Polygon"),
+        .filter((geometry) => geometry.type === "Polygon" && isRenderableKmzPolygon(geometry.coordinates)),
     )
     if (!polygons.length) {
       polygons.push(...extractKmzGeometry(collection.coordinates, { name: collection.file_name })
-        .filter((geometry) => geometry.type === "Polygon"))
+        .filter((geometry) => geometry.type === "Polygon" && isRenderableKmzPolygon(geometry.coordinates)))
     }
     if (!polygons.length) return NextResponse.json({ error: "KMZ has no polygon geometry", neighbors: [] }, { status: 422 })
 
+    polygons.sort((a, b) => b.coordinates.length - a.coordinates.length)
     const result = await discoverCirenNeighbors({
       region: collection.region,
       geometry: polygonToGeoJson(polygons[0].coordinates),
       targetRoles: collection.rol_numbers || [],
       radiusM: Number.isFinite(radiusM) ? radiusM : 1200,
     })
-
-    if (result.layerId != null && result.neighbors.length) {
-      const rows = result.neighbors.map((neighbor) => ({
-        kmz_id: kmzId,
-        source_service: result.sourceService,
-        source_layer_id: result.layerId,
-        source_year: result.sourceYear,
-        source_object_id: neighbor.sourceObjectId,
-        rol: neighbor.rol,
-        comuna: neighbor.comuna,
-        relation: neighbor.relation,
-        distance_m: neighbor.distanceM,
-        geometry: neighbor.geometry,
-        properties: neighbor.properties,
-        fetched_at: new Date().toISOString(),
-      }))
-      const { error: cacheError } = await (supabase as any).from("kmz_neighbor_parcels").upsert(rows, {
-        onConflict: "kmz_id,source_service,source_layer_id,source_object_id",
-      })
-      if (cacheError) console.warn("[CIREN neighbors] cache skipped", cacheError.message)
-    }
 
     return NextResponse.json({
       kmzId,
@@ -68,6 +58,8 @@ export async function GET(request: NextRequest) {
       sourceService: result.sourceService,
       sourceYear: result.sourceYear,
       layerId: result.layerId,
+      layerName: result.layerName,
+      catalogMode: result.catalogMode,
       unsupported: result.unsupported,
       counts: {
         total: result.neighbors.length,
