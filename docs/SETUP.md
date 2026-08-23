@@ -13,7 +13,7 @@ This guide will help you set up Sur-Realista for local development.
 
 Create a `.env.local` file in the root directory with the following variables:
 
-\`\`\`env
+```env
 # Supabase Configuration
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
@@ -27,29 +27,32 @@ POSTGRES_URL_NON_POOLING=your_postgres_non_pooling_url
 # AI Configuration
 OPENAI_API_KEY=your_openai_api_key
 
-# External Integrations (Optional)
-SII_API_KEY=your_sii_api_key
-CIREN_API_KEY=your_ciren_api_key
-GOOGLE_DRIVE_API_KEY=your_google_drive_api_key
-\`\`\`
+# Google Drive (Optional)
+# If these variables are absent, Sur-Realista continues operating normally.
+GOOGLE_DRIVE_CLIENT_ID=your_google_oauth_client_id
+GOOGLE_DRIVE_CLIENT_SECRET=your_google_oauth_client_secret
+GOOGLE_DRIVE_ROOT_FOLDER_ID=your_drive_root_folder_id
+```
+
+Google Drive uses OAuth with read-only Drive scope. Credentials must remain server-side and must not be committed to the repository. The integration is available from `/admin/google-drive` only when all three variables above are configured.
 
 ## Installation Steps
 
 1. **Clone the repository**
-   \`\`\`bash
+   ```bash
    git clone <repository-url>
    cd sur-realista
-   \`\`\`
+   ```
 
 2. **Install dependencies**
-   \`\`\`bash
+   ```bash
    npm install
    # or
    yarn install
-   \`\`\`
+   ```
 
 3. **Set up the database**
-   \`\`\`bash
+   ```bash
    # Run the database setup script
    npm run db:setup
    
@@ -57,19 +60,19 @@ GOOGLE_DRIVE_API_KEY=your_google_drive_api_key
    # 1. database/schema/001_initial_setup.sql
    # 2. database/schema/002_ai_features.sql
    # 3. database/schema/003_integrations.sql
-   \`\`\`
+   ```
 
 4. **Seed the database (optional)**
-   \`\`\`bash
+   ```bash
    npm run db:seed
-   \`\`\`
+   ```
 
 5. **Start the development server**
-   \`\`\`bash
+   ```bash
    npm run dev
    # or
    yarn dev
-   \`\`\`
+   ```
 
 6. **Open your browser**
    Navigate to `http://localhost:3000`
@@ -100,7 +103,7 @@ After setup, verify everything is working:
 1. **Database Connection**: Check that tables are created
 2. **Authentication**: Try signing up/in
 3. **AI Features**: Test property analysis (requires OpenAI key)
-4. **External APIs**: Test SII/CIREN integrations (requires API keys)
+4. **Google Drive (optional)**: If configured, open `/admin/google-drive` and complete OAuth. If not configured, the page reports the integration as disabled without affecting the rest of the application.
 
 ## Common Issues
 
