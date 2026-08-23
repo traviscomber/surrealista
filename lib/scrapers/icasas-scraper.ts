@@ -1,6 +1,5 @@
 /**
- * iCasas.com scraper — uses their REST API + HTML fallback.
- * iCasas exposes a JSON feed for property searches.
+ * iCasas.com scraper — uses HTML listing pages.
  */
 import * as cheerio from 'cheerio'
 import type { RawProperty, ScrapeResult } from './base-scraper'
@@ -50,7 +49,14 @@ async function fetchICasasHTML(
   regionSlug: string,
   page: number,
 ): Promise<iCasasProperty[]> {
-  const url = `${BASE}/${operation}/terrenos/${regionSlug}/list${page > 1 ? `?page=${page}` : ''}`
+  // iCasas retired the old Metropolitana slug with HTTP 410. Santiago now uses
+  // /venta/terrenos/santiago and /p_N pagination. Other regional routes still
+  // use the legacy /list pagination form.
+  const isSantiago = regionSlug === 'santiago'
+  const url = isSantiago
+    ? `${BASE}/${operation}/terrenos/santiago${page > 1 ? `/p_${page}` : ''}`
+    : `${BASE}/${operation}/terrenos/${regionSlug}/list${page > 1 ? `?page=${page}` : ''}`
+
   const res = await fetch(url, {
     headers: { ...HEADERS, Accept: 'text/html,application/xhtml+xml' },
     signal: AbortSignal.timeout(30_000),
@@ -119,7 +125,7 @@ function mapToRaw(p: iCasasProperty, operation: 'venta' | 'arriendo'): RawProper
 }
 
 const REGION_SLUGS: Record<string, string> = {
-  'Región Metropolitana': 'metropolitana-de-santiago',
+  'Región Metropolitana': 'santiago',
   'Región de Valparaíso': 'valparaiso-region-v',
   'Región del Biobío': 'bio-bio-region-viii',
   'Región de La Araucanía': 'araucania-region-ix',
