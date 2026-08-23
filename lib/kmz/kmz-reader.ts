@@ -48,7 +48,9 @@ export class KMZReader {
 
     try {
       const zip = new JSZip()
-      const zipContent = await zip.loadAsync(file)
+      // JSZip accepts ArrayBuffer in both browser and Node/Vercel runtimes.
+      // Passing File directly works in browsers but fails with Node's File implementation.
+      const zipContent = await zip.loadAsync(await file.arrayBuffer())
 
       // Buscar archivo KML principal (usualmente doc.kml)
       let kmlFile = zipContent.file("doc.kml")
