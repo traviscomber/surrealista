@@ -299,7 +299,7 @@ export function CAMPOSFolderViewIntegrated() {
     const query = search.trim().toLocaleLowerCase("es")
     if (!query) return records
     return records.filter((record) =>
-      [record.file_name, record.region, record.owner, ...(record.rol_numbers || [])]
+      [record.file_name, record.region, ...(record.rol_numbers || [])]
         .filter(Boolean)
         .some((value) => String(value).toLocaleLowerCase("es").includes(query)),
     )
@@ -411,14 +411,13 @@ export function CAMPOSFolderViewIntegrated() {
                 <p className="sr-meta">KMZ seleccionado</p>
                 <h2 className="mt-1 truncate text-base font-semibold">{selectedRecord.file_name}</h2>
                 <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                  <span>{selectedRecord.region}</span><span aria-hidden="true">·</span>
-                  <span>{selectedRecord.rol_numbers?.[0] ? `ROL ${selectedRecord.rol_numbers[0]}` : "ROL pendiente"}</span><span aria-hidden="true">·</span>
-                  <span>{selectedRecord.owner || "Propietario pendiente"}</span>
+                  <span>{selectedRecord.region}</span>
+                  {selectedRecord.rol_numbers?.[0] ? <><span aria-hidden="true">·</span><span>ROL {selectedRecord.rol_numbers[0]}</span></> : null}
                 </div>
+                <p className="mt-2 text-[11px] text-muted-foreground">Se muestran únicamente datos territoriales documentados y fuentes cartográficas identificables.</p>
               </div>
               <div className="flex flex-wrap justify-end gap-2">
                 <Badge variant="outline" className={geometryBadge(selectedRecord).className}>{geometryBadge(selectedRecord).label}</Badge>
-                <Badge variant="outline">{Math.round(Number(selectedRecord.completeness_score || 0))}% completo</Badge>
                 {selectedLayer ? <Badge variant="outline">{selectedLayer.name}</Badge> : null}
               </div>
             </div>
