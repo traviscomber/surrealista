@@ -133,6 +133,7 @@ export async function scrapeGoPlaceIt(opts?: { pages?: number; perPage?: number;
   const allRaw: RawProperty[] = []
   const errors: string[] = []
   const seen = new Set<string>()
+  let skippedStaleDetails = 0
 
   for (const region of regions) {
     const viewport = REGION_VIEWPORTS[region]
@@ -162,7 +163,9 @@ export async function scrapeGoPlaceIt(opts?: { pages?: number; perPage?: number;
       const detail = await fetchDetail(id)
       await sleep(300)
       if (!detail) {
-        errors.push(`goplaceit/${region}: detalle ${id} sin datos`)
+        // Search feeds can retain IDs for listings that were removed moments earlier.
+        // This is normal source churn, not a scraper failure.
+        skippedStaleDetails += 1
         continue
       }
       const raw = mapDetailToRaw(id, detail, region)
@@ -178,7 +181,7 @@ export async function scrapeGoPlaceIt(opts?: { pages?: number; perPage?: number;
     found: allRaw.length,
     inserted: dbResult.inserted,
     updated: dbResult.updated,
-    skipped: dbResult.skipped,
+    skipped: dbResult.skipped + skippedStaleDetails,
     errors,
     durationMs: Date.now() - start,
   }
