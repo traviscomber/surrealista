@@ -14,14 +14,12 @@ import {
   Settings,
   Database,
   Brain,
-  FileText,
   TrendingUp,
   Shield,
   Globe,
   ChevronDown,
   ChevronRight,
   Plus,
-  Upload,
   Tag,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -54,13 +52,11 @@ const menuItems: MenuItem[] = [
     title: "Usuarios",
     href: "/admin/usuarios",
     icon: Users,
-    badge: "3",
   },
   {
     title: "Mensajes",
     href: "/admin/mensajes",
     icon: MessageSquare,
-    badge: "5",
   },
   {
     title: "Analytics",
@@ -120,22 +116,6 @@ const menuItems: MenuItem[] = [
         title: "Integración CIREN",
         href: "/admin/ciren-integration",
         icon: Database,
-      },
-    ],
-  },
-  {
-    title: "Herramientas",
-    icon: Settings,
-    children: [
-      {
-        title: "Scraper Guide",
-        href: "/admin/scraper-guide",
-        icon: FileText,
-      },
-      {
-        title: "Import Data",
-        href: "/admin/import-data",
-        icon: Upload,
       },
     ],
   },
