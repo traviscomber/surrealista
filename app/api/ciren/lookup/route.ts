@@ -4,6 +4,24 @@ const CIREN_BASE = "https://esri.ciren.cl/server/rest/services/PROPIEDADES_RURAL
 
 const ALLOWED_LAYERS = new Set([1, 14, 15, 16, 17, 19, 20, 21, 22, 23, 24, 25, 26])
 
+// CIREN rural cadastral layers are useful as historical/reference evidence.
+// They must never overwrite current SII or Sur Realista canonical values automatically.
+const LAYER_YEAR: Record<number, number | null> = {
+  1: null,
+  14: null,
+  15: null,
+  16: null,
+  17: null,
+  19: null,
+  20: null,
+  21: null,
+  22: null,
+  23: null,
+  24: 2016,
+  25: null,
+  26: null,
+}
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url)
   const lat = Number(searchParams.get("lat"))
@@ -36,7 +54,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const response = await fetch(url, {
-      headers: { "User-Agent": "SurRealista/1.0 CIREN read-only lookup" },
+      headers: { "User-Agent": "SurRealista/1.0 CIREN historical read-only lookup" },
       cache: "no-store",
       signal: AbortSignal.timeout(10000),
     })
@@ -59,6 +77,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       source: "CIREN",
+      evidenceClass: "historical_reference",
+      authoritativeForCurrentState: false,
+      automaticOverwriteAllowed: false,
+      datasetYear: LAYER_YEAR[layer] ?? null,
       layer,
       query: { lat, lng },
       count: matches.length,
