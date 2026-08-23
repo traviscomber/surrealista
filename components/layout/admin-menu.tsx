@@ -23,9 +23,7 @@ import {
   ChevronRight,
   Plus,
   Upload,
-  Eye,
   Tag,
-  Building2, // Import Building2 icon
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -84,30 +82,6 @@ const menuItems: MenuItem[] = [
         title: "Vincular Tags",
         href: "/admin/tags/vincular",
         icon: Plus,
-      },
-    ],
-  },
-  {
-    title: "Gestión Documentos",
-    icon: FileText,
-    badge: "NEW",
-    children: [
-      {
-        title: "Organización Carpetas",
-        href: "/admin/organizacion-carpetas-demo",
-        icon: FileText,
-        badge: "Demo",
-      },
-      {
-        title: "Google Drive Integration",
-        href: "/admin/google-drive-integration",
-        icon: Database,
-        badge: "Etapa 1",
-      },
-      {
-        title: "Importar desde Drive",
-        href: "/admin/google-drive-importer",
-        icon: Upload,
       },
     ],
   },
@@ -258,7 +232,6 @@ export function AdminMenu() {
 
       <nav className="p-4 space-y-1">{menuItems.map((item) => renderMenuItem(item))}</nav>
 
-      {/* Quick Actions */}
       <div className="p-4 border-t border-gray-200 mt-auto">
         <h3 className="text-sm font-medium text-gray-700 mb-3">Acciones Rápidas</h3>
         <div className="space-y-2">
@@ -277,7 +250,6 @@ export function AdminMenu() {
         </div>
       </div>
 
-      {/* Dropdown Menu */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="sm">
