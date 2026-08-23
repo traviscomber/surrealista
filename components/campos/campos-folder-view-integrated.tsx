@@ -65,6 +65,12 @@ function inferType(coordinates: number[][], declared?: string | null) {
   return coordinates.length >= 4 && first?.[0] === last?.[0] && first?.[1] === last?.[1] ? "Polygon" : "LineString"
 }
 
+function isRenderablePolygon(coordinates: number[][]) {
+  if (coordinates.length < 4) return false
+  const unique = new Set(coordinates.map(([lng, lat]) => `${lng.toFixed(8)}:${lat.toFixed(8)}`))
+  return unique.size >= 3
+}
+
 function centerFromBounds(bounds: any, fallback: { lat: number; lng: number }) {
   const north = Number(bounds?.north)
   const south = Number(bounds?.south)
@@ -130,20 +136,60 @@ export function CAMPOSFolderViewIntegrated() {
     setLoadingMap(true)
     try {
       const records = await ensureRegionRecords(region)
-      setKmzFiles(records.map((record) => ({
-        id: record.id,
-        dbId: record.id,
-        fileName: record.file_name,
-        placemarks: [toPointPlacemark(record)],
-        bounds: record.bounds,
-        metadata: {
+      const ids = records.map((record) => record.id)
+      const chunks: string[][] = []
+      for (let index = 0; index < ids.length; index += 150) chunks.push(ids.slice(index, index + 150))
+
+      const placemarkResponses = await Promise.all(
+        chunks.map((chunk) =>
+          supabase
+            .from("kmz_placemarks")
+            .select("kmz_id,name,description,coordinates,type,style_url,properties")
+            .in("kmz_id", chunk)
+            .eq("type", "Polygon")
+            .limit(5000),
+        ),
+      )
+
+      const polygonsByKmz = new Map<string, any[]>()
+      placemarkResponses.forEach(({ data, error }) => {
+        if (error) throw error
+        ;(data || []).forEach((placemark: any) => {
+          const coordinates = normalizeCoordinates(placemark.coordinates)
+          if (!isRenderablePolygon(coordinates)) return
+          const key = String(placemark.kmz_id)
+          const current = polygonsByKmz.get(key) || []
+          current.push({
+            name: placemark.name || "Polígono KMZ",
+            type: "Polygon",
+            coordinates,
+            description: placemark.description || "",
+            styleUrl: placemark.style_url || undefined,
+            properties: { ...(placemark.properties || {}), geometryStatus: "real_geometry", isReferenceLocation: false },
+          })
+          polygonsByKmz.set(key, current)
+        })
+      })
+
+      setKmzFiles(records.map((record) => {
+        const polygons = polygonsByKmz.get(String(record.id)) || []
+        return {
           id: record.id,
-          region: record.region,
-          geometryStatus: record.geometry_status,
-          geometryLabel: geometryBadge(record).label,
-          rolNumbers: record.rol_numbers || [],
-        },
-      })))
+          dbId: record.id,
+          fileName: record.file_name,
+          placemarks: polygons.length > 0 ? polygons : [toPointPlacemark(record)],
+          bounds: record.bounds,
+          metadata: {
+            id: record.id,
+            region: record.region,
+            geometryStatus: polygons.length > 0 ? "real_geometry" : record.geometry_status,
+            geometryLabel: polygons.length > 0 ? "Polígono KMZ" : geometryBadge(record).label,
+            rolNumbers: record.rol_numbers || [],
+            polygonCount: polygons.length,
+          },
+        }
+      }))
+
       const summary = summaries.find((item) => item.region === region)
       setMapCenter({
         lat: Number(summary?.center_latitude || records[0]?.latitude || -39.8),
@@ -155,7 +201,7 @@ export function CAMPOSFolderViewIntegrated() {
     } finally {
       setLoadingMap(false)
     }
-  }, [ensureRegionRecords, summaries])
+  }, [ensureRegionRecords, summaries, supabase])
 
   const toggleRegion = useCallback(async (region: string) => {
     const isOpen = openRegions.has(region)
@@ -185,9 +231,11 @@ export function CAMPOSFolderViewIntegrated() {
       const placemarks = (storedPlacemarks || []).flatMap((placemark: any) => {
         const coordinates = normalizeCoordinates(placemark.coordinates)
         if (coordinates.length === 0) return []
+        const type = inferType(coordinates, placemark.type)
+        if (type === "Polygon" && !isRenderablePolygon(coordinates)) return []
         return [{
           name: placemark.name || record.file_name,
-          type: inferType(coordinates, placemark.type),
+          type,
           coordinates,
           description: placemark.description || collection.description || "",
           styleUrl: placemark.style_url || undefined,
@@ -199,9 +247,11 @@ export function CAMPOSFolderViewIntegrated() {
         collection.coordinates.forEach((raw: unknown, index: number) => {
           const coordinates = normalizeCoordinates(raw)
           if (coordinates.length === 0) return
+          const type = inferType(coordinates)
+          if (type === "Polygon" && !isRenderablePolygon(coordinates)) return
           placemarks.push({
             name: `${record.file_name} · Capa ${index + 1}`,
-            type: inferType(coordinates),
+            type,
             coordinates,
             description: collection.description || "",
             properties: { geometryStatus: "real_geometry", isReferenceLocation: false },
