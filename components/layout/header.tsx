@@ -37,6 +37,7 @@ import {
   Settings,
   HelpCircle,
   FileText,
+  Cloud,
 } from "lucide-react"
 import { GlobalCommandPalette } from "@/components/search/global-command-palette"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
@@ -113,6 +114,13 @@ const adminItems: MenuItem[] = [
     href: "/admin/kmz-collection",
     icon: Database,
     description: "Inventario y estado de archivos.",
+  },
+  {
+    title: "Google Drive",
+    href: "/admin/google-drive",
+    icon: Cloud,
+    description: "Conexión documental opcional.",
+    badge: "Opcional",
   },
   {
     title: "Agentes",
