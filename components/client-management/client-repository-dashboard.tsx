@@ -2,11 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { BarChart3, ChevronLeft, ChevronRight, Mail, MoreHorizontal, Plus, RefreshCw, Search, Trash2, Upload, Users } from "lucide-react"
+import { ChevronLeft, ChevronRight, Mail, MoreHorizontal, Plus, RefreshCw, Search, Trash2, Upload } from "lucide-react"
 
 import { deleteClient, getClientStatistics, getClientsPaginated } from "@/app/actions/clients"
 import { ClientEmailDialog } from "@/components/email/client-email-dialog"
-import { PipelineKanban } from "@/components/features/pipeline-kanban/pipeline-kanban"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -64,7 +63,6 @@ export function ClientRepositoryDashboard() {
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(0)
   const [totalClients, setTotalClients] = useState(0)
-  const [viewMode, setViewMode] = useState<"table" | "pipeline">("table")
   const [emailClient, setEmailClient] = useState<Client | null>(null)
 
   const load = async () => {
@@ -117,68 +115,90 @@ export function ClientRepositoryDashboard() {
           <p className="mt-2 max-w-2xl text-sm text-muted-foreground">Consulta contactos, estado comercial, presupuesto y actividad reciente desde una vista única.</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={() => setViewMode(viewMode === "table" ? "pipeline" : "table")}>
-            {viewMode === "table" ? <BarChart3 className="h-4 w-4" /> : <Users className="h-4 w-4" />}
-            {viewMode === "table" ? "Pipeline" : "Tabla"}
+          <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            Actualizar
           </Button>
-          <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}><RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />Actualizar</Button>
-          <Button variant="outline" size="sm" onClick={() => router.push("/admin/clientes")}><Upload className="h-4 w-4" />Importar</Button>
-          <Button size="sm" onClick={() => router.push("/admin/clientes/nuevo")}><Plus className="h-4 w-4" />Nuevo cliente</Button>
+          <Button variant="outline" size="sm" onClick={() => router.push("/admin/clientes")}>
+            <Upload className="h-4 w-4" />
+            Importar
+          </Button>
+          <Button size="sm" onClick={() => router.push("/admin/clientes/nuevo")}>
+            <Plus className="h-4 w-4" />
+            Nuevo cliente
+          </Button>
         </div>
       </div>
 
-      {viewMode === "pipeline" ? <PipelineKanban /> : (
-        <>
-          <div className="grid border-y border-border md:grid-cols-4">
-            {[
-              ["Total", totalClients || statistics?.total || 0],
-              ["Calientes", statistics?.byStatus?.hot || 0],
-              ["Seguimiento", (statistics?.byStatus?.warm || 0) + (statistics?.byStatus?.cold || 0)],
-              ["Propiedades gestionadas", managedProperties],
-            ].map(([label, value], index) => (
-              <div key={String(label)} className={`px-4 py-4 ${index > 0 ? "border-t border-border md:border-l md:border-t-0" : ""}`}>
-                <p className="sr-meta">{label}</p>
-                <p className="mt-1 text-2xl font-semibold tracking-tight">{value}</p>
-              </div>
+      <div className="grid border-y border-border md:grid-cols-4">
+        {[
+          ["Total", totalClients || statistics?.total || 0],
+          ["Calientes", statistics?.byStatus?.hot || 0],
+          ["Seguimiento", (statistics?.byStatus?.warm || 0) + (statistics?.byStatus?.cold || 0)],
+          ["Propiedades gestionadas", managedProperties],
+        ].map(([label, value], index) => (
+          <div key={String(label)} className={`px-4 py-4 ${index > 0 ? "border-t border-border md:border-l md:border-t-0" : ""}`}>
+            <p className="sr-meta">{label}</p>
+            <p className="mt-1 text-2xl font-semibold tracking-tight">{value}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex flex-col gap-3 border-b border-border pb-4 xl:flex-row">
+        <div className="relative min-w-0 flex-1">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input className="pl-9" value={searchTerm} onChange={(event) => { setSearchTerm(event.target.value); setCurrentPage(1) }} placeholder="Buscar por nombre, empresa o email…" />
+        </div>
+        <Select value={sortBy} onValueChange={(value: "completeness" | "created_at") => setSortBy(value)}>
+          <SelectTrigger className="w-full xl:w-48"><SelectValue /></SelectTrigger>
+          <SelectContent><SelectItem value="completeness">Más completos</SelectItem><SelectItem value="created_at">Más recientes</SelectItem></SelectContent>
+        </Select>
+        <Select value={statusFilter} onValueChange={(value) => { setStatusFilter(value); setCurrentPage(1) }}>
+          <SelectTrigger className="w-full xl:w-44"><SelectValue placeholder="Estado" /></SelectTrigger>
+          <SelectContent><SelectItem value="all">Todos los estados</SelectItem><SelectItem value="hot">Calientes</SelectItem><SelectItem value="warm">Tibios</SelectItem><SelectItem value="cold">Fríos</SelectItem><SelectItem value="inactive">Inactivos</SelectItem></SelectContent>
+        </Select>
+        <Select value={industryFilter} onValueChange={(value) => { setIndustryFilter(value); setCurrentPage(1) }}>
+          <SelectTrigger className="w-full xl:w-44"><SelectValue placeholder="Industria" /></SelectTrigger>
+          <SelectContent><SelectItem value="all">Todas las industrias</SelectItem><SelectItem value="Inmobiliaria">Inmobiliaria</SelectItem><SelectItem value="Turismo">Turismo</SelectItem><SelectItem value="Forestal">Forestal</SelectItem><SelectItem value="Agricultura">Agricultura</SelectItem></SelectContent>
+        </Select>
+      </div>
+
+      <div className="overflow-hidden border-b border-border">
+        <Table>
+          <TableHeader><TableRow><TableHead>Cliente</TableHead><TableHead>Contacto</TableHead><TableHead>Ubicación</TableHead><TableHead>Estado</TableHead><TableHead>Presupuesto</TableHead><TableHead className="w-12" /></TableRow></TableHeader>
+          <TableBody>
+            {clients.length === 0 ? (
+              <TableRow><TableCell colSpan={6} className="h-40 text-center text-muted-foreground">No hay clientes para los filtros seleccionados.</TableCell></TableRow>
+            ) : clients.map((client) => (
+              <TableRow key={client.id} className="cursor-pointer" onClick={() => router.push(`/admin/clientes/${client.id}`)}>
+                <TableCell><div className="font-medium">{fullName(client)}</div><div className="text-xs text-muted-foreground">{client.company_name || client.industry || "Sin empresa"}</div></TableCell>
+                <TableCell><div className="text-sm">{client.email || "Sin email"}</div><div className="text-xs text-muted-foreground">{client.mobile || client.phone || "Sin teléfono"}</div></TableCell>
+                <TableCell>{[client.city, client.region].filter(Boolean).join(", ") || "Sin ubicación"}</TableCell>
+                <TableCell><Badge variant="outline">{statusLabels[client.status || ""] || "Sin estado"}</Badge></TableCell>
+                <TableCell>{formatCurrency(client.budget_max)}</TableCell>
+                <TableCell onClick={(event) => event.stopPropagation()}>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => router.push(`/admin/clientes/${client.id}`)}>Abrir ficha</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setEmailClient(client)}><Mail className="h-4 w-4" />Enviar correo</DropdownMenuItem>
+                      <DropdownMenuItem className="text-destructive" onClick={() => void handleDelete(client)}><Trash2 className="h-4 w-4" />Eliminar</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
             ))}
-          </div>
+          </TableBody>
+        </Table>
+      </div>
 
-          <div className="flex flex-col gap-3 border-b border-border pb-4 xl:flex-row">
-            <div className="relative min-w-0 flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input className="pl-9" value={searchTerm} onChange={(event) => { setSearchTerm(event.target.value); setCurrentPage(1) }} placeholder="Buscar por nombre, empresa o email…" />
-            </div>
-            <Select value={sortBy} onValueChange={(value: "completeness" | "created_at") => setSortBy(value)}><SelectTrigger className="w-full xl:w-48"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="completeness">Más completos</SelectItem><SelectItem value="created_at">Más recientes</SelectItem></SelectContent></Select>
-            <Select value={statusFilter} onValueChange={(value) => { setStatusFilter(value); setCurrentPage(1) }}><SelectTrigger className="w-full xl:w-44"><SelectValue placeholder="Estado" /></SelectTrigger><SelectContent><SelectItem value="all">Todos los estados</SelectItem><SelectItem value="hot">Calientes</SelectItem><SelectItem value="warm">Tibios</SelectItem><SelectItem value="cold">Fríos</SelectItem><SelectItem value="inactive">Inactivos</SelectItem></SelectContent></Select>
-            <Select value={industryFilter} onValueChange={(value) => { setIndustryFilter(value); setCurrentPage(1) }}><SelectTrigger className="w-full xl:w-44"><SelectValue placeholder="Industria" /></SelectTrigger><SelectContent><SelectItem value="all">Todas las industrias</SelectItem><SelectItem value="Inmobiliaria">Inmobiliaria</SelectItem><SelectItem value="Turismo">Turismo</SelectItem><SelectItem value="Forestal">Forestal</SelectItem><SelectItem value="Agricultura">Agricultura</SelectItem></SelectContent></Select>
-          </div>
-
-          <div className="overflow-hidden border-b border-border">
-            <Table>
-              <TableHeader><TableRow><TableHead>Cliente</TableHead><TableHead>Contacto</TableHead><TableHead>Ubicación</TableHead><TableHead>Estado</TableHead><TableHead>Presupuesto</TableHead><TableHead className="w-12" /></TableRow></TableHeader>
-              <TableBody>
-                {clients.length === 0 ? <TableRow><TableCell colSpan={6} className="h-40 text-center text-muted-foreground">No hay clientes para los filtros seleccionados.</TableCell></TableRow> : clients.map((client) => (
-                  <TableRow key={client.id} className="cursor-pointer" onClick={() => router.push(`/admin/clientes/${client.id}`)}>
-                    <TableCell><div className="font-medium">{fullName(client)}</div><div className="text-xs text-muted-foreground">{client.company_name || client.industry || "Sin empresa"}</div></TableCell>
-                    <TableCell><div className="text-sm">{client.email || "Sin email"}</div><div className="text-xs text-muted-foreground">{client.mobile || client.phone || "Sin teléfono"}</div></TableCell>
-                    <TableCell>{[client.city, client.region].filter(Boolean).join(", ") || "Sin ubicación"}</TableCell>
-                    <TableCell><Badge variant="outline">{statusLabels[client.status || ""] || "Sin estado"}</Badge></TableCell>
-                    <TableCell>{formatCurrency(client.budget_max)}</TableCell>
-                    <TableCell onClick={(event) => event.stopPropagation()}>
-                      <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={() => router.push(`/admin/clientes/${client.id}`)}>Abrir ficha</DropdownMenuItem><DropdownMenuItem onClick={() => setEmailClient(client)}><Mail className="h-4 w-4" />Enviar correo</DropdownMenuItem><DropdownMenuItem className="text-destructive" onClick={() => void handleDelete(client)}><Trash2 className="h-4 w-4" />Eliminar</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <span>Página {currentPage} de {Math.max(totalPages, 1)}</span>
-            <div className="flex gap-2"><Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setCurrentPage((page) => page - 1)}><ChevronLeft className="h-4 w-4" />Anterior</Button><Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => setCurrentPage((page) => page + 1)}>Siguiente<ChevronRight className="h-4 w-4" /></Button></div>
-          </div>
-        </>
-      )}
+      <div className="flex items-center justify-between text-sm text-muted-foreground">
+        <span>Página {currentPage} de {Math.max(totalPages, 1)}</span>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setCurrentPage((page) => page - 1)}><ChevronLeft className="h-4 w-4" />Anterior</Button>
+          <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => setCurrentPage((page) => page + 1)}>Siguiente<ChevronRight className="h-4 w-4" /></Button>
+        </div>
+      </div>
 
       {emailClient ? <ClientEmailDialog open={Boolean(emailClient)} onOpenChange={(open) => !open && setEmailClient(null)} clientName={fullName(emailClient)} clientEmail={emailClient.email || ""} clientId={emailClient.id} /> : null}
     </section>
