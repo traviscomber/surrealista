@@ -37,33 +37,66 @@ export async function GET(req: NextRequest) {
     if (!job) return NextResponse.json({ success: true, skipped: true, reason: 'No pending one-shot job' })
     claimed = true
 
+    const probeOnly = job.payload?.probe_only === true
     const kmzId = String(job.payload?.kmz_id || '')
     const storagePath = String(job.payload?.storage_path || '')
-    if (!kmzId || !storagePath) throw new Error('kmz_id and storage_path are required')
+    if (!storagePath) throw new Error('storage_path is required')
+    if (!probeOnly && !kmzId) throw new Error('kmz_id is required outside probe mode')
 
-    const { data: collection, error: collectionError } = await supabase
-      .from('kmz_collection')
-      .select('id,file_name,region,is_active')
-      .eq('id', kmzId)
-      .single()
-    if (collectionError || !collection) throw collectionError || new Error('KMZ not found')
-    if (!collection.is_active) throw new Error('KMZ is not active')
+    let collection: { id: string; file_name: string; region: string | null; is_active: boolean } | null = null
+    if (!probeOnly) {
+      const { data, error: collectionError } = await supabase
+        .from('kmz_collection')
+        .select('id,file_name,region,is_active')
+        .eq('id', kmzId)
+        .single()
+      if (collectionError || !data) throw collectionError || new Error('KMZ not found')
+      collection = data
+      if (!collection.is_active) throw new Error('KMZ is not active')
 
-    const { count: existingCount, error: countError } = await supabase
-      .from('kmz_placemarks')
-      .select('id', { count: 'exact', head: true })
-      .eq('kmz_id', kmzId)
-    if (countError) throw countError
-    if ((existingCount || 0) > 0) throw new Error(`Safety stop: KMZ already has ${existingCount} placemarks`)
+      const { count: existingCount, error: countError } = await supabase
+        .from('kmz_placemarks')
+        .select('id', { count: 'exact', head: true })
+        .eq('kmz_id', kmzId)
+      if (countError) throw countError
+      if ((existingCount || 0) > 0) throw new Error(`Safety stop: KMZ already has ${existingCount} placemarks`)
+    }
 
     const { data: blob, error: downloadError } = await supabase.storage.from('documents').download(storagePath)
     if (downloadError || !blob) throw downloadError || new Error('Storage download returned no data')
 
-    const fileName = storagePath.split('/').pop() || collection.file_name
+    const fileName = storagePath.split('/').pop() || collection?.file_name || 'storage-recovery.kmz'
     const file = new File([await blob.arrayBuffer()], fileName, { type: blob.type || 'application/vnd.google-earth.kmz' })
     const parsed = await parseKMZFile(file)
     if (parsed.skipped) throw new Error(parsed.skipReason || 'KMZ parser skipped file')
     if (!parsed.placemarks.length) throw new Error('KMZ contains no recoverable placemarks')
+
+    const counts = parsed.placemarks.reduce(
+      (acc, placemark) => {
+        acc.total += 1
+        if (placemark.type === 'Polygon') acc.polygons += 1
+        if (placemark.type === 'LineString') acc.lines += 1
+        if (placemark.type === 'Point') acc.points += 1
+        return acc
+      },
+      { total: 0, polygons: 0, lines: 0, points: 0 },
+    )
+
+    if (probeOnly) {
+      const result = {
+        probeOnly: true,
+        storagePath,
+        fileName,
+        counts,
+        parsedBounds: parsed.bounds || null,
+        sampleNames: parsed.placemarks.slice(0, 10).map((item) => ({ name: item.name, type: item.type })),
+      }
+      await supabase
+        .from('internal_one_shot_jobs')
+        .update({ status: 'done', finished_at: new Date().toISOString(), result, error: null })
+        .eq('job_key', JOB_KEY)
+      return NextResponse.json({ success: true, jobKey: JOB_KEY, result })
+    }
 
     const rows = parsed.placemarks.map((placemark) => {
       const bounds = placemarkBounds(placemark.coordinates)
@@ -84,24 +117,13 @@ export async function GET(req: NextRequest) {
         },
         center_lat: centerLat,
         center_lng: centerLng,
-        region: collection.region || null,
+        region: collection?.region || null,
         bounds,
       }
     })
 
     const { error: insertError } = await supabase.from('kmz_placemarks').insert(rows)
     if (insertError) throw insertError
-
-    const counts = rows.reduce(
-      (acc, row) => {
-        acc.total += 1
-        if (row.type === 'Polygon') acc.polygons += 1
-        if (row.type === 'LineString') acc.lines += 1
-        if (row.type === 'Point') acc.points += 1
-        return acc
-      },
-      { total: 0, polygons: 0, lines: 0, points: 0 },
-    )
 
     await supabase.from('kmz_enrichment_evidence').insert({
       kmz_id: kmzId,
