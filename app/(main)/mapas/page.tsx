@@ -1,5 +1,5 @@
-import { InteractiveMap } from "@/components/maps/interactive-map"
+import { redirect } from "next/navigation"
 
 export default function MapsPage() {
-  return <InteractiveMap />
+  redirect("/kmz-map")
 }
