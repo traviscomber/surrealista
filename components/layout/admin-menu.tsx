@@ -18,7 +18,6 @@ import {
   TrendingUp,
   Shield,
   Globe,
-  Zap,
   ChevronDown,
   ChevronRight,
   Plus,
@@ -118,11 +117,6 @@ const menuItems: MenuItem[] = [
         badge: "LIVE",
       },
       {
-        title: "Demo CIREN",
-        href: "/admin/ciren-demo",
-        icon: Zap,
-      },
-      {
         title: "Integración CIREN",
         href: "/admin/ciren-integration",
         icon: Database,
@@ -133,11 +127,6 @@ const menuItems: MenuItem[] = [
     title: "Herramientas",
     icon: Settings,
     children: [
-      {
-        title: "Seed Database",
-        href: "/admin/seed",
-        icon: Database,
-      },
       {
         title: "Scraper Guide",
         href: "/admin/scraper-guide",
