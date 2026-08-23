@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { discoverCirenNeighbors, discoverCirenSoils } from "@/lib/kmz/ciren-neighbors"
+import { discoverCirenNeighbors } from "@/lib/kmz/ciren-neighbors"
+import { discoverCirenSoilsPost } from "@/lib/kmz/ciren-soils"
 import { extractKmzGeometry, isRenderableKmzPolygon } from "@/lib/kmz/kmz-geometry-compat"
 
 export const dynamic = "force-dynamic"
@@ -131,7 +132,7 @@ export async function GET(request: NextRequest) {
         targetRoles: collection.rol_numbers || [],
         radiusM: safeRadius,
       }),
-      discoverCirenSoils({ region: collection.region, geometry: targetGeometry }),
+      discoverCirenSoilsPost({ region: collection.region, geometry: targetGeometry }),
     ])
 
     let properties: any = null
