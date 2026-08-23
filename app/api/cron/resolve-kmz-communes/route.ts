@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveUnresolvedKmzCommunes } from '@/lib/kmz/unresolved-commune-resolver'
 import { getAdminClient } from '@/lib/scrapers/base-scraper'
+import { GET as recoverKmzStorage } from '@/app/api/cron/recover-kmz-storage/route'
 
 export const maxDuration = 300
 
@@ -23,7 +24,10 @@ export async function GET(req: NextRequest) {
 
     const claimed = claimedRows?.[0]
     if (!claimed) {
-      return NextResponse.json({ success: true, skipped: true, reason: 'No pending one-shot job' })
+      // Reuse the already-proven every-minute cron tick for the geometry recovery
+      // one-shot. The recovery handler has its own CRON_SECRET check and claim,
+      // so this remains a no-op unless a recovery job is explicitly pending.
+      return recoverKmzStorage(req)
     }
 
     const requestedLimit = Number(claimed.payload?.limit) || 20
