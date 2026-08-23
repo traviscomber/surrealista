@@ -7,6 +7,7 @@
     "app/api/cron/inciti-data-hub/route.ts": { "maxDuration": 300 },
     "app/api/cron/resolve-kmz-communes/route.ts": { "maxDuration": 300 },
     "app/api/cron/verify-kmz-sii/route.ts": { "maxDuration": 300 },
+    "app/api/cron/recover-kmz-storage/route.ts": { "maxDuration": 300 },
     "app/api/admin/kmz/resolve-unresolved-communes/route.ts": { "maxDuration": 300 },
     "app/api/**/*.ts": { "maxDuration": 60 }
   },
@@ -17,6 +18,7 @@
     { "path": "/api/cron/inciti-public-market", "schedule": "15 11 * * *" },
     { "path": "/api/cron/inciti-data-hub", "schedule": "45 11 * * *" },
     { "path": "/api/cron/resolve-kmz-communes", "schedule": "* * * * *" },
+    { "path": "/api/cron/recover-kmz-storage", "schedule": "* * * * *" },
     { "path": "/api/cron/verify-kmz-sii", "schedule": "45 12 * * *" }
   ]
 }
