@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { ChevronDown, ChevronRight, File, Folder, FolderOpen, Loader2, MapPin, RefreshCw, Search } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -24,6 +24,36 @@ const STATUS_STYLE: Record<string, { label: string; className: string }> = {
   metadata_reference: { label: "Punto territorial", className: "border-[hsl(var(--sr-earth)/0.3)] bg-[hsl(var(--sr-earth)/0.1)] text-[hsl(var(--sr-earth))]" },
   real_or_reference: { label: "Ubicación KMZ", className: "border-border bg-muted/45 text-foreground" },
   missing: { label: "Ubicación pendiente", className: "border-amber-600/25 bg-amber-600/8 text-amber-700 dark:text-amber-300" },
+}
+
+type CirenNeighbor = {
+  sourceObjectId: string
+  rol: string | null
+  comuna: string | null
+  relation: "same_property" | "adjacent" | "nearby"
+  distanceM: number
+  geometry: { type: "Polygon" | "MultiPolygon"; coordinates: unknown }
+}
+
+type CirenDatasetContext = {
+  sourceService?: string
+  sourceYear?: number | null
+  layerId?: number | null
+  layerName?: string | null
+  catalogMode?: "live" | "fallback" | null
+  unsupported?: boolean
+  cached?: boolean
+  upstreamUnavailable?: boolean
+  fetchedAt?: string
+}
+
+type CirenContext = {
+  kmzId: string
+  region: string
+  geometryScope?: "largest_polygon" | "single_polygon"
+  polygonCount?: number
+  properties: (CirenDatasetContext & { neighbors?: CirenNeighbor[] }) | null
+  soils: (CirenDatasetContext & { classes?: string[]; featureCount?: number }) | null
 }
 
 function geometryBadge(record: KmzInventoryRecord) {
@@ -59,8 +89,55 @@ function centerFromBounds(bounds: unknown, fallback: { lat: number; lng: number 
   return fallback
 }
 
+function cirenOuterRings(geometry: CirenNeighbor["geometry"]) {
+  if (!geometry || !Array.isArray(geometry.coordinates)) return [] as number[][][]
+  if (geometry.type === "Polygon") {
+    const ring = (geometry.coordinates as unknown[]).find((value) => Array.isArray(value))
+    return Array.isArray(ring) ? [ring as number[][]] : []
+  }
+  return (geometry.coordinates as unknown[]).flatMap((polygon) => {
+    if (!Array.isArray(polygon)) return []
+    const ring = polygon.find((value) => Array.isArray(value))
+    return Array.isArray(ring) ? [ring as number[][]] : []
+  })
+}
+
+function cirenNeighborPlacemarks(context: CirenContext | null) {
+  const sourceYear = context?.properties?.sourceYear
+  return (context?.properties?.neighbors || []).flatMap((neighbor, neighborIndex) =>
+    cirenOuterRings(neighbor.geometry).map((coordinates, polygonIndex) => ({
+      name: neighbor.relation === "same_property"
+        ? `CIREN · Predio asociado${neighbor.rol ? ` · ROL ${neighbor.rol}` : ""}`
+        : `CIREN · Predio cercano${neighbor.rol ? ` · ROL ${neighbor.rol}` : ""}`,
+      type: "Polygon",
+      coordinates: coordinates
+        .filter((pair) => Array.isArray(pair) && pair.length >= 2)
+        .map((pair) => [Number(pair[0]), Number(pair[1])]),
+      description: [
+        "Cartografía de referencia CIREN / IDE Minagri",
+        neighbor.comuna ? `Comuna: ${neighbor.comuna}` : null,
+        sourceYear ? `Cartografía ${sourceYear}` : null,
+        neighbor.relation === "adjacent" ? "Próximo al límite del KMZ (estimación espacial)" : null,
+        neighbor.relation === "nearby" ? `Aprox. ${neighbor.distanceM} m del KMZ` : null,
+      ].filter(Boolean).join(" · "),
+      properties: {
+        geometryStatus: "real_geometry",
+        isReferenceLocation: false,
+        source: "ciren",
+        relation: neighbor.relation,
+        rol: neighbor.rol || "",
+        comuna: neighbor.comuna || "",
+        sourceYear: sourceYear || null,
+        neighborIndex,
+        polygonIndex,
+      },
+    })).filter((placemark) => isRenderableKmzPolygon(placemark.coordinates)),
+  )
+}
+
 export function CAMPOSFolderViewIntegrated() {
   const supabase = useMemo(() => createBrowserClient(), [])
+  const cirenRequestRef = useRef(0)
   const [summaries, setSummaries] = useState<KmzInventoryRegionSummary[]>([])
   const [recordsByRegion, setRecordsByRegion] = useState<Record<string, KmzInventoryRecord[]>>({})
   const [openRegions, setOpenRegions] = useState<Set<string>>(new Set())
@@ -73,6 +150,9 @@ export function CAMPOSFolderViewIntegrated() {
   const [loadingRegions, setLoadingRegions] = useState<Set<string>>(new Set())
   const [loadingInitial, setLoadingInitial] = useState(true)
   const [loadingMap, setLoadingMap] = useState(false)
+  const [loadingCiren, setLoadingCiren] = useState(false)
+  const [cirenContext, setCirenContext] = useState<CirenContext | null>(null)
+  const [cirenError, setCirenError] = useState(false)
   const [fatalError, setFatalError] = useState(false)
 
   const loadSummaries = useCallback(async () => {
@@ -107,6 +187,10 @@ export function CAMPOSFolderViewIntegrated() {
   }, [recordsByRegion, supabase])
 
   const loadRegionMap = useCallback(async (region: string) => {
+    cirenRequestRef.current += 1
+    setCirenContext(null)
+    setCirenError(false)
+    setLoadingCiren(false)
     setSelectedRegion(region)
     setSelectedRecord(null)
     setSelectedLayer(null)
@@ -217,7 +301,60 @@ export function CAMPOSFolderViewIntegrated() {
     if (!isOpen) await ensureRegionRecords(region)
   }, [ensureRegionRecords, openRegions])
 
+  const loadCirenContext = useCallback(async (record: KmzInventoryRecord, requestToken: number) => {
+    setLoadingCiren(true)
+    setCirenError(false)
+    try {
+      const response = await fetch(`/api/kmz/ciren-context?kmzId=${encodeURIComponent(String(record.id))}&radiusM=1200`, {
+        cache: "no-store",
+      })
+      if (cirenRequestRef.current !== requestToken) return
+      if (!response.ok) {
+        if (response.status !== 422) console.warn("[CAMPOS] CIREN context unavailable", response.status)
+        setCirenContext(null)
+        setCirenError(response.status !== 422)
+        return
+      }
+
+      const context = await response.json() as CirenContext
+      if (cirenRequestRef.current !== requestToken) return
+      setCirenContext(context)
+      const overlayPlacemarks = cirenNeighborPlacemarks(context)
+
+      setKmzFiles((current) => {
+        if (cirenRequestRef.current !== requestToken) return current
+        const base = current.filter((file) => file?.metadata?.source !== "ciren")
+        const hasSelectedBase = base.some((file) => String(file?.id ?? file?.dbId) === String(record.id))
+        if (!hasSelectedBase || overlayPlacemarks.length === 0) return base
+        return [...base, {
+          id: `ciren:${record.id}`,
+          dbId: `ciren:${record.id}`,
+          fileName: "CIREN · Predios rurales cercanos",
+          placemarks: overlayPlacemarks,
+          metadata: {
+            source: "ciren",
+            overlayForKmzId: String(record.id),
+            sourceYear: context.properties?.sourceYear || null,
+            sourceLayer: context.properties?.layerName || null,
+          },
+        }]
+      })
+    } catch (error) {
+      if (cirenRequestRef.current !== requestToken) return
+      console.warn("[CAMPOS] CIREN context failed", error)
+      setCirenContext(null)
+      setCirenError(true)
+    } finally {
+      if (cirenRequestRef.current === requestToken) setLoadingCiren(false)
+    }
+  }, [])
+
   const loadSelectedKmz = useCallback(async (record: KmzInventoryRecord) => {
+    const requestToken = cirenRequestRef.current + 1
+    cirenRequestRef.current = requestToken
+    setCirenContext(null)
+    setCirenError(false)
+    setLoadingCiren(false)
     setSelectedRecord(record)
     setSelectedRegion(record.region)
     setSelectedLayer(null)
@@ -266,6 +403,7 @@ export function CAMPOSFolderViewIntegrated() {
         },
       }])
       setMapCenter(centerFromBounds(collection.bounds, { lat: Number(record.latitude), lng: Number(record.longitude) }))
+      if (hasRealGeometry) void loadCirenContext(record, requestToken)
     } catch (error) {
       console.error("[CAMPOS] selected KMZ failed", error)
       setKmzFiles([{
@@ -279,7 +417,7 @@ export function CAMPOSFolderViewIntegrated() {
     } finally {
       setLoadingMap(false)
     }
-  }, [supabase])
+  }, [loadCirenContext, supabase])
 
   const handlePlacemarkSelect = useCallback((layer: LayerInfo | null) => {
     setSelectedLayer(layer)
@@ -304,6 +442,22 @@ export function CAMPOSFolderViewIntegrated() {
         .some((value) => String(value).toLocaleLowerCase("es").includes(query)),
     )
   }, [recordsByRegion, search])
+
+  const cirenNeighbors = cirenContext?.properties?.neighbors || []
+  const cirenSameProperty = cirenNeighbors.find((neighbor) => neighbor.relation === "same_property") || null
+  const cirenAdjacentCount = cirenNeighbors.filter((neighbor) => neighbor.relation === "adjacent").length
+  const cirenNearbyCount = cirenNeighbors.filter((neighbor) => neighbor.relation === "nearby").length
+  const cirenSoilClasses = cirenContext?.soils?.classes || []
+  const cirenHasCoverage = Boolean(
+    (cirenContext?.properties && !cirenContext.properties.unsupported)
+    || (cirenContext?.soils && !cirenContext.soils.unsupported),
+  )
+  const cirenUsingSnapshot = Boolean(
+    cirenContext?.properties?.cached
+    || cirenContext?.soils?.cached
+    || cirenContext?.properties?.upstreamUnavailable
+    || cirenContext?.soils?.upstreamUnavailable,
+  )
 
   if (fatalError) return <CAMPOSFolderView />
 
@@ -420,6 +574,69 @@ export function CAMPOSFolderViewIntegrated() {
                 <Badge variant="outline" className={geometryBadge(selectedRecord).className}>{geometryBadge(selectedRecord).label}</Badge>
                 {selectedLayer ? <Badge variant="outline">{selectedLayer.name}</Badge> : null}
               </div>
+            </div>
+
+            <div className="mt-4 rounded-lg border border-border/70 bg-secondary/25 px-4 py-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="sr-meta">Contexto territorial CIREN</p>
+                  <p className="mt-1 text-xs text-muted-foreground">Referencia cartográfica CIREN / IDE Minagri. El KMZ sigue siendo la geometría principal.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {loadingCiren ? <Badge variant="outline"><Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> Consultando CIREN</Badge> : null}
+                  {cirenUsingSnapshot ? <Badge variant="outline">Último snapshot válido</Badge> : null}
+                </div>
+              </div>
+
+              {!loadingCiren && cirenError ? (
+                <p className="mt-3 text-xs text-muted-foreground">CIREN no está disponible en este momento. El mapa KMZ continúa operativo sin esta capa.</p>
+              ) : null}
+
+              {!loadingCiren && cirenContext && !cirenHasCoverage ? (
+                <p className="mt-3 text-xs text-muted-foreground">CIREN no publica una capa compatible para esta región en los datasets conectados.</p>
+              ) : null}
+
+              {cirenContext && cirenHasCoverage ? (
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <div className="rounded-md border border-border/60 bg-background/75 p-3">
+                    <p className="text-xs font-medium">Propiedades rurales</p>
+                    {cirenContext.properties?.unsupported ? (
+                      <p className="mt-1 text-xs text-muted-foreground">Sin cobertura publicada para esta región.</p>
+                    ) : (
+                      <>
+                        <p className="mt-1 text-sm font-semibold">
+                          {cirenSameProperty?.rol ? `ROL CIREN ${cirenSameProperty.rol}` : `${cirenNeighbors.length} predios de referencia`}
+                        </p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {[
+                            cirenSameProperty?.comuna || null,
+                            cirenAdjacentCount ? `${cirenAdjacentCount} próximos al límite` : null,
+                            cirenNearbyCount ? `${cirenNearbyCount} cercanos` : null,
+                            cirenContext.properties?.sourceYear ? `cartografía ${cirenContext.properties.sourceYear}` : null,
+                          ].filter(Boolean).join(" · ") || "Sin predios rurales coincidentes en el radio consultado."}
+                        </p>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="rounded-md border border-border/60 bg-background/75 p-3">
+                    <p className="text-xs font-medium">Capacidad de uso de suelo</p>
+                    {cirenContext.soils?.unsupported ? (
+                      <p className="mt-1 text-xs text-muted-foreground">Sin cobertura publicada para esta región.</p>
+                    ) : cirenSoilClasses.length > 0 ? (
+                      <>
+                        <p className="mt-1 text-sm font-semibold">Clases {cirenSoilClasses.join(", ")}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {cirenContext.soils?.sourceYear ? `Cartografía CIREN ${cirenContext.soils.sourceYear}` : "Cartografía CIREN"}
+                          {cirenContext.soils?.featureCount ? ` · ${cirenContext.soils.featureCount} unidad${cirenContext.soils.featureCount === 1 ? "" : "es"} intersectada${cirenContext.soils.featureCount === 1 ? "" : "s"}` : ""}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="mt-1 text-xs text-muted-foreground">Sin unidades de suelo intersectadas para este polígono.</p>
+                    )}
+                  </div>
+                </div>
+              ) : null}
             </div>
           </section>
         ) : null}
