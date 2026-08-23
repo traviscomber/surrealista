@@ -30,15 +30,20 @@ const regions = [
   'Los Lagos', 'Aysén', 'Magallanes',
 ]
 
+// Keep these values aligned with the normalized property_type values that actually
+// have enough active sale comparables in properties_external. Unsupported types
+// must not be offered as if a valuation were available.
 const propertyTypes = [
-  { id: 'terreno', label: 'Terreno o lote' },
-  { id: 'casa', label: 'Casa o vivienda' },
-  { id: 'departamento', label: 'Departamento' },
+  { id: 'terreno', label: 'Terreno' },
+  { id: 'parcela', label: 'Parcela' },
+  { id: 'campo', label: 'Campo' },
+  { id: 'casa rural', label: 'Casa rural' },
+  { id: 'casa urbana', label: 'Casa urbana' },
   { id: 'comercial', label: 'Propiedad comercial' },
-  { id: 'industrial', label: 'Propiedad industrial' },
-  { id: 'agrícola', label: 'Campo, fundo o propiedad agrícola' },
-  { id: 'local', label: 'Local comercial' },
-  { id: 'oficina', label: 'Oficina' },
+  { id: 'loteo / parcelación', label: 'Loteo o parcelación' },
+  { id: 'agrícola', label: 'Propiedad agrícola' },
+  { id: 'terreno residencial', label: 'Terreno residencial' },
+  { id: 'campo forestal', label: 'Campo forestal' },
 ]
 
 function formatClp(value: number) {
@@ -109,7 +114,7 @@ export default function CotizadorPage() {
         <Card>
           <CardHeader>
             <CardTitle>Datos para buscar comparables</CardTitle>
-            <CardDescription>La comuna es opcional; al ingresarla, la muestra será más específica y puede resultar insuficiente.</CardDescription>
+            <CardDescription>Solo se ofrecen categorías con inventario comparable activo. La comuna es opcional; al ingresarla, la muestra será más específica y puede resultar insuficiente.</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
