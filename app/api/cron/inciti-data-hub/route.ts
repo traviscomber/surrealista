@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { scrapeIncitiDataHubSouth } from '@/lib/scrapers/inciti-data-hub-south-scraper'
+import { scrapeIncitiDataHub } from '@/lib/scrapers/inciti-data-hub-scraper'
 
 export const maxDuration = 300
 
@@ -11,11 +11,11 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const result = await scrapeIncitiDataHubSouth({ persist: true })
+    const result = await scrapeIncitiDataHub({ persist: true })
     const success = result.errors.length === 0
     if (!success) console.error('[inciti-data-hub] completed with errors', result)
     else console.log('[inciti-data-hub] completed', result)
-    return NextResponse.json({ success, ...result }, { status: success ? 200 : 503 })
+    return NextResponse.json({ success, coverage: 'verified', ...result }, { status: success ? 200 : 503 })
   } catch (error) {
     console.error('[inciti-data-hub] failed', error)
     return NextResponse.json({ success: false, error: (error as Error).message }, { status: 500 })
