@@ -13,8 +13,6 @@ import {
   BarChart3,
   Settings,
   Database,
-  Brain,
-  TrendingUp,
   Shield,
   Globe,
   ChevronDown,
@@ -77,28 +75,6 @@ const menuItems: MenuItem[] = [
         title: "Vincular Tags",
         href: "/admin/tags/vincular",
         icon: Plus,
-      },
-    ],
-  },
-  {
-    title: "IA Workspace",
-    icon: Brain,
-    badge: "NEW",
-    children: [
-      {
-        title: "Dashboard IA",
-        href: "/admin/ia-workspace",
-        icon: Brain,
-      },
-      {
-        title: "Análisis Integral",
-        href: "/admin/analisis-integral",
-        icon: TrendingUp,
-      },
-      {
-        title: "Conexiones de Datos",
-        href: "/admin/conexiones-datos",
-        icon: Database,
       },
     ],
   },
