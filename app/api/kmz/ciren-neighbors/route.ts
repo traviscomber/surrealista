@@ -40,7 +40,6 @@ export async function GET(request: NextRequest) {
       radiusM: Number.isFinite(radiusM) ? radiusM : 1200,
     })
 
-    // Cache is best-effort. RLS intentionally keeps this table server-only for ordinary clients.
     if (result.layerId != null && result.neighbors.length) {
       const rows = result.neighbors.map((neighbor) => ({
         kmz_id: kmzId,
@@ -56,7 +55,7 @@ export async function GET(request: NextRequest) {
         properties: neighbor.properties,
         fetched_at: new Date().toISOString(),
       }))
-      const { error: cacheError } = await supabase.from("kmz_neighbor_parcels").upsert(rows, {
+      const { error: cacheError } = await (supabase as any).from("kmz_neighbor_parcels").upsert(rows, {
         onConflict: "kmz_id,source_service,source_layer_id,source_object_id",
       })
       if (cacheError) console.warn("[CIREN neighbors] cache skipped", cacheError.message)
