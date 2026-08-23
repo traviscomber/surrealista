@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
-import { ChevronLeft, ChevronRight, Mail, MoreHorizontal, Plus, RefreshCw, Search, Trash2, Upload } from "lucide-react"
+import { ChevronLeft, ChevronRight, Mail, MoreHorizontal, RefreshCw, Search, Trash2, Upload } from "lucide-react"
 
 import { deleteClient, getClientStatistics, getClientsPaginated } from "@/app/actions/clients"
 import { ClientEmailDialog } from "@/components/email/client-email-dialog"
@@ -122,10 +122,6 @@ export function ClientRepositoryDashboard() {
           <Button variant="outline" size="sm" onClick={() => router.push("/admin/clientes")}>
             <Upload className="h-4 w-4" />
             Importar
-          </Button>
-          <Button size="sm" onClick={() => router.push("/admin/clientes/nuevo")}>
-            <Plus className="h-4 w-4" />
-            Nuevo cliente
           </Button>
         </div>
       </div>
