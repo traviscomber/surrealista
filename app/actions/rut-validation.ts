@@ -14,138 +14,120 @@ export interface RUTValidationResult {
   needsUpdate: boolean
 }
 
+type RutReferenceData = {
+  rut: string
+  name: string
+  businessName?: string
+  activities?: string[]
+  address?: string
+}
+
+function normalizeName(value: string) {
+  return value.trim().toLocaleLowerCase("es-CL").replace(/\s+/g, " ")
+}
+
 /**
- * Validates a single client's RUT and compares with official SII data
+ * Validate a client's RUT format and compare its current name with the
+ * third-party RUT reference returned by the configured lookup service.
+ * This result is referential and must not be treated as a legal ownership record.
  */
 export async function validateClientRUT(clientId: string) {
   try {
     const supabase = await createSupabaseClient()
-
-    // Get client from database
     const { data: client, error } = await supabase.from("clients").select("*").eq("id", clientId).single()
 
-    if (error || !client) {
-      return { success: false, error: "Cliente no encontrado" }
-    }
+    if (error || !client) return { success: false, error: "Cliente no encontrado" }
+    if (!client.rut) return { success: false, error: "Cliente no tiene RUT registrado" }
 
-    if (!client.rut) {
-      return { success: false, error: "Cliente no tiene RUT registrado" }
-    }
-
-    console.log("[v0] Validating RUT:", client.rut, "for client:", client.first_name, client.last_name)
-
-    // Look up official data from SII
     const lookupResult = await lookupRUT(client.rut)
-
     if (!lookupResult.success || !lookupResult.data) {
       return {
         success: false,
-        error: "No se pudo consultar el RUT en el SII",
+        error: "No se pudo obtener una referencia para el RUT",
         details: lookupResult.error,
       }
     }
 
-    const officialName = lookupResult.data.razon_social || lookupResult.data.nombre_completo
-    const currentName = `${client.first_name || ""} ${client.last_name || ""}`.trim()
+    const reference = lookupResult.data as RutReferenceData
+    const referenceName = reference.businessName || reference.name || ""
+    if (!referenceName.trim()) {
+      return { success: false, error: "La referencia del RUT no contiene nombre" }
+    }
 
-    // Compare names (simple similarity check)
+    const currentName = `${client.first_name || ""} ${client.last_name || ""}`.trim()
+    const normalizedReference = normalizeName(referenceName)
+    const normalizedCurrent = normalizeName(currentName)
     const match =
-      officialName.toLowerCase().includes(currentName.toLowerCase()) ||
-      currentName.toLowerCase().includes(officialName.toLowerCase())
+      normalizedCurrent.length > 0 &&
+      (normalizedReference.includes(normalizedCurrent) || normalizedCurrent.includes(normalizedReference))
 
     const result: RUTValidationResult = {
       clientId: client.id,
       rut: client.rut,
-      currentName: currentName,
-      officialName: officialName,
-      match: match,
+      currentName,
+      officialName: referenceName,
+      match,
       confidence: match ? "high" : "low",
       needsUpdate: !match,
     }
 
-    console.log("[v0] Validation result:", result)
-
-    return { success: true, data: result, officialData: lookupResult.data }
+    return { success: true, data: result, officialData: reference, source: "rut_reference_service" }
   } catch (error) {
-    console.error("[v0] Error validating client RUT:", error)
+    console.error("[rut-validation] validation failed", error)
     return { success: false, error: "Error al validar RUT" }
   }
 }
 
 /**
- * Updates a client's name with official SII data
+ * Apply reference data only when an operator explicitly invokes this action.
+ * Automatic bulk correction is intentionally disabled below.
  */
-export async function updateClientFromRUT(clientId: string, officialData: any) {
+export async function updateClientFromRUT(clientId: string, officialData: RutReferenceData) {
   try {
     const supabase = await createSupabaseClient()
+    const referenceName = officialData.businessName || officialData.name || ""
+    if (!referenceName.trim()) return { success: false, error: "La referencia no contiene nombre" }
 
-    // Determine if it's a company or person
-    const isCompany = !!officialData.razon_social
-
-    const updateData: any = {}
-
-    if (isCompany) {
-      updateData.first_name = officialData.razon_social
+    const updateData: Record<string, unknown> = {}
+    if (officialData.businessName) {
+      updateData.first_name = officialData.businessName
       updateData.last_name = "Empresa"
-      updateData.company_name = officialData.razon_social
+      updateData.company_name = officialData.businessName
     } else {
-      const nameParts = (officialData.nombre_completo || "").split(" ")
+      const nameParts = referenceName.split(/\s+/).filter(Boolean)
       if (nameParts.length >= 2) {
-        updateData.first_name = nameParts.slice(0, -1).join(" ") // All but last as first name
-        updateData.last_name = nameParts[nameParts.length - 1] // Last word as last name
+        updateData.first_name = nameParts.slice(0, -1).join(" ")
+        updateData.last_name = nameParts[nameParts.length - 1]
       } else {
-        updateData.first_name = officialData.nombre_completo
-        updateData.last_name = "Sin Apellido"
+        updateData.first_name = referenceName
       }
     }
 
-    // Add additional official data if available
-    if (officialData.direccion) {
-      updateData.address = officialData.direccion
-    }
-    if (officialData.comuna) {
-      updateData.city = officialData.comuna
-    }
-    if (officialData.actividades && officialData.actividades.length > 0) {
-      updateData.notes = `Actividades: ${officialData.actividades.join(", ")}`
-    }
-
-    console.log("[v0] Updating client", clientId, "with official data:", updateData)
+    if (officialData.address) updateData.address = officialData.address
+    if (officialData.activities?.length) updateData.notes = `Actividades (referencia externa): ${officialData.activities.join(", ")}`
 
     const { data, error } = await supabase.from("clients").update(updateData).eq("id", clientId).select().single()
-
-    if (error) {
-      console.error("[v0] Error updating client:", error)
-      return { success: false, error: error.message }
-    }
+    if (error) return { success: false, error: error.message }
 
     revalidatePath("/admin/clientes")
     revalidatePath("/gestion-clientes")
     revalidatePath("/busqueda")
-
     return { success: true, data }
   } catch (error) {
-    console.error("[v0] Error updating client from RUT:", error)
+    console.error("[rut-validation] explicit update failed", error)
     return { success: false, error: "Error al actualizar cliente" }
   }
 }
 
 /**
- * Validates and corrects ALL clients with RUT in the database
+ * Bulk validation is read-only. It reports discrepancies for human review and
+ * never mutates client records from a third-party reference automatically.
  */
 export async function validateAndCorrectAllClients() {
   try {
     const supabase = await createSupabaseClient()
-
-    // Get all clients with RUT
-    const { data: clients, error } = await supabase.from("clients").select("*").not("rut", "is", null).limit(100) // Process in batches to avoid timeout
-
-    if (error) {
-      console.error("[v0] Error fetching clients:", error)
-      return { success: false, error: error.message }
-    }
-
-    console.log("[v0] Validating", clients?.length || 0, "clients with RUT")
+    const { data: clients, error } = await supabase.from("clients").select("*").not("rut", "is", null).limit(100)
+    if (error) return { success: false, error: error.message }
 
     const results = {
       total: clients?.length || 0,
@@ -154,68 +136,39 @@ export async function validateAndCorrectAllClients() {
       failed: 0,
       matches: 0,
       mismatches: 0,
-      details: [] as any[],
+      details: [] as Array<Record<string, unknown>>,
     }
 
     for (const client of clients || []) {
       try {
         const validationResult = await validateClientRUT(client.id)
-
-        if (validationResult.success && validationResult.data) {
-          results.validated++
-
-          if (validationResult.data.match) {
-            results.matches++
-          } else {
-            results.mismatches++
-
-            if (validationResult.data.needsUpdate && validationResult.officialData) {
-              const updateResult = await updateClientFromRUT(client.id, validationResult.officialData)
-
-              if (updateResult.success) {
-                results.corrected++
-                results.details.push({
-                  rut: client.rut,
-                  before: validationResult.data.currentName,
-                  after: validationResult.data.officialName,
-                  status: "corrected",
-                })
-              } else {
-                results.failed++
-                results.details.push({
-                  rut: client.rut,
-                  error: updateResult.error,
-                  status: "failed",
-                })
-              }
-            }
-          }
-        } else {
-          results.failed++
-          results.details.push({
-            rut: client.rut,
-            error: validationResult.error,
-            status: "failed",
-          })
+        if (!validationResult.success || !validationResult.data) {
+          results.failed += 1
+          results.details.push({ rut: client.rut, error: validationResult.error, status: "failed" })
+          continue
         }
 
-        // Add a small delay to avoid rate limiting
-        await new Promise((resolve) => setTimeout(resolve, 500))
+        results.validated += 1
+        if (validationResult.data.match) {
+          results.matches += 1
+        } else {
+          results.mismatches += 1
+          results.details.push({
+            rut: client.rut,
+            current: validationResult.data.currentName,
+            reference: validationResult.data.officialName,
+            status: "review_required",
+          })
+        }
       } catch (error) {
-        console.error("[v0] Error processing client:", client.id, error)
-        results.failed++
+        console.error("[rut-validation] client validation failed", client.id, error)
+        results.failed += 1
       }
     }
 
-    console.log("[v0] Validation complete:", results)
-
-    revalidatePath("/admin/clientes")
-    revalidatePath("/gestion-clientes")
-    revalidatePath("/busqueda")
-
-    return { success: true, results }
+    return { success: true, results, autoCorrection: false }
   } catch (error) {
-    console.error("[v0] Error in validateAndCorrectAllClients:", error)
+    console.error("[rut-validation] bulk validation failed", error)
     return { success: false, error: "Error al validar clientes" }
   }
 }
