@@ -56,6 +56,12 @@ interface TaskCreationDialogProps {
   task?: Task
 }
 
+function getTaskId(value: unknown): string | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  const id = (value as Record<string, unknown>).id
+  return typeof id === "string" && id.length > 0 ? id : null
+}
+
 export function TaskCreationDialog({
   open,
   onOpenChange,
@@ -254,19 +260,19 @@ export function TaskCreationDialog({
         console.log("[v0] Task updated successfully")
       } else {
         console.log("[v0] Creating task with data:", taskData)
-        const { data, error } = await supabase.from("tasks").insert([taskData]).select()
+        const { data, error } = await supabase.from("tasks").insert([taskData]).select("id").limit(1)
         if (error) throw error
-        taskId = data[0].id
-        console.log("[v0] Task created successfully:", data)
+        const createdTaskId = getTaskId(data?.[0])
+        if (!createdTaskId) throw new Error("La tarea se creó sin un identificador válido")
+        taskId = createdTaskId
+        console.log("[v0] Task created successfully:", taskId)
       }
 
       if (selectedUsers.length > 0) {
-        // Delete existing assignments if editing
         if (isEditMode) {
           await supabase.from("task_assignments").delete().eq("task_id", taskId)
         }
 
-        // Create new assignments
         const assignments = selectedUsers.map((userId) => ({
           task_id: taskId,
           user_id: userId,
@@ -279,8 +285,6 @@ export function TaskCreationDialog({
           console.error("[v0] Error creating task assignments:", assignError)
         } else {
           console.log("[v0] Task assignments created successfully")
-
-          // Send WhatsApp notifications automatically
           await sendWhatsAppNotifications(taskId, selectedUsers, taskData)
         }
       }
@@ -361,17 +365,14 @@ export function TaskCreationDialog({
 
       console.log("[v0] WhatsApp message:", message)
 
-      // Open WhatsApp Web for each user with a delay
       for (let i = 0; i < usersWithWhatsApp.length; i++) {
         const user = usersWithWhatsApp[i]
         const rawPhone = user.whatsapp || user.phone
 
-        // Clean phone number: remove spaces, dashes, parentheses, plus sign
         let phoneNumber = rawPhone.replace(/[\s\-()]/g, "").replace(/^\+/, "")
 
         console.log(`[v0] User ${user.name}: raw="${rawPhone}", cleaned="${phoneNumber}"`)
 
-        // Validate Chilean phone format
         if (phoneNumber.startsWith("56")) {
           const afterCountryCode = phoneNumber.substring(2)
           console.log(`[v0] After country code (56): "${afterCountryCode}"`)
