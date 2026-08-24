@@ -2,9 +2,9 @@
 
 /**
  * Test script for Owner Discovery Pipeline
- * 
+ *
  * Run: npx ts-node scripts/test-owner-discovery.ts
- * 
+ *
  * Tests:
  * - Service initialization
  * - Search query generation
@@ -20,7 +20,6 @@ import { kmzOwnerEnrichmentPipeline } from "@/lib/kmz/kmz-owner-enrichment"
 
 console.log("=== Owner Discovery Pipeline Test Suite ===\n")
 
-// Test 1: Owner Extraction
 console.log("Test 1: Owner Extraction from Description")
 const description =
   "Propiedad agrícola ubicada en Vitacura. Propietario: Agrícola Santa María SpA. Dueño histórico desde 2010."
@@ -32,7 +31,6 @@ if (extracted?.name === "Agrícola Santa María SpA") {
   console.log("✗ FAIL: Expected 'Agrícola Santa María SpA'\n")
 }
 
-// Test 2: ROL Extraction
 console.log("Test 2: ROL Extraction from Description")
 const rolDesc = "ROL 12345-67, comuna de Vitacura"
 const rol = ownerDiscoveryService.extractRolFromDescription(rolDesc)
@@ -43,13 +41,12 @@ if (rol === "12345-67") {
   console.log("✗ FAIL: Expected '12345-67'\n")
 }
 
-// Test 3: Search Query Generation
 console.log("Test 3: Search Query Generation")
 const queries = ownerDiscoveryService.generateSearchQueries(
   "12345-67",
   "Vitacura",
   "campo_1.kmz",
-  "Agrícola Santa María"
+  "Agrícola Santa María",
 )
 console.log("✓ Generated queries:", queries)
 if (queries.length >= 3 && queries.some((q) => q.includes("12345-67"))) {
@@ -58,14 +55,13 @@ if (queries.length >= 3 && queries.some((q) => q.includes("12345-67"))) {
   console.log("✗ FAIL: Expected ROL in queries\n")
 }
 
-// Test 4: Priority Scoring
 console.log("Test 4: Priority Scoring")
 const { score, tier } = ownerDiscoveryService.calculatePriorityScore(
-  true, // hasRol
-  false, // hasConfirmedOwner
-  false, // hasOwnerCandidate
-  0, // evidenceCount
-  "Araucanía" // region (south)
+  true,
+  false,
+  false,
+  0,
+  "Araucanía",
 )
 console.log(`✓ Score: ${score}, Tier: ${tier}`)
 if (score > 30 && tier !== "low") {
@@ -74,7 +70,6 @@ if (score > 30 && tier !== "low") {
   console.log("✗ FAIL: Expected higher score\n")
 }
 
-// Test 5: Queue Entry Building
 console.log("Test 5: Queue Entry Building")
 const queue = ownerDiscoveryService.buildQueueEntry(
   "evidence-found",
@@ -82,8 +77,8 @@ const queue = ownerDiscoveryService.buildQueueEntry(
   "Vitacura",
   "campo_1.kmz",
   "Agrícola Santa María",
-  2, // evidenceCount
-  "Araucanía"
+  2,
+  "Araucanía",
 )
 console.log("✓ Queue entry built")
 console.log("  - Status:", queue.status)
@@ -96,7 +91,6 @@ if (queue.status === "evidence-found" && queue.primaryRol === "12345-67") {
   console.log("✗ FAIL: Queue entry incorrect\n")
 }
 
-// Test 6: Search Cache
 console.log("Test 6: Search Cache")
 const cacheKey = SearchCache.generateKey("12345-67", "Vitacura")
 console.log("✓ Cache key:", cacheKey)
@@ -104,7 +98,7 @@ console.log("✓ Cache key:", cacheKey)
 const testData = { owner: "Test Owner", confidence: 0.9 }
 searchCache.set(cacheKey, testData, 3600000)
 
-const retrieved = searchCache.get(cacheKey)
+const retrieved = searchCache.get<typeof testData>(cacheKey)
 console.log("✓ Cached data:", retrieved)
 
 if (retrieved?.owner === "Test Owner") {
@@ -114,7 +108,6 @@ if (retrieved?.owner === "Test Owner") {
 const stats = searchCache.getStats()
 console.log(`✓ Cache stats: ${stats.totalEntries} entries, ${(stats.hitRate * 100).toFixed(1)}% hit rate\n`)
 
-// Test 7: Enrichment Pipeline
 console.log("Test 7: Enrichment Pipeline")
 const metadata = {}
 
@@ -148,13 +141,11 @@ if (
   console.log("✗ FAIL: Enrichment incomplete\n")
 }
 
-// Test 8: Public Sources
 console.log("Test 8: Public Sources Search")
 console.log("✓ PublicSourcesSearch initialized")
 const cacheStats = publicSourcesSearch.getCacheStats()
-console.log(f✓ Cache: {cacheStats.cacheSize} entries, {cacheStats.cacheEntries} results\n`)
+console.log(`✓ Cache: ${cacheStats.cacheSize} entries, ${cacheStats.cacheEntries} results\n`)
 
-// Summary
 console.log("=== Test Summary ===")
 console.log("✓ All core services initialized successfully")
 console.log("✓ Metadata enrichment pipeline functional")
