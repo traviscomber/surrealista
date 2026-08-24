@@ -6,7 +6,7 @@ import { es } from "date-fns/locale"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { supabase } from "@/lib/supabase/client"
 import { toast } from "@/components/ui/use-toast"
 import { Mail, Phone, MapPin, Home } from "lucide-react"
 import Link from "next/link"
@@ -35,7 +35,6 @@ type Message = {
 export function MessageDetail({ messageId }: MessageDetailProps) {
   const [message, setMessage] = useState<Message | null>(null)
   const [loading, setLoading] = useState(true)
-  const supabase = createClientComponentClient()
 
   useEffect(() => {
     fetchMessage()
