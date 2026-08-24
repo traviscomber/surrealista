@@ -10,7 +10,7 @@ interface KMZRecord {
   id: string
   file_name: string
   file_path: string
-  region?: string
+  region?: string | null
   [key: string]: unknown
 }
 
