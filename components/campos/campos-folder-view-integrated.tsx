@@ -76,6 +76,16 @@ function toPointPlacemark(record: KmzInventoryRecord): KmzRenderablePlacemark {
   }
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {}
+}
+
+function asString(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback
+}
+
 function centerFromBounds(bounds: unknown, fallback: { lat: number; lng: number }) {
   const value = bounds && typeof bounds === "object" ? bounds as Record<string, unknown> : {}
   const north = Number(value.north)
@@ -368,10 +378,15 @@ export function CAMPOSFolderViewIntegrated() {
       if (collectionError || !collection) throw collectionError || new Error("KMZ collection record missing")
       if (placemarkError) console.warn("[CAMPOS] placemark lookup failed; using legacy geometry", placemarkError)
 
+      const collectionRow = asRecord(collection)
+      const collectionDescription = asString(collectionRow.description)
+      const collectionCoordinates = collectionRow.coordinates
+      const collectionBounds = collectionRow.bounds
+
       const placemarks = (storedPlacemarks || []).flatMap((placemark: any) =>
         extractKmzGeometry(placemark.coordinates, {
           name: placemark.name || record.file_name,
-          description: placemark.description || collection.description || "",
+          description: placemark.description || collectionDescription,
           declaredType: placemark.type,
           styleUrl: placemark.style_url || undefined,
           properties: placemark.properties || {},
@@ -379,9 +394,9 @@ export function CAMPOSFolderViewIntegrated() {
       )
 
       if (placemarks.length === 0) {
-        placemarks.push(...extractKmzGeometry(collection.coordinates, {
+        placemarks.push(...extractKmzGeometry(collectionCoordinates, {
           name: record.file_name,
-          description: collection.description || "",
+          description: collectionDescription,
         }))
       }
 
@@ -392,7 +407,7 @@ export function CAMPOSFolderViewIntegrated() {
         dbId: record.id,
         fileName: record.file_name,
         placemarks,
-        bounds: collection.bounds || record.bounds,
+        bounds: collectionBounds || record.bounds,
         metadata: {
           id: record.id,
           region: record.region,
@@ -401,7 +416,7 @@ export function CAMPOSFolderViewIntegrated() {
           rolNumbers: record.rol_numbers || [],
         },
       }])
-      setMapCenter(centerFromBounds(collection.bounds, { lat: Number(record.latitude), lng: Number(record.longitude) }))
+      setMapCenter(centerFromBounds(collectionBounds, { lat: Number(record.latitude), lng: Number(record.longitude) }))
       if (hasRealGeometry) void loadCirenContext(record, requestToken)
     } catch (error) {
       console.error("[CAMPOS] selected KMZ failed", error)
