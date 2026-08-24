@@ -1,2 +1,2 @@
-export { GoogleDriveService } from "./google-drive-service"
-export { OSMService } from "./osm-service"
+export { GoogleDriveService } from "@/lib/google-drive/drive-service"
+export { OSMService } from "@/lib/integrations/osm-service"
