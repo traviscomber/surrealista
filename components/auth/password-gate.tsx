@@ -31,6 +31,13 @@ async function createServerSession(password: string) {
   })
 }
 
+function getServerRetryAfterMs(response: Response) {
+  const retryAfterSeconds = Number.parseInt(response.headers.get("Retry-After") || "", 10)
+  return Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
+    ? retryAfterSeconds * 1000
+    : LOCKOUT_TIME
+}
+
 export function PasswordGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -87,8 +94,36 @@ export function PasswordGate({ children }: { children: React.ReactNode }) {
     }
 
     void restoreSession()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [isPublicRoute])
+
+  useEffect(() => {
+    if (!isLockedOut) return
+
+    const lockoutExpires = Number.parseInt(sessionStorage.getItem(LOCKOUT_KEY) || "0", 10)
+    const remainingMs = lockoutExpires - Date.now()
+
+    if (!Number.isFinite(lockoutExpires) || remainingMs <= 0) {
+      sessionStorage.removeItem(LOCKOUT_KEY)
+      sessionStorage.removeItem(ATTEMPTS_KEY)
+      setAttemptCount(0)
+      setIsLockedOut(false)
+      setError("")
+      return
+    }
+
+    const timeout = window.setTimeout(() => {
+      sessionStorage.removeItem(LOCKOUT_KEY)
+      sessionStorage.removeItem(ATTEMPTS_KEY)
+      setAttemptCount(0)
+      setIsLockedOut(false)
+      setError("")
+    }, remainingMs)
+
+    return () => window.clearTimeout(timeout)
+  }, [isLockedOut])
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -118,6 +153,21 @@ export function PasswordGate({ children }: { children: React.ReactNode }) {
         setError("")
         captureMessage("Login exitoso", "info")
         router.replace("/campos")
+        return
+      }
+
+      if (response.status === 429) {
+        const lockoutDurationMs = getServerRetryAfterMs(response)
+        const lockoutExpires = Date.now() + lockoutDurationMs
+        const minutes = Math.max(1, Math.ceil(lockoutDurationMs / 60000))
+
+        sessionStorage.setItem(ATTEMPTS_KEY, MAX_ATTEMPTS.toString())
+        sessionStorage.setItem(LOCKOUT_KEY, lockoutExpires.toString())
+        setAttemptCount(MAX_ATTEMPTS)
+        setPassword("")
+        setIsLockedOut(true)
+        setError(`Acceso bloqueado temporalmente. Intenta nuevamente en ${minutes} minuto${minutes === 1 ? "" : "s"}.`)
+        captureMessage("Acceso bloqueado por rate limit del servidor", "warning")
         return
       }
 
@@ -172,7 +222,10 @@ export function PasswordGate({ children }: { children: React.ReactNode }) {
                   className={`flex gap-2 rounded-lg border p-3 ${isLockedOut ? "border-red-200 bg-red-50" : "border-orange-200 bg-orange-50"}`}
                   role="alert"
                 >
-                  <AlertCircle className={`h-5 w-5 flex-shrink-0 ${isLockedOut ? "text-red-600" : "text-orange-600"}`} aria-hidden="true" />
+                  <AlertCircle
+                    className={`h-5 w-5 flex-shrink-0 ${isLockedOut ? "text-red-600" : "text-orange-600"}`}
+                    aria-hidden="true"
+                  />
                   <p className={`text-sm ${isLockedOut ? "text-red-700" : "text-orange-700"}`}>{error}</p>
                 </div>
               ) : null}
@@ -201,7 +254,9 @@ export function PasswordGate({ children }: { children: React.ReactNode }) {
                 {isLockedOut ? "Bloqueado" : isSubmitting ? "Validando..." : "Ingresar"}
               </Button>
 
-              <p className="text-center text-xs text-muted-foreground">Acceso restringido al equipo interno de Sur-Realista.</p>
+              <p className="text-center text-xs text-muted-foreground">
+                Acceso restringido al equipo interno de Sur-Realista.
+              </p>
             </form>
           </CardContent>
         </Card>
