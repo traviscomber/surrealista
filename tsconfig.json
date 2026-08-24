@@ -26,9 +26,7 @@
   "exclude": [
     "node_modules",
     "components/corporate-documents/whitepaper-builder.tsx",
-    "components/features/digital-signature/**",
-    "components/features/pdf-generator/**",
-    "components/features/social-media-generator/**",
+    "components/features/**",
     "components/kmz/enhanced-kmz-viewer.tsx"
   ]
 }
