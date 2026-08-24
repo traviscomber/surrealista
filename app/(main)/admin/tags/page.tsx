@@ -117,9 +117,23 @@ export default function TagsAdminPage() {
       const { data, error } = await supabase
         .from("tags")
         .insert({ name: newTagName.toLowerCase().trim() })
-        .select()
+        .select("id, name")
+        .single()
       if (error) throw error
-      setTags([...tags, data[0]])
+
+      const createdTag: unknown = data
+      if (
+        !createdTag ||
+        typeof createdTag !== "object" ||
+        !("id" in createdTag) ||
+        !("name" in createdTag) ||
+        typeof createdTag.id !== "string" ||
+        typeof createdTag.name !== "string"
+      ) {
+        throw new Error("Invalid tag response")
+      }
+
+      setTags((currentTags) => [...currentTags, { id: createdTag.id, name: createdTag.name }])
       setNewTagName("")
     } catch (error) {
       console.error("[v0] Error creating tag:", error)
