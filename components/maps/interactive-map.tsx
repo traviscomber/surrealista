@@ -509,7 +509,7 @@ export function InteractiveMap() {
         <CanvasMap
           properties={filteredProperties}
           kmzData={kmzData}
-          showKmzOverlay={showKmzOverlay}
+          showKMZOverlay={showKmzOverlay}
           onToggleKmzOverlay={() => setShowKmzOverlay(!showKmzOverlay)}
           onPropertySelect={setSelectedProperty}
           selectedProperty={selectedProperty}
