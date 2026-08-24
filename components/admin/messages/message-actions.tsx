@@ -50,11 +50,14 @@ export function MessageActions({ messageId, status }: MessageActionsProps) {
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const supabase = createBrowserClient()
+  const numericMessageId = Number(messageId)
+  const hasValidMessageId = Number.isInteger(numericMessageId)
 
   const updateStatus = async (newStatus: MessageStatus) => {
+    if (!hasValidMessageId) return
     setLoading(true)
     try {
-      const { error } = await supabase.from("messages").update({ status: newStatus }).eq("id", messageId)
+      const { error } = await supabase.from("messages").update({ status: newStatus }).eq("id", numericMessageId)
 
       if (error) {
         toast({
@@ -76,9 +79,10 @@ export function MessageActions({ messageId, status }: MessageActionsProps) {
   }
 
   const deleteMessage = async () => {
+    if (!hasValidMessageId) return
     setLoading(true)
     try {
-      const { error } = await supabase.from("messages").delete().eq("id", messageId)
+      const { error } = await supabase.from("messages").delete().eq("id", numericMessageId)
 
       if (error) {
         toast({
@@ -109,7 +113,7 @@ export function MessageActions({ messageId, status }: MessageActionsProps) {
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="sm" disabled={!hasValidMessageId}>
             <MoreHorizontal className="mr-2 h-4 w-4" />
             Acciones
           </Button>
@@ -155,7 +159,7 @@ export function MessageActions({ messageId, status }: MessageActionsProps) {
                 event.preventDefault()
                 void deleteMessage()
               }}
-              disabled={loading}
+              disabled={loading || !hasValidMessageId}
               className="bg-red-600 hover:bg-red-700"
             >
               {loading ? "Eliminando..." : "Eliminar"}
