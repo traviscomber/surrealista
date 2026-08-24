@@ -1,140 +1,78 @@
 "use client"
 
 import { useState } from "react"
+import { AlertCircle, CheckCircle2, FolderOpen, Loader2, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Loader2, CheckCircle, AlertCircle, FolderOpen, FileText, Download } from "lucide-react"
 import { realDriveService, type FolderStructure } from "@/lib/google-drive/real-drive-service"
-import { completenessAnalyzer } from "@/lib/google-drive/completeness-analyzer"
 
 export default function RealDriveConnector() {
-  const [isConnecting, setIsConnecting] = useState(false)
-  const [isConnected, setIsConnected] = useState(false)
-  const [folders, setFolders] = useState<FolderStructure[]>([])
+  const [connecting, setConnecting] = useState(false)
+  const [connected, setConnected] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [folders, setFolders] = useState<FolderStructure[]>([])
   const [error, setError] = useState<string | null>(null)
 
-  const handleConnect = async () => {
-    setIsConnecting(true)
-    setError(null)
-
-    try {
-      console.log("[v0] Starting real Google Drive connection...")
-      const success = await realDriveService.authenticate()
-
-      if (success) {
-        setIsConnected(true)
-        console.log("[v0] Successfully connected to Google Drive")
-        await loadRealFolders()
-      } else {
-        throw new Error("Authentication failed")
-      }
-    } catch (err) {
-      console.error("[v0] Connection error:", err)
-      setError(err instanceof Error ? err.message : "Connection failed")
-    } finally {
-      setIsConnecting(false)
-    }
-  }
-
-  const loadRealFolders = async () => {
+  const loadFolders = async () => {
     setLoading(true)
+    setError(null)
     try {
-      console.log("[v0] Loading real folders from Google Drive...")
-      const realFolders = await realDriveService.listSuccessCases()
-      setFolders(realFolders)
-      console.log("[v0] Loaded folders:", realFolders)
-    } catch (err) {
-      console.error("[v0] Error loading folders:", err)
-      setError("Failed to load folders")
+      const data = await realDriveService.listSuccessCases()
+      setFolders(data)
+    } catch (loadError) {
+      setFolders([])
+      setError(loadError instanceof Error ? loadError.message : "No se pudieron cargar las carpetas")
     } finally {
       setLoading(false)
     }
   }
 
-  const handleExtractRols = async (folderId: string) => {
+  const connect = async () => {
+    setConnecting(true)
+    setError(null)
     try {
-      console.log("[v0] Extracting rol numbers from folder:", folderId)
-      const rolNumbers = await realDriveService.extractRolNumbers(folderId)
-      console.log("[v0] Extracted rol numbers:", rolNumbers)
-
-      // Update folder with extracted rol numbers
-      setFolders((prev) =>
-        prev.map((folder) => (folder.id === folderId ? { ...folder, extractedRols: rolNumbers } : folder)),
-      )
-    } catch (err) {
-      console.error("[v0] Error extracting rol numbers:", err)
-    }
-  }
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "complete":
-        return "bg-green-500"
-      case "incomplete":
-        return "bg-yellow-500"
-      default:
-        return "bg-gray-500"
-    }
-  }
-
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "complete":
-        return "Completo"
-      case "incomplete":
-        return "Incompleto"
-      default:
-        return "Pendiente"
+      const ok = await realDriveService.authenticate()
+      setConnected(ok)
+      if (!ok) throw new Error("Google Drive no está conectado o configurado")
+      await loadFolders()
+    } catch (connectError) {
+      setConnected(false)
+      setError(connectError instanceof Error ? connectError.message : "No se pudo conectar Google Drive")
+    } finally {
+      setConnecting(false)
     }
   }
 
   return (
     <div className="space-y-6">
-      {/* Connection Status */}
-      <Card>
+      <Card className="shadow-none">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <FolderOpen className="h-5 w-5" />
-            Conexión Real Google Drive
+            <FolderOpen className="h-5 w-5 text-primary" />
+            Google Drive
           </CardTitle>
-          <CardDescription>Conectar con las credenciales reales de Sur-Realista</CardDescription>
+          <CardDescription>
+            Acceso mediante OAuth del lado servidor. Las credenciales no se incluyen en el navegador.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {!isConnected ? (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <strong>Client ID:</strong>
-                  <p className="text-muted-foreground font-mono text-xs">Configured via environment</p>
-                </div>
-                <div>
-                  <strong>API Key:</strong>
-                  <p className="text-muted-foreground font-mono text-xs">Configured via environment</p>
-                </div>
+          {connected ? (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <CheckCircle2 className="h-5 w-5 text-primary" />
+                Conexión verificada
               </div>
-
-              <Button onClick={handleConnect} disabled={isConnecting} className="w-full">
-                {isConnecting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Conectando...
-                  </>
-                ) : (
-                  <>
-                    <CheckCircle className="mr-2 h-4 w-4" />
-                    Conectar con Google Drive Real
-                  </>
-                )}
+              <Button variant="outline" onClick={() => void loadFolders()} disabled={loading}>
+                <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                Actualizar
               </Button>
             </div>
           ) : (
-            <div className="flex items-center gap-2 text-green-600">
-              <CheckCircle className="h-5 w-5" />
-              <span>Conectado exitosamente a Google Drive</span>
-            </div>
+            <Button onClick={() => void connect()} disabled={connecting}>
+              {connecting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FolderOpen className="mr-2 h-4 w-4" />}
+              Conectar Google Drive
+            </Button>
           )}
 
           {error && (
@@ -146,108 +84,30 @@ export default function RealDriveConnector() {
         </CardContent>
       </Card>
 
-      {/* Real Folders Display */}
-      {isConnected && (
-        <Card>
+      {connected && (
+        <Card className="shadow-none">
           <CardHeader>
-            <CardTitle>Casos de Éxito Reales</CardTitle>
+            <CardTitle className="text-lg">Carpetas disponibles</CardTitle>
             <CardDescription>
-              Carpetas encontradas en: https://drive.google.com/drive/folders/1wJRhFJNpIqoJ_O9FPIhpPglmypnwgt5F
+              Se muestran únicamente carpetas devueltas por la integración OAuth configurada.
             </CardDescription>
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin" />
-                <span className="ml-2">Cargando carpetas reales...</span>
+              <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Cargando carpetas…
               </div>
+            ) : folders.length === 0 ? (
+              <p className="py-8 text-sm text-muted-foreground">La fuente conectada no devolvió carpetas visibles.</p>
             ) : (
-              <div className="space-y-4">
+              <div className="divide-y divide-border rounded-md border">
                 {folders.map((folder) => (
-                  <Card key={folder.id} className="border-l-4 border-l-blue-500">
-                    <CardContent className="pt-4">
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-semibold">{folder.displayName}</h3>
-                            <Badge className={getStatusColor(folder.completionStatus)}>
-                              {getStatusText(folder.completionStatus)}
-                            </Badge>
-                            <Badge
-                              variant="outline"
-                              className={completenessAnalyzer.getCompletenessColor(folder.completenessScore)}
-                            >
-                              {completenessAnalyzer.getCompletenessIcon(folder.completenessScore)}{" "}
-                              {folder.completenessScore}%
-                            </Badge>
-                          </div>
-
-                          {folder.originalName !== folder.displayName && (
-                            <p className="text-xs text-muted-foreground">Nombre original: {folder.originalName}</p>
-                          )}
-
-                          <div className="grid grid-cols-3 gap-4 text-sm text-muted-foreground">
-                            <div>
-                              <FileText className="inline h-4 w-4 mr-1" />
-                              {folder.totalFiles} archivos
-                            </div>
-                            <div>
-                              <Download className="inline h-4 w-4 mr-1" />
-                              {(folder.totalSize / 1024 / 1024).toFixed(1)} MB
-                            </div>
-                            <div>
-                              {folder.extractedInfo.location && <span>📍 {folder.extractedInfo.location}</span>}
-                            </div>
-                          </div>
-
-                          {(folder.extractedInfo.area || folder.extractedInfo.rolNumbers.length > 0) && (
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              {folder.extractedInfo.area && (
-                                <Badge variant="secondary">🏞️ {folder.extractedInfo.area}</Badge>
-                              )}
-                              {folder.extractedInfo.rolNumbers.map((rol, idx) => (
-                                <Badge key={idx} variant="secondary">
-                                  📋 {rol}
-                                </Badge>
-                              ))}
-                              {folder.extractedInfo.year && (
-                                <Badge variant="secondary">📅 {folder.extractedInfo.year}</Badge>
-                              )}
-                            </div>
-                          )}
-
-                          {folder.completenessDetails.missingElements.length > 0 && (
-                            <div className="mt-2">
-                              <p className="text-xs font-medium text-muted-foreground mb-1">Elementos faltantes:</p>
-                              <div className="flex flex-wrap gap-1">
-                                {folder.completenessDetails.missingElements.slice(0, 3).map((element, idx) => (
-                                  <Badge key={idx} variant="outline" className="text-xs">
-                                    {element}
-                                  </Badge>
-                                ))}
-                                {folder.completenessDetails.missingElements.length > 3 && (
-                                  <Badge variant="outline" className="text-xs">
-                                    +{folder.completenessDetails.missingElements.length - 3} más
-                                  </Badge>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        <Button size="sm" onClick={() => handleExtractRols(folder.id)} disabled={loading}>
-                          Extraer Roles
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-
-                {folders.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No se encontraron carpetas. Verifica los permisos de acceso.
+                  <div key={folder.id} className="flex items-center gap-3 px-4 py-3">
+                    <FolderOpen className="h-4 w-4 shrink-0 text-primary" />
+                    <span className="min-w-0 truncate text-sm font-medium">{folder.name}</span>
                   </div>
-                )}
+                ))}
               </div>
             )}
           </CardContent>
