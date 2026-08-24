@@ -3,7 +3,15 @@ import { INTERNAL_ACCESS_COOKIE, verifyInternalAccessToken } from "@/lib/auth/in
 import { updateSession } from "@/lib/supabase/middleware"
 
 function isPrivilegedPath(pathname: string) {
-  return pathname === "/admin" || pathname.startsWith("/admin/") || pathname.startsWith("/api/admin/")
+  return (
+    pathname === "/admin" ||
+    pathname.startsWith("/admin/") ||
+    pathname === "/campos" ||
+    pathname.startsWith("/campos/") ||
+    pathname.startsWith("/api/admin/") ||
+    pathname === "/api/kmz/ciren-context" ||
+    pathname === "/api/kmz/ciren-neighbors"
+  )
 }
 
 export async function middleware(request: NextRequest) {
@@ -30,5 +38,7 @@ export const config = {
   matcher: [
     "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|woff|woff2)$).*)",
     "/api/admin/:path*",
+    "/api/kmz/ciren-context",
+    "/api/kmz/ciren-neighbors",
   ],
 }
