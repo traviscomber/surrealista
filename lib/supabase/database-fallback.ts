@@ -21,8 +21,8 @@ export type DynamicDatabase = {
     Functions: Record<
       string,
       {
-        Args: Record<string, unknown>
-        Returns: unknown
+        Args: any
+        Returns: any
       }
     >
     Enums: Record<string, string>
