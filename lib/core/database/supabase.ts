@@ -2,17 +2,16 @@ import {
   createBrowserClient as createBrowserSupabaseClient,
   createServerClient as createServerSupabaseClient,
 } from "@supabase/ssr"
-import type { Database } from "./types"
 
 export function createBrowserClient() {
-  return createBrowserSupabaseClient<Database>(
+  return createBrowserSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
   )
 }
 
 export function createServerClient(cookieStore: any) {
-  return createServerSupabaseClient<Database>(
+  return createServerSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
