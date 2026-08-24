@@ -34,6 +34,10 @@ function sanitizeFileName(name: string) {
     .replace(/[^a-zA-Z0-9._-]/g, "_")
 }
 
+function internalDocumentUrl(storagePath: string) {
+  return `/api/storage/documents/${storagePath.split("/").map(encodeURIComponent).join("/")}`
+}
+
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
@@ -65,12 +69,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Error al guardar el archivo" }, { status: 500 })
     }
 
-    // Kept temporarily for backward compatibility while the documents bucket is migrated to private URLs.
-    const { data: urlData } = supabase.storage.from("documents").getPublicUrl(storagePath)
-
     return NextResponse.json(
       {
-        url: urlData.publicUrl,
+        url: internalDocumentUrl(storagePath),
         storagePath,
         fileName: file.name,
         fileSize: file.size,
