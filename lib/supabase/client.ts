@@ -1,6 +1,7 @@
 "use client"
 
 import { createBrowserClient as createBrowserSupabaseClient } from "@supabase/ssr"
+import type { DynamicDatabase } from "@/lib/supabase/database-fallback"
 
 const SUPABASE_URL = "https://jvgbrmqsiexwlqsyrwdx.supabase.co"
 const SUPABASE_ANON_KEY =
@@ -30,12 +31,12 @@ function proxiedFetch(input: RequestInfo | URL, init?: RequestInit) {
   return fetch(input, init)
 }
 
-let _supabase: ReturnType<typeof createBrowserSupabaseClient> | null = null
+let _supabase: ReturnType<typeof createBrowserSupabaseClient<DynamicDatabase>> | null = null
 
 function initSupabase() {
   if (_supabase) return _supabase
 
-  _supabase = createBrowserSupabaseClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  _supabase = createBrowserSupabaseClient<DynamicDatabase>(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: { fetch: proxiedFetch },
     cookies: {
       get(name: string) {
