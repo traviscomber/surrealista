@@ -122,18 +122,18 @@ export default function TagsAdminPage() {
       if (error) throw error
 
       const createdTag: unknown = data
-      if (
-        !createdTag ||
-        typeof createdTag !== "object" ||
-        !("id" in createdTag) ||
-        !("name" in createdTag) ||
-        typeof createdTag.id !== "string" ||
-        typeof createdTag.name !== "string"
-      ) {
+      if (!createdTag || typeof createdTag !== "object") {
         throw new Error("Invalid tag response")
       }
 
-      setTags((currentTags) => [...currentTags, { id: createdTag.id, name: createdTag.name }])
+      const createdTagRecord = createdTag as Record<string, unknown>
+      const id = createdTagRecord.id
+      const name = createdTagRecord.name
+      if (typeof id !== "string" || typeof name !== "string") {
+        throw new Error("Invalid tag response")
+      }
+
+      setTags((currentTags) => [...currentTags, { id, name }])
       setNewTagName("")
     } catch (error) {
       console.error("[v0] Error creating tag:", error)
