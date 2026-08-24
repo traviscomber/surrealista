@@ -21,7 +21,10 @@ interface PropertyEditFormProps {
 }
 
 type NumericInput = string | number
-type PropertyRecord = Record<string, any>
+type PropertyRecord = {
+  title?: string
+  [key: string]: unknown
+}
 
 type BasicInfo = {
   title: string
@@ -120,6 +123,44 @@ const EMPTY_FORM: PropertyFormState = {
   },
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === "object" ? (value as Record<string, unknown>) : {}
+}
+
+function getString(row: Record<string, unknown>, key: string, fallback = ""): string {
+  const value = row[key]
+  return typeof value === "string" ? value : fallback
+}
+
+function getBoolean(row: Record<string, unknown>, key: string, fallback = false): boolean {
+  const value = row[key]
+  return typeof value === "boolean" ? value : fallback
+}
+
+function getNumericInput(row: Record<string, unknown>, key: string): NumericInput {
+  const value = row[key]
+  return typeof value === "number" && Number.isFinite(value) ? value : ""
+}
+
+function getStringArray(row: Record<string, unknown>, key: string): string[] {
+  const value = row[key]
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : []
+}
+
+function toNullableNumber(value: NumericInput): number | null {
+  if (value === "" || value === null || value === undefined) return null
+  const parsed = typeof value === "number" ? value : Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function normalizePropertyRow(value: unknown): PropertyRecord {
+  const row = asRecord(value)
+  return {
+    ...row,
+    title: getString(row, "title"),
+  }
+}
+
 export function PropertyEditForm({ id }: PropertyEditFormProps) {
   const router = useRouter()
   const { toast } = useToast()
@@ -136,54 +177,58 @@ export function PropertyEditForm({ id }: PropertyEditFormProps) {
 
         if (error) throw error
 
-        setProperty(data)
+        const row = asRecord(data)
+        const normalizedProperty = normalizePropertyRow(data)
+
+        setProperty(normalizedProperty)
         setFormData({
           basic: {
-            title: data.title || "",
-            description: data.description || "",
-            property_type: data.property_type || "house",
-            status: data.status || "available",
-            featured: data.featured || false,
+            title: getString(row, "title"),
+            description: getString(row, "description"),
+            property_type: getString(row, "property_type", "house"),
+            status: getString(row, "status", "available"),
+            featured: getBoolean(row, "featured"),
           },
           details: {
-            bedrooms: data.bedrooms || "",
-            bathrooms: data.bathrooms || "",
-            area: data.area || "",
-            land_area: data.land_area || "",
-            year_built: data.year_built || "",
-            parking: data.parking || "",
+            bedrooms: getNumericInput(row, "bedrooms"),
+            bathrooms: getNumericInput(row, "bathrooms"),
+            area: getNumericInput(row, "square_meters"),
+            land_area: getNumericInput(row, "lot_size"),
+            year_built: getNumericInput(row, "year_built"),
+            parking: "",
           },
           location: {
-            address: data.address || "",
-            city: data.city || "",
-            region: data.region || "",
-            provincia: data.provincia || "",
-            comuna: data.comuna || "",
-            postal_code: data.postal_code || "",
-            latitude: data.latitude || "",
-            longitude: data.longitude || "",
-            roll_number: data.roll_number || "",
+            address: getString(row, "address"),
+            city: getString(row, "city"),
+            region: getString(row, "region"),
+            provincia: "",
+            comuna: "",
+            postal_code: "",
+            latitude: getNumericInput(row, "latitude"),
+            longitude: getNumericInput(row, "longitude"),
+            roll_number: getString(row, "roll_number"),
           },
           pricing: {
-            price: data.price || "",
-            price_currency: data.price_currency || "CLP",
-            price_per_sqm: data.price_per_sqm || "",
-            maintenance_fee: data.maintenance_fee || "",
+            price: getNumericInput(row, "price"),
+            price_currency: "CLP",
+            price_per_sqm: "",
+            maintenance_fee: "",
           },
           features: {
-            features: data.features || [],
-            amenities: data.amenities || [],
+            features: [],
+            amenities: getStringArray(row, "amenities"),
           },
           media: {
-            images: data.images || [],
-            videos: data.videos || [],
-            virtual_tour_url: data.virtual_tour_url || "",
+            images: getStringArray(row, "images"),
+            videos: [],
+            virtual_tour_url: "",
           },
         })
-      } catch (error: any) {
+      } catch (error: unknown) {
+        const message = error instanceof Error ? error.message : "Error desconocido"
         toast({
           title: "Error",
-          description: "No se pudo cargar la propiedad: " + error.message,
+          description: "No se pudo cargar la propiedad: " + message,
           variant: "destructive",
         })
       } finally {
@@ -204,43 +249,38 @@ export function PropertyEditForm({ id }: PropertyEditFormProps) {
   const handleSave = async () => {
     setIsSaving(true)
     try {
-      const combinedData: PropertyRecord = {
-        ...formData.basic,
-        ...formData.details,
-        ...formData.location,
-        ...formData.pricing,
-        ...formData.features,
+      const updateData = {
+        title: formData.basic.title.trim(),
+        description: formData.basic.description.trim() || null,
+        property_type: formData.basic.property_type,
+        status: formData.basic.status,
+        featured: formData.basic.featured,
+        bedrooms: toNullableNumber(formData.details.bedrooms),
+        bathrooms: toNullableNumber(formData.details.bathrooms),
+        square_meters: toNullableNumber(formData.details.area),
+        lot_size: toNullableNumber(formData.details.land_area),
+        year_built: toNullableNumber(formData.details.year_built),
+        address: formData.location.address.trim() || null,
+        city: formData.location.city.trim(),
+        region: formData.location.region.trim(),
+        latitude: toNullableNumber(formData.location.latitude),
+        longitude: toNullableNumber(formData.location.longitude),
+        roll_number: formData.location.roll_number?.trim() || null,
+        price: toNullableNumber(formData.pricing.price),
+        amenities: formData.features.amenities,
         images: formData.media.images,
-        videos: formData.media.videos,
-        virtual_tour_url: formData.media.virtual_tour_url,
         updated_at: new Date().toISOString(),
       }
 
-      const numericFields = [
-        "price",
-        "bedrooms",
-        "bathrooms",
-        "area",
-        "land_area",
-        "year_built",
-        "parking",
-        "price_per_sqm",
-        "maintenance_fee",
-        "latitude",
-        "longitude",
-      ]
-
-      for (const field of numericFields) {
-        if (combinedData[field] !== undefined && combinedData[field] !== "") {
-          combinedData[field] = Number(combinedData[field])
-        }
+      if (!updateData.title || !updateData.city || !updateData.region || updateData.price === null) {
+        throw new Error("Título, ciudad, región y precio son obligatorios")
       }
 
-      const { error } = await supabase.from("properties").update(combinedData).eq("id", id)
+      const { error } = await supabase.from("properties").update(updateData).eq("id", id)
 
       if (error) throw error
 
-      setProperty((prev) => ({ ...(prev || {}), ...combinedData }))
+      setProperty((prev) => normalizePropertyRow({ ...(prev || {}), ...updateData }))
 
       toast({
         title: "Propiedad actualizada",
@@ -248,11 +288,12 @@ export function PropertyEditForm({ id }: PropertyEditFormProps) {
       })
 
       router.refresh()
-    } catch (error: any) {
-      console.log("[v0] Error saving property:", error.message)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Error desconocido"
+      console.log("[v0] Error saving property:", message)
       toast({
         title: "Error",
-        description: "No se pudo actualizar la propiedad: " + error.message,
+        description: "No se pudo actualizar la propiedad: " + message,
         variant: "destructive",
       })
     } finally {
@@ -272,7 +313,7 @@ export function PropertyEditForm({ id }: PropertyEditFormProps) {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Editar Propiedad: {property?.title}</h2>
+        <h2 className="text-2xl font-bold">Editar Propiedad: {property?.title || "Propiedad"}</h2>
         <div className="flex gap-2">
           <Button variant="outline" onClick={() => router.back()}>
             Cancelar
