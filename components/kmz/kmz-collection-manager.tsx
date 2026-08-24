@@ -516,7 +516,7 @@ export function KMZCollectionManager() {
     }
   }
 
-  const categories = ["all", ...new Set(kmzFiles.map((kmz) => kmz.category).filter(Boolean))]
+  const categories = ["all", ...new Set(kmzFiles.map((kmz) => kmz.category).filter((category): category is string => Boolean(category)))]
 
   return (
     <div className="min-h-screen bg-background">
