@@ -1,27 +1,14 @@
 import { Suspense } from "react"
 import { PropertyEditForm } from "@/components/admin/property-edit-form"
 import { Skeleton } from "@/components/ui/skeleton"
-import { createClient } from "@/lib/supabase/server"
-
-async function getProperty(id: string) {
-  const supabase = await createClient()
-  const { data, error } = await supabase.from("properties").select("*").eq("id", id).single()
-
-  if (error) {
-    throw new Error(`Error al cargar la propiedad: ${error.message}`)
-  }
-
-  return data
-}
 
 export default async function EditPropertyPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const property = await getProperty(id)
 
   return (
     <div className="container mx-auto px-4 py-8">
       <Suspense fallback={<PropertyEditSkeleton />}>
-        <PropertyEditForm property={property} />
+        <PropertyEditForm id={id} />
       </Suspense>
     </div>
   )
@@ -37,7 +24,6 @@ function PropertyEditSkeleton() {
           <Skeleton className="h-10 w-32" />
         </div>
       </div>
-
       <Skeleton className="h-[600px] w-full" />
       <Skeleton className="h-[300px] w-full" />
     </div>
