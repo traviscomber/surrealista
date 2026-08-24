@@ -29,16 +29,56 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 
+interface NotificationPreferences {
+  email: boolean
+  whatsapp: boolean
+  sms: boolean
+}
+
 interface User {
   id: string
   name: string
   email: string
   phone?: string
   whatsapp?: string
-  notification_preferences?: {
-    email: boolean
-    whatsapp: boolean
-    sms: boolean
+  notification_preferences?: NotificationPreferences
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {}
+}
+
+function optionalString(row: Record<string, unknown>, key: string): string | undefined {
+  const value = row[key]
+  return typeof value === "string" && value.length > 0 ? value : undefined
+}
+
+function normalizePreferences(value: unknown): NotificationPreferences | undefined {
+  const row = asRecord(value)
+  if (Object.keys(row).length === 0) return undefined
+  return {
+    email: typeof row.email === "boolean" ? row.email : true,
+    whatsapp: typeof row.whatsapp === "boolean" ? row.whatsapp : false,
+    sms: typeof row.sms === "boolean" ? row.sms : false,
+  }
+}
+
+function normalizeUser(value: unknown): User | null {
+  const row = asRecord(value)
+  const id = optionalString(row, "id")
+  const name = optionalString(row, "name")
+  const email = optionalString(row, "email")
+  if (!id || !name || !email) return null
+
+  return {
+    id,
+    name,
+    email,
+    phone: optionalString(row, "phone"),
+    whatsapp: optionalString(row, "whatsapp"),
+    notification_preferences: normalizePreferences(row.notification_preferences),
   }
 }
 
@@ -54,7 +94,7 @@ export function UserContactManager() {
   const supabase = createBrowserClient()
 
   useEffect(() => {
-    loadUsers()
+    void loadUsers()
   }, [])
 
   const loadUsers = async () => {
@@ -62,7 +102,7 @@ export function UserContactManager() {
       const { data, error } = await supabase.from("users").select("*").order("name")
 
       if (error) throw error
-      setUsers(data || [])
+      setUsers((data || []).map(normalizeUser).filter((user): user is User => user !== null))
     } catch (error) {
       console.error("[v0] Error loading users:", error)
     }
@@ -149,12 +189,11 @@ export function UserContactManager() {
   }
 
   const openDeleteDialog = (user: User, e: React.MouseEvent) => {
-    e.stopPropagation() // Prevent opening edit dialog
+    e.stopPropagation()
     setUserToDelete(user)
     setIsDeleteDialogOpen(true)
   }
 
-  // Form state
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("")
