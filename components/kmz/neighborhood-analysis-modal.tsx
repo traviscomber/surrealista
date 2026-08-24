@@ -11,7 +11,6 @@ interface KMZRecord {
   file_name: string
   file_path: string
   region?: string | null
-  [key: string]: unknown
 }
 
 interface NeighborhoodAnalysisModalProps {
