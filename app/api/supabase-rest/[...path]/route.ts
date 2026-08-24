@@ -1,9 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { INTERNAL_ACCESS_COOKIE, verifyInternalAccessToken } from "@/lib/auth/internal-access"
 
 const FORWARDED_REQUEST_HEADERS = [
   "accept",
-  "accept-profile",
-  "content-profile",
   "content-type",
   "if-match",
   "if-none-match",
@@ -24,7 +23,14 @@ const FORWARDED_RESPONSE_HEADERS = [
   "range-unit",
 ]
 
+const RELATION_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/
+
 async function proxyPostgrest(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
+  const token = request.cookies.get(INTERNAL_ACCESS_COOKIE)?.value
+  if (!(await verifyInternalAccessToken(token))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!supabaseUrl || !serviceRoleKey) {
@@ -32,15 +38,19 @@ async function proxyPostgrest(request: NextRequest, context: { params: Promise<{
   }
 
   const { path } = await context.params
-  if (!Array.isArray(path) || path.length === 0) {
-    return NextResponse.json({ error: "Invalid database path" }, { status: 400 })
+  if (!Array.isArray(path) || path.length !== 1 || !RELATION_NAME.test(path[0])) {
+    return NextResponse.json({ error: "Unsupported database path" }, { status: 404 })
   }
 
-  const encodedPath = path.map((segment) => encodeURIComponent(decodeURIComponent(segment))).join("/")
-  const target = `${supabaseUrl.replace(/\/$/, "")}/rest/v1/${encodedPath}${request.nextUrl.search}`
+  // This proxy intentionally supports public-schema table/view operations only.
+  // PostgREST RPC endpoints and alternate schema profiles are not reachable from the browser.
+  const relation = path[0]
+  const target = `${supabaseUrl.replace(/\/$/, "")}/rest/v1/${encodeURIComponent(relation)}${request.nextUrl.search}`
   const headers = new Headers({
     apikey: serviceRoleKey,
     authorization: `Bearer ${serviceRoleKey}`,
+    "accept-profile": "public",
+    "content-profile": "public",
   })
 
   for (const name of FORWARDED_REQUEST_HEADERS) {
