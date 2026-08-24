@@ -7,12 +7,25 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Loader2, AlertCircle, CheckCircle } from "lucide-react"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
+type ValidationResults = {
+  isValid: boolean
+  missingFields: string[]
+  warnings: string[]
+  suggestions: string[]
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
+}
+
 export default function CheckPropertyData() {
   const [jsonData, setJsonData] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-  const [validationResults, setValidationResults] = useState<any>(null)
+  const [validationResults, setValidationResults] = useState<ValidationResults | null>(null)
 
   const validateData = async () => {
     if (!jsonData) {
@@ -26,19 +39,17 @@ export default function CheckPropertyData() {
     setValidationResults(null)
 
     try {
-      // Parse JSON to check if it's valid
-      const parsedData = JSON.parse(jsonData)
+      const parsedData = asRecord(JSON.parse(jsonData))
+      if (!parsedData) throw new Error("Property data must be a JSON object")
 
-      // Perform basic validation
-      const results = {
+      const results: ValidationResults = {
         isValid: true,
         missingFields: [],
         warnings: [],
         suggestions: [],
       }
 
-      // Check required fields
-      const requiredFields = ["title", "description", "price", "location"]
+      const requiredFields = ["title", "description", "price", "location"] as const
       for (const field of requiredFields) {
         if (!parsedData[field]) {
           results.isValid = false
@@ -46,24 +57,23 @@ export default function CheckPropertyData() {
         }
       }
 
-      // Check for images
-      if (!parsedData.images || !Array.isArray(parsedData.images) || parsedData.images.length === 0) {
+      const images = parsedData.images
+      if (!Array.isArray(images) || images.length === 0) {
         results.warnings.push("No se encontraron imágenes para la propiedad")
       }
 
-      // Check price format
-      if (parsedData.price && typeof parsedData.price === "string") {
-        if (!parsedData.price.match(/^\$?[\d.,]+$/)) {
-          results.warnings.push("El formato del precio podría no ser válido")
-        }
+      const price = parsedData.price
+      if (typeof price === "string" && !price.match(/^\$?[\d.,]+$/)) {
+        results.warnings.push("El formato del precio podría no ser válido")
       }
 
-      // Suggestions for improvement
-      if (!parsedData.features || !Array.isArray(parsedData.features) || parsedData.features.length === 0) {
+      const features = parsedData.features
+      if (!Array.isArray(features) || features.length === 0) {
         results.suggestions.push("Agregar características de la propiedad mejorará la calidad del listado")
       }
 
-      if (!parsedData.coordinates || !parsedData.coordinates.lat || !parsedData.coordinates.lng) {
+      const coordinates = asRecord(parsedData.coordinates)
+      if (!coordinates || coordinates.lat == null || coordinates.lng == null) {
         results.suggestions.push("Agregar coordenadas permitirá mostrar la propiedad en el mapa")
       }
 
@@ -76,7 +86,7 @@ export default function CheckPropertyData() {
       } else {
         setError("Los datos no son válidos. Por favor, corrige los campos faltantes.")
       }
-    } catch (err) {
+    } catch {
       setError("Error al analizar el JSON. Asegúrate de que el formato sea correcto.")
     } finally {
       setLoading(false)
@@ -133,7 +143,7 @@ export default function CheckPropertyData() {
                   <div className="space-y-2">
                     <h4 className="font-medium text-red-600">Campos Requeridos Faltantes:</h4>
                     <ul className="list-disc pl-5 space-y-1">
-                      {validationResults.missingFields.map((field: string) => (
+                      {validationResults.missingFields.map((field) => (
                         <li key={field}>{field}</li>
                       ))}
                     </ul>
@@ -144,7 +154,7 @@ export default function CheckPropertyData() {
                   <div className="space-y-2">
                     <h4 className="font-medium text-amber-600">Advertencias:</h4>
                     <ul className="list-disc pl-5 space-y-1">
-                      {validationResults.warnings.map((warning: string, index: number) => (
+                      {validationResults.warnings.map((warning, index) => (
                         <li key={index}>{warning}</li>
                       ))}
                     </ul>
@@ -155,7 +165,7 @@ export default function CheckPropertyData() {
                   <div className="space-y-2">
                     <h4 className="font-medium text-blue-600">Sugerencias:</h4>
                     <ul className="list-disc pl-5 space-y-1">
-                      {validationResults.suggestions.map((suggestion: string, index: number) => (
+                      {validationResults.suggestions.map((suggestion, index) => (
                         <li key={index}>{suggestion}</li>
                       ))}
                     </ul>
