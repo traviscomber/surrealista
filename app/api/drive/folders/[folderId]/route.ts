@@ -1,6 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server"
 
-export async function GET(request: NextRequest, { params }: { params: { folderId: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ folderId: string }> }) {
   try {
     const accessToken = request.cookies.get("google_access_token")?.value
 
@@ -8,7 +8,7 @@ export async function GET(request: NextRequest, { params }: { params: { folderId
       return NextResponse.json({ error: "No access token found" }, { status: 401 })
     }
 
-    const { folderId } = params
+    const { folderId } = await params
 
     const response = await fetch(
       `https://www.googleapis.com/drive/v3/files?` +
