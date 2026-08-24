@@ -20,14 +20,17 @@ interface PropertyEditFormProps {
   id: string
 }
 
+type PropertyRecord = Record<string, any>
+type PropertyFormState = Record<string, PropertyRecord>
+
 export function PropertyEditForm({ id }: PropertyEditFormProps) {
   const router = useRouter()
   const { toast } = useToast()
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [activeTab, setActiveTab] = useState("basic-info")
-  const [property, setProperty] = useState<any>(null)
-  const [formData, setFormData] = useState<any>({
+  const [property, setProperty] = useState<PropertyRecord | null>(null)
+  const [formData, setFormData] = useState<PropertyFormState>({
     basic: {},
     details: {},
     location: {},
@@ -44,8 +47,6 @@ export function PropertyEditForm({ id }: PropertyEditFormProps) {
         if (error) throw error
 
         setProperty(data)
-
-        // Initialize form data with property data
         setFormData({
           basic: {
             title: data.title || "",
@@ -100,7 +101,7 @@ export function PropertyEditForm({ id }: PropertyEditFormProps) {
     fetchProperty()
   }, [id, toast])
 
-  const handleFormChange = (section: string, data: any) => {
+  const handleFormChange = (section: string, data: PropertyRecord) => {
     setFormData((prev) => ({
       ...prev,
       [section]: data,
@@ -110,8 +111,7 @@ export function PropertyEditForm({ id }: PropertyEditFormProps) {
   const handleSave = async () => {
     setIsSaving(true)
     try {
-      // Combine all form sections into one object
-      const combinedData = {
+      const combinedData: PropertyRecord = {
         ...formData.basic,
         ...formData.details,
         ...formData.location,
@@ -123,7 +123,6 @@ export function PropertyEditForm({ id }: PropertyEditFormProps) {
         updated_at: new Date().toISOString(),
       }
 
-      // Convert numeric fields
       const numericFields = [
         "price",
         "bedrooms",
@@ -144,22 +143,17 @@ export function PropertyEditForm({ id }: PropertyEditFormProps) {
         }
       }
 
-      // Update property in database
       const { error } = await supabase.from("properties").update(combinedData).eq("id", id)
 
       if (error) throw error
 
-      console.log("[v0] Property saved successfully:", combinedData)
-
-      // Update the property state with the new data
-      setProperty((prev) => ({ ...prev, ...combinedData }))
+      setProperty((prev) => ({ ...(prev || {}), ...combinedData }))
 
       toast({
         title: "Propiedad actualizada",
         description: "Los cambios han sido guardados exitosamente.",
       })
 
-      // Refresh the page to show updated data
       router.refresh()
     } catch (error: any) {
       console.log("[v0] Error saving property:", error.message)
