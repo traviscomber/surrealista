@@ -1,3 +1,4 @@
+import { NextResponse } from "next/server"
 import { streamCAMPOSAgent, type CAMPOSAgentContext } from "@/app/actions/campos-agent"
 
 export const runtime = "nodejs"
@@ -9,12 +10,12 @@ export async function POST(request: Request) {
     const context = body?.context as CAMPOSAgentContext | undefined
 
     if (!message.trim()) {
-      return Response.json({ error: "Message required" }, { status: 400 })
+      return NextResponse.json({ error: "Message required" }, { status: 400 })
     }
 
     return await streamCAMPOSAgent(message, context)
   } catch (error) {
     console.error("CAMPOS agent route error", error)
-    return Response.json({ error: "Unable to process request" }, { status: 500 })
+    return NextResponse.json({ error: "Unable to process request" }, { status: 500 })
   }
 }
