@@ -12,9 +12,9 @@ export interface APIResponse<T = any> {
 export function createAPIResponse<T>(data?: T, success = true, message?: string, error?: string): APIResponse<T> {
   return {
     success,
-    ...(data && { data }),
-    ...(message && { message }),
-    ...(error && { error }),
+    ...(data !== undefined && data !== null ? { data } : {}),
+    ...(message ? { message } : {}),
+    ...(error ? { error } : {}),
   }
 }
 
@@ -23,7 +23,7 @@ export async function withAuth(
   handler: (request: NextRequest, user: any) => Promise<NextResponse>,
 ) {
   try {
-    const cookieStore = cookies()
+    const cookieStore = await cookies()
     const supabase = createServerClient(cookieStore)
 
     const {
@@ -38,17 +38,19 @@ export async function withAuth(
     }
 
     return await handler(request, session.user)
-  } catch (error) {
+  } catch {
     return NextResponse.json(createAPIResponse(null, false, undefined, "Authentication error"), {
       status: 500,
     })
   }
 }
 
-export function withErrorHandling(handler: (request: NextRequest) => Promise<NextResponse>) {
-  return async (request: NextRequest) => {
+export function withErrorHandling<TContext = unknown>(
+  handler: (request: NextRequest, context: TContext) => Promise<NextResponse>,
+) {
+  return async (request: NextRequest, context: TContext) => {
     try {
-      return await handler(request)
+      return await handler(request, context)
     } catch (error: any) {
       console.error("API Error:", error)
       return NextResponse.json(createAPIResponse(null, false, undefined, error.message || "Internal server error"), {
@@ -58,32 +60,34 @@ export function withErrorHandling(handler: (request: NextRequest) => Promise<Nex
   }
 }
 
-export function withRateLimit(handler: (request: NextRequest) => Promise<NextResponse>, limit = 100, windowMs = 60000) {
+export function withRateLimit<TContext = unknown>(
+  handler: (request: NextRequest, context: TContext) => Promise<NextResponse>,
+  limit = 100,
+  windowMs = 60000,
+) {
   const requests = new Map<string, { count: number; resetTime: number }>()
 
-  return async (request: NextRequest) => {
-    const ip = request.ip || "unknown"
+  return async (request: NextRequest, context: TContext) => {
+    const forwardedFor = request.headers.get("x-forwarded-for")
+    const ip = forwardedFor?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "unknown"
     const now = Date.now()
-    const windowStart = now - windowMs
 
-    // Clean old entries
     for (const [key, value] of requests.entries()) {
-      if (value.resetTime < windowStart) {
+      if (value.resetTime <= now) {
         requests.delete(key)
       }
     }
 
     const current = requests.get(ip) || { count: 0, resetTime: now + windowMs }
-
     if (current.count >= limit) {
       return NextResponse.json(createAPIResponse(null, false, undefined, "Rate limit exceeded"), {
         status: 429,
       })
     }
 
-    current.count++
+    current.count += 1
     requests.set(ip, current)
 
-    return await handler(request)
+    return await handler(request, context)
   }
 }
