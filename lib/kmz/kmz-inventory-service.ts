@@ -53,7 +53,7 @@ export interface KmzInventoryFilters {
 
 const PAGE_SIZE = 1000
 const INVENTORY_SELECT = "id,file_name,region,category,bounds,rol_numbers,geometry_status,latitude,longitude"
-const REGION_SUMMARY_SELECT = "region,total_kmz,sii_reference_count,kmz_center_count,layer_count,with_rol_count,with_owner_count,missing_rol_count,center_latitude,center_longitude,average_completeness"
+const REGION_SUMMARY_SELECT = "region,total_kmz,sii_reference_count:sii_references,kmz_center_count:kmz_centers,layer_count:layers,with_rol_count:with_rol,with_owner_count:with_owner,missing_rol_count:missing_rol,center_latitude,center_longitude,average_completeness"
 
 export async function loadKmzInventory(
   supabase: SupabaseClient,
