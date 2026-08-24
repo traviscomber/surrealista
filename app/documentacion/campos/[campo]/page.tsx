@@ -15,12 +15,52 @@ interface CampoDocument {
   description: string | null
   document_type: string
   category: string
-  file_url: string
+  file_url: string | null
   file_type: string
   file_size: number | null
   tags: string[]
-  created_at: string
+  created_at: string | null
   created_by: string | null
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function stringValue(value: unknown, fallback = ""): string {
+  return typeof value === "string" ? value : fallback
+}
+
+function nullableString(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null
+}
+
+function normalizeCampoDocument(value: unknown): CampoDocument | null {
+  if (!isRecord(value)) return null
+
+  const id = stringValue(value.id)
+  const title = stringValue(value.title)
+  const documentType = stringValue(value.document_type)
+
+  if (!id || !title || !documentType) return null
+
+  return {
+    id,
+    title,
+    description: nullableString(value.description),
+    document_type: documentType,
+    category: stringValue(value.category, "sin_categoria"),
+    file_url: nullableString(value.file_url),
+    file_type: stringValue(value.file_type, "N/A"),
+    file_size: typeof value.file_size === "number" ? value.file_size : null,
+    tags: Array.isArray(value.tags) ? value.tags.filter((tag): tag is string => typeof tag === "string") : [],
+    created_at: nullableString(value.created_at),
+    created_by: nullableString(value.created_by),
+  }
+}
+
+function normalizeDocuments(values: unknown[] | null): CampoDocument[] {
+  return (values || []).map(normalizeCampoDocument).filter((doc): doc is CampoDocument => doc !== null)
 }
 
 export default function CampoDocumentationPage() {
@@ -33,7 +73,7 @@ export default function CampoDocumentationPage() {
   const supabase = createBrowserClient()
 
   useEffect(() => {
-    loadCampoDocuments()
+    void loadCampoDocuments()
   }, [campoName])
 
   const loadCampoDocuments = async () => {
@@ -41,7 +81,6 @@ export default function CampoDocumentationPage() {
     try {
       const searchName = campoName.replace(/_/g, " ")
 
-      // Search documents by title matching campo name
       const { data: docsByName, error: docsError } = await supabase
         .from("property_documents")
         .select("*")
@@ -55,23 +94,25 @@ export default function CampoDocumentationPage() {
         .select("id, file_name")
         .ilike("file_name", `%${searchName}%`)
 
-      let allDocs = docsByName || []
+      let allDocs = normalizeDocuments(docsByName)
 
-      if (!kmzError && kmzFiles && kmzFiles.length > 0) {
-        const kmzId = kmzFiles[0].id
-        setKmzName(kmzFiles[0].file_name)
+      const firstKmz = Array.isArray(kmzFiles) && isRecord(kmzFiles[0]) ? kmzFiles[0] : null
+      const kmzId = firstKmz ? stringValue(firstKmz.id) : ""
+      const fileName = firstKmz ? stringValue(firstKmz.file_name) : ""
 
-        // Load documents linked to this KMZ by ID
+      if (!kmzError && kmzId) {
+        if (fileName) setKmzName(fileName)
+
         const { data: docsByKmz, error: linkedError } = await supabase
           .from("property_documents")
           .select("*")
           .contains("linked_kmz_ids", [kmzId])
           .order("created_at", { ascending: false })
 
-        if (!linkedError && docsByKmz) {
-          // Merge results, avoiding duplicates
-          const existingIds = new Set(allDocs.map((d) => d.id))
-          const newDocs = docsByKmz.filter((doc) => !existingIds.has(doc.id))
+        if (!linkedError) {
+          const linkedDocs = normalizeDocuments(docsByKmz)
+          const existingIds = new Set(allDocs.map((doc) => doc.id))
+          const newDocs = linkedDocs.filter((doc) => !existingIds.has(doc.id))
           allDocs = [...allDocs, ...newDocs]
         }
       }
@@ -101,6 +142,10 @@ export default function CampoDocumentationPage() {
       kmz: "bg-cyan-500/10 text-cyan-700 border-cyan-300",
     }
     return colors[category] || "bg-gray-500/10 text-gray-700 border-gray-300"
+  }
+
+  const openDocument = (url: string | null) => {
+    if (url) window.open(url, "_blank", "noopener,noreferrer")
   }
 
   return (
@@ -173,7 +218,7 @@ export default function CampoDocumentationPage() {
                         <Badge variant="outline">{formatFileSize(doc.file_size)}</Badge>
                       </div>
 
-                      {doc.tags && doc.tags.length > 0 && (
+                      {doc.tags.length > 0 && (
                         <div className="flex flex-wrap gap-1">
                           {doc.tags.map((tag) => (
                             <span key={tag} className="text-xs px-2 py-0.5 bg-muted rounded">
@@ -185,11 +230,11 @@ export default function CampoDocumentationPage() {
                     </div>
 
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => window.open(doc.file_url, "_blank")}>
+                      <Button variant="outline" size="sm" disabled={!doc.file_url} onClick={() => openDocument(doc.file_url)}>
                         <Eye className="h-4 w-4 mr-2" />
                         Ver
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => window.open(doc.file_url, "_blank")}>
+                      <Button variant="outline" size="sm" disabled={!doc.file_url} onClick={() => openDocument(doc.file_url)}>
                         <Download className="h-4 w-4 mr-2" />
                         Descargar
                       </Button>
@@ -197,7 +242,7 @@ export default function CampoDocumentationPage() {
                   </div>
 
                   <p className="text-xs text-muted-foreground mt-2">
-                    Creado: {new Date(doc.created_at).toLocaleDateString("es-CL")}
+                    Creado: {doc.created_at ? new Date(doc.created_at).toLocaleDateString("es-CL") : "Sin fecha"}
                     {doc.created_by && ` por ${doc.created_by}`}
                   </p>
                 </div>
