@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { streamCAMPOSAgent, type CAMPOSAgentContext } from "@/app/actions/campos-agent"
-import { createServerClient } from "@/lib/core/database/supabase"
+import { INTERNAL_ACCESS_COOKIE, verifyInternalAccessToken } from "@/lib/auth/internal-access"
 
 export const runtime = "nodejs"
 
@@ -41,10 +41,10 @@ function sanitizeContext(value: unknown): CAMPOSAgentContext | undefined {
 export async function POST(request: Request) {
   try {
     const cookieStore = await cookies()
-    const supabase = createServerClient(cookieStore)
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims()
+    const internalAccessToken = cookieStore.get(INTERNAL_ACCESS_COOKIE)?.value
+    const authorized = await verifyInternalAccessToken(internalAccessToken)
 
-    if (claimsError || !claimsData?.claims?.sub) {
+    if (!authorized) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
