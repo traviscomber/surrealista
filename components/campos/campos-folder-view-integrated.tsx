@@ -328,7 +328,7 @@ export function CAMPOSFolderViewIntegrated() {
         if (!hasSelectedBase || overlayPlacemarks.length === 0) return base
         return [...base, {
           id: `ciren:${record.id}`,
-          dbId: `ciren:${record.id}`,
+          dbId: String(record.id),
           fileName: "CIREN · Predios rurales cercanos",
           placemarks: overlayPlacemarks,
           metadata: {
