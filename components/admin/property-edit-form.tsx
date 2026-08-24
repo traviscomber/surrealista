@@ -20,8 +20,105 @@ interface PropertyEditFormProps {
   id: string
 }
 
+type NumericInput = string | number
 type PropertyRecord = Record<string, any>
-type PropertyFormState = Record<string, PropertyRecord>
+
+type BasicInfo = {
+  title: string
+  description: string
+  property_type: string
+  status: string
+  featured: boolean
+}
+
+type Details = {
+  bedrooms: NumericInput
+  bathrooms: NumericInput
+  area: NumericInput
+  land_area: NumericInput
+  year_built: NumericInput
+  parking: NumericInput
+}
+
+type Location = {
+  address: string
+  city: string
+  region: string
+  provincia?: string
+  comuna?: string
+  postal_code: string
+  latitude: NumericInput
+  longitude: NumericInput
+  roll_number?: string
+}
+
+type Pricing = {
+  price: NumericInput
+  price_currency: string
+  price_per_sqm: NumericInput
+  maintenance_fee: NumericInput
+}
+
+type Features = {
+  features: string[]
+  amenities: string[]
+}
+
+type Media = {
+  images: string[]
+  videos?: string[]
+  virtual_tour_url?: string
+}
+
+type PropertyFormState = {
+  basic: BasicInfo
+  details: Details
+  location: Location
+  pricing: Pricing
+  features: Features
+  media: Media
+}
+
+const EMPTY_FORM: PropertyFormState = {
+  basic: {
+    title: "",
+    description: "",
+    property_type: "house",
+    status: "available",
+    featured: false,
+  },
+  details: {
+    bedrooms: "",
+    bathrooms: "",
+    area: "",
+    land_area: "",
+    year_built: "",
+    parking: "",
+  },
+  location: {
+    address: "",
+    city: "",
+    region: "",
+    postal_code: "",
+    latitude: "",
+    longitude: "",
+  },
+  pricing: {
+    price: "",
+    price_currency: "CLP",
+    price_per_sqm: "",
+    maintenance_fee: "",
+  },
+  features: {
+    features: [],
+    amenities: [],
+  },
+  media: {
+    images: [],
+    videos: [],
+    virtual_tour_url: "",
+  },
+}
 
 export function PropertyEditForm({ id }: PropertyEditFormProps) {
   const router = useRouter()
@@ -30,14 +127,7 @@ export function PropertyEditForm({ id }: PropertyEditFormProps) {
   const [isSaving, setIsSaving] = useState(false)
   const [activeTab, setActiveTab] = useState("basic-info")
   const [property, setProperty] = useState<PropertyRecord | null>(null)
-  const [formData, setFormData] = useState<PropertyFormState>({
-    basic: {},
-    details: {},
-    location: {},
-    pricing: {},
-    features: {},
-    media: { images: [] },
-  })
+  const [formData, setFormData] = useState<PropertyFormState>(EMPTY_FORM)
 
   useEffect(() => {
     const fetchProperty = async () => {
@@ -67,9 +157,12 @@ export function PropertyEditForm({ id }: PropertyEditFormProps) {
             address: data.address || "",
             city: data.city || "",
             region: data.region || "",
+            provincia: data.provincia || "",
+            comuna: data.comuna || "",
             postal_code: data.postal_code || "",
             latitude: data.latitude || "",
             longitude: data.longitude || "",
+            roll_number: data.roll_number || "",
           },
           pricing: {
             price: data.price || "",
@@ -101,7 +194,7 @@ export function PropertyEditForm({ id }: PropertyEditFormProps) {
     fetchProperty()
   }, [id, toast])
 
-  const handleFormChange = (section: string, data: PropertyRecord) => {
+  const handleFormChange = <K extends keyof PropertyFormState>(section: K, data: PropertyFormState[K]) => {
     setFormData((prev) => ({
       ...prev,
       [section]: data,
