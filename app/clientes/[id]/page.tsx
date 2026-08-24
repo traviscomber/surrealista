@@ -1,5 +1,5 @@
-import { Client360View } from '@/components/crm/client-360-view'
-import { getClientById } from '@/app/actions/clients'
+import { Client360View } from "@/components/crm/client-360-view"
+import { getClientById } from "@/app/actions/clients"
 
 interface ClientPageProps {
   params: Promise<{
@@ -7,14 +7,15 @@ interface ClientPageProps {
   }>
 }
 
+function getOptionalString(row: Record<string, unknown>, key: string): string {
+  return typeof row[key] === "string" ? row[key] : ""
+}
+
 export default async function ClientDetailPage({ params }: ClientPageProps) {
   const { id } = await params
-
-  // Obtener el cliente de la BD
   const clientResult = await getClientById(id)
-  
-  // Si no existe el cliente, mostrar error
-  if (!clientResult.success || !clientResult.data) {
+
+  if (!clientResult.success || !clientResult.data || typeof clientResult.data !== "object") {
     return (
       <div className="min-h-screen bg-background p-4 md:p-6">
         <div className="max-w-7xl mx-auto">
@@ -27,30 +28,21 @@ export default async function ClientDetailPage({ params }: ClientPageProps) {
     )
   }
 
-  const clientData = clientResult.data
-  
-  // Construir el nombre completo a partir de los campos de la BD
-  const nameparts = [clientData.first_name, clientData.last_name, clientData.second_last_name].filter(Boolean)
-  const fullName = nameparts.length > 0 ? nameparts.join(' ') : clientData.company_name || 'Cliente'
+  const clientData = clientResult.data as Record<string, unknown>
+  const firstName = getOptionalString(clientData, "first_name")
+  const lastName = getOptionalString(clientData, "last_name")
+  const secondLastName = getOptionalString(clientData, "second_last_name")
+  const companyName = getOptionalString(clientData, "company_name")
+  const fullName = [firstName, lastName, secondLastName].filter(Boolean).join(" ") || companyName || "Cliente"
 
-  // Transformar los datos de la BD al formato esperado por el componente
   const client = {
-    id: clientData.id,
+    id: typeof clientData.id === "string" ? clientData.id : id,
     name: fullName,
-    email: clientData.email || '',
-    phone: clientData.phone || clientData.mobile || '',
-    status: clientData.status || 'new',
-    pipeline_status: clientData.client_type || 'prospect',
-    type: clientData.client_type || 'buyer',
-    company_name: clientData.company_name || '',
-    // Campos adicionales de la BD
-    rut: clientData.rut,
-    mobile: clientData.mobile,
-    position: clientData.position,
-    address: clientData.address,
-    city: clientData.city,
-    region: clientData.region,
-    notes: clientData.notes,
+    email: getOptionalString(clientData, "email"),
+    phone: getOptionalString(clientData, "phone") || getOptionalString(clientData, "mobile"),
+    status: getOptionalString(clientData, "status") || "new",
+    pipeline_status: getOptionalString(clientData, "client_type") || "prospect",
+    type: getOptionalString(clientData, "client_type") || "buyer",
   }
 
   return (
