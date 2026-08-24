@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
+import { cookies } from "next/headers"
 import { createClient } from "@supabase/supabase-js"
+import { INTERNAL_ACCESS_COOKIE, verifyInternalAccessToken } from "@/lib/auth/internal-access"
 
 export const runtime = "nodejs"
 export const maxDuration = 60
@@ -16,21 +18,39 @@ type OwnerRecordRequest = {
 
 function getSupabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!url || !key) {
-    throw new Error("Missing Supabase environment variables")
+    throw new Error("Missing Supabase admin environment variables")
   }
 
-  return createClient(url, key)
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+}
+
+async function hasInternalAccess() {
+  const cookieStore = await cookies()
+  return verifyInternalAccessToken(cookieStore.get(INTERNAL_ACCESS_COOKIE)?.value)
 }
 
 export async function POST(request: Request) {
   try {
+    if (!(await hasInternalAccess())) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
+    }
+
     const body = (await request.json()) as OwnerRecordRequest
     if (!body.rol || (!body.ownerName && !body.companyName)) {
       return NextResponse.json(
         { success: false, error: "rol and ownerName or companyName are required" },
+        { status: 400 },
+      )
+    }
+
+    if (body.documentType !== "dominio_vigente" || !body.documentUrl?.trim()) {
+      return NextResponse.json(
+        { success: false, error: "A dominio_vigente document URL is required to confirm an owner" },
         { status: 400 },
       )
     }
@@ -57,11 +77,12 @@ export async function POST(request: Request) {
       rol: body.rol,
       ownerName: body.ownerName || null,
       companyName: body.companyName || null,
-      documentType: body.documentType || "dominio_vigente",
-      documentUrl: body.documentUrl || null,
+      documentType: "dominio_vigente",
+      documentUrl: body.documentUrl.trim(),
       notes: body.notes || null,
       savedAt: new Date().toISOString(),
       source: "manual-cbr",
+      authoritative: true,
     }
 
     const updatedIds: string[] = []
@@ -70,7 +91,9 @@ export async function POST(request: Request) {
       const metadata = (match.metadata as Record<string, any>) || {}
       const existingEntries = Array.isArray(metadata.cbr_owner_records) ? metadata.cbr_owner_records : []
       const mergedEntries = [
-        ...existingEntries.filter((entry: any) => !(entry?.rol === body.rol && entry?.documentUrl === body.documentUrl)),
+        ...existingEntries.filter(
+          (entry: any) => !(entry?.rol === body.rol && entry?.documentUrl === evidenceEntry.documentUrl),
+        ),
         evidenceEntry,
       ]
 
@@ -95,6 +118,7 @@ export async function POST(request: Request) {
       updated: updatedIds.length,
       kmzIds: updatedIds,
       owner: ownerLabel,
+      authoritative: true,
       evidence: evidenceEntry,
     })
   } catch (error: any) {
