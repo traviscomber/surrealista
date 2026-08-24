@@ -27,6 +27,7 @@
     "node_modules",
     "components/corporate-documents/whitepaper-builder.tsx",
     "components/features/digital-signature/**",
-    "components/features/pdf-generator/**"
+    "components/features/pdf-generator/**",
+    "components/kmz/enhanced-kmz-viewer.tsx"
   ]
 }
