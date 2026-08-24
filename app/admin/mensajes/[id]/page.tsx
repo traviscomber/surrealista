@@ -13,19 +13,29 @@ export const metadata: Metadata = {
   description: "Ver y responder a mensajes de usuarios",
 }
 
+type MessageStatus = "pending" | "in_progress" | "resolved" | "spam"
+
+function normalizeMessageStatus(value: unknown): MessageStatus {
+  return value === "in_progress" || value === "resolved" || value === "spam" ? value : "pending"
+}
+
 export default async function MessageDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createClient()
 
-  const { data: message, error } = await supabase.from("messages").select("*").eq("id", id).single()
+  const { data, error } = await supabase.from("messages").select("id, email, status").eq("id", id).single()
 
-  if (error || !message) {
+  if (error || !data || typeof data !== "object") {
     notFound()
   }
 
-  if (!message.read) {
-    await supabase.from("messages").update({ read: true, read_at: new Date().toISOString() }).eq("id", id)
+  const message = data as Record<string, unknown>
+  const email = typeof message.email === "string" ? message.email : null
+  if (!email) {
+    notFound()
   }
+
+  const status = normalizeMessageStatus(message.status)
 
   return (
     <div className="container mx-auto py-6 space-y-8">
@@ -35,7 +45,7 @@ export default async function MessageDetailPage({ params }: { params: Promise<{ 
           <p className="text-muted-foreground">Ver y responder a la consulta del usuario</p>
         </div>
 
-        <MessageActions messageId={id} status={message.status} />
+        <MessageActions messageId={id} status={status} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -44,7 +54,7 @@ export default async function MessageDetailPage({ params }: { params: Promise<{ 
             <MessageDetail messageId={id} />
           </Suspense>
 
-          <MessageReplyForm messageId={id} recipientEmail={message.email} />
+          <MessageReplyForm messageId={id} recipientEmail={email} />
         </div>
 
         <div className="space-y-8">
