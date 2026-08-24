@@ -10,15 +10,13 @@ function isPublicApiPath(pathname: string) {
   )
 }
 
+function isPublicPagePath(pathname: string) {
+  return pathname === "/" || pathname === "/ayuda" || pathname.startsWith("/ayuda/") || pathname === "/docs" || pathname.startsWith("/docs/")
+}
+
 function isPrivilegedPath(pathname: string) {
   if (pathname.startsWith("/api/")) return !isPublicApiPath(pathname)
-
-  return (
-    pathname === "/admin" ||
-    pathname.startsWith("/admin/") ||
-    pathname === "/campos" ||
-    pathname.startsWith("/campos/")
-  )
+  return !isPublicPagePath(pathname)
 }
 
 export async function middleware(request: NextRequest) {
