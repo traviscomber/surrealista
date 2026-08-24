@@ -1,57 +1,63 @@
 import { type NextRequest, NextResponse } from "next/server"
-import { createServerClient } from "@supabase/ssr"
-import { cookies } from "next/headers"
+import { createClient } from "@/lib/supabase/server"
+
+function cleanSearchTerm(value: unknown) {
+  if (typeof value !== "string") return ""
+  return value.trim().replace(/[(),]/g, " ").slice(0, 200)
+}
+
+function boundedInteger(value: unknown, fallback: number, min: number, max: number) {
+  const parsed = typeof value === "number" ? value : Number(value)
+  if (!Number.isFinite(parsed)) return fallback
+  return Math.min(Math.max(Math.trunc(parsed), min), max)
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const { query, type, folder, client_id, date_from, date_to, limit = 10, offset = 0 } = await request.json()
+    const body = await request.json().catch(() => ({}))
+    const query = cleanSearchTerm(body.query)
+    const type = typeof body.type === "string" ? body.type.trim() : ""
+    const clientId = typeof body.client_id === "string" ? body.client_id.trim() : ""
+    const dateFrom = typeof body.date_from === "string" ? body.date_from.trim() : ""
+    const dateTo = typeof body.date_to === "string" ? body.date_to.trim() : ""
+    const limit = boundedInteger(body.limit, 10, 1, 100)
+    const offset = boundedInteger(body.offset, 0, 0, 100_000)
 
-    const cookieStore = cookies()
-    const supabase = createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
-      cookies: {
-        get(name: string) {
-          return cookieStore.get(name)?.value
-        },
-      },
-    })
+    const supabase = await createClient()
+    let searchQuery = supabase.from("documents").select("*", { count: "exact" })
 
-    // Build search query
-    let searchQuery = supabase.from("documents").select(`
-        *,
-        clients(name, email),
-        properties(address, rol)
-      `)
-
-    // Full-text search
     if (query) {
-      searchQuery = searchQuery.or(`title.ilike.%${query}%,content.ilike.%${query}%,tags.cs.{${query}}`)
+      searchQuery = searchQuery.or(
+        `title.ilike.%${query}%,description.ilike.%${query}%,file_name.ilike.%${query}%`,
+      )
     }
+    if (type) searchQuery = searchQuery.eq("document_type", type)
+    if (clientId) searchQuery = searchQuery.eq("related_client_id", clientId)
+    if (dateFrom) searchQuery = searchQuery.gte("document_date", dateFrom)
+    if (dateTo) searchQuery = searchQuery.lte("document_date", dateTo)
 
-    // Filters
-    if (type) searchQuery = searchQuery.eq("type", type)
-    if (folder) searchQuery = searchQuery.ilike("folder_path", `%${folder}%`)
-    if (client_id) searchQuery = searchQuery.eq("client_id", client_id)
-    if (date_from) searchQuery = searchQuery.gte("created_at", date_from)
-    if (date_to) searchQuery = searchQuery.lte("created_at", date_to)
-
-    // Pagination and ordering
-    searchQuery = searchQuery.order("created_at", { ascending: false }).range(offset, offset + limit - 1)
-
-    const { data: results, error, count } = await searchQuery
+    const { data, error, count } = await searchQuery
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1)
 
     if (error) {
-      console.error("Search error:", error)
+      console.error("[documents/search] query failed", error)
       return NextResponse.json({ error: "Search failed" }, { status: 500 })
     }
 
     return NextResponse.json({
-      results: results || [],
+      results: data || [],
       total: count || 0,
       query,
-      filters: { type, folder, client_id, date_from, date_to },
+      filters: {
+        type: type || null,
+        client_id: clientId || null,
+        date_from: dateFrom || null,
+        date_to: dateTo || null,
+      },
     })
   } catch (error) {
-    console.error("API error:", error)
+    console.error("[documents/search] failed", error)
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
