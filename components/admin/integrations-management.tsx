@@ -1,196 +1,134 @@
 "use client"
 
-import { useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
+import type { LucideIcon } from "lucide-react"
+import { Bot, Cloud, Database, Globe2, ServerCog } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
-import { Switch } from "@/components/ui/switch"
-import { Settings, Database, Cloud, Key, CheckCircle, XCircle, AlertCircle, ExternalLink } from "lucide-react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
-const IntegrationCard = ({ name, description, status, icon: Icon, onToggle, settings }) => {
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "connected":
-        return "bg-green-100 text-green-800"
-      case "error":
-        return "bg-red-100 text-red-800"
-      case "warning":
-        return "bg-yellow-100 text-yellow-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
-  }
+ type IntegrationState = "runtime" | "optional" | "external"
 
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case "connected":
-        return <CheckCircle className="h-4 w-4" />
-      case "error":
-        return <XCircle className="h-4 w-4" />
-      case "warning":
-        return <AlertCircle className="h-4 w-4" />
-      default:
-        return <XCircle className="h-4 w-4" />
-    }
-  }
+type Integration = {
+  id: string
+  name: string
+  description: string
+  state: IntegrationState
+  icon: LucideIcon
+  details: Array<{ label: string; value: string }>
+}
 
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-blue-100">
-              <Icon className="h-5 w-5 text-blue-600" />
-            </div>
-            <div>
-              <CardTitle className="text-lg">{name}</CardTitle>
-              <CardDescription className="text-sm">{description}</CardDescription>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge className={getStatusColor(status)}>
-              {getStatusIcon(status)}
-              <span className="ml-1 capitalize">{status}</span>
-            </Badge>
-            <Switch checked={status === "connected"} onCheckedChange={onToggle} />
-          </div>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-2">
-          {settings.map((setting, index) => (
-            <div key={index} className="flex justify-between items-center text-sm">
-              <span className="text-gray-600">{setting.label}:</span>
-              <span className="font-medium">{setting.value}</span>
-            </div>
-          ))}
-        </div>
-        <div className="flex gap-2 mt-4">
-          <Button variant="outline" size="sm" className="gap-1 bg-transparent">
-            <Settings className="h-3 w-3" />
-            Configurar
-          </Button>
-          <Button variant="ghost" size="sm" className="gap-1">
-            <ExternalLink className="h-3 w-3" />
-            Documentación
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  )
+const integrations: Integration[] = [
+  {
+    id: "supabase",
+    name: "Supabase",
+    description: "Base canónica, storage y operaciones server-side de CAMPOS.",
+    state: "runtime",
+    icon: Database,
+    details: [
+      { label: "Credenciales", value: "Variables de entorno del servidor" },
+      { label: "Acceso privilegiado", value: "Service role sólo en backend" },
+      { label: "Estado", value: "Se valida por consultas reales, no por un switch local" },
+    ],
+  },
+  {
+    id: "google-drive",
+    name: "Google Drive",
+    description: "Fuente documental opcional mediante OAuth del lado servidor.",
+    state: "optional",
+    icon: Cloud,
+    details: [
+      { label: "Autenticación", value: "OAuth servidor" },
+      { label: "Cliente", value: "Sin API keys embebidas" },
+      { label: "Sin conexión", value: "La UI muestra estado no disponible; no simula archivos" },
+    ],
+  },
+  {
+    id: "openai",
+    name: "OpenAI / AI SDK",
+    description: "Copiloto CAMPOS para consultas sobre contexto y datos reales del sistema.",
+    state: "runtime",
+    icon: Bot,
+    details: [
+      { label: "Uso", value: "CAMPOS Agent" },
+      { label: "Datos", value: "Herramientas consultan Supabase en servidor" },
+      { label: "Métricas", value: "No se muestran consumos inventados en esta pantalla" },
+    ],
+  },
+  {
+    id: "ciren",
+    name: "CIREN / IDE Minagri",
+    description: "Contexto territorial de propiedades rurales y suelos agrológicos.",
+    state: "external",
+    icon: Globe2,
+    details: [
+      { label: "Modo", value: "Catálogo público en vivo con fallback verificado" },
+      { label: "Persistencia", value: "Snapshots sanitizados para continuidad" },
+      { label: "Alcance", value: "Referencia territorial; no acredita dominio" },
+    ],
+  },
+  {
+    id: "vercel",
+    name: "Vercel",
+    description: "Build, despliegue, funciones y cron del producto.",
+    state: "runtime",
+    icon: ServerCog,
+    details: [
+      { label: "Build", value: "Next.js con TypeScript y lint obligatorios" },
+      { label: "Crons", value: "Rutas protegidas por CRON_SECRET" },
+      { label: "Producción", value: "El estado se verifica en deployment/runtime, no se hardcodea" },
+    ],
+  },
+]
+
+function stateLabel(state: IntegrationState) {
+  if (state === "runtime") return "Runtime"
+  if (state === "optional") return "Opcional"
+  return "Fuente externa"
 }
 
 export function IntegrationsManagement() {
-  const [integrations, setIntegrations] = useState([
-    {
-      id: "supabase",
-      name: "Supabase",
-      description: "Base de datos y autenticación",
-      status: "connected",
-      icon: Database,
-      settings: [
-        { label: "URL", value: "https://*****.supabase.co" },
-        { label: "Estado", value: "Conectado" },
-        { label: "Última sincronización", value: "Hace 5 minutos" },
-      ],
-    },
-    {
-      id: "google-drive",
-      name: "Google Drive",
-      description: "Almacenamiento de documentos",
-      status: "connected",
-      icon: Cloud,
-      settings: [
-        { label: "Cuenta", value: "admin@sur-realista.com" },
-        { label: "Espacio usado", value: "2.4 GB / 15 GB" },
-        { label: "Última sincronización", value: "Hace 1 hora" },
-      ],
-    },
-    {
-      id: "openai",
-      name: "OpenAI",
-      description: "Inteligencia artificial y procesamiento",
-      status: "connected",
-      icon: Key,
-      settings: [
-        { label: "Modelo", value: "GPT-4" },
-        { label: "Uso mensual", value: "1,245 tokens" },
-        { label: "Estado API", value: "Activa" },
-      ],
-    },
-    {
-      id: "maps",
-      name: "Google Maps",
-      description: "Servicios de mapas y geolocalización",
-      status: "warning",
-      icon: Settings,
-      settings: [
-        { label: "API Key", value: "Configurada" },
-        { label: "Cuota mensual", value: "85% utilizada" },
-        { label: "Estado", value: "Límite próximo" },
-      ],
-    },
-  ])
-
-  const handleToggleIntegration = (id) => {
-    setIntegrations((prev) =>
-      prev.map((integration) =>
-        integration.id === id
-          ? {
-              ...integration,
-              status: integration.status === "connected" ? "disconnected" : "connected",
-            }
-          : integration,
-      ),
-    )
-  }
-
   return (
-    <div className="container mx-auto py-8 px-4">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2">Gestión de Integraciones</h1>
-        <p className="text-gray-600">Administra las conexiones con servicios externos y APIs de terceros</p>
+    <div className="container mx-auto space-y-8 px-4 py-8">
+      <div>
+        <p className="text-sm font-medium text-muted-foreground">Arquitectura operacional</p>
+        <h1 className="mt-1 text-3xl font-bold">Integraciones</h1>
+        <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
+          Esta vista documenta conexiones reales del producto. No permite cambiar estados localmente y no muestra cuotas, cuentas ni sincronizaciones inventadas.
+        </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {integrations.map((integration) => (
-          <IntegrationCard
-            key={integration.id}
-            name={integration.name}
-            description={integration.description}
-            status={integration.status}
-            icon={integration.icon}
-            settings={integration.settings}
-            onToggle={() => handleToggleIntegration(integration.id)}
-          />
-        ))}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {integrations.map((integration) => {
+          const Icon = integration.icon
+          return (
+            <Card key={integration.id} className="shadow-none">
+              <CardHeader>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border bg-muted">
+                      <Icon className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg">{integration.name}</CardTitle>
+                      <CardDescription className="mt-1 leading-5">{integration.description}</CardDescription>
+                    </div>
+                  </div>
+                  <Badge variant="outline">{stateLabel(integration.state)}</Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <dl className="space-y-3 text-sm">
+                  {integration.details.map((detail) => (
+                    <div key={detail.label} className="grid gap-1 sm:grid-cols-[140px_1fr]">
+                      <dt className="text-muted-foreground">{detail.label}</dt>
+                      <dd className="font-medium text-foreground">{detail.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </CardContent>
+            </Card>
+          )
+        })}
       </div>
-
-      <Card className="mt-8">
-        <CardHeader>
-          <CardTitle>Estado General del Sistema</CardTitle>
-          <CardDescription>Resumen del estado de todas las integraciones</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="text-center p-4 rounded-lg bg-green-50">
-              <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-2" />
-              <div className="text-2xl font-bold text-green-600">3</div>
-              <div className="text-sm text-green-700">Conectadas</div>
-            </div>
-            <div className="text-center p-4 rounded-lg bg-yellow-50">
-              <AlertCircle className="h-8 w-8 text-yellow-600 mx-auto mb-2" />
-              <div className="text-2xl font-bold text-yellow-600">1</div>
-              <div className="text-sm text-yellow-700">Con advertencias</div>
-            </div>
-            <div className="text-center p-4 rounded-lg bg-red-50">
-              <XCircle className="h-8 w-8 text-red-600 mx-auto mb-2" />
-              <div className="text-2xl font-bold text-red-600">0</div>
-              <div className="text-sm text-red-700">Desconectadas</div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   )
 }
