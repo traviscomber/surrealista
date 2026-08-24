@@ -1,6 +1,6 @@
 "use client"
 
-import dynamic from "next/dynamic"
+import dynamicImport from "next/dynamic"
 import Link from "next/link"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useCallback, useEffect, useMemo, useState } from "react"
@@ -28,12 +28,12 @@ import { createBrowserClient } from "@/lib/supabase/client"
 
 export const dynamic = "force-dynamic"
 
-const SimpleDriveFolderView = dynamic(
+const SimpleDriveFolderView = dynamicImport(
   () => import("@/components/google-drive/simple-drive-folder-view").then((mod) => mod.SimpleDriveFolderView),
   { ssr: false, loading: () => <ModuleLoading label="Cargando archivos…" /> },
 )
 
-const CommunicationsManager = dynamic(
+const CommunicationsManager = dynamicImport(
   () => import("@/components/communications/communications-manager").then((mod) => mod.CommunicationsManager),
   { ssr: false, loading: () => <ModuleLoading label="Cargando comunicaciones…" /> },
 )
