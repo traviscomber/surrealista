@@ -104,7 +104,6 @@ export default function NuevaTareaPage() {
       try {
         const {
           data: { user },
-          error: userError,
         } = await supabase.auth.getUser()
 
         if (user) {
@@ -125,7 +124,8 @@ export default function NuevaTareaPage() {
           status: "pending",
           created_by: createdBy,
         })
-        .select()
+        .select("id")
+        .single()
 
       console.log("[v0] Supabase response - data:", data)
       console.log("[v0] Supabase response - error:", error)
@@ -140,11 +140,20 @@ export default function NuevaTareaPage() {
         throw error
       }
 
-      console.log("[v0] Task created successfully:", data)
-      setSubmitStatus("success")
-      if (data && data[0]) {
-        setCreatedTaskId(data[0].id)
+      const createdTask: unknown = data
+      if (!createdTask || typeof createdTask !== "object") {
+        throw new Error("Task creation returned an invalid response")
       }
+
+      const createdTaskRecord = createdTask as Record<string, unknown>
+      const taskId = createdTaskRecord.id
+      if (typeof taskId !== "string") {
+        throw new Error("Task creation returned an invalid id")
+      }
+
+      console.log("[v0] Task created successfully:", taskId)
+      setCreatedTaskId(taskId)
+      setSubmitStatus("success")
       setTitle("")
       setDescription("")
 
