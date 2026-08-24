@@ -23,7 +23,6 @@ import {
 import { createBrowserClient } from "@supabase/ssr"
 import { driveService } from "@/lib/google-drive/drive-service"
 import { kmzReader } from "@/lib/kmz/kmz-reader"
-import { kmzLocationIndexer } from "@/lib/kmz/kmz-location-indexer"
 import { NeighborhoodAnalysisModal } from "@/components/kmz/neighborhood-analysis-modal"
 import { KMZOwnerEditModal } from "@/components/kmz/kmz-owner-edit-modal"
 import { InfoBox } from "@/components/educational/educational-components"
@@ -359,22 +358,7 @@ export function KMZCollectionManager() {
             console.log(`[v0] Successfully saved ${file.name} to database`)
             successCount++
 
-            // Index locations using kmzLocationIndexer
-            const kmzId = insertedKMZ?.[0]?.id
-            if (kmzId && kmzData.placemarks && kmzData.placemarks.length > 0) {
-              try {
-                await kmzLocationIndexer.initialize()
-                const indexResult = await kmzLocationIndexer.indexKMZLocations(
-                  kmzId,
-                  file.name,
-                  kmzData.placemarks,
-                  kmzData.bounds ? detectRegionFromBounds(kmzData.bounds) : undefined,
-                )
-                console.log(`[v0] Indexed ${indexResult.indexCount} locations for ${file.name}`)
-              } catch (indexError) {
-                console.error(`[v0] Error indexing locations for ${file.name}:`, indexError)
-              }
-            }
+
           }
         } catch (error) {
           console.error(`[v0] Error processing ${file.name}:`, error)
