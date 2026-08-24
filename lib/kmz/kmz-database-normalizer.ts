@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto"
+import { extractKmzGeometry, type KmzRenderablePlacemark } from "@/lib/kmz/kmz-geometry-compat"
 
 export type Coordinate = [number, number, number?]
 export type GeometryType = "Point" | "LineString" | "Polygon"
@@ -81,12 +82,9 @@ function asLocationPoint(latValue: unknown, lngValue: unknown): Coordinate | nul
 }
 
 function readObjectPoint(value: unknown): Coordinate | null {
-  if (!value || typeof value !== "object") return null
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null
   const item = value as Record<string, unknown>
-  return (
-    asLocationPoint(item.lat ?? item.latitude, item.lng ?? item.lon ?? item.long ?? item.longitude) ||
-    asCoordinate(item.coordinates)
-  )
+  return asLocationPoint(item.lat ?? item.latitude, item.lng ?? item.lon ?? item.long ?? item.longitude) || asCoordinate(item.coordinates)
 }
 
 function makeFallback(
@@ -104,19 +102,9 @@ function getFallbackLocation(record: KmzCollectionRecord): FallbackLocation | nu
   const siiCenter = siiResolution?.center
 
   const candidates: Array<FallbackLocation | null> = [
-    makeFallback(
-      asLocationPoint(record.lat ?? record.latitude, record.lng ?? record.longitude),
-      "direct_reference",
-      "Punto registrado",
-      "kmz_collection.lat_lng",
-    ),
+    makeFallback(asLocationPoint(record.lat ?? record.latitude, record.lng ?? record.longitude), "direct_reference", "Punto registrado", "kmz_collection.lat_lng"),
     makeFallback(readObjectPoint(record.location), "direct_reference", "Punto registrado", "kmz_collection.location"),
-    makeFallback(
-      asLocationPoint(metadata.lat ?? metadata.latitude, metadata.lng ?? metadata.lon ?? metadata.longitude),
-      "metadata_reference",
-      "Punto de metadata",
-      "metadata.lat_lng",
-    ),
+    makeFallback(asLocationPoint(metadata.lat ?? metadata.latitude, metadata.lng ?? metadata.lon ?? metadata.longitude), "metadata_reference", "Punto de metadata", "metadata.lat_lng"),
     makeFallback(readObjectPoint(metadata.location), "metadata_reference", "Punto de metadata", "metadata.location"),
     makeFallback(readObjectPoint(metadata.center), "metadata_reference", "Centro de metadata", "metadata.center"),
     makeFallback(readObjectPoint(siiCenter), "sii_reference", "Centro territorial SII", "metadata.sii_point_resolution.center"),
@@ -126,45 +114,18 @@ function getFallbackLocation(record: KmzCollectionRecord): FallbackLocation | nu
     if (candidate) return candidate
   }
 
-  if (record.bounds && typeof record.bounds === "object") {
+  if (record.bounds && typeof record.bounds === "object" && !Array.isArray(record.bounds)) {
     const bounds = record.bounds as Record<string, unknown>
     const north = Number(bounds.north)
     const south = Number(bounds.south)
     const east = Number(bounds.east)
     const west = Number(bounds.west)
     if ([north, south, east, west].every(Number.isFinite)) {
-      return makeFallback(
-        asLocationPoint((north + south) / 2, (east + west) / 2),
-        "bounds_reference",
-        "Centro aproximado",
-        "kmz_collection.bounds",
-      )
+      return makeFallback(asLocationPoint((north + south) / 2, (east + west) / 2), "bounds_reference", "Centro aproximado", "kmz_collection.bounds")
     }
   }
 
   return null
-}
-
-function normalizeCoordinates(value: unknown): Coordinate[] {
-  if (!Array.isArray(value)) return []
-  const direct = value.map(asCoordinate).filter((point): point is Coordinate => point !== null)
-  if (direct.length > 0) return direct
-  if (value.length === 1 && Array.isArray(value[0])) return normalizeCoordinates(value[0])
-  return []
-}
-
-function samePoint(a?: Coordinate, b?: Coordinate) {
-  return Boolean(a && b && a[0] === b[0] && a[1] === b[1])
-}
-
-function inferType(coordinates: Coordinate[], declared?: string | null): GeometryType {
-  const normalizedDeclared = declared?.toLowerCase()
-  if (normalizedDeclared?.includes("polygon") && coordinates.length >= 4) return "Polygon"
-  if (normalizedDeclared?.includes("line") && coordinates.length >= 2) return "LineString"
-  if (normalizedDeclared?.includes("point") && coordinates.length >= 1) return "Point"
-  if (coordinates.length === 1) return "Point"
-  if (coordinates.length >= 4 && samePoint(coordinates[0], coordinates.at(-1))) return "Polygon"
-  return "LineString"
 }
 
 function calculateBounds(coordinates: Coordinate[]) {
@@ -190,6 +151,38 @@ function mergeBounds(placemarks: NormalizedPlacemark[]) {
   )
 }
 
+function toNormalizedPlacemark(
+  record: KmzCollectionRecord,
+  placemark: KmzRenderablePlacemark,
+  index: number,
+  recoveredFrom: "kmz_placemarks" | "kmz_collection.coordinates",
+  region?: string | null,
+): NormalizedPlacemark {
+  const coordinates = placemark.coordinates.map((coordinate) => [coordinate[0], coordinate[1]] as Coordinate)
+  const properties = placemark.properties || {}
+  const rolFromProperties = typeof properties.rol === "string" ? properties.rol : ""
+  const categoryFromProperties = typeof properties.category === "string" ? properties.category : ""
+
+  return {
+    name: placemark.name || `${record.file_name} · Geometría ${index + 1}`,
+    description: placemark.description || record.description || "",
+    coordinates,
+    type: placemark.type,
+    styleUrl: placemark.styleUrl,
+    properties: {
+      ...properties,
+      rol: rolFromProperties || record.rol_numbers?.[index] || record.rol_numbers?.[0] || "",
+      category: record.category || categoryFromProperties || "general",
+      recoveredFrom,
+      geometryStatus: "real_geometry" satisfies GeometryStatus,
+      isReferenceLocation: false,
+    },
+    center: calculateCenter(coordinates),
+    bounds: calculateBounds(coordinates),
+    region: region || record.region || undefined,
+  }
+}
+
 function dedupePlacemarks(placemarks: NormalizedPlacemark[]) {
   const seen = new Set<string>()
   return placemarks.filter((placemark) => {
@@ -198,34 +191,6 @@ function dedupePlacemarks(placemarks: NormalizedPlacemark[]) {
     seen.add(key)
     return true
   })
-}
-
-function createPlacemark(
-  record: KmzCollectionRecord,
-  coordinates: Coordinate[],
-  index: number,
-  stored?: StoredPlacemark,
-): NormalizedPlacemark {
-  const type = inferType(coordinates, stored?.type)
-  const typeLabel = type === "Polygon" ? "Polígono" : type === "LineString" ? "Línea" : "Punto"
-  return {
-    name: stored?.name?.trim() || `${record.file_name} · ${typeLabel} ${index + 1}`,
-    description: stored?.description || record.description || "",
-    coordinates,
-    type,
-    styleUrl: stored?.style_url || undefined,
-    properties: {
-      ...(stored?.properties || {}),
-      rol: record.rol_numbers?.[index] || (stored?.properties?.rol as string | undefined) || "",
-      category: record.category || (stored?.properties?.category as string | undefined) || "general",
-      recoveredFrom: stored ? "kmz_placemarks" : "kmz_collection.coordinates",
-      geometryStatus: "real_geometry" satisfies GeometryStatus,
-      isReferenceLocation: false,
-    },
-    center: calculateCenter(coordinates),
-    bounds: calculateBounds(coordinates),
-    region: stored?.region || record.region || undefined,
-  }
 }
 
 function createLocationPlacemark(record: KmzCollectionRecord, fallback: FallbackLocation): NormalizedPlacemark {
@@ -252,20 +217,45 @@ function createLocationPlacemark(record: KmzCollectionRecord, fallback: Fallback
 
 export function normalizeKmzRecord(record: KmzCollectionRecord, storedPlacemarks: StoredPlacemark[] = []): NormalizationProposal {
   const validationErrors: string[] = []
-  const sourceRows = storedPlacemarks.length > 0 ? storedPlacemarks : (Array.isArray(record.coordinates) ? record.coordinates : [])
-  let placemarks = dedupePlacemarks(
-    sourceRows.flatMap((row, index) => {
-      const stored = storedPlacemarks.length > 0 ? (row as StoredPlacemark) : undefined
-      const coordinates = normalizeCoordinates(stored ? stored.coordinates : row)
-      if (coordinates.length === 0) {
-        validationErrors.push(`Geometría ${index + 1} inválida o vacía`)
-        return []
-      }
-      return [createPlacemark(record, coordinates, index, stored)]
-    }),
+  let source: NormalizationProposal["source"] = "kmz_collection.coordinates"
+
+  const storedGeometry = storedPlacemarks.flatMap((stored, storedIndex) =>
+    extractKmzGeometry(stored.coordinates, {
+      name: stored.name?.trim() || `${record.file_name} · Geometría ${storedIndex + 1}`,
+      description: stored.description || record.description || "",
+      declaredType: stored.type,
+      styleUrl: stored.style_url || undefined,
+      properties: stored.properties || {},
+    }).map((placemark, geometryIndex) =>
+      toNormalizedPlacemark(record, placemark, storedIndex + geometryIndex, "kmz_placemarks", stored.region),
+    ),
   )
 
-  let source: NormalizationProposal["source"] = storedPlacemarks.length > 0 ? "kmz_placemarks" : "kmz_collection.coordinates"
+  let placemarks = dedupePlacemarks(storedGeometry)
+  if (storedPlacemarks.length > 0 && placemarks.length === 0) {
+    validationErrors.push("Los placemarks persistidos no contienen geometría renderizable")
+  }
+
+  if (placemarks.length > 0) {
+    source = "kmz_placemarks"
+  } else {
+    const legacyGeometry = extractKmzGeometry(record.coordinates, {
+      name: record.file_name,
+      description: record.description || "",
+      properties: {
+        rol: record.rol_numbers?.[0] || "",
+        category: record.category || "general",
+      },
+    })
+
+    placemarks = dedupePlacemarks(
+      legacyGeometry.map((placemark, index) => toNormalizedPlacemark(record, placemark, index, "kmz_collection.coordinates")),
+    )
+
+    if (record.coordinates != null && placemarks.length === 0) {
+      validationErrors.push("kmz_collection.coordinates no contiene geometría renderizable")
+    }
+  }
 
   if (placemarks.length === 0) {
     const fallbackLocation = getFallbackLocation(record)
@@ -284,6 +274,7 @@ export function normalizeKmzRecord(record: KmzCollectionRecord, storedPlacemarks
     lines: placemarks.filter(({ type }) => type === "LineString").length,
     polygons: placemarks.filter(({ type }) => type === "Polygon").length,
   }
+
   const proposalWithoutHash = {
     coordinates: placemarks.map(({ coordinates }) => coordinates),
     placemarks,
@@ -293,5 +284,9 @@ export function normalizeKmzRecord(record: KmzCollectionRecord, storedPlacemarks
     source,
     validationErrors,
   }
-  return { ...proposalWithoutHash, hash: createHash("sha256").update(JSON.stringify(proposalWithoutHash)).digest("hex") }
+
+  return {
+    ...proposalWithoutHash,
+    hash: createHash("sha256").update(JSON.stringify(proposalWithoutHash)).digest("hex"),
+  }
 }
