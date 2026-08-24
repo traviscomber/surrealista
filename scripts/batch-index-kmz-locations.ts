@@ -1,9 +1,76 @@
 import { createClient } from "@/lib/supabase/server"
 import { KMZLocationIndexer } from "@/lib/kmz/kmz-location-indexer"
+import type { KMZPlacemark } from "@/lib/kmz/kmz-reader"
+
+type KmzRow = {
+  id: string
+  file_name: string
+  region: string | null
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" ? (value as Record<string, unknown>) : null
+}
+
+function normalizeKmzRow(value: unknown): KmzRow | null {
+  const row = asRecord(value)
+  if (!row) return null
+
+  const id = typeof row.id === "string" ? row.id : ""
+  const fileName = typeof row.file_name === "string" ? row.file_name : ""
+  if (!id || !fileName) return null
+
+  return {
+    id,
+    file_name: fileName,
+    region: typeof row.region === "string" && row.region.length > 0 ? row.region : null,
+  }
+}
+
+function normalizeCoordinates(value: unknown): KMZPlacemark["coordinates"] {
+  if (!Array.isArray(value)) return []
+
+  return value.flatMap((coordinate) => {
+    if (!Array.isArray(coordinate) || coordinate.length < 2) return []
+    const lng = Number(coordinate[0])
+    const lat = Number(coordinate[1])
+    const altitude = coordinate.length > 2 ? Number(coordinate[2]) : undefined
+    if (!Number.isFinite(lng) || !Number.isFinite(lat)) return []
+
+    return [
+      Number.isFinite(altitude)
+        ? ([lng, lat, altitude] as [number, number, number])
+        : ([lng, lat] as [number, number]),
+    ]
+  })
+}
+
+function normalizePlacemark(value: unknown): KMZPlacemark | null {
+  const row = asRecord(value)
+  if (!row) return null
+
+  const name = typeof row.name === "string" ? row.name : ""
+  const type = row.type
+  const coordinates = normalizeCoordinates(row.coordinates)
+
+  if (!name || coordinates.length === 0 || !["Point", "LineString", "Polygon"].includes(String(type))) {
+    return null
+  }
+
+  return {
+    name,
+    description: typeof row.description === "string" ? row.description : undefined,
+    coordinates,
+    type: type as KMZPlacemark["type"],
+    styleUrl: typeof row.style_url === "string" ? row.style_url : undefined,
+    properties: asRecord(row.properties) || undefined,
+  }
+}
 
 /**
- * Script to index all existing KMZ files and extract their locations
- * Run this once to populate the kmz_location_index table with all existing KMZ files
+ * Rebuild searchable location indexes for stored KMZ files that have not yet
+ * been indexed. Source data comes from the canonical kmz_collection and
+ * kmz_placemarks tables; the script does not redownload KMZ files.
  */
 async function indexAllKMZFiles() {
   const requestId = `[${new Date().toISOString()}]`
@@ -11,105 +78,109 @@ async function indexAllKMZFiles() {
 
   try {
     const supabase = await createClient()
+    const indexer = new KMZLocationIndexer()
 
-    // Get all KMZ documents from property_documents
-    console.log(requestId, "[v0] Fetching all KMZ documents from database...")
-    const { data: kmzDocs, error: fetchError } = await supabase
-      .from("property_documents")
-      .select("id, title, file_url, category, created_at")
-      .eq("category", "KMZ")
-      .or(`file_type.eq.kmz,file_type.eq.kml`)
+    const { data: rawKmzRows, error: fetchError } = await supabase
+      .from("kmz_collection")
+      .select("id, file_name, region")
+      .eq("is_active", true)
+      .order("created_at", { ascending: true })
 
-    if (fetchError) {
-      throw new Error(`Failed to fetch KMZ documents: ${fetchError.message}`)
-    }
+    if (fetchError) throw new Error(`Failed to fetch KMZ collection: ${fetchError.message}`)
 
-    console.log(requestId, "[v0] Found", kmzDocs?.length || 0, "KMZ documents to index")
+    const kmzRows = (Array.isArray(rawKmzRows) ? rawKmzRows : [])
+      .map(normalizeKmzRow)
+      .filter((row): row is KmzRow => row !== null)
 
-    if (!kmzDocs || kmzDocs.length === 0) {
-      console.log(requestId, "[v0] No KMZ documents found to index")
+    if (kmzRows.length === 0) {
       return {
         success: true,
-        message: "No KMZ documents found",
+        message: "No active KMZ files found",
         totalProcessed: 0,
         totalIndexed: 0,
+        totalFailed: 0,
+        results: [],
       }
     }
 
-    const indexer = new KMZLocationIndexer()
+    const { data: rawExistingLocations, error: existingError } = await supabase
+      .from("kmz_location_index")
+      .select("kmz_id")
+
+    if (existingError) throw new Error(`Failed to fetch existing location indexes: ${existingError.message}`)
+
+    const indexedKmzIds = new Set(
+      (Array.isArray(rawExistingLocations) ? rawExistingLocations : []).flatMap((value) => {
+        const row = asRecord(value)
+        return typeof row?.kmz_id === "string" ? [row.kmz_id] : []
+      }),
+    )
+
     let totalIndexed = 0
     let totalFailed = 0
-    const results: any[] = []
+    const results: Array<Record<string, unknown>> = []
 
-    // Check if locations already indexed to avoid duplicates
-    const { data: existingLocations } = await supabase
-      .from("kmz_location_index")
-      .select("kmz_file_url")
+    for (const kmz of kmzRows) {
+      if (indexedKmzIds.has(kmz.id)) {
+        results.push({ kmzId: kmz.id, fileName: kmz.file_name, status: "skipped", reason: "Already indexed" })
+        continue
+      }
 
-    const indexedUrls = new Set(existingLocations?.map((l) => l.kmz_file_url) || [])
-
-    // Process each KMZ file
-    for (const doc of kmzDocs) {
       try {
-        // Skip if already indexed
-        if (indexedUrls.has(doc.file_url)) {
-          console.log(requestId, "[v0] Skipping already indexed KMZ:", doc.title)
+        const { data: rawPlacemarks, error: placemarkError } = await supabase
+          .from("kmz_placemarks")
+          .select("name, description, coordinates, type, style_url, properties")
+          .eq("kmz_id", kmz.id)
+
+        if (placemarkError) throw new Error(placemarkError.message)
+
+        const placemarks = (Array.isArray(rawPlacemarks) ? rawPlacemarks : [])
+          .map(normalizePlacemark)
+          .filter((placemark): placemark is KMZPlacemark => placemark !== null)
+
+        if (placemarks.length === 0) {
           results.push({
-            fileName: doc.title,
-            fileUrl: doc.file_url,
+            kmzId: kmz.id,
+            fileName: kmz.file_name,
             status: "skipped",
-            reason: "Already indexed",
+            reason: "No stored placemarks",
           })
           continue
         }
 
-        console.log(requestId, "[v0] Processing KMZ file:", doc.title)
+        const result = await indexer.indexKMZLocations(kmz.id, kmz.file_name, placemarks, kmz.region || undefined)
+        if (!result.success) throw result.error || new Error("KMZ location indexing failed")
 
-        // Download and index locations
-        const indexedCount = await indexer.indexKMZFile(doc.file_url, doc.id, doc.title)
-
-        console.log(requestId, "[v0] Indexed", indexedCount, "locations from", doc.title)
-
+        totalIndexed += result.indexCount
         results.push({
-          fileName: doc.title,
-          fileUrl: doc.file_url,
+          kmzId: kmz.id,
+          fileName: kmz.file_name,
           status: "success",
-          indexedLocations: indexedCount,
+          indexedLocations: result.indexCount,
         })
-
-        totalIndexed += indexedCount
-      } catch (fileError: any) {
-        console.error(requestId, "[v0] Error processing KMZ file:", doc.title, fileError?.message)
-        results.push({
-          fileName: doc.title,
-          fileUrl: doc.file_url,
-          status: "error",
-          error: fileError?.message || "Unknown error",
-        })
+      } catch (fileError) {
+        const message = fileError instanceof Error ? fileError.message : "Unknown error"
+        console.error(requestId, "[v0] Error processing KMZ file:", kmz.file_name, message)
+        results.push({ kmzId: kmz.id, fileName: kmz.file_name, status: "error", error: message })
         totalFailed++
       }
     }
 
-    console.log(requestId, "[v0] Batch indexing complete. Indexed:", totalIndexed, "Errors:", totalFailed)
-
     return {
-      success: true,
+      success: totalFailed === 0,
       message: "Batch KMZ indexing completed",
-      totalProcessed: kmzDocs.length,
+      totalProcessed: kmzRows.length,
       totalIndexed,
       totalFailed,
       results,
     }
-  } catch (error: any) {
-    console.error(requestId, "[v0] Batch indexing failed:", error?.message)
-    return {
-      success: false,
-      error: error?.message || "Unknown error",
-    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error"
+    console.error(requestId, "[v0] Batch indexing failed:", message)
+    return { success: false, error: message }
   }
 }
 
-// Run if this file is executed directly
 if (require.main === module) {
   indexAllKMZFiles()
     .then((result) => {
