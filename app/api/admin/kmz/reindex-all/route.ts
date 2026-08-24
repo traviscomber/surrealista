@@ -1,20 +1,8 @@
-import { NextRequest, NextResponse } from "next/server"
-import { indexAllKMZLocations } from "@/lib/kmz/kmz-mass-indexer"
+import { NextResponse } from "next/server"
 
-export async function POST(request: NextRequest) {
-  const requestId = `[${Date.now()}]`
-  console.log(requestId, "[v0] Starting mass KMZ re-indexing")
-  
-  try {
-    console.log(requestId, "[v0] Calling indexAllKMZLocations()")
-    const result = await indexAllKMZLocations()
-    console.log(requestId, "[v0] Mass indexing result:", result)
-    return NextResponse.json(result)
-  } catch (error: any) {
-    console.error(requestId, "[v0] Mass indexing error:", error)
-    return NextResponse.json(
-      { error: error?.message || "Indexing failed", details: error?.toString() },
-      { status: 500 }
-    )
-  }
+const RETIRED_MESSAGE =
+  "Legacy KMZ re-indexing is retired. Use the canonical kmz_collection/kmz_placemarks processing pipeline instead."
+
+export async function POST() {
+  return NextResponse.json({ error: RETIRED_MESSAGE }, { status: 410 })
 }
