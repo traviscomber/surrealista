@@ -126,6 +126,26 @@ function ModuleLoading({ label }: { label: string }) {
   )
 }
 
+function normalizeTask(value: unknown): Task | null {
+  if (!value || typeof value !== "object") return null
+
+  const row = value as Record<string, unknown>
+  if (typeof row.id !== "string" || typeof row.title !== "string" || typeof row.description !== "string") {
+    return null
+  }
+
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    location: typeof row.location === "string" ? row.location : "",
+    priority: typeof row.priority === "string" ? row.priority : "low",
+    status: typeof row.status === "string" ? row.status : "pending",
+    due_date: typeof row.due_date === "string" ? row.due_date : "",
+    created_at: typeof row.created_at === "string" ? row.created_at : "",
+  }
+}
+
 export default function UnifiedSearchPage() {
   const supabase = useMemo(() => createBrowserClient(), [])
   const router = useRouter()
@@ -163,7 +183,7 @@ export default function UnifiedSearchPage() {
 
     const { data, error } = await supabase
       .from("tasks")
-      .select("*")
+      .select("id, title, description, location, priority, status, due_date, created_at")
       .order("created_at", { ascending: false })
       .limit(20)
 
@@ -173,7 +193,11 @@ export default function UnifiedSearchPage() {
       return
     }
 
-    setTasks((data || []) as Task[])
+    const normalizedTasks = (Array.isArray(data) ? data : [])
+      .map(normalizeTask)
+      .filter((task): task is Task => task !== null)
+
+    setTasks(normalizedTasks)
     setTasksState("ready")
     setTaskRefreshTrigger((value) => value + 1)
   }, [supabase])
