@@ -3,7 +3,14 @@ import {
   createInternalAccessToken,
   INTERNAL_ACCESS_COOKIE,
   INTERNAL_ACCESS_MAX_AGE_SECONDS,
+  verifyInternalAccessToken,
 } from "@/lib/auth/internal-access"
+
+export async function GET(request: NextRequest) {
+  const token = request.cookies.get(INTERNAL_ACCESS_COOKIE)?.value
+  const authorized = await verifyInternalAccessToken(token)
+  return NextResponse.json({ authorized }, { status: authorized ? 200 : 401 })
+}
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}))
