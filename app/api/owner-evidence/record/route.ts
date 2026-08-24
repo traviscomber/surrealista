@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server"
+import { cookies } from "next/headers"
 import { createClient } from "@supabase/supabase-js"
+import { INTERNAL_ACCESS_COOKIE, verifyInternalAccessToken } from "@/lib/auth/internal-access"
 
 export const runtime = "nodejs"
 export const maxDuration = 60
@@ -14,22 +16,32 @@ type OwnerEvidenceRequest = {
   notes?: string
   sourceType?: string
   confidence?: "candidate" | "probable" | "strong"
-  authoritative?: boolean
 }
 
 function getSupabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!url || !key) {
-    throw new Error("Missing Supabase environment variables")
+    throw new Error("Missing Supabase admin environment variables")
   }
 
-  return createClient(url, key)
+  return createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+}
+
+async function hasInternalAccess() {
+  const cookieStore = await cookies()
+  return verifyInternalAccessToken(cookieStore.get(INTERNAL_ACCESS_COOKIE)?.value)
 }
 
 export async function POST(request: Request) {
   try {
+    if (!(await hasInternalAccess())) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 })
+    }
+
     const body = (await request.json()) as OwnerEvidenceRequest
     if (!body.rol || (!body.ownerName && !body.companyName)) {
       return NextResponse.json(
@@ -57,7 +69,6 @@ export async function POST(request: Request) {
 
     const ownerLabel = body.companyName || body.ownerName || null
     const confidence = body.confidence || "candidate"
-    const authoritative = body.authoritative === true
 
     const evidenceEntry = {
       rol: body.rol,
@@ -69,9 +80,9 @@ export async function POST(request: Request) {
       notes: body.notes || null,
       sourceType: body.sourceType || "public-web",
       confidence,
-      authoritative,
+      authoritative: false,
       savedAt: new Date().toISOString(),
-      source: authoritative ? "confirmed-record" : "public-evidence",
+      source: "public-evidence",
     }
 
     const updatedIds: string[] = []
@@ -92,7 +103,7 @@ export async function POST(request: Request) {
       ]
 
       const publicCandidate =
-        !authoritative && confidence !== "candidate"
+        confidence !== "candidate"
           ? {
               rol: body.rol,
               owner: ownerLabel,
@@ -112,15 +123,10 @@ export async function POST(request: Request) {
         public_owner_candidate: publicCandidate,
       }
 
-      const payload: Record<string, unknown> = {
-        metadata: nextMetadata,
-      }
-
-      if (authoritative) {
-        payload.owner = ownerLabel
-      }
-
-      const { error: updateError } = await supabase.from("kmz_collection").update(payload).eq("id", match.id)
+      const { error: updateError } = await supabase
+        .from("kmz_collection")
+        .update({ metadata: nextMetadata })
+        .eq("id", match.id)
 
       if (updateError) throw updateError
       updatedIds.push(match.id)
@@ -131,7 +137,7 @@ export async function POST(request: Request) {
       updated: updatedIds.length,
       kmzIds: updatedIds,
       owner: ownerLabel,
-      authoritative,
+      authoritative: false,
       evidence: evidenceEntry,
     })
   } catch (error: any) {
