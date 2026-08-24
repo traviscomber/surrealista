@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { MessageSquare, Clock, CheckCircle, AlertTriangle, Inbox } from "lucide-react"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { supabase } from "@/lib/supabase/client"
 
 type StatsType = {
   total: number
@@ -24,7 +24,6 @@ export function MessagesStats() {
     spam: 0,
   })
   const [loading, setLoading] = useState(true)
-  const supabase = createClientComponentClient()
 
   useEffect(() => {
     fetchStats()
@@ -33,8 +32,7 @@ export function MessagesStats() {
   async function fetchStats() {
     setLoading(true)
 
-    // Obtener todos los mensajes
-    const { data, error } = await supabase.from("messages").select("*")
+    const { data, error } = await supabase.from("messages").select("read,status")
 
     if (!error && data) {
       const statsData: StatsType = {
