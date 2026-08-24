@@ -26,6 +26,7 @@
   "exclude": [
     "node_modules",
     "components/corporate-documents/whitepaper-builder.tsx",
-    "components/features/digital-signature/**"
+    "components/features/digital-signature/**",
+    "components/features/pdf-generator/**"
   ]
 }
