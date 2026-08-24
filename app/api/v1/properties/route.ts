@@ -1,20 +1,20 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createAPIResponse, withErrorHandling, withRateLimit } from "../../middleware"
-import { createServerClient } from "@/lib/core/database/supabase"
-import { cookies } from "next/headers"
+import { createClient } from "@/lib/supabase/server"
 
 export const GET = withRateLimit(
   withErrorHandling(async (request: NextRequest) => {
     const { searchParams } = new URL(request.url)
-    const page = Number.parseInt(searchParams.get("page") || "1")
-    const limit = Number.parseInt(searchParams.get("limit") || "20")
+    const rawPage = Number.parseInt(searchParams.get("page") || "1", 10)
+    const rawLimit = Number.parseInt(searchParams.get("limit") || "20", 10)
+    const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1
+    const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 100) : 20
     const city = searchParams.get("city")
     const type = searchParams.get("type")
     const minPrice = searchParams.get("minPrice")
     const maxPrice = searchParams.get("maxPrice")
 
-    const cookieStore = cookies()
-    const supabase = createServerClient(cookieStore)
+    const supabase = await createClient()
 
     let query = supabase
       .from("properties")
@@ -24,8 +24,22 @@ export const GET = withRateLimit(
 
     if (city) query = query.eq("city", city)
     if (type) query = query.eq("property_type", type)
-    if (minPrice) query = query.gte("price", Number.parseInt(minPrice))
-    if (maxPrice) query = query.lte("price", Number.parseInt(maxPrice))
+
+    if (minPrice) {
+      const value = Number(minPrice)
+      if (!Number.isFinite(value)) {
+        return NextResponse.json(createAPIResponse(null, false, undefined, "Invalid minPrice"), { status: 400 })
+      }
+      query = query.gte("price", value)
+    }
+
+    if (maxPrice) {
+      const value = Number(maxPrice)
+      if (!Number.isFinite(value)) {
+        return NextResponse.json(createAPIResponse(null, false, undefined, "Invalid maxPrice"), { status: 400 })
+      }
+      query = query.lte("price", value)
+    }
 
     const { data, error, count } = await query
 
