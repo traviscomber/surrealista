@@ -1,19 +1,23 @@
-import { Suspense } from "react"
-import ComprehensivePropertyAnalysis from "@/components/integrations/comprehensive-property-analysis"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default function AnalisisIntegralPage() {
   return (
     <div className="container mx-auto py-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Análisis Integral de Propiedades</h1>
-        <p className="text-gray-600 mt-2">
-          Análisis completo combinando datos de SII, SIRENE, CBR, OpenStreetMap y Banco Central
-        </p>
-      </div>
-
-      <Suspense fallback={<div>Cargando análisis...</div>}>
-        <ComprehensivePropertyAnalysis />
-      </Suspense>
+      <Card>
+        <CardHeader>
+          <CardTitle>Análisis integral retirado</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>
+            El flujo anterior combinaba resultados simulados de fuentes fiscales, legales, territoriales y financieras,
+            por lo que no es apto para uso operativo.
+          </p>
+          <p>
+            Usa CAMPOS para geometría KMZ y contexto CIREN verificable. Cualquier análisis legal, financiero o de
+            propiedad deberá habilitarse sólo cuando cada dato pueda trazarse a una fuente real y vigente.
+          </p>
+        </CardContent>
+      </Card>
     </div>
   )
 }
