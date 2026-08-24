@@ -1,9 +1,10 @@
 import { Suspense } from "react"
 import { PropertyEditForm } from "@/components/admin/property-edit-form"
 import { Skeleton } from "@/components/ui/skeleton"
-import { supabase } from "@/lib/supabase/server"
+import { createClient } from "@/lib/supabase/server"
 
 async function getProperty(id: string) {
+  const supabase = await createClient()
   const { data, error } = await supabase.from("properties").select("*").eq("id", id).single()
 
   if (error) {
@@ -13,8 +14,9 @@ async function getProperty(id: string) {
   return data
 }
 
-export default async function EditPropertyPage({ params }: { params: { id: string } }) {
-  const property = await getProperty(params.id)
+export default async function EditPropertyPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const property = await getProperty(id)
 
   return (
     <div className="container mx-auto px-4 py-8">
