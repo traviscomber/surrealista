@@ -2,7 +2,6 @@
 export { Header } from "./layout/header"
 export { Footer } from "./layout/footer"
 export { Sidebar } from "./layout/sidebar"
-export { Navigation } from "./layout/navigation"
 
 // Home Page Components
 export { HeroSection } from "./home/hero-section"
