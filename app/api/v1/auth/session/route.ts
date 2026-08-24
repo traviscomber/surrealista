@@ -1,11 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { createAPIResponse, withErrorHandling } from "../../middleware"
-import { createServerClient } from "@/lib/core/database/supabase"
-import { cookies } from "next/headers"
+import { createClient } from "@/lib/supabase/server"
 
-export const GET = withErrorHandling(async (request: NextRequest) => {
-  const cookieStore = cookies()
-  const supabase = createServerClient(cookieStore)
+export const GET = withErrorHandling(async (_request: NextRequest) => {
+  const supabase = await createClient()
 
   const {
     data: { session },
