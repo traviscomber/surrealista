@@ -1,7 +1,6 @@
 "use client"
 
 import { createBrowserClient as createBrowserSupabaseClient } from "@supabase/ssr"
-import type { Database } from "@/lib/database.types"
 
 const SUPABASE_URL = "https://jvgbrmqsiexwlqsyrwdx.supabase.co"
 const SUPABASE_ANON_KEY =
@@ -31,12 +30,12 @@ function proxiedFetch(input: RequestInfo | URL, init?: RequestInit) {
   return fetch(input, init)
 }
 
-let _supabase: ReturnType<typeof createBrowserSupabaseClient<Database>> | null = null
+let _supabase: ReturnType<typeof createBrowserSupabaseClient> | null = null
 
 function initSupabase() {
   if (_supabase) return _supabase
 
-  _supabase = createBrowserSupabaseClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  _supabase = createBrowserSupabaseClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     global: { fetch: proxiedFetch },
     cookies: {
       get(name: string) {
