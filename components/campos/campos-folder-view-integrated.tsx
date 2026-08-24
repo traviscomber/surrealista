@@ -13,7 +13,7 @@ import {
   type KmzInventoryRecord,
   type KmzInventoryRegionSummary,
 } from "@/lib/kmz/kmz-inventory-service"
-import { extractKmzGeometry, isRenderableKmzPolygon } from "@/lib/kmz/kmz-geometry-compat"
+import { extractKmzGeometry, isRenderableKmzPolygon, type KmzRenderablePlacemark } from "@/lib/kmz/kmz-geometry-compat"
 import { CAMPOSFolderView } from "@/components/campos/campos-folder-view"
 
 const STATUS_STYLE: Record<string, { label: string; className: string }> = {
@@ -60,7 +60,7 @@ function geometryBadge(record: KmzInventoryRecord) {
   return STATUS_STYLE[record.geometry_status] || STATUS_STYLE.real_or_reference
 }
 
-function toPointPlacemark(record: KmzInventoryRecord) {
+function toPointPlacemark(record: KmzInventoryRecord): KmzRenderablePlacemark {
   const status = geometryBadge(record)
   return {
     name: `${record.file_name} · ${status.label}`,
@@ -102,10 +102,10 @@ function cirenOuterRings(geometry: CirenNeighbor["geometry"]) {
   })
 }
 
-function cirenNeighborPlacemarks(context: CirenContext | null) {
+function cirenNeighborPlacemarks(context: CirenContext | null): KmzRenderablePlacemark[] {
   const sourceYear = context?.properties?.sourceYear
   return (context?.properties?.neighbors || []).flatMap((neighbor, neighborIndex) =>
-    cirenOuterRings(neighbor.geometry).map((coordinates, polygonIndex) => ({
+    cirenOuterRings(neighbor.geometry).map((coordinates, polygonIndex): KmzRenderablePlacemark => ({
       name: neighbor.relation === "same_property"
         ? `CIREN · Predio asociado${neighbor.rol ? ` · ROL ${neighbor.rol}` : ""}`
         : `CIREN · Predio cercano${neighbor.rol ? ` · ROL ${neighbor.rol}` : ""}`,
