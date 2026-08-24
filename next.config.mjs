@@ -1,25 +1,21 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false,
   },
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   images: {
     unoptimized: true,
   },
-  webpack: (config, { isServer, dev }) => {
-    // Completely disable webpack cache to prevent large string serialization issues
+  webpack: (config, { dev }) => {
     config.cache = false
-
-    // Optimize build output
     config.optimization = {
       ...config.optimization,
       runtimeChunk: 'single',
       minimize: !dev,
     }
-
     return config
   },
 }
