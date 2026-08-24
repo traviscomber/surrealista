@@ -8,7 +8,8 @@ interface ClientPageProps {
 }
 
 function getOptionalString(row: Record<string, unknown>, key: string): string {
-  return typeof row[key] === "string" ? row[key] : ""
+  const value = row[key]
+  return typeof value === "string" ? value : ""
 }
 
 export default async function ClientDetailPage({ params }: ClientPageProps) {
@@ -34,9 +35,10 @@ export default async function ClientDetailPage({ params }: ClientPageProps) {
   const secondLastName = getOptionalString(clientData, "second_last_name")
   const companyName = getOptionalString(clientData, "company_name")
   const fullName = [firstName, lastName, secondLastName].filter(Boolean).join(" ") || companyName || "Cliente"
+  const dataId = clientData.id
 
   const client = {
-    id: typeof clientData.id === "string" ? clientData.id : id,
+    id: typeof dataId === "string" ? dataId : id,
     name: fullName,
     email: getOptionalString(clientData, "email"),
     phone: getOptionalString(clientData, "phone") || getOptionalString(clientData, "mobile"),
