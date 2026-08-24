@@ -12,11 +12,17 @@ interface PropertyAIRecommendationsProps {
 }
 
 interface RelatedProperty {
-  id: string
+  id: number
   title: string
   price: number | null
   city: string | null
   property_images?: Array<{ url: string | null; is_main: boolean | null }>
+}
+
+type PropertyImageRow = {
+  property_id: number
+  url: string | null
+  is_main: boolean | null
 }
 
 export function PropertyAIRecommendations({ propertyId }: PropertyAIRecommendationsProps) {
@@ -32,20 +38,44 @@ export function PropertyAIRecommendations({ propertyId }: PropertyAIRecommendati
       setHasError(false)
 
       try {
-        const { data, error } = await supabase
+        const { data: propertyData, error: propertyError } = await supabase
           .from("properties")
-          .select(`
-            id,
-            title,
-            price,
-            city,
-            property_images(url, is_main)
-          `)
+          .select("id, title, price, city")
           .neq("id", propertyId)
           .limit(3)
 
-        if (error) throw error
-        if (active) setRecommendations((data as RelatedProperty[]) || [])
+        if (propertyError) throw propertyError
+
+        const properties = (propertyData || []) as Array<Omit<RelatedProperty, "property_images">>
+        const propertyIds = properties.map((property) => property.id)
+        let imageRows: PropertyImageRow[] = []
+
+        if (propertyIds.length > 0) {
+          const { data: imageData, error: imageError } = await supabase
+            .from("property_images")
+            .select("property_id, url, is_main")
+            .in("property_id", propertyIds)
+
+          if (imageError) {
+            console.warn("No se pudieron cargar imágenes de propiedades relacionadas:", imageError)
+          } else {
+            imageRows = (imageData || []) as PropertyImageRow[]
+          }
+        }
+
+        const imagesByProperty = new Map<number, RelatedProperty["property_images"]>()
+        for (const image of imageRows) {
+          const current = imagesByProperty.get(image.property_id) || []
+          current.push({ url: image.url, is_main: image.is_main })
+          imagesByProperty.set(image.property_id, current)
+        }
+
+        const related = properties.map((property) => ({
+          ...property,
+          property_images: imagesByProperty.get(property.id) || [],
+        }))
+
+        if (active) setRecommendations(related)
       } catch (error) {
         console.error("No se pudieron cargar propiedades relacionadas:", error)
         if (active) {
