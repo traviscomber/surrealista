@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { supabase } from "@/lib/supabase/client"
 import { toast } from "@/components/ui/use-toast"
 import { MessageSquare, User, ArrowUpRight } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
@@ -26,7 +26,6 @@ type Reply = {
 export function MessageHistory({ messageId }: MessageHistoryProps) {
   const [replies, setReplies] = useState<Reply[]>([])
   const [loading, setLoading] = useState(true)
-  const supabase = createClientComponentClient()
 
   useEffect(() => {
     fetchReplies()
