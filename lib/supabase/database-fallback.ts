@@ -1,4 +1,4 @@
-type DynamicRow = Record<string, any>
+type DynamicRow = any
 
 type DynamicRelationship = {
   foreignKeyName: string
@@ -18,10 +18,9 @@ type DynamicTable = {
 /**
  * Structural Supabase schema used while the checked-in generated schema is stale.
  *
- * This keeps query results array/object-shaped for strict TypeScript contextual
- * typing without pretending that obsolete column definitions are authoritative.
- * Replace this with freshly generated project types once the canonical schema
- * file is regenerated from Supabase.
+ * The database boundary is intentionally dynamic until the canonical generated
+ * project types are refreshed from Supabase. Application TypeScript remains
+ * strict; this avoids treating obsolete table/column definitions as truth.
  */
 export type DynamicDatabase = {
   public: {
