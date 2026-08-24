@@ -1,6 +1,7 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js"
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
+import type { DynamicDatabase } from "@/lib/supabase/database-fallback"
 import { INTERNAL_ACCESS_COOKIE, verifyInternalAccessToken } from "@/lib/auth/internal-access"
 
 export async function createClient() {
@@ -18,12 +19,12 @@ export async function createClient() {
   if (hasInternalAccess) {
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
     if (!serviceRoleKey) throw new Error("SUPABASE_SERVICE_ROLE_KEY is required for internal access")
-    return createSupabaseClient(supabaseUrl, serviceRoleKey, {
+    return createSupabaseClient<DynamicDatabase>(supabaseUrl, serviceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     })
   }
 
-  return createServerClient(supabaseUrl, supabaseAnonKey, {
+  return createServerClient<DynamicDatabase>(supabaseUrl, supabaseAnonKey, {
     cookies: {
       getAll() {
         return cookieStore.getAll()
