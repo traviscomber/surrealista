@@ -18,7 +18,7 @@ type MessageReplyFormProps = {
 }
 
 export function MessageReplyForm({ messageId, recipientEmail }: MessageReplyFormProps) {
-  const [subject, setSubject] = useState("Re: Consulta sobre propiedad")
+  const [subject, setSubject] = useState("Re: Consulta")
   const [message, setMessage] = useState("")
   const [markAsResolved, setMarkAsResolved] = useState(true)
   const [loading, setLoading] = useState(false)
@@ -30,6 +30,16 @@ export function MessageReplyForm({ messageId, recipientEmail }: MessageReplyForm
       toast({
         title: "Error",
         description: "El mensaje no puede estar vacío",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const numericMessageId = Number(messageId)
+    if (!Number.isInteger(numericMessageId)) {
+      toast({
+        title: "Error",
+        description: "El identificador del mensaje no es válido",
         variant: "destructive",
       })
       return
@@ -52,7 +62,7 @@ export function MessageReplyForm({ messageId, recipientEmail }: MessageReplyForm
         const { error: updateError } = await supabase
           .from("messages")
           .update({ status: "resolved" })
-          .eq("id", messageId)
+          .eq("id", numericMessageId)
 
         if (updateError) throw updateError
       }
@@ -106,7 +116,7 @@ export function MessageReplyForm({ messageId, recipientEmail }: MessageReplyForm
             <Checkbox
               id="markAsResolved"
               checked={markAsResolved}
-              onCheckedChange={(checked) => setMarkAsResolved(checked as boolean)}
+              onCheckedChange={(checked) => setMarkAsResolved(checked === true)}
             />
             <Label htmlFor="markAsResolved" className="text-sm font-normal">
               Marcar mensaje como resuelto al registrar
