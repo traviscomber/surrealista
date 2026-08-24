@@ -1,13 +1,12 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Eye, EyeOff, FileText, ListChecks, MessageSquare, Sparkles, Zap } from "lucide-react"
+import { FileText, ListChecks, MessageSquare, Sparkles, Zap } from "lucide-react"
 
 import { CommunicationsTracking } from "./communications-tracking"
 import DocumentsManager from "./documents-manager"
 import { TemplateLibrary } from "./template-library"
 import { WhitepaperBuilder } from "@/components/corporate-documents/whitepaper-builder"
-import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 const sections = [
@@ -19,7 +18,6 @@ const sections = [
 
 export function CommunicationsManager() {
   const [refreshTrigger, setRefreshTrigger] = useState(0)
-  const [showDemoData, setShowDemoData] = useState(false)
   const [activeTab, setActiveTab] = useState("documents")
 
   const activeSection = useMemo(
@@ -40,15 +38,6 @@ export function CommunicationsManager() {
             Organiza documentos, seguimiento, plantillas y generación de contenidos desde un único flujo operativo.
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowDemoData((current) => !current)}
-          aria-pressed={showDemoData}
-        >
-          {showDemoData ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-          {showDemoData ? "Ocultar datos demo" : "Mostrar datos demo"}
-        </Button>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
@@ -72,7 +61,7 @@ export function CommunicationsManager() {
         </div>
 
         <TabsContent value="documents" className="mt-5">
-          <DocumentsManager showDemoData={showDemoData} />
+          <DocumentsManager />
         </TabsContent>
 
         <TabsContent value="tracking" className="mt-5">
