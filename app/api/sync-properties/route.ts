@@ -1,44 +1,49 @@
 import { type NextRequest, NextResponse } from "next/server"
 import { IChiloeScraper } from "@/lib/data-extraction/ichiloe-scraper"
+import { INTERNAL_ACCESS_COOKIE, verifyInternalAccessToken } from "@/lib/auth/internal-access"
+
+async function isAuthorized(request: NextRequest) {
+  return verifyInternalAccessToken(request.cookies.get(INTERNAL_ACCESS_COOKIE)?.value)
+}
 
 export async function POST(request: NextRequest) {
+  if (!(await isAuthorized(request))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
   try {
-    console.log("[v0] Starting property sync API call...")
-
-    const authHeader = request.headers.get("authorization")
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
+    console.log("[property-sync] Starting iChiloe sync")
     const scraper = new IChiloeScraper()
     const result = await scraper.syncProperties()
 
-    console.log("[v0] Sync completed:", result)
-
     return NextResponse.json({
       success: result.success,
-      message: result.success ? `Successfully synced ${result.count} properties from iChiloe` : "Sync failed",
+      message: result.success ? `Se sincronizaron ${result.count} propiedades desde iChiloe` : "La sincronización falló",
       count: result.count,
       errors: result.errors,
     })
   } catch (error) {
-    console.error("[v0] API sync error:", error)
+    console.error("[property-sync] Sync error", error)
     return NextResponse.json(
       {
-        error: "Internal server error",
-        message: error instanceof Error ? error.message : "Unknown error",
+        success: false,
+        message: "Error interno durante la sincronización",
+        count: 0,
+        errors: [error instanceof Error ? error.message : "Unknown error"],
       },
       { status: 500 },
     )
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  if (!(await isAuthorized(request))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
   try {
     const scraper = new IChiloeScraper()
-
-    // Obtener estadísticas de propiedades externas
-    const supabase = scraper["supabase"] // Acceso privado para estadísticas
+    const supabase = scraper["supabase"]
 
     const { data: stats, error } = await supabase
       .from("properties_external")
@@ -47,14 +52,14 @@ export async function GET() {
       .order("created_at", { ascending: false })
       .limit(1)
 
-    if (error) {
-      throw error
-    }
+    if (error) throw error
 
-    const { count } = await supabase
+    const { count, error: countError } = await supabase
       .from("properties_external")
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact", head: true })
       .eq("source", "ichiloe")
+
+    if (countError) throw countError
 
     return NextResponse.json({
       source: "ichiloe",
@@ -63,7 +68,7 @@ export async function GET() {
       lastUpdate: stats?.[0]?.updated_at || null,
     })
   } catch (error) {
-    console.error("[v0] API stats error:", error)
+    console.error("[property-sync] Stats error", error)
     return NextResponse.json({ error: "Failed to get sync stats" }, { status: 500 })
   }
 }
