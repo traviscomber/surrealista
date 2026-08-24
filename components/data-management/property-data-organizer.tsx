@@ -13,15 +13,15 @@ interface Property {
   id: string
   title: string
   contact_name: string
-  contact_phone: string
-  contact_email: string
-  property_rol: string
-  water_rights: boolean
-  owner_name: string
-  region: string
-  data_quality_score: number
-  import_source: string
-  created_at: string
+  contact_phone: string | null
+  contact_email: string | null
+  property_rol: string | null
+  water_rights: boolean | null
+  owner_name: string | null
+  region: string | null
+  data_quality_score: number | null
+  import_source: string | null
+  created_at: string | null
 }
 
 interface PropertyStats {
@@ -29,6 +29,55 @@ interface PropertyStats {
   withWaterRights: number
   regions: { [key: string]: number }
   averageQuality: number
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {}
+}
+
+function requiredString(row: Record<string, unknown>, key: string): string | null {
+  const value = row[key]
+  return typeof value === "string" && value.trim() ? value : null
+}
+
+function optionalString(row: Record<string, unknown>, key: string): string | null {
+  const value = row[key]
+  return typeof value === "string" ? value : null
+}
+
+function optionalNumber(row: Record<string, unknown>, key: string): number | null {
+  const value = row[key]
+  return typeof value === "number" && Number.isFinite(value) ? value : null
+}
+
+function optionalBoolean(row: Record<string, unknown>, key: string): boolean | null {
+  const value = row[key]
+  return typeof value === "boolean" ? value : null
+}
+
+function normalizeProperty(value: unknown): Property | null {
+  const row = asRecord(value)
+  const id = requiredString(row, "id")
+  const title = requiredString(row, "title")
+  const contactName = requiredString(row, "contact_name")
+  if (!id || !title || !contactName) return null
+
+  return {
+    id,
+    title,
+    contact_name: contactName,
+    contact_phone: optionalString(row, "contact_phone"),
+    contact_email: optionalString(row, "contact_email"),
+    property_rol: optionalString(row, "property_rol"),
+    water_rights: optionalBoolean(row, "water_rights"),
+    owner_name: optionalString(row, "owner_name"),
+    region: optionalString(row, "region"),
+    data_quality_score: optionalNumber(row, "data_quality_score"),
+    import_source: optionalString(row, "import_source"),
+    created_at: optionalString(row, "created_at"),
+  }
 }
 
 export default function PropertyDataOrganizer() {
@@ -47,7 +96,7 @@ export default function PropertyDataOrganizer() {
   const [qualityFilter, setQualityFilter] = useState("all")
 
   useEffect(() => {
-    loadProperties()
+    void loadProperties()
   }, [])
 
   useEffect(() => {
@@ -56,12 +105,19 @@ export default function PropertyDataOrganizer() {
 
   const loadProperties = async () => {
     try {
-      const { data, error } = await supabase.from("properties").select("*").order("created_at", { ascending: false })
+      const { data, error } = await supabase
+        .from("properties_enhanced")
+        .select("id,title,contact_name,contact_phone,contact_email,property_rol,water_rights,owner_name,region,data_quality_score,import_source,created_at")
+        .order("created_at", { ascending: false })
 
       if (error) throw error
 
-      setProperties(data || [])
-      calculateStats(data || [])
+      const normalized = (data || [])
+        .map(normalizeProperty)
+        .filter((property): property is Property => property !== null)
+
+      setProperties(normalized)
+      calculateStats(normalized)
     } catch (error) {
       console.error("Error loading properties:", error)
     } finally {
@@ -71,7 +127,7 @@ export default function PropertyDataOrganizer() {
 
   const calculateStats = (data: Property[]) => {
     const total = data.length
-    const withWaterRights = data.filter((p) => p.water_rights).length
+    const withWaterRights = data.filter((property) => property.water_rights === true).length
     const regions: { [key: string]: number } = {}
     let totalQuality = 0
 
@@ -95,30 +151,26 @@ export default function PropertyDataOrganizer() {
   const applyFilters = () => {
     let filtered = properties
 
-    // Search filter
     if (searchTerm) {
       const term = searchTerm.toLowerCase()
       filtered = filtered.filter(
         (property) =>
-          property.title?.toLowerCase().includes(term) ||
-          property.contact_name?.toLowerCase().includes(term) ||
+          property.title.toLowerCase().includes(term) ||
+          property.contact_name.toLowerCase().includes(term) ||
           property.owner_name?.toLowerCase().includes(term) ||
           property.region?.toLowerCase().includes(term),
       )
     }
 
-    // Region filter
     if (regionFilter !== "all") {
       filtered = filtered.filter((property) => property.region === regionFilter)
     }
 
-    // Water rights filter
     if (waterRightsFilter !== "all") {
       const hasWaterRights = waterRightsFilter === "yes"
       filtered = filtered.filter((property) => property.water_rights === hasWaterRights)
     }
 
-    // Quality filter
     if (qualityFilter !== "all") {
       filtered = filtered.filter((property) => {
         const score = property.data_quality_score || 0
@@ -153,12 +205,12 @@ export default function PropertyDataOrganizer() {
     ]
 
     const csvData = filteredProperties.map((property) => [
-      property.title || "",
-      property.contact_name || "",
+      property.title,
+      property.contact_name,
       property.contact_phone || "",
       property.contact_email || "",
       property.property_rol || "",
-      property.water_rights ? "Sí" : "No",
+      property.water_rights === true ? "Sí" : property.water_rights === false ? "No" : "Sin dato",
       property.owner_name || "",
       property.region || "",
       property.data_quality_score || 0,
@@ -176,6 +228,7 @@ export default function PropertyDataOrganizer() {
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+    URL.revokeObjectURL(url)
   }
 
   const getQualityBadge = (score: number) => {
@@ -184,7 +237,7 @@ export default function PropertyDataOrganizer() {
     return <Badge className="bg-red-100 text-red-800">Baja ({score}%)</Badge>
   }
 
-  const uniqueRegions = Array.from(new Set(properties.map((p) => p.region).filter(Boolean)))
+  const uniqueRegions = Array.from(new Set(properties.flatMap((property) => (property.region ? [property.region] : []))))
 
   if (loading) {
     return (
@@ -207,7 +260,6 @@ export default function PropertyDataOrganizer() {
 
   return (
     <div className="space-y-6">
-      {/* Statistics Dashboard */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardContent className="p-6">
@@ -258,7 +310,6 @@ export default function PropertyDataOrganizer() {
         </Card>
       </div>
 
-      {/* Filters */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -323,7 +374,6 @@ export default function PropertyDataOrganizer() {
         </CardContent>
       </Card>
 
-      {/* Properties List */}
       <Card>
         <CardHeader>
           <CardTitle>Propiedades ({filteredProperties.length})</CardTitle>
@@ -341,10 +391,10 @@ export default function PropertyDataOrganizer() {
               {filteredProperties.map((property) => (
                 <div key={property.id} className="border rounded-lg p-4 hover:bg-gray-50">
                   <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-semibold text-lg">{property.title || "Sin título"}</h4>
+                    <h4 className="font-semibold text-lg">{property.title}</h4>
                     <div className="flex items-center gap-2">
                       {getQualityBadge(property.data_quality_score || 0)}
-                      {property.water_rights && (
+                      {property.water_rights === true && (
                         <Badge className="bg-blue-100 text-blue-800">
                           <Droplets className="h-3 w-3 mr-1" />
                           Derechos de Agua
@@ -355,34 +405,18 @@ export default function PropertyDataOrganizer() {
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                     <div>
-                      <p>
-                        <strong>Contacto:</strong> {property.contact_name || "N/A"}
-                      </p>
-                      <p>
-                        <strong>Teléfono:</strong> {property.contact_phone || "N/A"}
-                      </p>
-                      <p>
-                        <strong>Email:</strong> {property.contact_email || "N/A"}
-                      </p>
+                      <p><strong>Contacto:</strong> {property.contact_name}</p>
+                      <p><strong>Teléfono:</strong> {property.contact_phone || "N/A"}</p>
+                      <p><strong>Email:</strong> {property.contact_email || "N/A"}</p>
                     </div>
                     <div>
-                      <p>
-                        <strong>Propietario:</strong> {property.owner_name || "N/A"}
-                      </p>
-                      <p>
-                        <strong>Región:</strong> {property.region || "N/A"}
-                      </p>
-                      <p>
-                        <strong>Rol:</strong> {property.property_rol || "N/A"}
-                      </p>
+                      <p><strong>Propietario:</strong> {property.owner_name || "N/A"}</p>
+                      <p><strong>Región:</strong> {property.region || "N/A"}</p>
+                      <p><strong>Rol:</strong> {property.property_rol || "N/A"}</p>
                     </div>
                     <div>
-                      <p>
-                        <strong>Fuente:</strong> {property.import_source || "Manual"}
-                      </p>
-                      <p>
-                        <strong>Creado:</strong> {new Date(property.created_at).toLocaleDateString()}
-                      </p>
+                      <p><strong>Fuente:</strong> {property.import_source || "Manual"}</p>
+                      <p><strong>Creado:</strong> {property.created_at ? new Date(property.created_at).toLocaleDateString() : "Sin fecha"}</p>
                     </div>
                   </div>
                 </div>
@@ -392,7 +426,6 @@ export default function PropertyDataOrganizer() {
         </CardContent>
       </Card>
 
-      {/* Regional Distribution */}
       {Object.keys(stats.regions).length > 0 && (
         <Card>
           <CardHeader>
