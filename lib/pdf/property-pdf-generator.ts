@@ -8,8 +8,7 @@ export async function generatePropertyPDF(kmzData: any, propertyName: string) {
   const html2pdf = await import('html2pdf.js').then(m => m.default).catch(() => null)
   
   if (!html2pdf) {
-    console.error('html2pdf not available, using fallback')
-    downloadAsHTML(kmzData, propertyName)
+    console.error('html2pdf is not available')
     return
   }
 
