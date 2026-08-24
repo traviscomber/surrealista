@@ -170,7 +170,6 @@ const COLUMN_MAPPINGS: Record<string, string> = {
   industry: "industry",
   address: "address",
   city: "city",
-  region: "region",
   country: "country",
   "client type": "client_type",
   "main interest": "main_interest",
