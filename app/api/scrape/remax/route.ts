@@ -2,25 +2,24 @@ import { NextRequest, NextResponse } from "next/server"
 import { validateScraperAccess } from "@/lib/scrapers/route-auth"
 import { scrapeRemax } from "@/lib/scrapers/remax-scraper"
 
-export const maxDuration = 300 // 5 minutes
+export const maxDuration = 300
 
 export async function POST(req: NextRequest) {
   try {
     const auth = await validateScraperAccess(req)
     if (!auth.authorized) return auth.response
 
-    const body = await req.json()
-    const { pages = 1, searchUrl } = body
+    const body = await req.json().catch(() => ({}))
+    const requestedPages = Number(body?.pages ?? 1)
+    const pages = Number.isFinite(requestedPages)
+      ? Math.min(10, Math.max(1, Math.floor(requestedPages)))
+      : 1
 
-    console.log("[v0] POST /api/scrape/remax - Starting scraper for all south regions", {
+    console.log("[v0] POST /api/scrape/remax - Starting scraper for configured south regions", {
       pages,
     })
 
-    const result = await scrapeRemax({
-      pages,
-      searchUrl,
-      // Defaults to all south regions
-    })
+    const result = await scrapeRemax({ pages })
 
     console.log("[v0] Remax scraper result:", {
       success: result.success,
@@ -39,11 +38,11 @@ export async function POST(req: NextRequest) {
       regions_scraped: result.regions_scraped,
       source: "remax",
     })
-  } catch (err) {
-    console.error("[v0] Remax scraper error:", err)
+  } catch (error) {
+    console.error("[v0] Remax scraper error:", error)
     return NextResponse.json(
-      { error: (err as Error).message },
-      { status: 500 }
+      { error: error instanceof Error ? error.message : "RE/MAX scrape failed" },
+      { status: 500 },
     )
   }
 }
