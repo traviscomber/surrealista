@@ -1,24 +1,35 @@
 "use client"
 
 import type React from "react"
-
 import { useEffect, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
+import { AlertCircle, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Lock, AlertCircle } from "lucide-react"
 import { captureMessage } from "@/lib/sentry-init"
 
-const CORRECT_PASSWORD = process.env.NEXT_PUBLIC_APP_PASSWORD?.trim() || "srmagica"
 const STORAGE_KEY = "site_access_token"
 const ATTEMPTS_KEY = "login_attempts"
 const LOCKOUT_KEY = "login_lockout_time"
+const SESSION_MARKER = "granted"
 const MAX_ATTEMPTS = 5
 const LOCKOUT_TIME = 15 * 60 * 1000
-
 const PUBLIC_ROUTES = ["/ayuda", "/docs"]
+
+async function hasValidServerSession() {
+  const response = await fetch("/api/internal-access", { method: "GET", cache: "no-store" })
+  return response.ok
+}
+
+async function createServerSession(password: string) {
+  return fetch("/api/internal-access", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password }),
+  })
+}
 
 export function PasswordGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -27,38 +38,59 @@ export function PasswordGate({ children }: { children: React.ReactNode }) {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [isLoading, setIsLoading] = useState(true)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [isLockedOut, setIsLockedOut] = useState(false)
   const [attemptCount, setAttemptCount] = useState(0)
 
   const isPublicRoute = PUBLIC_ROUTES.some((route) => pathname.startsWith(route))
 
   useEffect(() => {
-    const token = sessionStorage.getItem(STORAGE_KEY)
-    const lockoutTime = sessionStorage.getItem(LOCKOUT_KEY)
-    const storedAttempts = Number.parseInt(sessionStorage.getItem(ATTEMPTS_KEY) || "0", 10)
+    let cancelled = false
 
-    setAttemptCount(Number.isFinite(storedAttempts) ? storedAttempts : 0)
+    async function restoreSession() {
+      const lockoutTime = sessionStorage.getItem(LOCKOUT_KEY)
+      const storedAttempts = Number.parseInt(sessionStorage.getItem(ATTEMPTS_KEY) || "0", 10)
+      setAttemptCount(Number.isFinite(storedAttempts) ? storedAttempts : 0)
 
-    if (lockoutTime) {
-      const now = Date.now()
-      if (now < Number.parseInt(lockoutTime, 10)) {
-        setIsLockedOut(true)
-        captureMessage("Usuario intentó acceso durante lockout", "warning")
-      } else {
-        sessionStorage.removeItem(LOCKOUT_KEY)
-        sessionStorage.removeItem(ATTEMPTS_KEY)
-        setAttemptCount(0)
+      if (lockoutTime) {
+        const now = Date.now()
+        if (now < Number.parseInt(lockoutTime, 10)) {
+          setIsLockedOut(true)
+          captureMessage("Usuario intentó acceso durante lockout", "warning")
+        } else {
+          sessionStorage.removeItem(LOCKOUT_KEY)
+          sessionStorage.removeItem(ATTEMPTS_KEY)
+          setAttemptCount(0)
+        }
       }
+
+      if (isPublicRoute) {
+        if (!cancelled) setIsLoading(false)
+        return
+      }
+
+      if (sessionStorage.getItem(STORAGE_KEY) === SESSION_MARKER) {
+        try {
+          const valid = await hasValidServerSession()
+          if (cancelled) return
+          if (valid) {
+            setIsAuthenticated(true)
+          } else {
+            sessionStorage.removeItem(STORAGE_KEY)
+          }
+        } catch {
+          if (!cancelled) sessionStorage.removeItem(STORAGE_KEY)
+        }
+      }
+
+      if (!cancelled) setIsLoading(false)
     }
 
-    if (token === CORRECT_PASSWORD) {
-      setIsAuthenticated(true)
-    }
+    void restoreSession()
+    return () => { cancelled = true }
+  }, [isPublicRoute])
 
-    setIsLoading(false)
-  }, [])
-
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setError("")
 
@@ -73,36 +105,50 @@ export function PasswordGate({ children }: { children: React.ReactNode }) {
       return
     }
 
-    if (password === CORRECT_PASSWORD) {
-      sessionStorage.setItem(STORAGE_KEY, password)
-      sessionStorage.removeItem(ATTEMPTS_KEY)
-      sessionStorage.removeItem(LOCKOUT_KEY)
-      setIsAuthenticated(true)
-      setAttemptCount(0)
+    setIsSubmitting(true)
+    try {
+      const response = await createServerSession(password)
+      if (response.ok) {
+        sessionStorage.setItem(STORAGE_KEY, SESSION_MARKER)
+        sessionStorage.removeItem(ATTEMPTS_KEY)
+        sessionStorage.removeItem(LOCKOUT_KEY)
+        setIsAuthenticated(true)
+        setAttemptCount(0)
+        setPassword("")
+        setError("")
+        captureMessage("Login exitoso", "info")
+        router.replace("/campos")
+        return
+      }
+
+      if (response.status >= 500) {
+        setError("El acceso interno no está disponible en este momento.")
+        captureMessage("Acceso interno no disponible", "error")
+        return
+      }
+
+      const newAttempts = attemptCount + 1
+      setAttemptCount(newAttempts)
       setPassword("")
-      setError("")
-      captureMessage("Login exitoso", "info")
-      router.replace("/campos")
-      return
+      sessionStorage.setItem(ATTEMPTS_KEY, newAttempts.toString())
+      captureMessage(`Intento de login fallido (${newAttempts}/${MAX_ATTEMPTS})`, "warning")
+
+      if (newAttempts >= MAX_ATTEMPTS) {
+        const lockoutExpires = Date.now() + LOCKOUT_TIME
+        sessionStorage.setItem(LOCKOUT_KEY, lockoutExpires.toString())
+        setIsLockedOut(true)
+        setError(`Acceso bloqueado por ${LOCKOUT_TIME / 60000} minutos tras ${MAX_ATTEMPTS} intentos fallidos`)
+        captureMessage(`Acceso bloqueado: ${MAX_ATTEMPTS} intentos fallidos`, "warning")
+        return
+      }
+
+      const remaining = MAX_ATTEMPTS - newAttempts
+      setError(`Contraseña incorrecta. ${remaining} intento${remaining === 1 ? "" : "s"} restante${remaining === 1 ? "" : "s"}`)
+    } catch {
+      setError("No se pudo validar el acceso interno.")
+    } finally {
+      setIsSubmitting(false)
     }
-
-    const newAttempts = attemptCount + 1
-    setAttemptCount(newAttempts)
-    setPassword("")
-    sessionStorage.setItem(ATTEMPTS_KEY, newAttempts.toString())
-    captureMessage(`Intento de login fallido (${newAttempts}/${MAX_ATTEMPTS})`, "warning")
-
-    if (newAttempts >= MAX_ATTEMPTS) {
-      const lockoutExpires = Date.now() + LOCKOUT_TIME
-      sessionStorage.setItem(LOCKOUT_KEY, lockoutExpires.toString())
-      setIsLockedOut(true)
-      setError(`Acceso bloqueado por ${LOCKOUT_TIME / 60000} minutos tras ${MAX_ATTEMPTS} intentos fallidos`)
-      captureMessage(`Acceso bloqueado: ${MAX_ATTEMPTS} intentos fallidos`, "warning")
-      return
-    }
-
-    const remaining = MAX_ATTEMPTS - newAttempts
-    setError(`Contraseña incorrecta. ${remaining} intento${remaining === 1 ? "" : "s"} restante${remaining === 1 ? "" : "s"}`)
   }
 
   if (isLoading) return null
@@ -123,15 +169,10 @@ export function PasswordGate({ children }: { children: React.ReactNode }) {
             <form onSubmit={handleSubmit} className="space-y-4">
               {error ? (
                 <div
-                  className={`flex gap-2 rounded-lg border p-3 ${
-                    isLockedOut ? "border-red-200 bg-red-50" : "border-orange-200 bg-orange-50"
-                  }`}
+                  className={`flex gap-2 rounded-lg border p-3 ${isLockedOut ? "border-red-200 bg-red-50" : "border-orange-200 bg-orange-50"}`}
                   role="alert"
                 >
-                  <AlertCircle
-                    className={`h-5 w-5 flex-shrink-0 ${isLockedOut ? "text-red-600" : "text-orange-600"}`}
-                    aria-hidden="true"
-                  />
+                  <AlertCircle className={`h-5 w-5 flex-shrink-0 ${isLockedOut ? "text-red-600" : "text-orange-600"}`} aria-hidden="true" />
                   <p className={`text-sm ${isLockedOut ? "text-red-700" : "text-orange-700"}`}>{error}</p>
                 </div>
               ) : null}
@@ -145,7 +186,7 @@ export function PasswordGate({ children }: { children: React.ReactNode }) {
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   placeholder="Ingresa la contraseña interna"
-                  disabled={isLockedOut}
+                  disabled={isLockedOut || isSubmitting}
                   className={error ? "border-red-500" : ""}
                   autoComplete="current-password"
                   autoFocus
@@ -155,14 +196,12 @@ export function PasswordGate({ children }: { children: React.ReactNode }) {
               <Button
                 type="submit"
                 className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
-                disabled={isLockedOut || password.trim().length === 0}
+                disabled={isLockedOut || isSubmitting || password.trim().length === 0}
               >
-                {isLockedOut ? "Bloqueado" : "Ingresar"}
+                {isLockedOut ? "Bloqueado" : isSubmitting ? "Validando..." : "Ingresar"}
               </Button>
 
-              <p className="text-center text-xs text-muted-foreground">
-                Acceso restringido al equipo interno de Sur-Realista.
-              </p>
+              <p className="text-center text-xs text-muted-foreground">Acceso restringido al equipo interno de Sur-Realista.</p>
             </form>
           </CardContent>
         </Card>
