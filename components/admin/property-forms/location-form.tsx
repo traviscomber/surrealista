@@ -1,21 +1,15 @@
 "use client"
 
 import type React from "react"
-
 import { useState, useEffect, useMemo } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Loader2, MapPin } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { MapPin } from "lucide-react"
 import {
   getAllRegions,
   getProvinciasForRegion,
-  getComunasForProvincia,
-  getAllComunasForRegion,
-  type Region,
   type Provincia,
   type Comuna,
 } from "@/lib/chile-locations"
@@ -37,27 +31,26 @@ interface PropertyLocationFormProps {
 
 export function PropertyLocationForm({ data, onChange }: PropertyLocationFormProps) {
   const [formData, setFormData] = useState(data)
-  const [isLookingUp, setIsLookingUp] = useState(false)
-  const { toast } = useToast()
-
   const regions = useMemo(() => getAllRegions(), [])
   const [provincias, setProvincias] = useState<Provincia[]>([])
   const [comunas, setComunas] = useState<Comuna[]>([])
   const [selectedRegionCode, setSelectedRegionCode] = useState<string>("")
   const [selectedProvinciaCode, setSelectedProvinciaCode] = useState<string>("")
 
-  // Load region and provincias on initial data load only
+  useEffect(() => {
+    setFormData(data)
+  }, [data])
+
   useEffect(() => {
     if (data.region && selectedRegionCode === "") {
-      const region = regions.find((r) => r.name === data.region || r.shortName === data.region)
+      const region = regions.find((item) => item.name === data.region || item.shortName === data.region)
       if (region) {
         setSelectedRegionCode(region.code)
-        const provs = getProvinciasForRegion(region.code)
-        setProvincias(provs)
+        const nextProvincias = getProvinciasForRegion(region.code)
+        setProvincias(nextProvincias)
 
-        // If there's a provincia, load only its comunas
         if (data.provincia) {
-          const provincia = provs.find((p) => p.name === data.provincia)
+          const provincia = nextProvincias.find((item) => item.name === data.provincia)
           if (provincia) {
             setSelectedProvinciaCode(provincia.code)
             setComunas(provincia.comunas)
@@ -65,24 +58,23 @@ export function PropertyLocationForm({ data, onChange }: PropertyLocationFormPro
         }
       }
     }
-  }, []) // Only run on mount
+  }, [data.provincia, data.region, regions, selectedRegionCode])
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = event.target
     const updatedData = { ...formData, [name]: value }
     setFormData(updatedData)
     onChange(updatedData)
   }
 
   const handleRegionChange = (regionCode: string) => {
-    const region = regions.find((r) => r.code === regionCode)
+    const region = regions.find((item) => item.code === regionCode)
     if (!region) return
 
     setSelectedRegionCode(regionCode)
     setSelectedProvinciaCode("")
-    const provs = getProvinciasForRegion(regionCode)
-    setProvincias(provs)
-    setComunas([]) // Reset comunas until provincia is selected
+    setProvincias(getProvinciasForRegion(regionCode))
+    setComunas([])
 
     const updatedData = {
       ...formData,
@@ -96,20 +88,17 @@ export function PropertyLocationForm({ data, onChange }: PropertyLocationFormPro
 
   const handleProvinciaChange = (provinciaCode: string) => {
     setSelectedProvinciaCode(provinciaCode)
-    
-    // Only load comunas for the selected provincia
-    const provincia = provincias.find((p) => p.code === provinciaCode)
-    if (provincia) {
-      setComunas(provincia.comunas)
+    const provincia = provincias.find((item) => item.code === provinciaCode)
+    if (!provincia) return
 
-      const updatedData = {
-        ...formData,
-        provincia: provincia.name,
-        comuna: "",
-      }
-      setFormData(updatedData)
-      onChange(updatedData)
+    setComunas(provincia.comunas)
+    const updatedData = {
+      ...formData,
+      provincia: provincia.name,
+      comuna: "",
     }
+    setFormData(updatedData)
+    onChange(updatedData)
   }
 
   const handleComunaChange = (comunaName: string) => {
@@ -122,117 +111,27 @@ export function PropertyLocationForm({ data, onChange }: PropertyLocationFormPro
     onChange(updatedData)
   }
 
-  const handleRollNumberLookup = async () => {
-    if (!formData.roll_number) {
-      toast({
-        title: "Error",
-        description: "Por favor ingrese un número de rol válido",
-        variant: "destructive",
-      })
-      return
-    }
-
-    setIsLookingUp(true)
-    try {
-      const response = await fetch("/api/v1/properties/lookup-coordinates", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ rollNumber: formData.roll_number }),
-      })
-
-      const result = await response.json()
-
-      if (result.success && result.data) {
-        const updatedData = {
-          ...formData,
-          latitude: result.data.coordinates.lat,
-          longitude: result.data.coordinates.lng,
-          address: result.data.address || formData.address,
-          city: result.data.city || formData.city,
-          region: result.data.region || formData.region,
-          provincia: result.data.provincia || formData.provincia,
-          comuna: result.data.comuna || formData.comuna,
-        }
-        setFormData(updatedData)
-        onChange(updatedData)
-
-        // Update dropdowns if region changed
-        if (result.data.region) {
-          const region = regions.find((r) => r.name === result.data.region || r.shortName === result.data.region)
-          if (region) {
-            setSelectedRegionCode(region.code)
-            const provs = getProvinciasForRegion(region.code)
-            setProvincias(provs)
-            const coms = getAllComunasForRegion(region.code)
-            setComunas(coms)
-          }
-        }
-
-        toast({
-          title: "Coordenadas encontradas",
-          description: `Lat: ${result.data.coordinates.lat}, Lng: ${result.data.coordinates.lng}`,
-        })
-      } else {
-        toast({
-          title: "No encontrado",
-          description: result.error || "No se encontraron coordenadas para este número de rol",
-          variant: "destructive",
-        })
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Error al buscar coordenadas. Intente nuevamente.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsLookingUp(false)
-    }
-  }
-
   return (
     <div className="space-y-6">
-      <Card className="p-4 bg-blue-50 border-blue-200">
-        <div className="space-y-4">
-          <div className="flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-blue-600" />
-            <Label className="text-blue-800 font-medium">Búsqueda por Número de Rol</Label>
-          </div>
-          <div className="flex gap-2">
-            <div className="flex-1">
-              <Input
-                name="roll_number"
-                value={formData.roll_number || ""}
-                onChange={handleChange}
-                placeholder="Ej: 12345-67"
-                className="border-blue-300 focus:border-blue-500"
-              />
-            </div>
-            <Button
-              onClick={handleRollNumberLookup}
-              disabled={isLookingUp || !formData.roll_number}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              {isLookingUp ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Buscando...
-                </>
-              ) : (
-                <>
-                  <Search className="mr-2 h-4 w-4" />
-                  Buscar
-                </>
-              )}
-            </Button>
-          </div>
-          <p className="text-sm text-blue-600">
-            Ingrese el número de rol para obtener automáticamente las coordenadas y dirección de la propiedad.
+      <Card className="p-4">
+        <div className="flex gap-3 text-sm leading-6 text-muted-foreground">
+          <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+          <p>
+            Usa coordenadas provenientes de KMZ, SII/CIREN u otra evidencia territorial verificada. La búsqueda automática por ROL que generaba referencias no verificadas está deshabilitada.
           </p>
         </div>
       </Card>
+
+      <div className="space-y-2">
+        <Label htmlFor="roll_number">ROL de referencia</Label>
+        <Input
+          id="roll_number"
+          name="roll_number"
+          value={formData.roll_number || ""}
+          onChange={handleChange}
+          placeholder="Ej: 123-45"
+        />
+      </div>
 
       <div className="space-y-2">
         <Label htmlFor="address">Dirección</Label>
@@ -241,7 +140,7 @@ export function PropertyLocationForm({ data, onChange }: PropertyLocationFormPro
           name="address"
           value={formData.address}
           onChange={handleChange}
-          placeholder="Ej: Av. Vicente Pérez Rosales 1234"
+          placeholder="Dirección respaldada por la fuente disponible"
         />
       </div>
 
@@ -264,13 +163,13 @@ export function PropertyLocationForm({ data, onChange }: PropertyLocationFormPro
 
         <div className="space-y-2">
           <Label htmlFor="provincia">Provincia</Label>
-          <Select value={formData.provincia || ""} onValueChange={handleProvinciaChange} disabled={!selectedRegionCode}>
+          <Select value={selectedProvinciaCode} onValueChange={handleProvinciaChange} disabled={!selectedRegionCode}>
             <SelectTrigger id="provincia">
               <SelectValue placeholder={selectedRegionCode ? "Seleccione provincia" : "Primero seleccione región"} />
             </SelectTrigger>
             <SelectContent>
               {provincias.map((provincia) => (
-                <SelectItem key={provincia.code} value={provincia.name}>
+                <SelectItem key={provincia.code} value={provincia.code}>
                   {provincia.name}
                 </SelectItem>
               ))}
@@ -303,7 +202,7 @@ export function PropertyLocationForm({ data, onChange }: PropertyLocationFormPro
             name="postal_code"
             value={formData.postal_code}
             onChange={handleChange}
-            placeholder="Ej: 5550000"
+            placeholder="Código postal verificado"
           />
         </div>
       </div>
@@ -341,7 +240,7 @@ export function PropertyLocationForm({ data, onChange }: PropertyLocationFormPro
           {formData.latitude && formData.longitude ? (
             <div className="text-center">
               <MapPin className="h-8 w-8 mx-auto mb-2 text-green-600" />
-              <p className="text-sm font-medium">Coordenadas establecidas</p>
+              <p className="text-sm font-medium">Coordenadas registradas</p>
               <p className="text-xs text-muted-foreground">
                 {formData.latitude}, {formData.longitude}
               </p>
@@ -353,7 +252,7 @@ export function PropertyLocationForm({ data, onChange }: PropertyLocationFormPro
               )}
             </div>
           ) : (
-            <p className="text-muted-foreground">Mapa interactivo para seleccionar ubicación (próximamente)</p>
+            <p className="text-muted-foreground">Sin coordenadas verificadas registradas.</p>
           )}
         </div>
       </Card>
