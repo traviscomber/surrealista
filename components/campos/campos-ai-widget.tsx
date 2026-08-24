@@ -1,12 +1,11 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { FormEvent, useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { X, Send, Sparkles } from "lucide-react"
-import { useChat } from "ai/react"
 
 export type CAMPOSAgentContext = {
   title?: string | null
@@ -21,10 +20,23 @@ export type CAMPOSAgentContext = {
   capturedAt?: string | null
 }
 
+type ChatMessage = {
+  id: string
+  role: "user" | "assistant"
+  content: string
+}
+
 interface CAMPOSAIWidgetProps {
   isOpen: boolean
   onOpenChange: (open: boolean) => void
   context?: CAMPOSAgentContext | null
+}
+
+const initialMessage: ChatMessage = {
+  id: "initial",
+  role: "assistant",
+  content:
+    "Soy el copiloto territorial de CAMPOS. Analizo expedientes, documentos y contexto geográfico sin sustituir evidencia registral.",
 }
 
 const buildBriefing = (context?: CAMPOSAgentContext | null) => {
@@ -46,19 +58,9 @@ const buildBriefing = (context?: CAMPOSAgentContext | null) => {
 export function CAMPOSAIWidget({ isOpen, onOpenChange, context }: CAMPOSAIWidgetProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const briefingRef = useRef("")
-
-  const { messages, input, handleInputChange, handleSubmit, isLoading, setMessages } = useChat({
-    api: "/api/campos-agent",
-    body: { context },
-    initialMessages: [
-      {
-        id: "initial",
-        role: "assistant",
-        content:
-          "Soy el copiloto territorial de CAMPOS. Analizo expedientes, documentos y contexto geográfico sin sustituir evidencia registral.",
-      },
-    ],
-  })
+  const [messages, setMessages] = useState<ChatMessage[]>([initialMessage])
+  const [input, setInput] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -77,7 +79,81 @@ export function CAMPOSAIWidget({ isOpen, onOpenChange, context }: CAMPOSAIWidget
         content: `Contexto cargado:\n\n${nextBriefing}`,
       },
     ])
-  }, [context, isOpen, setMessages])
+  }, [context, isOpen])
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const message = input.trim()
+    if (!message || isLoading) return
+
+    const userMessage: ChatMessage = {
+      id: `user-${Date.now()}`,
+      role: "user",
+      content: message,
+    }
+    const assistantId = `assistant-${Date.now()}`
+
+    setMessages((current) => [
+      ...current,
+      userMessage,
+      { id: assistantId, role: "assistant", content: "" },
+    ])
+    setInput("")
+    setIsLoading(true)
+
+    try {
+      const response = await fetch("/api/campos-agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message, context }),
+      })
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null)
+        const detail = payload?.error === "Unauthorized"
+          ? "Tu sesión no está autorizada para usar el copiloto CAMPOS."
+          : payload?.error || "No fue posible procesar la consulta."
+        throw new Error(detail)
+      }
+
+      if (!response.body) {
+        throw new Error("El servidor no entregó una respuesta utilizable.")
+      }
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let content = ""
+
+      while (true) {
+        const { value, done } = await reader.read()
+        if (done) break
+        content += decoder.decode(value, { stream: true })
+        setMessages((current) =>
+          current.map((item) => (item.id === assistantId ? { ...item, content } : item)),
+        )
+      }
+
+      content += decoder.decode()
+      setMessages((current) =>
+        current.map((item) =>
+          item.id === assistantId
+            ? { ...item, content: content || "La consulta terminó sin contenido disponible." }
+            : item,
+        ),
+      )
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : "No fue posible procesar la consulta."
+      setMessages((current) =>
+        current.map((item) =>
+          item.id === assistantId
+            ? { ...item, content: detail }
+            : item,
+        ),
+      )
+    } finally {
+      setIsLoading(false)
+    }
+  }
 
   const contextLabel = context?.title
     ? `${context.title}${context.role ? ` · ROL ${context.role}` : ""}`
@@ -118,7 +194,13 @@ export function CAMPOSAIWidget({ isOpen, onOpenChange, context }: CAMPOSAIWidget
               </div>
 
               <form onSubmit={handleSubmit} className="flex gap-2 border-t p-3">
-                <Input value={input} onChange={handleInputChange} placeholder="Pregunta sobre el predio..." disabled={isLoading} />
+                <Input
+                  value={input}
+                  onChange={(event) => setInput(event.target.value)}
+                  placeholder="Pregunta sobre el predio..."
+                  disabled={isLoading}
+                  maxLength={4000}
+                />
                 <Button type="submit" disabled={!input.trim() || isLoading} size="sm">
                   <Send className="h-4 w-4" />
                 </Button>
