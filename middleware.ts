@@ -2,15 +2,22 @@ import { NextRequest, NextResponse } from "next/server"
 import { INTERNAL_ACCESS_COOKIE, verifyInternalAccessToken } from "@/lib/auth/internal-access"
 import { updateSession } from "@/lib/supabase/middleware"
 
+function isPublicApiPath(pathname: string) {
+  return (
+    pathname === "/api/internal-access" ||
+    pathname.startsWith("/api/auth/") ||
+    pathname.startsWith("/api/cron/")
+  )
+}
+
 function isPrivilegedPath(pathname: string) {
+  if (pathname.startsWith("/api/")) return !isPublicApiPath(pathname)
+
   return (
     pathname === "/admin" ||
     pathname.startsWith("/admin/") ||
     pathname === "/campos" ||
-    pathname.startsWith("/campos/") ||
-    pathname.startsWith("/api/admin/") ||
-    pathname === "/api/kmz/ciren-context" ||
-    pathname === "/api/kmz/ciren-neighbors"
+    pathname.startsWith("/campos/")
   )
 }
 
@@ -37,8 +44,6 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|manifest.webmanifest|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|woff|woff2)$).*)",
-    "/api/admin/:path*",
-    "/api/kmz/ciren-context",
-    "/api/kmz/ciren-neighbors",
+    "/api/:path*",
   ],
 }
