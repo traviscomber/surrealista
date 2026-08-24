@@ -1,7 +1,6 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -9,9 +8,9 @@ import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { supabase } from "@/lib/supabase/client"
 import { toast } from "@/components/ui/use-toast"
-import { Send, Loader2 } from "lucide-react"
+import { Save, Loader2 } from "lucide-react"
 
 type MessageReplyFormProps = {
   messageId: string
@@ -23,7 +22,6 @@ export function MessageReplyForm({ messageId, recipientEmail }: MessageReplyForm
   const [message, setMessage] = useState("")
   const [markAsResolved, setMarkAsResolved] = useState(true)
   const [loading, setLoading] = useState(false)
-  const supabase = createClientComponentClient()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -40,21 +38,16 @@ export function MessageReplyForm({ messageId, recipientEmail }: MessageReplyForm
     setLoading(true)
 
     try {
-      // Aquí iría la lógica para enviar el email
-      // Por ahora, solo registramos la respuesta en la base de datos
-
-      // Registrar la respuesta
       const { error: replyError } = await supabase.from("message_replies").insert({
         message_id: messageId,
         subject,
         content: message,
         sent_to: recipientEmail,
-        sent_by: "admin", // Idealmente, aquí iría el ID o email del admin actual
+        sent_by: "equipo-interno",
       })
 
       if (replyError) throw replyError
 
-      // Si se marca como resuelto, actualizar el estado del mensaje
       if (markAsResolved) {
         const { error: updateError } = await supabase
           .from("messages")
@@ -65,17 +58,16 @@ export function MessageReplyForm({ messageId, recipientEmail }: MessageReplyForm
       }
 
       toast({
-        title: "Respuesta enviada",
-        description: "La respuesta ha sido enviada correctamente",
+        title: "Respuesta registrada",
+        description: "La respuesta quedó registrada internamente. Este formulario no envía correo electrónico.",
       })
 
-      // Limpiar el formulario
       setMessage("")
     } catch (error) {
-      console.error("Error al enviar la respuesta:", error)
+      console.error("Error al registrar la respuesta:", error)
       toast({
         title: "Error",
-        description: "No se pudo enviar la respuesta",
+        description: "No se pudo registrar la respuesta",
         variant: "destructive",
       })
     } finally {
@@ -86,8 +78,10 @@ export function MessageReplyForm({ messageId, recipientEmail }: MessageReplyForm
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Responder</CardTitle>
-        <CardDescription>Envía una respuesta a {recipientEmail}</CardDescription>
+        <CardTitle>Registrar respuesta</CardTitle>
+        <CardDescription>
+          Guarda una respuesta interna asociada a {recipientEmail}. El envío de correo se realiza por el flujo SMTP separado.
+        </CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
@@ -102,7 +96,7 @@ export function MessageReplyForm({ messageId, recipientEmail }: MessageReplyForm
               id="message"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Escribe tu respuesta aquí..."
+              placeholder="Escribe la respuesta que quieres dejar registrada..."
               className="min-h-[200px]"
               required
             />
@@ -115,7 +109,7 @@ export function MessageReplyForm({ messageId, recipientEmail }: MessageReplyForm
               onCheckedChange={(checked) => setMarkAsResolved(checked as boolean)}
             />
             <Label htmlFor="markAsResolved" className="text-sm font-normal">
-              Marcar mensaje como resuelto al enviar
+              Marcar mensaje como resuelto al registrar
             </Label>
           </div>
         </CardContent>
@@ -127,12 +121,12 @@ export function MessageReplyForm({ messageId, recipientEmail }: MessageReplyForm
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Enviando...
+                Registrando...
               </>
             ) : (
               <>
-                <Send className="mr-2 h-4 w-4" />
-                Enviar respuesta
+                <Save className="mr-2 h-4 w-4" />
+                Registrar respuesta
               </>
             )}
           </Button>
