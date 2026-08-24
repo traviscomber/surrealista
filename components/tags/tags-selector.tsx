@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { X, Plus, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,6 +15,33 @@ interface TagsSelectorProps {
   disabled?: boolean
 }
 
+function getStringId(value: unknown): string | null {
+  if (!value || typeof value !== "object") return null
+  const row = value as Record<string, unknown>
+  return typeof row.id === "string" && row.id ? row.id : null
+}
+
+function getTagArray(value: unknown): string[] {
+  if (!value || typeof value !== "object") return []
+  const row = value as Record<string, unknown>
+  return Array.isArray(row.tags) ? row.tags.filter((tag): tag is string => typeof tag === "string") : []
+}
+
+function getTagName(value: unknown): string | null {
+  if (!value || typeof value !== "object") return null
+  const row = value as Record<string, unknown>
+  if (typeof row.name === "string") return row.name
+
+  const nested = row.tags
+  if (typeof nested === "string") return nested
+  if (nested && typeof nested === "object") {
+    const nestedRow = nested as Record<string, unknown>
+    return typeof nestedRow.name === "string" ? nestedRow.name : null
+  }
+
+  return null
+}
+
 export function TagsSelector({ entityType, entityId, onTagsChange, disabled = false }: TagsSelectorProps) {
   const [tags, setTags] = useState<string[]>([])
   const [availableTags, setAvailableTags] = useState<string[]>([])
@@ -24,10 +51,9 @@ export function TagsSelector({ entityType, entityId, onTagsChange, disabled = fa
   const [isSaving, setIsSaving] = useState(false)
   const supabase = createBrowserClient()
 
-  // Load tags for this entity
   useEffect(() => {
-    loadEntityTags()
-    loadAvailableTags()
+    void loadEntityTags()
+    void loadAvailableTags()
   }, [entityId, entityType])
 
   const loadEntityTags = async () => {
@@ -39,23 +65,25 @@ export function TagsSelector({ entityType, entityId, onTagsChange, disabled = fa
         query = supabase.from("client_tags").select("tag_id, tags(name)").eq("client_id", entityId)
       } else if (entityType === "communication") {
         query = supabase.from("communication_tags").select("tag_id, tags(name)").eq("communication_id", entityId)
-      } else if (entityType === "task") {
+      } else {
         query = supabase.from("tasks").select("tags").eq("id", entityId)
       }
 
-      if (query) {
-        const { data, error } = await query
-        if (error) throw error
+      const { data, error } = await query
+      if (error) throw error
 
-        if (entityType === "task" && data && data[0]) {
-          setTags(data[0].tags || [])
-        } else if (data) {
-          const tagNames = data.map((item: any) => item.tags?.name || item.tags).filter(Boolean)
-          setTags(tagNames)
-        }
+      if (entityType === "task") {
+        const firstRow = Array.isArray(data) ? data[0] : null
+        setTags(getTagArray(firstRow))
+        return
       }
+
+      const tagNames = (Array.isArray(data) ? data : [])
+        .map(getTagName)
+        .filter((tag): tag is string => Boolean(tag))
+      setTags(tagNames)
     } catch (error) {
-      console.error("[v0] Error loading entity tags:", error)
+      console.error("[tags-selector] Error loading entity tags:", error)
     }
   }
 
@@ -64,32 +92,29 @@ export function TagsSelector({ entityType, entityId, onTagsChange, disabled = fa
     try {
       const { data, error } = await supabase.from("tags").select("name").order("name")
       if (error) throw error
-      setAvailableTags((data || []).map((t: any) => t.name))
+
+      const names = (Array.isArray(data) ? data : [])
+        .map((value) => getTagName(value))
+        .filter((tag): tag is string => Boolean(tag))
+      setAvailableTags(names)
     } catch (error) {
-      console.error("[v0] Error loading available tags:", error)
+      console.error("[tags-selector] Error loading available tags:", error)
     } finally {
       setIsLoading(false)
     }
   }
 
   const addTag = async (tagName: string) => {
-    if (!tagName.trim() || tags.includes(tagName.trim())) return
-
     const normalizedTag = tagName.trim()
+    if (!normalizedTag || tags.includes(normalizedTag)) return
+
     setIsSaving(true)
 
     try {
-      // Ensure tag exists in tags table
-      const { data: existingTag, error: selectError } = await supabase
-        .from("tags")
-        .select("id")
-        .eq("name", normalizedTag)
-        .single()
+      const { data: existingTag } = await supabase.from("tags").select("id").eq("name", normalizedTag).maybeSingle()
+      let tagId = getStringId(existingTag)
 
-      let tagId = existingTag?.id
-
-      if (!existingTag) {
-        // Create new tag
+      if (!tagId) {
         const { data: newTag, error: insertError } = await supabase
           .from("tags")
           .insert({ name: normalizedTag, color: generateColor() })
@@ -97,37 +122,28 @@ export function TagsSelector({ entityType, entityId, onTagsChange, disabled = fa
           .single()
 
         if (insertError) throw insertError
-        tagId = newTag?.id
+        tagId = getStringId(newTag)
+        if (!tagId) throw new Error("Tag creation returned an invalid id")
       }
 
-      // Link tag to entity
-      if (tagId) {
-        if (entityType === "task") {
-          // For tasks, update tags array directly
-          const { error: updateError } = await supabase
-            .from("tasks")
-            .update({ tags: [...tags, normalizedTag] })
-            .eq("id", entityId)
-          if (updateError) throw updateError
-        } else {
-          const linkTable =
-            entityType === "kmz"
-              ? "kmz_tags"
-              : entityType === "client"
-                ? "client_tags"
-                : "communication_tags"
-          const linkColumn =
-            entityType === "kmz" ? "kmz_id" : entityType === "client" ? "client_id" : "communication_id"
+      if (entityType === "task") {
+        const { error: updateError } = await supabase
+          .from("tasks")
+          .update({ tags: [...tags, normalizedTag] })
+          .eq("id", entityId)
+        if (updateError) throw updateError
+      } else {
+        const linkTable =
+          entityType === "kmz" ? "kmz_tags" : entityType === "client" ? "client_tags" : "communication_tags"
+        const linkColumn =
+          entityType === "kmz" ? "kmz_id" : entityType === "client" ? "client_id" : "communication_id"
 
-          const { error: linkError } = await supabase
-            .from(linkTable)
-            .insert({
-              [linkColumn]: entityId,
-              tag_id: tagId,
-            })
+        const { error: linkError } = await supabase.from(linkTable).insert({
+          [linkColumn]: entityId,
+          tag_id: tagId,
+        })
 
-          if (linkError) throw linkError
-        }
+        if (linkError) throw linkError
       }
 
       const newTags = [...tags, normalizedTag]
@@ -139,7 +155,7 @@ export function TagsSelector({ entityType, entityId, onTagsChange, disabled = fa
         setAvailableTags([...availableTags, normalizedTag].sort())
       }
     } catch (error) {
-      console.error("[v0] Error adding tag:", error)
+      console.error("[tags-selector] Error adding tag:", error)
     } finally {
       setIsSaving(false)
     }
@@ -150,47 +166,43 @@ export function TagsSelector({ entityType, entityId, onTagsChange, disabled = fa
 
     try {
       if (entityType === "task") {
-        // For tasks, update tags array
-        const newTags = tags.filter((t) => t !== tagToRemove)
+        const newTags = tags.filter((tag) => tag !== tagToRemove)
         const { error: updateError } = await supabase.from("tasks").update({ tags: newTags }).eq("id", entityId)
 
         if (updateError) throw updateError
         setTags(newTags)
         onTagsChange?.(newTags)
-      } else {
-        // Get tag ID
-        const { data: tagData, error: selectError } = await supabase
-          .from("tags")
-          .select("id")
-          .eq("name", tagToRemove)
-          .single()
-
-        if (selectError) throw selectError
-
-        // Delete link
-        const linkTable =
-          entityType === "kmz"
-            ? "kmz_tags"
-            : entityType === "client"
-              ? "client_tags"
-              : "communication_tags"
-        const linkColumn =
-          entityType === "kmz" ? "kmz_id" : entityType === "client" ? "client_id" : "communication_id"
-
-        const { error: deleteError } = await supabase
-          .from(linkTable)
-          .delete()
-          .eq(linkColumn, entityId)
-          .eq("tag_id", tagData.id)
-
-        if (deleteError) throw deleteError
-
-        const newTags = tags.filter((t) => t !== tagToRemove)
-        setTags(newTags)
-        onTagsChange?.(newTags)
+        return
       }
+
+      const { data: tagData, error: selectError } = await supabase
+        .from("tags")
+        .select("id")
+        .eq("name", tagToRemove)
+        .single()
+
+      if (selectError) throw selectError
+      const tagId = getStringId(tagData)
+      if (!tagId) throw new Error("Tag lookup returned an invalid id")
+
+      const linkTable =
+        entityType === "kmz" ? "kmz_tags" : entityType === "client" ? "client_tags" : "communication_tags"
+      const linkColumn =
+        entityType === "kmz" ? "kmz_id" : entityType === "client" ? "client_id" : "communication_id"
+
+      const { error: deleteError } = await supabase
+        .from(linkTable)
+        .delete()
+        .eq(linkColumn, entityId)
+        .eq("tag_id", tagId)
+
+      if (deleteError) throw deleteError
+
+      const newTags = tags.filter((tag) => tag !== tagToRemove)
+      setTags(newTags)
+      onTagsChange?.(newTags)
     } catch (error) {
-      console.error("[v0] Error removing tag:", error)
+      console.error("[tags-selector] Error removing tag:", error)
     } finally {
       setIsSaving(false)
     }
@@ -202,7 +214,10 @@ export function TagsSelector({ entityType, entityId, onTagsChange, disabled = fa
 
   function generateColor(): string {
     const colors = ["#FF6B6B", "#4ECDC4", "#45B7D1", "#FFA07A", "#98D8C8", "#F7DC6F", "#BB8FCE", "#85C1E2"]
-    return colors[Math.floor(Math.random() * colors.length)]
+    const index = Math.abs(
+      normalizedColorSeed(inputValue || "tag") % colors.length,
+    )
+    return colors[index]
   }
 
   return (
@@ -218,11 +233,7 @@ export function TagsSelector({ entityType, entityId, onTagsChange, disabled = fa
           >
             {tag}
             {!disabled && (
-              <button
-                onClick={() => removeTag(tag)}
-                disabled={isSaving}
-                className="ml-1 hover:text-emerald-900"
-              >
+              <button onClick={() => void removeTag(tag)} disabled={isSaving} className="ml-1 hover:text-emerald-900">
                 <X className="h-3 w-3" />
               </button>
             )}
@@ -236,11 +247,11 @@ export function TagsSelector({ entityType, entityId, onTagsChange, disabled = fa
             <Input
               placeholder="Agregar tag..."
               value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault()
-                  addTag(inputValue)
+              onChange={(event) => setInputValue(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault()
+                  void addTag(inputValue)
                 }
               }}
               onFocus={() => setIsOpen(true)}
@@ -248,7 +259,7 @@ export function TagsSelector({ entityType, entityId, onTagsChange, disabled = fa
             />
             <Button
               size="sm"
-              onClick={() => addTag(inputValue)}
+              onClick={() => void addTag(inputValue)}
               disabled={!inputValue.trim() || isSaving}
               variant="outline"
             >
@@ -262,7 +273,7 @@ export function TagsSelector({ entityType, entityId, onTagsChange, disabled = fa
                 <button
                   key={tag}
                   onClick={() => {
-                    addTag(tag)
+                    void addTag(tag)
                     setIsOpen(false)
                   }}
                   className="w-full text-left px-3 py-2 hover:bg-gray-100 text-sm"
@@ -276,4 +287,12 @@ export function TagsSelector({ entityType, entityId, onTagsChange, disabled = fa
       )}
     </div>
   )
+}
+
+function normalizedColorSeed(value: string): number {
+  let hash = 0
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) | 0
+  }
+  return hash
 }
