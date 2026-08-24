@@ -4,8 +4,6 @@
  */
 
 export * from "./analysis-service"
-export * from "./data-visualization"
-export * from "./insight-generator"
 
 // Tipos específicos de análisis
 export enum AnalysisCategory {
