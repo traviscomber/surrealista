@@ -52,8 +52,6 @@ export interface KmzInventoryFilters {
 }
 
 const PAGE_SIZE = 1000
-const INVENTORY_SELECT = "id,file_name,region,category,bounds,rol_numbers,geometry_status,latitude,longitude"
-const REGION_SUMMARY_SELECT = "region,total_kmz,sii_reference_count:sii_references,kmz_center_count:kmz_centers,layer_count:layers,with_rol_count:with_rol,with_owner_count:with_owner,missing_rol_count:missing_rol,center_latitude,center_longitude,average_completeness"
 
 export async function loadKmzInventory(
   supabase: SupabaseClient,
@@ -65,7 +63,7 @@ export async function loadKmzInventory(
   while (true) {
     let query = supabase
       .from("kmz_inventory_status")
-      .select(INVENTORY_SELECT)
+      .select("*")
       .order("region", { ascending: true })
       .order("file_name", { ascending: true })
       .range(from, from + PAGE_SIZE - 1)
@@ -77,7 +75,7 @@ export async function loadKmzInventory(
     const { data, error } = await query
     if (error) throw error
 
-    const page = (data || []) as unknown as KmzInventoryRecord[]
+    const page = (data || []) as KmzInventoryRecord[]
     records.push(...page)
 
     if (page.length < PAGE_SIZE) break
@@ -92,12 +90,12 @@ export async function loadKmzInventoryRegionSummary(
 ): Promise<KmzInventoryRegionSummary[]> {
   const { data, error } = await supabase
     .from("kmz_inventory_region_summary")
-    .select(REGION_SUMMARY_SELECT)
+    .select("*")
     .order("total_kmz", { ascending: false })
     .order("region", { ascending: true })
 
   if (error) throw error
-  return (data || []) as unknown as KmzInventoryRegionSummary[]
+  return (data || []) as KmzInventoryRegionSummary[]
 }
 
 export function filterInventoryByIds(
