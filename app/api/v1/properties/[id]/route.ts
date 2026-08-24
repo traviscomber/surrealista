@@ -1,19 +1,20 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { createAPIResponse, withErrorHandling } from "../../../middleware"
-import { createServerClient } from "@/lib/core/database/supabase"
-import { cookies } from "next/headers"
+import { NextResponse } from "next/server"
+import { createClient } from "@/lib/supabase/server"
 
-export const GET = withErrorHandling(async (request: NextRequest, { params }: { params: { id: string } }) => {
-  const cookieStore = cookies()
-  const supabase = createServerClient(cookieStore)
+export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await params
+    const supabase = await createClient()
 
-  const { data, error } = await supabase.from("properties").select("*, images(*)").eq("id", params.id).single()
+    const { data, error } = await supabase.from("properties").select("*, images(*)").eq("id", id).single()
 
-  if (error) {
-    return NextResponse.json(createAPIResponse(null, false, undefined, "Property not found"), {
-      status: 404,
-    })
+    if (error || !data) {
+      return NextResponse.json({ success: false, error: "Property not found" }, { status: 404 })
+    }
+
+    return NextResponse.json({ success: true, data: { property: data } })
+  } catch (error) {
+    console.error("[api/v1/properties/:id] failed", error)
+    return NextResponse.json({ success: false, error: "Internal server error" }, { status: 500 })
   }
-
-  return NextResponse.json(createAPIResponse({ property: data }))
-})
+}
