@@ -4,7 +4,7 @@ export const INTERNAL_ACCESS_COOKIE = "sur_realista_internal_access"
 export const INTERNAL_ACCESS_MAX_AGE_SECONDS = 12 * 60 * 60
 
 function getInternalPassword() {
-  return process.env.NEXT_PUBLIC_APP_PASSWORD?.trim() || "srmagica"
+  return process.env.INTERNAL_APP_PASSWORD?.trim() || process.env.NEXT_PUBLIC_APP_PASSWORD?.trim() || "srmagica"
 }
 
 function getSigningSecret() {
