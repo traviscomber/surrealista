@@ -38,11 +38,47 @@ interface Communication {
   communication_date: string
   direction: string
   created_by: string
-  attachments?: any
+  attachments: Record<string, unknown>
 }
 
 interface CommunicationsTrackingProps {
   refreshTrigger?: number
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {}
+}
+
+function getString(row: Record<string, unknown>, key: string, fallback = ""): string {
+  const value = row[key]
+  return typeof value === "string" ? value : fallback
+}
+
+function optionalString(row: Record<string, unknown>, key: string): string | undefined {
+  const value = row[key]
+  return typeof value === "string" ? value : undefined
+}
+
+function normalizeCommunication(value: unknown): Communication | null {
+  const row = asRecord(value)
+  const id = getString(row, "id")
+  const communicationType = getString(row, "communication_type")
+  const direction = getString(row, "direction")
+  if (!id || !communicationType || !direction) return null
+
+  return {
+    id,
+    client_id: optionalString(row, "client_id"),
+    communication_type: communicationType,
+    subject: getString(row, "subject"),
+    content: getString(row, "content"),
+    communication_date: getString(row, "communication_date"),
+    direction,
+    created_by: getString(row, "created_by", "Sin autor"),
+    attachments: asRecord(row.attachments),
+  }
 }
 
 export function CommunicationsTracking({ refreshTrigger }: CommunicationsTrackingProps) {
@@ -65,7 +101,7 @@ export function CommunicationsTracking({ refreshTrigger }: CommunicationsTrackin
   const supabase = createBrowserClient()
 
   useEffect(() => {
-    loadCommunications()
+    void loadCommunications()
   }, [refreshTrigger])
 
   const loadCommunications = async () => {
@@ -77,7 +113,7 @@ export function CommunicationsTracking({ refreshTrigger }: CommunicationsTrackin
         .limit(100)
 
       if (error) throw error
-      setCommunications(data || [])
+      setCommunications((data || []).map(normalizeCommunication).filter((item): item is Communication => item !== null))
     } catch (error) {
       console.error("Error loading communications:", error)
     } finally {
@@ -86,7 +122,8 @@ export function CommunicationsTracking({ refreshTrigger }: CommunicationsTrackin
   }
 
   const getStatus = (comm: Communication) => {
-    return comm.attachments?.status || "sent"
+    const status = comm.attachments.status
+    return typeof status === "string" ? status : "sent"
   }
 
   const updateStatus = async (commId: string, newStatus: string) => {
@@ -106,7 +143,7 @@ export function CommunicationsTracking({ refreshTrigger }: CommunicationsTrackin
         .eq("id", commId)
 
       if (error) throw error
-      loadCommunications()
+      void loadCommunications()
     } catch (error) {
       console.error("Error updating status:", error)
     }
@@ -132,7 +169,7 @@ export function CommunicationsTracking({ refreshTrigger }: CommunicationsTrackin
         communication_type: "email",
         communication_date: new Date().toISOString().split("T")[0],
       })
-      loadCommunications()
+      void loadCommunications()
     } catch (error) {
       console.error("Error creating communication:", error)
       alert("Error al crear comunicación")
@@ -156,7 +193,7 @@ export function CommunicationsTracking({ refreshTrigger }: CommunicationsTrackin
       if (error) throw error
       setIsEditDialogOpen(false)
       setEditingComm(null)
-      loadCommunications()
+      void loadCommunications()
     } catch (error) {
       console.error("Error updating communication:", error)
       alert("Error al actualizar comunicación")
@@ -172,7 +209,7 @@ export function CommunicationsTracking({ refreshTrigger }: CommunicationsTrackin
       if (error) throw error
       setIsDeleteDialogOpen(false)
       setDeletingCommId(null)
-      loadCommunications()
+      void loadCommunications()
     } catch (error) {
       console.error("Error deleting communication:", error)
       alert("Error al eliminar comunicación")
@@ -239,7 +276,6 @@ export function CommunicationsTracking({ refreshTrigger }: CommunicationsTrackin
     }
   }
 
-  // Stats calculation
   const stats = {
     total: communications.length,
     draft: communications.filter((c) => getStatus(c) === "draft").length,
@@ -250,101 +286,44 @@ export function CommunicationsTracking({ refreshTrigger }: CommunicationsTrackin
 
   return (
     <div className="space-y-6">
-      {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
-            <div className="text-sm text-gray-600">Total</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold text-gray-700">{stats.draft}</div>
-            <div className="text-sm text-gray-600">Borradores</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold text-blue-600">{stats.in_progress}</div>
-            <div className="text-sm text-gray-600">En Progreso</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold text-green-600">{stats.sent}</div>
-            <div className="text-sm text-gray-600">Enviados</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold text-emerald-600">{stats.responded}</div>
-            <div className="text-sm text-gray-600">Respondidos</div>
-          </CardContent>
-        </Card>
+        <Card><CardContent className="p-4"><div className="text-2xl font-bold text-gray-900">{stats.total}</div><div className="text-sm text-gray-600">Total</div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="text-2xl font-bold text-gray-700">{stats.draft}</div><div className="text-sm text-gray-600">Borradores</div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="text-2xl font-bold text-blue-600">{stats.in_progress}</div><div className="text-sm text-gray-600">En Progreso</div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="text-2xl font-bold text-green-600">{stats.sent}</div><div className="text-sm text-gray-600">Enviados</div></CardContent></Card>
+        <Card><CardContent className="p-4"><div className="text-2xl font-bold text-emerald-600">{stats.responded}</div><div className="text-sm text-gray-600">Respondidos</div></CardContent></Card>
       </div>
 
-      {/* Filters */}
       <Card>
         <CardHeader>
           <div className="flex items-center gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Buscar comunicaciones..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+              <Input placeholder="Buscar comunicaciones..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-10" />
             </div>
-            <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Nueva Comunicación
-            </Button>
+            <Button onClick={() => setIsCreateDialogOpen(true)} className="gap-2"><Plus className="h-4 w-4" />Nueva Comunicación</Button>
             <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="w-[200px]">
-                <Filter className="h-4 w-4 mr-2" />
-                <SelectValue placeholder="Tipo" />
-              </SelectTrigger>
+              <SelectTrigger className="w-[200px]"><Filter className="h-4 w-4 mr-2" /><SelectValue placeholder="Tipo" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos los tipos</SelectItem>
-                <SelectItem value="instagram">Instagram</SelectItem>
-                <SelectItem value="email">Email</SelectItem>
-                <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                <SelectItem value="portal">Portal Inmobiliario</SelectItem>
+                <SelectItem value="all">Todos los tipos</SelectItem><SelectItem value="instagram">Instagram</SelectItem><SelectItem value="email">Email</SelectItem><SelectItem value="whatsapp">WhatsApp</SelectItem><SelectItem value="portal">Portal Inmobiliario</SelectItem>
               </SelectContent>
             </Select>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue placeholder="Estado" />
-              </SelectTrigger>
+              <SelectTrigger className="w-[200px]"><SelectValue placeholder="Estado" /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos los estados</SelectItem>
-                <SelectItem value="draft">Borrador</SelectItem>
-                <SelectItem value="in_progress">En Progreso</SelectItem>
-                <SelectItem value="scheduled">Programado</SelectItem>
-                <SelectItem value="sent">Enviado</SelectItem>
-                <SelectItem value="viewed">Visto</SelectItem>
-                <SelectItem value="responded">Respondido</SelectItem>
+                <SelectItem value="all">Todos los estados</SelectItem><SelectItem value="draft">Borrador</SelectItem><SelectItem value="in_progress">En Progreso</SelectItem><SelectItem value="scheduled">Programado</SelectItem><SelectItem value="sent">Enviado</SelectItem><SelectItem value="viewed">Visto</SelectItem><SelectItem value="responded">Respondido</SelectItem>
               </SelectContent>
             </Select>
           </div>
         </CardHeader>
       </Card>
 
-      {/* Communications List */}
       <Card>
         <CardContent className="p-6">
           {loading ? (
-            <div className="text-center py-12">
-              <p className="text-gray-500">Cargando comunicaciones...</p>
-            </div>
+            <div className="text-center py-12"><p className="text-gray-500">Cargando comunicaciones...</p></div>
           ) : filteredCommunications.length === 0 ? (
-            <div className="text-center py-12">
-              <MessageSquare className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-700 mb-2">No hay comunicaciones</h3>
-              <p className="text-gray-500">Crea una nueva comunicación o usa templates</p>
-            </div>
+            <div className="text-center py-12"><MessageSquare className="h-16 w-16 text-gray-300 mx-auto mb-4" /><h3 className="text-lg font-semibold text-gray-700 mb-2">No hay comunicaciones</h3><p className="text-gray-500">Crea una nueva comunicación o usa templates</p></div>
           ) : (
             <div className="space-y-3">
               {filteredCommunications.map((comm) => {
@@ -357,79 +336,24 @@ export function CommunicationsTracking({ refreshTrigger }: CommunicationsTrackin
                         <div className="flex-1">
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <h4 className="font-semibold text-gray-900">{comm.subject}</h4>
-                                {getStatusBadge(currentStatus)}
-                              </div>
+                              <div className="flex items-center gap-2 mb-1"><h4 className="font-semibold text-gray-900">{comm.subject}</h4>{getStatusBadge(currentStatus)}</div>
                               <p className="text-sm text-gray-600 mt-1 line-clamp-2">{comm.content}</p>
                             </div>
                           </div>
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-4 text-xs text-gray-500">
-                              <span className="flex items-center gap-1">
-                                <Calendar className="h-3 w-3" />
-                                {new Date(comm.communication_date).toLocaleDateString()}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <User className="h-3 w-3" />
-                                {comm.created_by}
-                              </span>
-                              <Badge variant="secondary" className="text-xs">
-                                {comm.communication_type}
-                              </Badge>
+                              <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{comm.communication_date ? new Date(comm.communication_date).toLocaleDateString() : "Sin fecha"}</span>
+                              <span className="flex items-center gap-1"><User className="h-3 w-3" />{comm.created_by}</span>
+                              <Badge variant="secondary" className="text-xs">{comm.communication_type}</Badge>
                             </div>
                             <div className="flex items-center gap-2">
-                              <Button size="sm" variant="ghost" onClick={() => openEditDialog(comm)} className="gap-1">
-                                <Edit className="h-4 w-4" />
-                                Editar
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => openDeleteDialog(comm.id)}
-                                className="gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                                Eliminar
-                              </Button>
-                              {currentStatus === "draft" && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => updateStatus(comm.id, "in_progress")}
-                                >
-                                  Iniciar
-                                </Button>
-                              )}
-                              {currentStatus === "in_progress" && (
-                                <>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => updateStatus(comm.id, "scheduled")}
-                                  >
-                                    Programar
-                                  </Button>
-                                  <Button size="sm" onClick={() => updateStatus(comm.id, "sent")}>
-                                    Marcar Enviado
-                                  </Button>
-                                </>
-                              )}
-                              {currentStatus === "scheduled" && (
-                                <Button size="sm" onClick={() => updateStatus(comm.id, "sent")}>
-                                  Marcar Enviado
-                                </Button>
-                              )}
-                              {currentStatus === "sent" && (
-                                <Button size="sm" variant="outline" onClick={() => updateStatus(comm.id, "viewed")}>
-                                  Marcar Visto
-                                </Button>
-                              )}
-                              {currentStatus === "viewed" && (
-                                <Button size="sm" variant="outline" onClick={() => updateStatus(comm.id, "responded")}>
-                                  Marcar Respondido
-                                </Button>
-                              )}
+                              <Button size="sm" variant="ghost" onClick={() => openEditDialog(comm)} className="gap-1"><Edit className="h-4 w-4" />Editar</Button>
+                              <Button size="sm" variant="ghost" onClick={() => openDeleteDialog(comm.id)} className="gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"><Trash2 className="h-4 w-4" />Eliminar</Button>
+                              {currentStatus === "draft" && <Button size="sm" variant="outline" onClick={() => updateStatus(comm.id, "in_progress")}>Iniciar</Button>}
+                              {currentStatus === "in_progress" && <><Button size="sm" variant="outline" onClick={() => updateStatus(comm.id, "scheduled")}>Programar</Button><Button size="sm" onClick={() => updateStatus(comm.id, "sent")}>Marcar Enviado</Button></>}
+                              {currentStatus === "scheduled" && <Button size="sm" onClick={() => updateStatus(comm.id, "sent")}>Marcar Enviado</Button>}
+                              {currentStatus === "sent" && <Button size="sm" variant="outline" onClick={() => updateStatus(comm.id, "viewed")}>Marcar Visto</Button>}
+                              {currentStatus === "viewed" && <Button size="sm" variant="outline" onClick={() => updateStatus(comm.id, "responded")}>Marcar Respondido</Button>}
                             </div>
                           </div>
                         </div>
@@ -443,7 +367,6 @@ export function CommunicationsTracking({ refreshTrigger }: CommunicationsTrackin
         </CardContent>
       </Card>
 
-      {/* Create/Edit Dialog */}
       <Dialog
         open={isCreateDialogOpen || isEditDialogOpen}
         onOpenChange={(open) => {
@@ -455,89 +378,35 @@ export function CommunicationsTracking({ refreshTrigger }: CommunicationsTrackin
         }}
       >
         <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>{editingComm ? "Editar Comunicación" : "Nueva Comunicación"}</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>{editingComm ? "Editar Comunicación" : "Nueva Comunicación"}</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <div>
-              <Label>Asunto / Título</Label>
-              <Input
-                value={formData.subject}
-                onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                placeholder="Ej: Post Instagram - Propiedad en Valdivia"
-              />
-            </div>
-            <div>
-              <Label>Contenido</Label>
-              <Textarea
-                value={formData.content}
-                onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                placeholder="Escribe el contenido de la comunicación..."
-                rows={8}
-              />
-            </div>
+            <div><Label>Asunto / Título</Label><Input value={formData.subject} onChange={(e) => setFormData({ ...formData, subject: e.target.value })} placeholder="Ej: Post Instagram - Propiedad en Valdivia" /></div>
+            <div><Label>Contenido</Label><Textarea value={formData.content} onChange={(e) => setFormData({ ...formData, content: e.target.value })} placeholder="Escribe el contenido de la comunicación..." rows={8} /></div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Tipo de Comunicación</Label>
-                <Select
-                  value={formData.communication_type}
-                  onValueChange={(value) => setFormData({ ...formData, communication_type: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="instagram">Instagram</SelectItem>
-                    <SelectItem value="email">Email</SelectItem>
-                    <SelectItem value="whatsapp">WhatsApp</SelectItem>
-                    <SelectItem value="portal">Portal Inmobiliario</SelectItem>
-                  </SelectContent>
+                <Select value={formData.communication_type} onValueChange={(value) => setFormData({ ...formData, communication_type: value })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent><SelectItem value="instagram">Instagram</SelectItem><SelectItem value="email">Email</SelectItem><SelectItem value="whatsapp">WhatsApp</SelectItem><SelectItem value="portal">Portal Inmobiliario</SelectItem></SelectContent>
                 </Select>
               </div>
-              <div>
-                <Label>Fecha</Label>
-                <Input
-                  type="date"
-                  value={formData.communication_date}
-                  onChange={(e) => setFormData({ ...formData, communication_date: e.target.value })}
-                />
-              </div>
+              <div><Label>Fecha</Label><Input type="date" value={formData.communication_date} onChange={(e) => setFormData({ ...formData, communication_date: e.target.value })} /></div>
             </div>
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsCreateDialogOpen(false)
-                setIsEditDialogOpen(false)
-                setEditingComm(null)
-              }}
-            >
-              Cancelar
-            </Button>
-            <Button onClick={editingComm ? handleEditCommunication : handleCreateCommunication}>
-              {editingComm ? "Guardar Cambios" : "Crear Comunicación"}
-            </Button>
+            <Button variant="outline" onClick={() => { setIsCreateDialogOpen(false); setIsEditDialogOpen(false); setEditingComm(null) }}>Cancelar</Button>
+            <Button onClick={editingComm ? handleEditCommunication : handleCreateCommunication}>{editingComm ? "Guardar Cambios" : "Crear Comunicación"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>¿Eliminar Comunicación?</DialogTitle>
-          </DialogHeader>
-          <p className="text-gray-600">
-            Esta acción no se puede deshacer. ¿Estás seguro de que deseas eliminar esta comunicación?
-          </p>
+          <DialogHeader><DialogTitle>¿Eliminar Comunicación?</DialogTitle></DialogHeader>
+          <p className="text-gray-600">Esta acción no se puede deshacer. ¿Estás seguro de que deseas eliminar esta comunicación?</p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button variant="destructive" onClick={handleDeleteCommunication}>
-              Eliminar
-            </Button>
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleDeleteCommunication}>Eliminar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
