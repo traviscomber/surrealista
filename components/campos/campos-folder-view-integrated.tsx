@@ -14,7 +14,6 @@ import {
   type KmzInventoryRegionSummary,
 } from "@/lib/kmz/kmz-inventory-service"
 import { extractKmzGeometry, isRenderableKmzPolygon, type KmzRenderablePlacemark } from "@/lib/kmz/kmz-geometry-compat"
-import { CAMPOSFolderView } from "@/components/campos/campos-folder-view"
 
 const STATUS_STYLE: Record<string, { label: string; className: string }> = {
   real_geometry: { label: "Capa KMZ", className: "border-primary/25 bg-primary/8 text-primary" },
@@ -459,7 +458,18 @@ export function CAMPOSFolderViewIntegrated() {
     || cirenContext?.soils?.upstreamUnavailable,
   )
 
-  if (fatalError) return <CAMPOSFolderView />
+  if (fatalError) {
+    return (
+      <div className="flex h-full min-h-[320px] items-center justify-center bg-background px-6 text-center">
+        <div className="max-w-md">
+          <MapPin className="mx-auto mb-4 h-9 w-9 text-muted-foreground" />
+          <h2 className="text-base font-semibold">No se pudo cargar el inventario territorial</h2>
+          <p className="mt-2 text-sm text-muted-foreground">CAMPOS no mostrará datos parciales ni simulados. Reintenta la carga cuando la fuente esté disponible.</p>
+          <Button className="mt-4" variant="outline" onClick={loadSummaries}>Reintentar</Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-full min-h-0 w-full overflow-hidden bg-background text-foreground">
