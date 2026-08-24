@@ -26,17 +26,13 @@ export default function ProcessPropertyUrls() {
     setProcessedUrls([])
 
     try {
-      // Split the input by newlines to get individual URLs
       const urlList = urls.split("\n").filter((url) => url.trim() !== "")
 
       if (urlList.length === 0) {
         throw new Error("No se encontraron URLs válidas")
       }
 
-      // Process each URL (in a real app, you might want to validate or normalize them)
       const processed = urlList.map((url) => url.trim())
-
-      // Simulate API call delay
       await new Promise((resolve) => setTimeout(resolve, 1000))
 
       setProcessedUrls(processed)
@@ -84,7 +80,7 @@ https://ejemplo.com/propiedad/789"
         )}
 
         {success && (
-          <Alert variant="success" className="bg-green-50 text-green-800 border-green-200">
+          <Alert className="bg-green-50 text-green-800 border-green-200">
             <CheckCircle className="h-4 w-4 text-green-600" />
             <AlertTitle>Éxito</AlertTitle>
             <AlertDescription>{success}</AlertDescription>
