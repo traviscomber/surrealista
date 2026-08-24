@@ -1,6 +1,8 @@
+import { createClient as createSupabaseClient } from "@supabase/supabase-js"
 import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
 import type { Database } from "./database.types"
+import { INTERNAL_ACCESS_COOKIE, verifyInternalAccessToken } from "@/lib/auth/internal-access"
 
 export async function createClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -11,6 +13,16 @@ export async function createClient() {
   }
 
   const cookieStore = await cookies()
+  const internalToken = cookieStore.get(INTERNAL_ACCESS_COOKIE)?.value
+  const hasInternalAccess = await verifyInternalAccessToken(internalToken)
+
+  if (hasInternalAccess) {
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!serviceRoleKey) throw new Error("SUPABASE_SERVICE_ROLE_KEY is required for internal access")
+    return createSupabaseClient<Database>(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+  }
 
   return createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
     cookies: {
@@ -21,24 +33,18 @@ export async function createClient() {
         try {
           cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
         } catch {
-          // The `setAll` method was called from a Server Component.
-          // This can be ignored if you have middleware refreshing
-          // user sessions.
+          // Server Components cannot always mutate cookies; middleware refreshes auth when needed.
         }
       },
     },
   })
 }
 
-// Export createServerClient for compatibility
 export { createServerClient } from "@supabase/ssr"
 
-// Helper function to get featured properties with fallback
 export async function getFeaturedProperties() {
   try {
     const supabase = await createClient()
-
-    // First try to get featured properties
     const { data: featuredData, error: featuredError } = await supabase
       .from("properties")
       .select("*")
@@ -46,33 +52,27 @@ export async function getFeaturedProperties() {
       .eq("status", "active")
       .limit(6)
 
-    if (featuredError) {
-      console.error("Error fetching featured properties:", featuredError)
+    if (!featuredError) return featuredData || []
 
-      // Fallback: get latest properties if featured query fails
-      const { data: fallbackData, error: fallbackError } = await supabase
-        .from("properties")
-        .select("*")
-        .eq("status", "active")
-        .order("created_at", { ascending: false })
-        .limit(6)
+    console.error("Error fetching featured properties:", featuredError)
+    const { data: fallbackData, error: fallbackError } = await supabase
+      .from("properties")
+      .select("*")
+      .eq("status", "active")
+      .order("created_at", { ascending: false })
+      .limit(6)
 
-      if (fallbackError) {
-        console.error("Error fetching fallback properties:", fallbackError)
-        return []
-      }
-
-      return fallbackData || []
+    if (fallbackError) {
+      console.error("Error fetching fallback properties:", fallbackError)
+      return []
     }
-
-    return featuredData || []
+    return fallbackData || []
   } catch (error) {
     console.error("Error in getFeaturedProperties:", error)
     return []
   }
 }
 
-// Helper function to get all properties with pagination
 export async function getProperties(page = 1, limit = 12) {
   const supabase = await createClient()
   const offset = (page - 1) * limit
@@ -90,28 +90,21 @@ export async function getProperties(page = 1, limit = 12) {
       return { properties: [], total: 0 }
     }
 
-    return {
-      properties: data || [],
-      total: count || 0,
-    }
+    return { properties: data || [], total: count || 0 }
   } catch (error) {
     console.error("Error in getProperties:", error)
     return { properties: [], total: 0 }
   }
 }
 
-// Helper function to get a single property by ID
 export async function getPropertyById(id: string) {
   const supabase = await createClient()
-
   try {
     const { data, error } = await supabase.from("properties").select("*").eq("id", id).eq("status", "active").single()
-
     if (error) {
       console.error("Error fetching property:", error)
       return null
     }
-
     return data
   } catch (error) {
     console.error("Error in getPropertyById:", error)
@@ -119,7 +112,6 @@ export async function getPropertyById(id: string) {
   }
 }
 
-// Helper function to create a lead
 export async function createLead(leadData: {
   name: string
   email: string
@@ -131,15 +123,9 @@ export async function createLead(leadData: {
   source?: string
 }) {
   const supabase = await createClient()
-
   try {
     const { data, error } = await supabase.from("leads").insert([leadData]).select().single()
-
-    if (error) {
-      console.error("Error creating lead:", error)
-      return { success: false, error: error.message }
-    }
-
+    if (error) return { success: false, error: error.message }
     return { success: true, data }
   } catch (error) {
     console.error("Error in createLead:", error)
@@ -147,7 +133,6 @@ export async function createLead(leadData: {
   }
 }
 
-// Helper function to create a message
 export async function createMessage(messageData: {
   name: string
   email: string
@@ -157,24 +142,13 @@ export async function createMessage(messageData: {
   priority?: string
 }) {
   const supabase = await createClient()
-
   try {
     const { data, error } = await supabase
       .from("messages")
-      .insert([
-        {
-          ...messageData,
-          priority: messageData.priority || "normal",
-        },
-      ])
+      .insert([{ ...messageData, priority: messageData.priority || "normal" }])
       .select()
       .single()
-
-    if (error) {
-      console.error("Error creating message:", error)
-      return { success: false, error: error.message }
-    }
-
+    if (error) return { success: false, error: error.message }
     return { success: true, data }
   } catch (error) {
     console.error("Error in createMessage:", error)
@@ -182,8 +156,5 @@ export async function createMessage(messageData: {
   }
 }
 
-// Export the createClient function as default for compatibility
 export default createClient
-
-// Export supabase as a named export for compatibility
 export const supabase = createClient
