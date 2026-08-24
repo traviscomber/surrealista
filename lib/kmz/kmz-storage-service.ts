@@ -2,6 +2,8 @@ import { supabase } from "@/lib/supabase/client"
 import { detectRegionFromBounds } from "@/lib/utils/region-detector"
 import { kmzPlacemarkService } from "./kmz-placemark-service"
 
+export type KMZBounds = { north: number; south: number; east: number; west: number }
+
 export interface StoredKMZ {
   id: string
   file_name: string
@@ -25,7 +27,7 @@ export interface KMZForMap {
   id: string
   fileName: string
   coordinates: Array<[number, number]>
-  bounds: unknown
+  bounds?: KMZBounds
   placemarks: number
   rolNumbers: string[]
   category: string | null
@@ -53,6 +55,16 @@ function stringArray(value: unknown) {
 
 function objectValue(value: unknown): Record<string, unknown> {
   return asRecord(value) || {}
+}
+
+export function normalizeKMZBounds(value: unknown): KMZBounds | undefined {
+  const row = asRecord(value)
+  if (!row) return undefined
+  const north = Number(row.north)
+  const south = Number(row.south)
+  const east = Number(row.east)
+  const west = Number(row.west)
+  return [north, south, east, west].every(Number.isFinite) ? { north, south, east, west } : undefined
 }
 
 export function normalizeStoredKMZ(value: unknown): StoredKMZ | null {
@@ -97,7 +109,7 @@ function toMapKMZ(kmz: StoredKMZ): KMZForMap {
     id: kmz.id,
     fileName: kmz.file_name,
     coordinates: toCoordinatePairs(kmz.coordinates),
-    bounds: kmz.bounds,
+    bounds: normalizeKMZBounds(kmz.bounds),
     placemarks: kmz.placemarks_count,
     rolNumbers: kmz.rol_numbers,
     category: kmz.category,
