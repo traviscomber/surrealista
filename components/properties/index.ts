@@ -1,7 +1,4 @@
 export { PropertyCard } from "./property-card"
-export { PropertyFilters } from "./property-filters"
+export { default as PropertyFilters } from "./property-filters"
 export { PropertyGallery } from "./property-gallery"
 export { PropertyDetails } from "./property-details"
-export { PropertyList } from "./property-list"
-export { PropertySearch } from "./property-search"
-export { PropertyComparison } from "./property-comparison"
