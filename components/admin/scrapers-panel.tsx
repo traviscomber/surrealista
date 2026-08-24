@@ -8,10 +8,12 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
+type ScrapeRunStatus = "pending" | "running" | "completed" | "failed" | "partial"
+
 type ScrapeRun = {
   id: string
   source: string
-  status: "pending" | "running" | "completed" | "failed" | "partial"
+  status: ScrapeRunStatus
   region: string | null
   operation: string | null
   properties_found: number
@@ -22,7 +24,7 @@ type ScrapeRun = {
   started_at: string | null
   completed_at: string | null
   duration_seconds: number | null
-  created_at: string
+  created_at: string | null
 }
 
 type SourceStat = {
@@ -42,6 +44,50 @@ const STATUS_CONFIG = {
   running: { icon: Loader2, color: "text-blue-500", bg: "bg-blue-50 dark:bg-blue-950", label: "Corriendo" },
   partial: { icon: AlertCircle, color: "text-amber-500", bg: "bg-amber-50 dark:bg-amber-950", label: "Parcial" },
   pending: { icon: Clock, color: "text-gray-400", bg: "bg-gray-50 dark:bg-gray-900", label: "Pendiente" },
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === "object" ? (value as Record<string, unknown>) : {}
+}
+
+function getString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value : null
+}
+
+function getNumber(value: unknown, fallback = 0): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback
+}
+
+function getNullableNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null
+}
+
+function normalizeStatus(value: unknown): ScrapeRunStatus {
+  return value === "running" || value === "completed" || value === "failed" || value === "partial" ? value : "pending"
+}
+
+function normalizeScrapeRun(value: unknown): ScrapeRun | null {
+  const row = asRecord(value)
+  const id = getString(row.id)
+  const source = getString(row.source)
+  if (!id || !source) return null
+
+  return {
+    id,
+    source,
+    status: normalizeStatus(row.status),
+    region: getString(row.region),
+    operation: getString(row.operation),
+    properties_found: getNumber(row.properties_found),
+    properties_inserted: getNumber(row.properties_inserted),
+    properties_updated: getNumber(row.properties_updated),
+    properties_skipped: getNumber(row.properties_skipped),
+    error_message: getString(row.error_message),
+    started_at: getString(row.started_at),
+    completed_at: getString(row.completed_at),
+    duration_seconds: getNullableNumber(row.duration_seconds),
+    created_at: getString(row.created_at),
+  }
 }
 
 function formatDuration(seconds: number | null) {
@@ -188,18 +234,27 @@ export function ScrapersPanel() {
       setTotalProps(count ?? 0)
       const grouped: Record<string, SourceStat> = {}
       const regionSet = new Set<string>()
-      for (const row of perSource || []) {
-        grouped[row.source] ||= { source: row.source, total: 0, last_scraped: null, regions: [] }
-        grouped[row.source].total += 1
-        if (row.region && !grouped[row.source].regions.includes(row.region)) grouped[row.source].regions.push(row.region)
-        if (row.region) regionSet.add(row.region)
-        if (!grouped[row.source].last_scraped) grouped[row.source].last_scraped = row.scraped_at
+      for (const rawRow of perSource || []) {
+        const row = asRecord(rawRow)
+        const source = getString(row.source)
+        if (!source) continue
+        const region = getString(row.region)
+        const scrapedAt = getString(row.scraped_at)
+
+        grouped[source] ||= { source, total: 0, last_scraped: null, regions: [] }
+        grouped[source].total += 1
+        if (region && !grouped[source].regions.includes(region)) grouped[source].regions.push(region)
+        if (region) regionSet.add(region)
+        if (!grouped[source].last_scraped && scrapedAt) grouped[source].last_scraped = scrapedAt
       }
       setSourceStats(Object.values(grouped))
       setTotalRegions(regionSet.size)
 
       const bySource: Record<string, ScrapeRun> = {}
-      for (const run of runs || []) if (!bySource[run.source]) bySource[run.source] = run
+      for (const rawRun of runs || []) {
+        const run = normalizeScrapeRun(rawRun)
+        if (run && !bySource[run.source]) bySource[run.source] = run
+      }
       setLastRuns(bySource)
       setLastRefresh(new Date())
     } finally {
