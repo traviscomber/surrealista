@@ -260,11 +260,13 @@ export function InteractiveMap() {
       }
 
       try {
-        const result = await kmzReader.readKMZ(file)
+        const result = await kmzReader.readKMZFile(file)
         newKmzData.push({
-          fileName: file.name,
-          coordinates: result.coordinates,
-          rolNumbers: result.rolNumbers,
+          fileName: result.fileName,
+          coordinates: result.placemarks.flatMap((placemark) =>
+            placemark.coordinates.map(([lng, lat]) => [lng, lat] as [number, number]),
+          ),
+          rolNumbers: kmzReader.extractPropertyRoles(result),
           properties: result.placemarks,
         })
       } catch (error) {
