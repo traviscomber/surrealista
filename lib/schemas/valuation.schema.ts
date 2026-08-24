@@ -12,7 +12,7 @@ export const ComparablePropertySchema = z.object({
   distance_km: z.number(),
   similarity_score: z.number().min(0).max(100),
   sale_date: z.date(),
-  features: z.record(z.any())
+  features: z.record(z.string(), z.any())
 })
 
 export type ComparableProperty = z.infer<typeof ComparablePropertySchema>

@@ -286,7 +286,7 @@ export async function discoverIncitiPressArticles(limit = 10): Promise<string[]>
   return Array.from(urls).slice(0, Math.max(1, Math.min(limit, 30)))
 }
 
-function getDatasetName($: cheerio.CheerioAPI, table: cheerio.Element, index: number) {
+function getDatasetName($: cheerio.CheerioAPI, table: any, index: number) {
   const heading = $(table).prevAll('h2, h3').first().text()
   return slugify(cleanText(heading)) || `table_${index + 1}`
 }
@@ -309,7 +309,7 @@ function extractTableMetrics(
     try {
       const headers = $(table).find('thead th').map((_, cell) => cleanText($(cell).text())).get()
       if (headers.length === 0) {
-        $(table).find('tr').first().find('th, td').each((_, cell) => headers.push(cleanText($(cell).text())))
+        $(table).find('tr').first().find('th, td').each((_, cell) => { headers.push(cleanText($(cell).text())) })
       }
 
       const dataset = getDatasetName($, table, tableIndex)

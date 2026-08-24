@@ -31,7 +31,7 @@ export interface KMZForMap {
   category: string | null
 }
 
-class KMZStorageService {
+export class KMZStorageService {
   private supabase = supabase
 
   /**

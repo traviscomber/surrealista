@@ -3,7 +3,6 @@
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Bot, ArrowRight } from "lucide-react"
-import { AnimatedSection } from "@/components/ui/animated-section"
 
 export function AIAssistantSectionAlt() {
   // Esta es una versión alternativa que podemos usar si la primera no funciona
@@ -11,7 +10,7 @@ export function AIAssistantSectionAlt() {
     <section className="py-16 bg-gray-50">
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
-          <AnimatedSection direction="left">
+          <div>
             <div className="relative h-[400px] rounded-xl overflow-hidden shadow-xl">
               <img
                 src="https://images.unsplash.com/photo-1531746790731-6c087fecd65a?auto=format&fit=crop&w=1080&q=80"
@@ -24,9 +23,9 @@ export function AIAssistantSectionAlt() {
               />
               <div className="absolute inset-0 bg-gradient-to-r from-primary/40 to-transparent mix-blend-multiply"></div>
             </div>
-          </AnimatedSection>
+          </div>
 
-          <AnimatedSection direction="right">
+          <div>
             <div className="space-y-6">
               <div className="inline-block p-2 bg-primary/10 rounded-lg">
                 <Bot className="h-6 w-6 text-primary" />
@@ -97,7 +96,7 @@ export function AIAssistantSectionAlt() {
                 </Link>
               </Button>
             </div>
-          </AnimatedSection>
+          </div>
         </div>
       </div>
     </section>

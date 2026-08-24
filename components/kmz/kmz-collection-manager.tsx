@@ -209,107 +209,10 @@ export function KMZCollectionManager() {
   const scanGoogleDrive = async () => {
     setScanning(true)
     try {
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      )
-
-      const rootFolderId = "1wJRhFJNpIqoJ_O9FPIhpPglmypnwgt5F"
-      const allFiles: any[] = []
-
-      const scanFolder = async (folderId: string, path = "") => {
-        const contents = await driveService.listFolderContents(folderId)
-
-        for (const item of contents) {
-          const currentPath = path ? `${path}/${item.name}` : item.name
-
-          if (item.mimeType === "application/vnd.google-apps.folder") {
-            await scanFolder(item.id, currentPath)
-          } else if (item.name.toLowerCase().endsWith(".kmz") || item.mimeType === "application/vnd.google-earth.kmz") {
-            allFiles.push({
-              ...item,
-              path: currentPath,
-            })
-          }
-        }
-      }
-
-      await scanFolder(rootFolderId)
-
-      console.log(`Found ${allFiles.length} KMZ files in Google Drive`)
-
-      let processed = 0
-      for (const file of allFiles) {
-        try {
-          const { data: existing } = await supabase
-            .from("kmz_collection")
-            .select("id")
-            .eq("drive_file_id", file.id)
-            .single()
-
-          if (existing) {
-            console.log(`Skipping existing file: ${file.name}`)
-            continue
-          }
-
-          const fileBlob = await driveService.downloadFile(file.id)
-          const fileObj = new File([fileBlob], file.name, { type: "application/vnd.google-earth.kmz" })
-          const kmzData = await kmzReader.readKMZFile(fileObj)
-
-          const rolNumbers = kmzReader.extractPropertyRoles(kmzData)
-
-          // Insert KMZ into collection
-          const { data: insertedKMZ, error: kmzError } = await supabase
-            .from("kmz_collection")
-            .insert({
-              file_name: file.name,
-              file_path: file.path,
-              drive_file_id: file.id,
-              description: kmzData.metadata?.description || null,
-              metadata: kmzData.metadata,
-              placemarks_count: kmzData.placemarks.length,
-              rol_numbers: rolNumbers,
-              bounds: kmzData.bounds,
-              tags: [],
-              category: detectCategory(file.path),
-              is_active: true,
-              file_size: fileBlob.size,
-            })
-            .select()
-
-          if (kmzError) throw kmzError
-
-          const kmzId = insertedKMZ?.[0]?.id
-          if (!kmzId) throw new Error("KMZ insertion failed - no ID returned")
-
-          // Index locations using kmzLocationIndexer
-          if (kmzData.placemarks && kmzData.placemarks.length > 0) {
-            try {
-              await kmzLocationIndexer.initialize()
-              const indexResult = await kmzLocationIndexer.indexKMZLocations(
-                kmzId,
-                file.name,
-                kmzData.placemarks,
-                kmzData.bounds ? detectRegionFromBounds(kmzData.bounds) : undefined,
-              )
-              console.log(`[v0] Indexed ${indexResult.indexCount} locations for ${file.name}`)
-            } catch (indexError) {
-              console.error(`[v0] Error indexing locations for ${file.name}:`, indexError)
-            }
-          }
-
-          processed++
-          console.log(`Processed ${processed}/${allFiles.length}: ${file.name}`)
-        } catch (error) {
-          console.error(`Error processing ${file.name}:`, error)
-        }
-      }
-
-      await loadKMZCollection()
-      alert(`Escaneo completado! ${processed} archivos KMZ agregados a la colección.\n✅ Ubicaciones indexadas automáticamente.`)
+      throw new Error("La exploración directa de Google Drive desde el navegador está deshabilitada. Usa la importación KMZ del servidor.")
     } catch (error) {
       console.error("Error scanning Google Drive:", error)
-      alert("Error al escanear Google Drive")
+      alert(error instanceof Error ? error.message : "No se pudo explorar Google Drive.")
     } finally {
       setScanning(false)
     }
@@ -455,22 +358,7 @@ export function KMZCollectionManager() {
             console.log(`[v0] Successfully saved ${file.name} to database`)
             successCount++
 
-            // Index locations using kmzLocationIndexer
-            const kmzId = insertedKMZ?.[0]?.id
-            if (kmzId && kmzData.placemarks && kmzData.placemarks.length > 0) {
-              try {
-                await kmzLocationIndexer.initialize()
-                const indexResult = await kmzLocationIndexer.indexKMZLocations(
-                  kmzId,
-                  file.name,
-                  kmzData.placemarks,
-                  kmzData.bounds ? detectRegionFromBounds(kmzData.bounds) : undefined,
-                )
-                console.log(`[v0] Indexed ${indexResult.indexCount} locations for ${file.name}`)
-              } catch (indexError) {
-                console.error(`[v0] Error indexing locations for ${file.name}:`, indexError)
-              }
-            }
+
           }
         } catch (error) {
           console.error(`[v0] Error processing ${file.name}:`, error)
@@ -628,7 +516,7 @@ export function KMZCollectionManager() {
     }
   }
 
-  const categories = ["all", ...new Set(kmzFiles.map((kmz) => kmz.category).filter(Boolean))]
+  const categories = ["all", ...new Set(kmzFiles.map((kmz) => kmz.category).filter((category): category is string => Boolean(category)))]
 
   return (
     <div className="min-h-screen bg-background">
@@ -642,11 +530,11 @@ export function KMZCollectionManager() {
         onOpenChange={setShowOwnerEditModal}
         kmzId={selectedKmzForOwnerEdit?.id || ''}
         kmzFileName={selectedKmzForOwnerEdit?.file_name}
-        currentOwner={selectedKmzForOwnerEdit?.owner}
-        currentPic={selectedKmzForOwnerEdit?.pic}
-        currentPicPhone={selectedKmzForOwnerEdit?.pic_phone}
-        currentPicEmail={selectedKmzForOwnerEdit?.pic_email}
-        currentGoogleDocsLink={selectedKmzForOwnerEdit?.google_docs_link}
+        currentOwner={selectedKmzForOwnerEdit?.owner ?? undefined}
+        currentPic={selectedKmzForOwnerEdit?.pic ?? undefined}
+        currentPicPhone={selectedKmzForOwnerEdit?.pic_phone ?? undefined}
+        currentPicEmail={selectedKmzForOwnerEdit?.pic_email ?? undefined}
+        currentGoogleDocsLink={selectedKmzForOwnerEdit?.google_docs_link ?? undefined}
         onSave={loadKMZCollection}
       />
       <div className="container mx-auto p-6 space-y-8">

@@ -9,7 +9,7 @@ export interface ExtractedOwner {
   name: string
   type: "person" | "company" | "property_name"
   confidence: number
-  source: "filename" | "description" | "metadata"
+  source: "filename" | "description" | "metadata" | "filename_fallback" | "filename_full" | "filename_prefix"
   pattern: string
 }
 

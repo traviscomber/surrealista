@@ -3,8 +3,7 @@
  */
 
 import type { AIDocumentType } from "../types"
-import { generateText } from "ai"
-import { openai } from "@ai-sdk/openai"
+import { createOpenAIChatCompletion } from "@/lib/ai/openai-chat"
 
 // Interfaces para las plantillas
 interface TemplateData {
@@ -237,11 +236,10 @@ async function enhanceContentWithAI(partialContent: string, type: AIDocumentType
     `
 
     // Llamar a la API de OpenAI
-    const { text } = await generateText({
-      model: openai("gpt-4o"),
+    const text = await createOpenAIChatCompletion({
       prompt,
       temperature: 0.7,
-      max_tokens: 2000,
+      maxTokens: 2000,
     })
 
     // Parsear la respuesta
@@ -307,11 +305,10 @@ export async function generateDocumentWithAI(
     `
 
     // Llamar a la API de OpenAI
-    const { text } = await generateText({
-      model: openai("gpt-4o"),
+    const text = await createOpenAIChatCompletion({
       prompt,
       temperature: 0.7,
-      max_tokens: 3000,
+      maxTokens: 3000,
     })
 
     return text

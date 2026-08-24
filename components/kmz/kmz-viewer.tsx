@@ -31,7 +31,7 @@ export function KMZViewer() {
     setProgress(0)
 
     try {
-      const results = []
+      const results: KMZData[] = []
       for (let i = 0; i < kmzFiles.length; i++) {
         const file = kmzFiles[i]
         try {

@@ -8,21 +8,12 @@ import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { MapPin, Search, Loader, AlertCircle, Files } from "lucide-react"
 import { createBrowserClient } from "@/lib/supabase/client"
-import { KMZLocationSearch } from "@/lib/kmz/kmz-location-search"
+import { KMZLocationSearch, type LocationSearchResult } from "@/lib/kmz/kmz-location-search"
 
-interface LocationResult {
-  id: string
-  name: string
-  type: "Point" | "LineString" | "Polygon"
-  region: string
-  kmz_file_name: string
-  kmz_file_url: string
-  coordinates_preview: string
-}
+type LocationResult = LocationSearchResult
 
 interface KMZGrouped {
-  fileName: string
-  fileUrl: string
+  region: string
   locationCount: number
   locations: LocationResult[]
 }
@@ -97,16 +88,15 @@ export function KMZLocationSearchComponent() {
     const grouped = new Map<string, KMZGrouped>()
 
     for (const location of locations) {
-      if (!grouped.has(location.kmz_file_url)) {
-        grouped.set(location.kmz_file_url, {
-          fileName: location.kmz_file_name,
-          fileUrl: location.kmz_file_url,
+      if (!grouped.has(location.region)) {
+        grouped.set(location.region, {
+          region: location.region,
           locationCount: 0,
           locations: [],
         })
       }
 
-      const group = grouped.get(location.kmz_file_url)!
+      const group = grouped.get(location.region)!
       group.locationCount++
       group.locations.push(location)
     }
@@ -204,15 +194,15 @@ export function KMZLocationSearchComponent() {
           </CardHeader>
           <CardContent className="space-y-4">
             {groupedResults.map((kmzGroup) => (
-              <Card key={kmzGroup.fileUrl} className="border-l-4 border-blue-500">
+              <Card key={kmzGroup.region} className="border-l-4 border-blue-500">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="space-y-2">
                       <div className="font-semibold flex items-center gap-2">
                         <Files className="h-4 w-4" />
-                        {kmzGroup.fileName}
+                        {kmzGroup.region}
                       </div>
-                      <div className="text-sm text-gray-600 break-all">{kmzGroup.fileUrl}</div>
+                      <div className="text-sm text-gray-600">Región</div>
                     </div>
                     <Badge variant="secondary">{kmzGroup.locationCount} ubicaciones</Badge>
                   </div>
@@ -226,7 +216,7 @@ export function KMZLocationSearchComponent() {
                           <Badge className={getLocationTypeColor(location.type)}>{location.type}</Badge>
                         </div>
                         <div className="text-gray-600">Región: {location.region}</div>
-                        <div className="text-xs text-gray-500 font-mono">{location.coordinates_preview}</div>
+                        <div className="text-xs text-gray-500 font-mono">{location.coordinates.lat.toFixed(5)}, {location.coordinates.lng.toFixed(5)}</div>
                       </div>
                     ))}
                   </div>

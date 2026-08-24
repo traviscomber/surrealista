@@ -230,6 +230,11 @@ export class IChiloeExtractor {
     }
   }
 
+  private extractFromPlainText(_html: string): IChiloeProperty[] {
+    // The source did not expose structured property cards; skip unverified text.
+    return []
+  }
+
   private async tryDirectFetch(url: string): Promise<IChiloeProperty[]> {
     const response = await fetch(url, {
       method: "GET",

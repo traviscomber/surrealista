@@ -13,7 +13,7 @@ export const AlertRuleSchema = z.object({
     'competitor_activity',
     'task_overdue'
   ]),
-  condition: z.record(z.any()),
+  condition: z.record(z.string(), z.any()),
   notification_channels: z.array(z.enum(['email', 'push', 'in_app', 'whatsapp'])),
   is_active: z.boolean().default(true),
   created_at: z.date(),

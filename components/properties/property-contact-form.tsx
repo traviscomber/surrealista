@@ -35,6 +35,8 @@ interface FormData {
   contactPreference: "email" | "phone" | "both"
 }
 
+type FormErrors = Partial<Record<keyof FormData, string>>
+
 export function PropertyContactForm({ property, propertyId }: PropertyContactFormProps) {
   const { toast } = useToast()
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -49,10 +51,10 @@ export function PropertyContactForm({ property, propertyId }: PropertyContactFor
     acceptTerms: false,
     contactPreference: "email",
   })
-  const [errors, setErrors] = useState<Partial<FormData>>({})
+  const [errors, setErrors] = useState<FormErrors>({})
 
   const validateForm = (): boolean => {
-    const newErrors: Partial<FormData> = {}
+    const newErrors: FormErrors = {}
 
     if (!formData.name.trim()) {
       newErrors.name = "El nombre es requerido"

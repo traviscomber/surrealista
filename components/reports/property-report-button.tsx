@@ -3,7 +3,7 @@ import { FileText, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { usePDFGenerator } from "@/lib/hooks/use-pdf-generator"
 import type { PropertyReportData } from "@/lib/services/pdf-service"
-import { useToast } from "@/lib/hooks/use-toast"
+import { useToast } from "@/hooks/use-toast"
 
 interface PropertyReportButtonProps {
   data: PropertyReportData

@@ -1,7 +1,3 @@
-import type { Database } from "../database.types"
-
-type Property = Database["public"]["Tables"]["properties"]["Row"]
-
 export interface PropertyAnalysis {
   id: string
   score: number

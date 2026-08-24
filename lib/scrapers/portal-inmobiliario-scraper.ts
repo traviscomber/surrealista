@@ -206,14 +206,20 @@ function mapPreloadedToRaw(
   const priceAmount = priceObj?.[0]?.amount ?? item['price']
   const priceCurrency = priceObj?.[0]?.currency_id ?? 'CLP'
 
-  const location = item['location'] as Record<string, { name: string }> | undefined
+  const location = item['location'] as {
+    state?: { name: string }
+    city?: { name: string }
+    neighborhood?: { name: string }
+    latitude?: number
+    longitude?: number
+  } | undefined
 
   return {
     externalId: id,
     source: 'portal_inmobiliario',
     title: String(item['title'] || 'Propiedad'),
-    priceRaw: priceAmount,
-    currencyRaw: priceCurrency,
+    priceRaw: typeof priceAmount === "number" || typeof priceAmount === "string" ? priceAmount : null,
+    currencyRaw: typeof priceCurrency === "string" ? priceCurrency : "CLP",
     areaRaw: attrs['TOTAL_AREA'] || attrs['COVERED_AREA'] || null,
     bedrooms: parseInt(attrs['BEDROOMS'] || '0') || null,
     bathrooms: parseInt(attrs['FULL_BATHROOMS'] || '0') || null,
@@ -223,8 +229,8 @@ function mapPreloadedToRaw(
     region: location?.state?.name ?? null,
     commune: location?.city?.name ?? location?.neighborhood?.name ?? null,
     address: String(item['address'] || ''),
-    lat: (location as Record<string, number>)?.latitude ?? null,
-    lng: (location as Record<string, number>)?.longitude ?? null,
+    lat: location?.latitude ?? null,
+    lng: location?.longitude ?? null,
     sourceUrl: `${BASE_URL}/MLC-${id}`,
     images: ((item['pictures'] as { url: string }[]) ?? []).map((p) => p.url),
     description: String(item['description'] || ''),

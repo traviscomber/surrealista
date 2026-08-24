@@ -53,9 +53,19 @@ interface Property {
 
 interface KMZData {
   fileName: string
-  coordinates: Array<[number, number]>
+  placemarks: Array<{
+    name: string
+    coordinates: Array<[number, number]>
+    type: string
+    description?: string
+  }>
+  bounds?: {
+    north: number
+    south: number
+    east: number
+    west: number
+  }
   rolNumbers: string[]
-  properties: any[]
 }
 
 const mockProperties: Property[] = [
@@ -198,9 +208,13 @@ export function InteractiveMap() {
 
       const kmzDataArray: KMZData[] = storedKMZ.map((kmz) => ({
         fileName: kmz.fileName,
-        coordinates: kmz.coordinates,
+        placemarks: [{
+          name: kmz.fileName,
+          coordinates: kmz.coordinates,
+          type: "Point",
+        }],
+        bounds: kmz.bounds,
         rolNumbers: kmz.rolNumbers,
-        properties: [],
       }))
 
       setKmzData(kmzDataArray)
@@ -260,12 +274,17 @@ export function InteractiveMap() {
       }
 
       try {
-        const result = await kmzReader.readKMZ(file)
+        const result = await kmzReader.readKMZFile(file)
         newKmzData.push({
-          fileName: file.name,
-          coordinates: result.coordinates,
-          rolNumbers: result.rolNumbers,
-          properties: result.placemarks,
+          fileName: result.fileName,
+          placemarks: result.placemarks.map((placemark) => ({
+            name: placemark.name,
+            coordinates: placemark.coordinates.map(([lng, lat]) => [lng, lat] as [number, number]),
+            type: placemark.type,
+            description: placemark.description,
+          })),
+          bounds: result.bounds,
+          rolNumbers: kmzReader.extractPropertyRoles(result),
         })
       } catch (error) {
         console.error(`Error reading KMZ file ${file.name}:`, error)
@@ -490,7 +509,7 @@ export function InteractiveMap() {
         <CanvasMap
           properties={filteredProperties}
           kmzData={kmzData}
-          showKmzOverlay={showKmzOverlay}
+          showKMZOverlay={showKmzOverlay}
           onToggleKmzOverlay={() => setShowKmzOverlay(!showKmzOverlay)}
           onPropertySelect={setSelectedProperty}
           selectedProperty={selectedProperty}

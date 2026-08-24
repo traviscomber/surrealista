@@ -5,7 +5,7 @@
 import type { AIDocument } from "../types"
 import { remark } from "remark"
 import html from "remark-html"
-import { sanitize } from "isomorphic-dompurify"
+import DOMPurify from "isomorphic-dompurify"
 
 /**
  * Convierte contenido Markdown a HTML
@@ -19,7 +19,7 @@ export async function markdownToHtml(markdown: string): Promise<string> {
     const contentHtml = result.toString()
 
     // Sanitizar el HTML para prevenir XSS
-    return sanitize(contentHtml, {
+    return DOMPurify.sanitize(contentHtml, {
       ADD_TAGS: ["iframe"], // Permitir iframes para embeber contenido
       ADD_ATTR: ["allow", "allowfullscreen", "frameborder", "scrolling"], // Atributos adicionales para iframes
     })

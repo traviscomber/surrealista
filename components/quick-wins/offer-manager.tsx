@@ -145,7 +145,7 @@ export function OfferManager({ clientId, propertyId, currentPrice = 0 }: OfferMa
 
                 <div className="flex gap-2 pt-2 flex-wrap">
                   <Button
-                    size="xs"
+                    size="sm"
                     variant={offer.status === 'accepted' ? 'default' : 'outline'}
                     onClick={() => updateOfferStatus(offer.id, 'accepted')}
                     className="text-xs"
@@ -153,7 +153,7 @@ export function OfferManager({ clientId, propertyId, currentPrice = 0 }: OfferMa
                     ✓ Aceptar
                   </Button>
                   <Button
-                    size="xs"
+                    size="sm"
                     variant={offer.status === 'rejected' ? 'destructive' : 'outline'}
                     onClick={() => updateOfferStatus(offer.id, 'rejected')}
                     className="text-xs"
@@ -161,7 +161,7 @@ export function OfferManager({ clientId, propertyId, currentPrice = 0 }: OfferMa
                     ✕ Rechazar
                   </Button>
                   <Button
-                    size="xs"
+                    size="sm"
                     variant={offer.status === 'countered' ? 'default' : 'outline'}
                     onClick={() => updateOfferStatus(offer.id, 'countered')}
                     className="text-xs"

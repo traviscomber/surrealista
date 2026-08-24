@@ -475,7 +475,6 @@ export function GlobalCommandPalette() {
       <NeighborhoodAnalysisModal
         open={showAnalysisModal}
         onOpenChange={setShowAnalysisModal}
-        kmzName={selectedCampoName || undefined}
       />
 
       <CommandDialog open={open} onOpenChange={setOpen}>

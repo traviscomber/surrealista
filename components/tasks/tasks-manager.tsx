@@ -185,7 +185,6 @@ export function TasksManager({
       <QuickTaskCreation
         open={quickTaskOpen}
         onOpenChange={setQuickTaskOpen}
-        currentUser={currentUser || { email: "system@sur-realista.com" }}
         onTaskCreated={() => {
           handleTaskCreated()
           setQuickTaskOpen(false)
