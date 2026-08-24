@@ -34,20 +34,32 @@ export interface ClientData {
   created_by?: string
 }
 
+type DuplicateMatch = {
+  newClient: ClientData
+  existingClient: any
+  matchType: "rut" | "phone" | "email" | "name"
+  index: number
+}
+
+function revalidateClients() {
+  revalidatePath("/admin/clientes")
+  revalidatePath("/gestion-clientes")
+  revalidatePath("/busqueda")
+}
+
+function normalizeBatchSize(batchSize: number) {
+  if (!Number.isFinite(batchSize)) return 10
+  return Math.min(Math.max(Math.trunc(batchSize), 1), 100)
+}
+
 export async function getClients() {
   try {
     const supabase = await createSupabaseClient()
-
     const { data, error } = await supabase.from("clients").select("*").order("created_at", { ascending: false })
-
-    if (error) {
-      console.error("[v0] Error fetching clients:", error)
-      return { success: false, error: error.message, data: [] }
-    }
-
+    if (error) return { success: false, error: error.message, data: [] }
     return { success: true, data: data || [] }
   } catch (error) {
-    console.error("[v0] Error in getClients:", error)
+    console.error("[clients] getClients failed", error)
     return { success: false, error: "Error al obtener clientes", data: [] }
   }
 }
@@ -55,17 +67,11 @@ export async function getClients() {
 export async function getClientById(id: string) {
   try {
     const supabase = await createSupabaseClient()
-
     const { data, error } = await supabase.from("clients").select("*").eq("id", id).single()
-
-    if (error) {
-      console.error("[v0] Error fetching client:", error)
-      return { success: false, error: error.message, data: null }
-    }
-
+    if (error) return { success: false, error: error.message, data: null }
     return { success: true, data }
   } catch (error) {
-    console.error("[v0] Error in getClientById:", error)
+    console.error("[clients] getClientById failed", error)
     return { success: false, error: "Error al obtener cliente", data: null }
   }
 }
@@ -73,20 +79,12 @@ export async function getClientById(id: string) {
 export async function createClient(clientData: ClientData) {
   try {
     const supabase = await createSupabaseClient()
-
     const { data, error } = await supabase.from("clients").insert([clientData]).select().single()
-
-    if (error) {
-      console.error("[v0] Error creating client:", error)
-      return { success: false, error: error.message, data: null }
-    }
-
-    revalidatePath("/admin/clientes")
-    revalidatePath("/gestion-clientes")
-
+    if (error) return { success: false, error: error.message, data: null }
+    revalidateClients()
     return { success: true, data }
   } catch (error) {
-    console.error("[v0] Error in createClient:", error)
+    console.error("[clients] createClient failed", error)
     return { success: false, error: "Error al crear cliente", data: null }
   }
 }
@@ -94,20 +92,12 @@ export async function createClient(clientData: ClientData) {
 export async function updateClient(id: string, clientData: Partial<ClientData>) {
   try {
     const supabase = await createSupabaseClient()
-
     const { data, error } = await supabase.from("clients").update(clientData).eq("id", id).select().single()
-
-    if (error) {
-      console.error("[v0] Error updating client:", error)
-      return { success: false, error: error.message, data: null }
-    }
-
-    revalidatePath("/admin/clientes")
-    revalidatePath("/gestion-clientes")
-
+    if (error) return { success: false, error: error.message, data: null }
+    revalidateClients()
     return { success: true, data }
   } catch (error) {
-    console.error("[v0] Error in updateClient:", error)
+    console.error("[clients] updateClient failed", error)
     return { success: false, error: "Error al actualizar cliente", data: null }
   }
 }
@@ -115,122 +105,73 @@ export async function updateClient(id: string, clientData: Partial<ClientData>) 
 export async function deleteClient(id: string) {
   try {
     const supabase = await createSupabaseClient()
-
     const { error } = await supabase.from("clients").delete().eq("id", id)
-
-    if (error) {
-      console.error("[v0] Error deleting client:", error)
-      return { success: false, error: error.message }
-    }
-
-    revalidatePath("/admin/clientes")
-    revalidatePath("/gestion-clientes")
-
+    if (error) return { success: false, error: error.message }
+    revalidateClients()
     return { success: true }
   } catch (error) {
-    console.error("[v0] Error in deleteClient:", error)
+    console.error("[clients] deleteClient failed", error)
     return { success: false, error: "Error al eliminar cliente" }
   }
 }
 
 export async function detectDuplicates(clients: ClientData[]) {
   try {
-    console.log("[v0] Detecting duplicates for", clients.length, "clients")
     const supabase = await createSupabaseClient()
-
-    const duplicates: Array<{
-      newClient: ClientData
-      existingClient: any
-      matchType: string
-      index: number
-    }> = []
-
+    const duplicates: DuplicateMatch[] = []
     const nonDuplicates: Array<{ client: ClientData; index: number }> = []
 
-    for (let i = 0; i < clients.length; i++) {
-      const client = clients[i]
-      let matchFound = false
+    for (let index = 0; index < clients.length; index += 1) {
+      const client = clients[index]
+      let existingClient: any = null
+      let matchType: DuplicateMatch["matchType"] | null = null
 
       if (client.rut) {
-        const { data, error } = await supabase.from("clients").select("*").eq("rut", client.rut).limit(1)
-
-        if (!error && data && data.length > 0) {
-          duplicates.push({
-            newClient: client,
-            existingClient: data[0],
-            matchType: "rut",
-            index: i,
-          })
-          matchFound = true
-          continue
+        const { data } = await supabase.from("clients").select("*").eq("rut", client.rut).limit(1)
+        if (data?.[0]) {
+          existingClient = data[0]
+          matchType = "rut"
         }
       }
 
-      // Check for duplicates by phone (secondary identifier)
-      if (!matchFound && client.phone) {
-        const { data, error } = await supabase.from("clients").select("*").eq("phone", client.phone).limit(1)
-
-        if (!error && data && data.length > 0) {
-          duplicates.push({
-            newClient: client,
-            existingClient: data[0],
-            matchType: "phone",
-            index: i,
-          })
-          matchFound = true
-          continue
+      if (!existingClient && client.phone) {
+        const { data } = await supabase.from("clients").select("*").eq("phone", client.phone).limit(1)
+        if (data?.[0]) {
+          existingClient = data[0]
+          matchType = "phone"
         }
       }
 
-      // Check by email if phone didn't match
-      if (!matchFound && client.email) {
-        const { data, error } = await supabase.from("clients").select("*").eq("email", client.email).limit(1)
-
-        if (!error && data && data.length > 0) {
-          duplicates.push({
-            newClient: client,
-            existingClient: data[0],
-            matchType: "email",
-            index: i,
-          })
-          matchFound = true
-          continue
+      if (!existingClient && client.email) {
+        const { data } = await supabase.from("clients").select("*").eq("email", client.email).limit(1)
+        if (data?.[0]) {
+          existingClient = data[0]
+          matchType = "email"
         }
       }
 
-      // Check by name combination only if we have valid names (not numbers)
       if (
-        !matchFound &&
+        !existingClient &&
         client.first_name &&
         client.last_name &&
-        isNaN(Number(client.first_name)) && // Make sure first_name is not a number
-        isNaN(Number(client.last_name)) // Make sure last_name is not a number
+        Number.isNaN(Number(client.first_name)) &&
+        Number.isNaN(Number(client.last_name))
       ) {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from("clients")
           .select("*")
           .eq("first_name", client.first_name)
           .eq("last_name", client.last_name)
           .limit(1)
-
-        if (!error && data && data.length > 0) {
-          duplicates.push({
-            newClient: client,
-            existingClient: data[0],
-            matchType: "name",
-            index: i,
-          })
-          matchFound = true
-          continue
+        if (data?.[0]) {
+          existingClient = data[0]
+          matchType = "name"
         }
       }
 
-      if (!matchFound) {
-        nonDuplicates.push({ client, index: i })
-      }
+      if (existingClient && matchType) duplicates.push({ newClient: client, existingClient, matchType, index })
+      else nonDuplicates.push({ client, index })
     }
-
-    console.log(`[v0] Found ${duplicates.length} duplicates, ${nonDuplicates.length} new clients`)
 
     return {
       success: true,
@@ -240,7 +181,7 @@ export async function detectDuplicates(clients: ClientData[]) {
       totalNew: nonDuplicates.length,
     }
   } catch (error) {
-    console.error("[v0] Error detecting duplicates:", error)
+    console.error("[clients] detectDuplicates failed", error)
     return {
       success: false,
       error: "Error al detectar duplicados",
@@ -253,44 +194,27 @@ export async function detectDuplicates(clients: ClientData[]) {
 }
 
 export async function bulkImportClients(clients: ClientData[]) {
+  const batchSize = 50
   try {
-    console.log("[v0] Starting bulk import of", clients.length, "clients")
     const supabase = await createSupabaseClient()
+    let imported = 0
+    let failed = 0
+    const allData: any[] = []
 
-    const CHUNK_SIZE = 50
-    let totalImported = 0
-    let totalFailed = 0
-    const allData = []
-
-    for (let i = 0; i < clients.length; i += CHUNK_SIZE) {
-      const chunk = clients.slice(i, i + CHUNK_SIZE)
-      console.log(`[v0] Importing chunk ${Math.floor(i / CHUNK_SIZE) + 1} (${chunk.length} clients)`)
-
-      const { data, error } = await supabase.from("clients").insert(chunk).select()
-
-      if (error) {
-        console.error("[v0] Error importing chunk:", error)
-        totalFailed += chunk.length
-      } else {
-        totalImported += data?.length || 0
+    for (let index = 0; index < clients.length; index += batchSize) {
+      const batch = clients.slice(index, index + batchSize)
+      const { data, error } = await supabase.from("clients").insert(batch).select()
+      if (error) failed += batch.length
+      else {
+        imported += data?.length || 0
         allData.push(...(data || []))
       }
     }
 
-    console.log(`[v0] Import complete: ${totalImported} imported, ${totalFailed} failed`)
-
-    revalidatePath("/admin/clientes")
-    revalidatePath("/gestion-clientes")
-    revalidatePath("/busqueda")
-
-    return {
-      success: totalImported > 0,
-      imported: totalImported,
-      failed: totalFailed,
-      data: allData,
-    }
+    revalidateClients()
+    return { success: imported > 0, imported, failed, data: allData }
   } catch (error) {
-    console.error("[v0] Error in bulkImportClients:", error)
+    console.error("[clients] bulkImportClients failed", error)
     return { success: false, error: "Error al importar clientes", imported: 0, failed: clients.length }
   }
 }
@@ -300,57 +224,28 @@ export async function bulkImportWithDuplicateHandling(
   updates: Array<{ id: string; data: ClientData }>,
 ) {
   try {
-    console.log("[v0] Importing", newClients.length, "new clients and updating", updates.length, "existing clients")
     const supabase = await createSupabaseClient()
+    let imported = 0
+    let updated = 0
+    let failed = 0
 
-    let totalImported = 0
-    let totalUpdated = 0
-    let totalFailed = 0
-
-    // Import new clients
-    if (newClients.length > 0) {
-      const CHUNK_SIZE = 50
-      for (let i = 0; i < newClients.length; i += CHUNK_SIZE) {
-        const chunk = newClients.slice(i, i + CHUNK_SIZE)
-        const { data, error } = await supabase.from("clients").insert(chunk).select()
-
-        if (error) {
-          console.error("[v0] Error importing chunk:", error)
-          totalFailed += chunk.length
-        } else {
-          totalImported += data?.length || 0
-        }
-      }
+    for (let index = 0; index < newClients.length; index += 50) {
+      const batch = newClients.slice(index, index + 50)
+      const { data, error } = await supabase.from("clients").insert(batch).select()
+      if (error) failed += batch.length
+      else imported += data?.length || 0
     }
 
-    // Update existing clients
-    if (updates.length > 0) {
-      for (const update of updates) {
-        const { error } = await supabase.from("clients").update(update.data).eq("id", update.id)
-
-        if (error) {
-          console.error("[v0] Error updating client:", error)
-          totalFailed++
-        } else {
-          totalUpdated++
-        }
-      }
+    for (const update of updates) {
+      const { error } = await supabase.from("clients").update(update.data).eq("id", update.id)
+      if (error) failed += 1
+      else updated += 1
     }
 
-    console.log(`[v0] Import complete: ${totalImported} new, ${totalUpdated} updated, ${totalFailed} failed`)
-
-    revalidatePath("/admin/clientes")
-    revalidatePath("/gestion-clientes")
-    revalidatePath("/busqueda")
-
-    return {
-      success: true,
-      imported: totalImported,
-      updated: totalUpdated,
-      failed: totalFailed,
-    }
+    revalidateClients()
+    return { success: failed === 0 || imported + updated > 0, imported, updated, failed }
   } catch (error) {
-    console.error("[v0] Error in bulkImportWithDuplicateHandling:", error)
+    console.error("[clients] bulkImportWithDuplicateHandling failed", error)
     return {
       success: false,
       error: "Error al importar clientes",
@@ -364,80 +259,61 @@ export async function bulkImportWithDuplicateHandling(
 export async function searchClients(query: string) {
   try {
     const supabase = await createSupabaseClient()
+    const safeQuery = query.trim().replace(/[(),]/g, " ")
+    if (!safeQuery) return { success: true, data: [] }
 
     const { data, error } = await supabase
       .from("clients")
       .select("*")
-      .or(`first_name.ilike.%${query}%,last_name.ilike.%${query}%,email.ilike.%${query}%,company_name.ilike.%${query}%`)
+      .or(`first_name.ilike.%${safeQuery}%,last_name.ilike.%${safeQuery}%,email.ilike.%${safeQuery}%,company_name.ilike.%${safeQuery}%`)
       .order("created_at", { ascending: false })
       .limit(50)
 
-    if (error) {
-      console.error("[v0] Error searching clients:", error)
-      return { success: false, error: error.message, data: [] }
-    }
-
+    if (error) return { success: false, error: error.message, data: [] }
     return { success: true, data: data || [] }
   } catch (error) {
-    console.error("[v0] Error in searchClients:", error)
+    console.error("[clients] searchClients failed", error)
     return { success: false, error: "Error al buscar clientes", data: [] }
   }
 }
 
 export async function bulkImportInBatches(clients: ClientData[], batchSize = 10) {
   try {
-    console.log("[v0] Starting batch import of", clients.length, "clients in batches of", batchSize)
     const supabase = await createSupabaseClient()
+    const size = normalizeBatchSize(batchSize)
+    const batches: Array<{
+      batchNumber: number
+      totalBatches: number
+      success: boolean
+      imported: number
+      failed: number
+      data: any[]
+      error?: string
+    }> = []
 
-    const results = []
-
-    for (let i = 0; i < clients.length; i += batchSize) {
-      const batch = clients.slice(i, i + batchSize)
-      const batchNumber = Math.floor(i / batchSize) + 1
-      const totalBatches = Math.ceil(clients.length / batchSize)
-
-      console.log(`[v0] Processing batch ${batchNumber}/${totalBatches} (${batch.length} clients)`)
-
+    for (let index = 0; index < clients.length; index += size) {
+      const batch = clients.slice(index, index + size)
+      const batchNumber = Math.floor(index / size) + 1
+      const totalBatches = Math.ceil(clients.length / size)
       const { data, error } = await supabase.from("clients").insert(batch).select()
-
-      const batchResult = {
+      batches.push({
         batchNumber,
         totalBatches,
         success: !error,
         imported: data?.length || 0,
         failed: error ? batch.length : 0,
         data: data || [],
-        error: error?.message,
-      }
-
-      results.push(batchResult)
-      console.log(`[v0] Batch ${batchNumber} result:`, batchResult)
+        ...(error ? { error: error.message } : {}),
+      })
     }
 
-    const totalImported = results.reduce((sum, r) => sum + r.imported, 0)
-    const totalFailed = results.reduce((sum, r) => sum + r.failed, 0)
-
-    console.log(`[v0] Batch import complete: ${totalImported} imported, ${totalFailed} failed`)
-
-    revalidatePath("/admin/clientes")
-    revalidatePath("/gestion-clientes")
-    revalidatePath("/busqueda")
-
-    return {
-      success: totalImported > 0,
-      imported: totalImported,
-      failed: totalFailed,
-      batches: results,
-    }
+    const imported = batches.reduce((sum, batch) => sum + batch.imported, 0)
+    const failed = batches.reduce((sum, batch) => sum + batch.failed, 0)
+    revalidateClients()
+    return { success: imported > 0 || clients.length === 0, imported, failed, batches }
   } catch (error) {
-    console.error("[v0] Error in bulkImportInBatches:", error)
-    return {
-      success: false,
-      error: "Error al importar clientes",
-      imported: 0,
-      failed: clients.length,
-      batches: [],
-    }
+    console.error("[clients] bulkImportInBatches failed", error)
+    return { success: false, error: "Error al importar clientes", imported: 0, failed: clients.length, batches: [] }
   }
 }
 
@@ -447,156 +323,106 @@ export async function bulkImportWithDuplicateHandlingInBatches(
   batchSize = 10,
 ) {
   try {
-    console.log(
-      "[v0] Importing",
-      newClients.length,
-      "new clients and updating",
-      updates.length,
-      "existing clients in batches",
-    )
     const supabase = await createSupabaseClient()
+    const size = normalizeBatchSize(batchSize)
+    const failedRUTs = new Set<string>()
+    const batches: Array<{
+      type: "import" | "update"
+      batchNumber: number
+      totalBatches: number
+      success: boolean
+      count: number
+      failed: number
+    }> = []
+    let imported = 0
+    let updated = 0
+    let failed = 0
 
-    let totalImported = 0
-    let totalUpdated = 0
-    let totalFailed = 0
-    const failedRUTs = new Set<string>() // Track failed RUTs to prevent re-attempts
-    const batchResults = []
+    for (let index = 0; index < newClients.length; index += size) {
+      const batch = newClients.slice(index, index + size)
+      const batchNumber = Math.floor(index / size) + 1
+      const totalBatches = Math.ceil(newClients.length / size)
+      const filteredBatch = batch.filter((client) => !client.rut || !failedRUTs.has(client.rut))
 
-    // Import new clients in batches
-    if (newClients.length > 0) {
-      for (let i = 0; i < newClients.length; i += batchSize) {
-        const batch = newClients.slice(i, i + batchSize)
-        const batchNumber = Math.floor(i / batchSize) + 1
-        const totalBatches = Math.ceil(newClients.length / batchSize)
+      if (filteredBatch.length === 0) {
+        batches.push({ type: "import", batchNumber, totalBatches, success: false, count: 0, failed: batch.length })
+        failed += batch.length
+        continue
+      }
 
-        console.log(`[v0] Importing batch ${batchNumber}/${totalBatches} (${batch.length} new clients)`)
+      const { data, error } = await supabase.from("clients").insert(filteredBatch).select()
+      if (!error) {
+        const count = data?.length || 0
+        imported += count
+        batches.push({ type: "import", batchNumber, totalBatches, success: true, count, failed: 0 })
+        continue
+      }
 
-        // Filter out RUTs that already failed in previous batches
-        const filteredBatch = batch.filter(c => !failedRUTs.has(c.rut))
-        
-        if (filteredBatch.length === 0) {
-          console.log(`[v0] All clients in batch ${batchNumber} already failed, skipping`)
+      let batchSuccess = 0
+      let batchFailed = 0
+      for (const client of filteredBatch) {
+        if (client.rut && failedRUTs.has(client.rut)) {
+          batchFailed += 1
           continue
         }
 
-        // Try to insert entire batch first
-        const { data, error } = await supabase.from("clients").insert(filteredBatch).select()
-
-        if (error) {
-          // If batch fails (likely due to duplicates), insert records one by one
-          console.error("[v0] Batch insert failed, attempting individual inserts:", error.message)
-          
-          let batchSuccess = 0
-          let batchFailed = 0
-          
-          for (const client of filteredBatch) {
-            // Skip if this RUT already failed
-            if (failedRUTs.has(client.rut)) {
-              batchFailed++
-              continue
-            }
-            
-            const { error: singleError } = await supabase.from("clients").insert([client]).select()
-            
-            if (singleError) {
-              // Log but don't fail - this might be a duplicate
-              if (singleError.code === '23505') {
-                console.log(`[v0] Duplicate detected for RUT: ${client.rut} - ${singleError.message}`)
-                failedRUTs.add(client.rut) // Mark this RUT as failed to skip future attempts
-              } else {
-                console.error(`[v0] Error inserting client ${client.rut}:`, singleError.message)
-                failedRUTs.add(client.rut)
-              }
-              batchFailed++
-            } else {
-              batchSuccess++
-              totalImported++
-            }
-          }
-          
-          totalFailed += batchFailed
-          
-          const batchResult = {
-            type: "import" as const,
-            batchNumber,
-            totalBatches,
-            success: batchSuccess > 0,
-            count: batchSuccess,
-            failed: batchFailed,
-          }
-          batchResults.push(batchResult)
+        const { error: singleError } = await supabase.from("clients").insert([client])
+        if (singleError) {
+          if (client.rut) failedRUTs.add(client.rut)
+          batchFailed += 1
         } else {
-          // Batch succeeded
-          const successCount = data?.length || 0
-          totalImported += successCount
-          
-          const batchResult = {
-            type: "import" as const,
-            batchNumber,
-            totalBatches,
-            success: true,
-            count: successCount,
-            failed: 0,
-          }
-          batchResults.push(batchResult)
+          batchSuccess += 1
+          imported += 1
         }
       }
+
+      failed += batchFailed
+      batches.push({
+        type: "import",
+        batchNumber,
+        totalBatches,
+        success: batchSuccess > 0,
+        count: batchSuccess,
+        failed: batchFailed,
+      })
     }
 
-    // Update existing clients in batches
-    if (updates.length > 0) {
-      for (let i = 0; i < updates.length; i += batchSize) {
-        const batch = updates.slice(i, i + batchSize)
-        const batchNumber = Math.floor(i / batchSize) + 1
-        const totalBatches = Math.ceil(updates.length / batchSize)
+    for (let index = 0; index < updates.length; index += size) {
+      const batch = updates.slice(index, index + size)
+      const batchNumber = Math.floor(index / size) + 1
+      const totalBatches = Math.ceil(updates.length / size)
+      let batchSuccess = 0
+      let batchFailed = 0
 
-        console.log(`[v0] Updating batch ${batchNumber}/${totalBatches} (${batch.length} updates)`)
-
-        let batchSuccess = 0
-        let batchFailed = 0
-
-        for (const update of batch) {
-          const { error } = await supabase.from("clients").update(update.data).eq("id", update.id)
-
-          if (error) {
-            console.error("[v0] Error updating client:", error)
-            batchFailed++
-          } else {
-            batchSuccess++
-          }
-        }
-
-        const batchResult = {
-          type: "update" as const,
-          batchNumber,
-          totalBatches,
-          success: batchSuccess > 0,
-          count: batchSuccess,
-          failed: batchFailed,
-        }
-
-        batchResults.push(batchResult)
-        totalUpdated += batchSuccess
-        totalFailed += batchFailed
+      for (const update of batch) {
+        const { error } = await supabase.from("clients").update(update.data).eq("id", update.id)
+        if (error) batchFailed += 1
+        else batchSuccess += 1
       }
+
+      updated += batchSuccess
+      failed += batchFailed
+      batches.push({
+        type: "update",
+        batchNumber,
+        totalBatches,
+        success: batchSuccess > 0,
+        count: batchSuccess,
+        failed: batchFailed,
+      })
     }
 
-    console.log(`[v0] Batch import complete: ${totalImported} new, ${totalUpdated} updated, ${totalFailed} failed, ${failedRUTs.size} duplicate RUTs detected`)
-
-    revalidatePath("/admin/clientes")
-    revalidatePath("/gestion-clientes")
-    revalidatePath("/busqueda")
-
+    revalidateClients()
     return {
-      success: true,
-      imported: totalImported,
-      updated: totalUpdated,
-      failed: totalFailed,
-      batches: batchResults,
+      success: failed === 0 || imported + updated > 0,
+      imported,
+      updated,
+      failed,
+      batches,
       duplicateRUTs: Array.from(failedRUTs),
     }
   } catch (error) {
-    console.error("[v0] Error in bulkImportWithDuplicateHandlingInBatches:", error)
+    console.error("[clients] bulkImportWithDuplicateHandlingInBatches failed", error)
     return {
       success: false,
       error: "Error al importar clientes",
@@ -609,188 +435,155 @@ export async function bulkImportWithDuplicateHandlingInBatches(
   }
 }
 
-export async function getClientsPaginated(page = 1, pageSize = 50, filters?: {
-  search?: string
-  status?: string
-  industry?: string
-  clientType?: string
-  sortBy?: 'completeness' | 'created_at'
-}) {
+export async function getClientsPaginated(
+  page = 1,
+  pageSize = 50,
+  filters?: {
+    search?: string
+    status?: string
+    industry?: string
+    clientType?: string
+    sortBy?: "completeness" | "created_at"
+  },
+) {
+  const safePage = Number.isFinite(page) ? Math.max(Math.trunc(page), 1) : 1
+  const safePageSize = Number.isFinite(pageSize) ? Math.min(Math.max(Math.trunc(pageSize), 1), 200) : 50
+
   try {
-    console.log(`[v0] Fetching clients page ${page} with filters:`, filters)
     const supabase = await createSupabaseClient()
-    
-    const offset = (page - 1) * pageSize
-    let query = supabase
-      .from("clients")
-      .select("*", { count: "exact" })
+    const offset = (safePage - 1) * safePageSize
+    let query = supabase.from("clients").select("*", { count: "exact" })
 
     if (filters?.search) {
-      query = query.or(
-        `first_name.ilike.%${filters.search}%,last_name.ilike.%${filters.search}%,email.ilike.%${filters.search}%,company_name.ilike.%${filters.search}%,rut.ilike.%${filters.search}%`
-      )
-    }
-    
-    if (filters?.status) {
-      query = query.eq("status", filters.status)
-    }
-    
-    if (filters?.industry) {
-      query = query.eq("industry", filters.industry)
-    }
-    
-    if (filters?.clientType) {
-      query = query.eq("client_type", filters.clientType)
-    }
-
-    if (filters?.sortBy === 'completeness') {
-      // For completeness sorting, we need to fetch all data and sort client-side
-      const { data: allData, error, count } = await query
-      
-      if (error) {
-        console.error("[v0] Error fetching clients for completeness sorting:", error)
-        return { success: false, error: error.message, data: [], total: 0, page, pageSize }
+      const search = filters.search.trim().replace(/[(),]/g, " ")
+      if (search) {
+        query = query.or(
+          `first_name.ilike.%${search}%,last_name.ilike.%${search}%,email.ilike.%${search}%,company_name.ilike.%${search}%,rut.ilike.%${search}%`,
+        )
       }
+    }
+    if (filters?.status) query = query.eq("status", filters.status)
+    if (filters?.industry) query = query.eq("industry", filters.industry)
+    if (filters?.clientType) query = query.eq("client_type", filters.clientType)
 
-      // Calculate completeness score for each client
-      const dataWithScores = (allData || []).map(client => {
-        const fields = [
-          'first_name', 'last_name', 'second_last_name', 'rut', 'nationality',
-          'email', 'phone', 'mobile', 'company_name', 'position', 'company_rut',
-          'industry', 'address', 'city', 'region', 'country', 'client_type',
-          'main_interest', 'budget_min', 'budget_max', 'desired_surface_area_min',
-          'desired_surface_area_max', 'notes', 'status', 'contact_frequency', 'birth_date'
-        ]
-        
-        const filledFields = fields.filter(field => {
-          const value = client[field]
-          return value !== null && value !== undefined && value !== ''
-        }).length
-        
-        return {
-          ...client,
-          completeness_score: filledFields
-        }
-      })
-
-      // Sort by completeness score (highest first)
-      dataWithScores.sort((a, b) => b.completeness_score - a.completeness_score)
-      
-      // Paginate the sorted results
-      const paginatedData = dataWithScores.slice(offset, offset + pageSize)
-      
-      console.log(`[v0] Fetched ${paginatedData.length} clients of ${count} total (sorted by completeness)`)
-      
-      return { 
-        success: true, 
-        data: paginatedData, 
-        total: count || 0,
-        page,
-        pageSize,
-        totalPages: Math.ceil((count || 0) / pageSize)
-      }
-    } else {
-      // Default sorting by created_at
+    if (filters?.sortBy === "completeness") {
       const { data, error, count } = await query
-        .order("created_at", { ascending: false })
-        .range(offset, offset + pageSize - 1)
-
       if (error) {
-        console.error("[v0] Error fetching paginated clients:", error)
-        return { success: false, error: error.message, data: [], total: 0, page, pageSize }
+        return { success: false, error: error.message, data: [], total: 0, page: safePage, pageSize: safePageSize }
       }
 
-      console.log(`[v0] Fetched ${data?.length || 0} clients of ${count} total`)
-      
-      return { 
-        success: true, 
-        data: data || [], 
-        total: count || 0,
-        page,
-        pageSize,
-        totalPages: Math.ceil((count || 0) / pageSize)
+      const fields = [
+        "first_name",
+        "last_name",
+        "second_last_name",
+        "rut",
+        "nationality",
+        "email",
+        "phone",
+        "mobile",
+        "company_name",
+        "position",
+        "company_rut",
+        "industry",
+        "address",
+        "city",
+        "region",
+        "country",
+        "client_type",
+        "main_interest",
+        "budget_min",
+        "budget_max",
+        "desired_surface_area_min",
+        "desired_surface_area_max",
+        "notes",
+        "status",
+        "contact_frequency",
+        "birth_date",
+      ] as const
+
+      const dataWithScores = (data || []).map((client) => {
+        const record = client as Record<string, unknown>
+        const completeness_score = fields.reduce((score, field) => {
+          const value = record[field]
+          return value !== null && value !== undefined && value !== "" ? score + 1 : score
+        }, 0)
+        return { ...client, completeness_score }
+      })
+      dataWithScores.sort((left, right) => right.completeness_score - left.completeness_score)
+      const paginatedData = dataWithScores.slice(offset, offset + safePageSize)
+      const total = count || dataWithScores.length
+      return {
+        success: true,
+        data: paginatedData,
+        total,
+        page: safePage,
+        pageSize: safePageSize,
+        totalPages: Math.ceil(total / safePageSize),
       }
+    }
+
+    const { data, error, count } = await query
+      .order("created_at", { ascending: false })
+      .range(offset, offset + safePageSize - 1)
+
+    if (error) {
+      return { success: false, error: error.message, data: [], total: 0, page: safePage, pageSize: safePageSize }
+    }
+
+    const total = count || 0
+    return {
+      success: true,
+      data: data || [],
+      total,
+      page: safePage,
+      pageSize: safePageSize,
+      totalPages: Math.ceil(total / safePageSize),
     }
   } catch (error) {
-    console.error("[v0] Error in getClientsPaginated:", error)
-    return { success: false, error: "Error al obtener clientes", data: [], total: 0, page, pageSize, totalPages: 0 }
+    console.error("[clients] getClientsPaginated failed", error)
+    return {
+      success: false,
+      error: "Error al obtener clientes",
+      data: [],
+      total: 0,
+      page: safePage,
+      pageSize: safePageSize,
+      totalPages: 0,
+    }
   }
 }
 
 export async function detectDuplicatesBatch(clients: ClientData[]) {
   try {
-    console.log("[v0] Batch detecting duplicates for", clients.length, "clients")
     const supabase = await createSupabaseClient()
+    const ruts = clients.flatMap((client) => (client.rut ? [client.rut] : []))
+    const phones = clients.flatMap((client) => (client.phone ? [client.phone] : []))
+    const emails = clients.flatMap((client) => (client.email ? [client.email] : []))
 
-    const duplicates: Array<{
-      newClient: ClientData
-      existingClient: any
-      matchType: string
-      index: number
-    }> = []
-
-    const nonDuplicates: Array<{ client: ClientData; index: number }> = []
-
-    const ruts = clients.map(c => c.rut).filter(Boolean) as string[]
-    const phones = clients.map(c => c.phone).filter(Boolean) as string[]
-    const emails = clients.map(c => c.email).filter(Boolean) as string[]
-    
     const [rutMatches, phoneMatches, emailMatches] = await Promise.all([
-      ruts.length > 0 ? supabase.from("clients").select("*").in("rut", ruts) : { data: [] },
-      phones.length > 0 ? supabase.from("clients").select("*").in("phone", phones) : { data: [] },
-      emails.length > 0 ? supabase.from("clients").select("*").in("email", emails) : { data: [] }
+      ruts.length ? supabase.from("clients").select("*").in("rut", ruts) : Promise.resolve({ data: [] as any[] }),
+      phones.length ? supabase.from("clients").select("*").in("phone", phones) : Promise.resolve({ data: [] as any[] }),
+      emails.length ? supabase.from("clients").select("*").in("email", emails) : Promise.resolve({ data: [] as any[] }),
     ])
 
-    const rutMap = new Map(rutMatches.data?.map(c => [c.rut, c]) || [])
-    const phoneMap = new Map(phoneMatches.data?.map(c => [c.phone, c]) || [])
-    const emailMap = new Map(emailMatches.data?.map(c => [c.email, c]) || [])
+    const rutMap = new Map((rutMatches.data || []).flatMap((client: any) => (client.rut ? [[client.rut, client] as const] : [])))
+    const phoneMap = new Map((phoneMatches.data || []).flatMap((client: any) => (client.phone ? [[client.phone, client] as const] : [])))
+    const emailMap = new Map((emailMatches.data || []).flatMap((client: any) => (client.email ? [[client.email, client] as const] : [])))
 
-    for (let i = 0; i < clients.length; i++) {
-      const client = clients[i]
-      let matchFound = false
+    const duplicates: DuplicateMatch[] = []
+    const nonDuplicates: Array<{ client: ClientData; index: number }> = []
 
-      // Check RUT first (primary identifier)
+    clients.forEach((client, index) => {
       if (client.rut && rutMap.has(client.rut)) {
-        duplicates.push({
-          newClient: client,
-          existingClient: rutMap.get(client.rut),
-          matchType: "rut",
-          index: i,
-        })
-        matchFound = true
-        continue
+        duplicates.push({ newClient: client, existingClient: rutMap.get(client.rut), matchType: "rut", index })
+      } else if (client.phone && phoneMap.has(client.phone)) {
+        duplicates.push({ newClient: client, existingClient: phoneMap.get(client.phone), matchType: "phone", index })
+      } else if (client.email && emailMap.has(client.email)) {
+        duplicates.push({ newClient: client, existingClient: emailMap.get(client.email), matchType: "email", index })
+      } else {
+        nonDuplicates.push({ client, index })
       }
-
-      // Check phone (secondary identifier)
-      if (!matchFound && client.phone && phoneMap.has(client.phone)) {
-        duplicates.push({
-          newClient: client,
-          existingClient: phoneMap.get(client.phone),
-          matchType: "phone",
-          index: i,
-        })
-        matchFound = true
-        continue
-      }
-
-      // Check email (tertiary identifier)
-      if (!matchFound && client.email && emailMap.has(client.email)) {
-        duplicates.push({
-          newClient: client,
-          existingClient: emailMap.get(client.email),
-          matchType: "email",
-          index: i,
-        })
-        matchFound = true
-        continue
-      }
-
-      if (!matchFound) {
-        nonDuplicates.push({ client, index: i })
-      }
-    }
-
-    console.log(`[v0] Batch duplicate detection complete: ${duplicates.length} duplicates, ${nonDuplicates.length} new`)
+    })
 
     return {
       success: true,
@@ -800,7 +593,7 @@ export async function detectDuplicatesBatch(clients: ClientData[]) {
       totalNew: nonDuplicates.length,
     }
   } catch (error) {
-    console.error("[v0] Error in detectDuplicatesBatch:", error)
+    console.error("[clients] detectDuplicatesBatch failed", error)
     return {
       success: false,
       error: "Error al detectar duplicados",
@@ -815,43 +608,27 @@ export async function detectDuplicatesBatch(clients: ClientData[]) {
 export async function getClientStatistics() {
   try {
     const supabase = await createSupabaseClient()
-    
     const [totalResult, statusResult, industryResult] = await Promise.all([
       supabase.from("clients").select("*", { count: "exact", head: true }),
       supabase.from("clients").select("status"),
-      supabase.from("clients").select("industry")
+      supabase.from("clients").select("industry"),
     ])
 
-    const total = totalResult.count || 0
-    
-    // Count by status
-    const statusCounts: Record<string, number> = {}
-    statusResult.data?.forEach(c => {
-      const status = c.status || "Sin estado"
-      statusCounts[status] = (statusCounts[status] || 0) + 1
-    })
-    
-    // Count by industry
-    const industryCounts: Record<string, number> = {}
-    industryResult.data?.forEach(c => {
-      const industry = c.industry || "Sin industria"
-      industryCounts[industry] = (industryCounts[industry] || 0) + 1
-    })
+    const byStatus: Record<string, number> = {}
+    for (const client of statusResult.data || []) {
+      const status = client.status || "Sin estado"
+      byStatus[status] = (byStatus[status] || 0) + 1
+    }
 
-    return {
-      success: true,
-      total,
-      byStatus: statusCounts,
-      byIndustry: industryCounts
+    const byIndustry: Record<string, number> = {}
+    for (const client of industryResult.data || []) {
+      const industry = client.industry || "Sin industria"
+      byIndustry[industry] = (byIndustry[industry] || 0) + 1
     }
+
+    return { success: true, total: totalResult.count || 0, byStatus, byIndustry }
   } catch (error) {
-    console.error("[v0] Error getting client statistics:", error)
-    return {
-      success: false,
-      error: "Error al obtener estadísticas",
-      total: 0,
-      byStatus: {},
-      byIndustry: {}
-    }
+    console.error("[clients] getClientStatistics failed", error)
+    return { success: false, error: "Error al obtener estadísticas", total: 0, byStatus: {}, byIndustry: {} }
   }
 }
