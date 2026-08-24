@@ -10,31 +10,67 @@ export interface KMZDocumentLink {
   createdAt: string
 }
 
+type PropertyDocumentRow = {
+  id: string
+  title: string
+  document_type: string
+  file_url: string
+  category: string
+  tags: string[]
+  created_at: string
+  linked_kmz_ids: string[]
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value !== null && typeof value === "object" ? (value as Record<string, unknown>) : null
+}
+
+function stringValue(value: unknown, fallback = "") {
+  return typeof value === "string" ? value : fallback
+}
+
+function stringArray(value: unknown) {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : []
+}
+
+function normalizePropertyDocument(value: unknown): PropertyDocumentRow | null {
+  const row = asRecord(value)
+  if (!row) return null
+  const id = stringValue(row.id)
+  if (!id) return null
+
+  return {
+    id,
+    title: stringValue(row.title, "Sin título"),
+    document_type: stringValue(row.document_type, "Otro"),
+    file_url: stringValue(row.file_url),
+    category: stringValue(row.category, "general"),
+    tags: stringArray(row.tags),
+    created_at: stringValue(row.created_at),
+    linked_kmz_ids: stringArray(row.linked_kmz_ids),
+  }
+}
+
 export class DocumentKMZLinker {
   private supabase = createBrowserClient()
 
   private extractCampoName(fileName: string): string {
-    return fileName
-      .replace(/\.kmz$/i, "")
-      .replace(/\.kml$/i, "")
-      .trim()
-      .toLowerCase()
+    return fileName.replace(/\.kmz$/i, "").replace(/\.kml$/i, "").trim().toLowerCase()
   }
 
-  /**
-   * Get all documents linked to a specific KMZ file
-   * Searches by both linked_kmz_ids AND document title matching campo name
-   */
   async getDocumentsForKMZ(kmzId: string, kmzFileName?: string): Promise<KMZDocumentLink[]> {
     try {
-      const query = this.supabase.from("property_documents").select("*").order("created_at", { ascending: false })
-
-      // Search by linked KMZ IDs
-      const { data: dataById, error: errorById } = await query.contains("linked_kmz_ids", [kmzId])
+      const { data: dataById, error: errorById } = await this.supabase
+        .from("property_documents")
+        .select("*")
+        .contains("linked_kmz_ids", [kmzId])
+        .order("created_at", { ascending: false })
 
       if (errorById) throw errorById
 
-      let results = dataById || []
+      let results = (dataById || [])
+        .map(normalizePropertyDocument)
+        .filter((document): document is PropertyDocumentRow => document !== null)
 
       if (kmzFileName) {
         const campoName = this.extractCampoName(kmzFileName)
@@ -45,21 +81,22 @@ export class DocumentKMZLinker {
           .order("created_at", { ascending: false })
 
         if (!errorByName && dataByName) {
-          // Merge results, avoiding duplicates
-          const existingIds = new Set(results.map((r) => r.id))
-          const newDocs = dataByName.filter((doc) => !existingIds.has(doc.id))
+          const existingIds = new Set(results.map((document) => document.id))
+          const newDocs = dataByName
+            .map(normalizePropertyDocument)
+            .filter((document): document is PropertyDocumentRow => document !== null && !existingIds.has(document.id))
           results = [...results, ...newDocs]
         }
       }
 
-      return results.map((doc) => ({
-        documentId: doc.id,
-        documentTitle: doc.title || "Sin título",
-        documentType: doc.document_type || "Otro",
-        fileUrl: doc.file_url || "",
-        category: doc.category || "general",
-        tags: doc.tags || [],
-        createdAt: doc.created_at,
+      return results.map((document) => ({
+        documentId: document.id,
+        documentTitle: document.title,
+        documentType: document.document_type,
+        fileUrl: document.file_url,
+        category: document.category,
+        tags: document.tags,
+        createdAt: document.created_at,
       }))
     } catch (error) {
       console.error("[v0] Error getting documents for KMZ:", error)
@@ -67,25 +104,11 @@ export class DocumentKMZLinker {
     }
   }
 
-  /**
-   * Get document count for a KMZ file
-   */
   async getDocumentCountForKMZ(kmzId: string, kmzFileName?: string): Promise<number> {
-    try {
-      const docs = await this.getDocumentsForKMZ(kmzId, kmzFileName)
-      return docs.length
-    } catch (error) {
-      console.error("[v0] Error getting document count for KMZ:", error)
-      return 0
-    }
+    return (await this.getDocumentsForKMZ(kmzId, kmzFileName)).length
   }
 
-  /**
-   * Get the document folder path for a KMZ (campo)
-   * Format: /documentacion/campos/{campo_name}
-   */
   getDocumentFolderPath(kmzFileName: string): string {
-    // Clean the KMZ filename to create a folder-friendly name
     const cleanName = kmzFileName
       .replace(/\.kmz$/i, "")
       .replace(/\.kml$/i, "")
@@ -96,13 +119,9 @@ export class DocumentKMZLinker {
     return `/documentacion/campos/${cleanName}`
   }
 
-  /**
-   * Link a document to a KMZ file
-   */
   async linkDocumentToKMZ(documentId: string, kmzId: string): Promise<boolean> {
     try {
-      // Get current linked KMZ IDs
-      const { data: doc, error: fetchError } = await this.supabase
+      const { data, error: fetchError } = await this.supabase
         .from("property_documents")
         .select("linked_kmz_ids")
         .eq("id", documentId)
@@ -110,21 +129,16 @@ export class DocumentKMZLinker {
 
       if (fetchError) throw fetchError
 
-      const currentKmzIds = doc?.linked_kmz_ids || []
-      if (currentKmzIds.includes(kmzId)) {
-        console.log("[v0] Document already linked to KMZ")
-        return true
-      }
+      const row = asRecord(data)
+      const currentKmzIds = stringArray(row?.linked_kmz_ids)
+      if (currentKmzIds.includes(kmzId)) return true
 
-      // Add new KMZ ID
       const { error: updateError } = await this.supabase
         .from("property_documents")
         .update({ linked_kmz_ids: [...currentKmzIds, kmzId] })
         .eq("id", documentId)
 
       if (updateError) throw updateError
-
-      console.log("[v0] Document linked to KMZ successfully")
       return true
     } catch (error) {
       console.error("[v0] Error linking document to KMZ:", error)
