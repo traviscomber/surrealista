@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase/client"
 import { detectRegionFromBounds } from "@/lib/utils/region-detector"
+import type { KMZPlacemark } from "@/lib/kmz/kmz-reader"
 import { kmzPlacemarkService } from "./kmz-placemark-service"
 
 export type KMZBounds = { north: number; south: number; east: number; west: number }
@@ -127,11 +128,7 @@ export class KMZStorageService {
 
   async loadAllKMZ(): Promise<KMZForMap[]> {
     try {
-      const { data, error } = await this.supabase
-        .from("kmz_collection")
-        .select("*")
-        .eq("is_active", true)
-        .order("created_at", { ascending: false })
+      const { data, error } = await this.supabase.from("kmz_collection").select("*").eq("is_active", true).order("created_at", { ascending: false })
       if (error) throw error
       return normalizeRows(data).map(toMapKMZ)
     } catch (error) {
@@ -142,12 +139,7 @@ export class KMZStorageService {
 
   async loadKMZByCategory(category: string): Promise<KMZForMap[]> {
     try {
-      const { data, error } = await this.supabase
-        .from("kmz_collection")
-        .select("*")
-        .eq("is_active", true)
-        .eq("category", category)
-        .order("created_at", { ascending: false })
+      const { data, error } = await this.supabase.from("kmz_collection").select("*").eq("is_active", true).eq("category", category).order("created_at", { ascending: false })
       if (error) throw error
       return normalizeRows(data).map(toMapKMZ)
     } catch (error) {
@@ -158,11 +150,7 @@ export class KMZStorageService {
 
   async loadKMZByIds(ids: string[]): Promise<KMZForMap[]> {
     try {
-      const { data, error } = await this.supabase
-        .from("kmz_collection")
-        .select("*")
-        .in("id", ids)
-        .eq("is_active", true)
+      const { data, error } = await this.supabase.from("kmz_collection").select("*").in("id", ids).eq("is_active", true)
       if (error) throw error
       return normalizeRows(data).map(toMapKMZ)
     } catch (error) {
@@ -173,11 +161,7 @@ export class KMZStorageService {
 
   async searchByRol(rolNumber: string): Promise<KMZForMap[]> {
     try {
-      const { data, error } = await this.supabase
-        .from("kmz_collection")
-        .select("*")
-        .contains("rol_numbers", [rolNumber])
-        .eq("is_active", true)
+      const { data, error } = await this.supabase.from("kmz_collection").select("*").contains("rol_numbers", [rolNumber]).eq("is_active", true)
       if (error) throw error
       return normalizeRows(data).map(toMapKMZ)
     } catch (error) {
@@ -188,12 +172,7 @@ export class KMZStorageService {
 
   async loadKMZByRegion(region: string): Promise<KMZForMap[]> {
     try {
-      const { data, error } = await this.supabase
-        .from("kmz_collection")
-        .select("*")
-        .eq("is_active", true)
-        .eq("region", region)
-        .order("created_at", { ascending: false })
+      const { data, error } = await this.supabase.from("kmz_collection").select("*").eq("is_active", true).eq("region", region).order("created_at", { ascending: false })
       if (error) throw error
       return normalizeRows(data).map(toMapKMZ)
     } catch (error) {
@@ -237,28 +216,22 @@ export class KMZStorageService {
     category?: string
     created_by?: string
     file_size?: number
-    placemarks?: unknown[]
+    placemarks?: KMZPlacemark[]
   }): Promise<{ success: boolean; id?: string; error?: unknown }> {
     try {
       const MAX_SIZE = 10 * 1024 * 1024
       if (kmzData.file_size && kmzData.file_size > MAX_SIZE) {
-        return {
-          success: false,
-          error: `File too large: ${(kmzData.file_size / (1024 * 1024)).toFixed(2)}MB. Maximum size is 10MB.`,
-        }
+        return { success: false, error: `File too large: ${(kmzData.file_size / (1024 * 1024)).toFixed(2)}MB. Maximum size is 10MB.` }
       }
 
       if (kmzData.drive_file_id) {
-        const { data: existing } = await this.supabase
-          .from("kmz_collection")
-          .select("id")
-          .eq("drive_file_id", kmzData.drive_file_id)
-          .single()
+        const { data: existing } = await this.supabase.from("kmz_collection").select("id").eq("drive_file_id", kmzData.drive_file_id).single()
         const existingId = stringValue(asRecord(existing)?.id)
         if (existingId) return { success: true, id: existingId }
       }
 
-      const region = kmzData.bounds ? detectRegionFromBounds(kmzData.bounds) : "Sin Región"
+      const normalizedBounds = normalizeKMZBounds(kmzData.bounds)
+      const region = normalizedBounds ? detectRegionFromBounds(normalizedBounds) : "Sin Región"
       const { data, error } = await this.supabase
         .from("kmz_collection")
         .insert({
@@ -269,7 +242,7 @@ export class KMZStorageService {
           metadata: kmzData.metadata || {},
           placemarks_count: kmzData.placemarks_count,
           rol_numbers: kmzData.rol_numbers || [],
-          bounds: kmzData.bounds || null,
+          bounds: normalizedBounds || null,
           coordinates: kmzData.coordinates,
           tags: kmzData.tags || [],
           category: kmzData.category || "general",
@@ -284,9 +257,7 @@ export class KMZStorageService {
       const id = stringValue(asRecord(data)?.id)
       if (!id) throw new Error("KMZ insert succeeded without a valid id")
 
-      if (kmzData.placemarks?.length) {
-        await kmzPlacemarkService.savePlacemarks(id, kmzData.placemarks)
-      }
+      if (kmzData.placemarks?.length) await kmzPlacemarkService.savePlacemarks(id, kmzData.placemarks)
       return { success: true, id }
     } catch (error) {
       console.error("[v0] Error saving KMZ to database:", error)
