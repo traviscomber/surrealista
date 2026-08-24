@@ -1,9 +1,28 @@
+import { NextRequest, NextResponse } from "next/server"
+import { INTERNAL_ACCESS_COOKIE, verifyInternalAccessToken } from "@/lib/auth/internal-access"
 import { updateSession } from "@/lib/supabase/middleware"
-import { NextRequest } from "next/server"
+
+function isPrivilegedPath(pathname: string) {
+  return pathname === "/admin" || pathname.startsWith("/admin/") || pathname.startsWith("/api/admin/")
+}
 
 export async function middleware(request: NextRequest) {
-  // Password gate removed — app is open internally.
-  // Keep Supabase session refresh for authenticated features.
+  if (isPrivilegedPath(request.nextUrl.pathname)) {
+    const token = request.cookies.get(INTERNAL_ACCESS_COOKIE)?.value
+    const authorized = await verifyInternalAccessToken(token)
+
+    if (!authorized) {
+      if (request.nextUrl.pathname.startsWith("/api/")) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+      }
+
+      const url = request.nextUrl.clone()
+      url.pathname = "/"
+      url.searchParams.set("redirect", request.nextUrl.pathname)
+      return NextResponse.redirect(url)
+    }
+  }
+
   return updateSession(request)
 }
 
