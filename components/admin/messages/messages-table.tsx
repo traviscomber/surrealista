@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, Suspense } from "react"
+import { Suspense, useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { format } from "date-fns"
@@ -21,24 +21,57 @@ import { Eye, MoreHorizontal, Star, Trash2, CheckCircle, Clock, AlertCircle } fr
 import { supabase } from "@/lib/supabase/client"
 import { toast } from "@/components/ui/use-toast"
 
+type MessageStatus = "pending" | "in_progress" | "resolved" | "spam"
+type MessagePriority = "low" | "medium" | "high"
+
 type Message = {
-  id: string
+  id: number
   name: string
   email: string
   subject: string
   message: string
-  property_id?: string
-  property_title?: string
-  created_at: string
-  read: boolean
-  read_at?: string
-  status: "pending" | "in_progress" | "resolved" | "spam"
-  priority: "low" | "medium" | "high"
+  created_at: string | null
+  status: MessageStatus
+  priority: MessagePriority
+}
+
+function normalizeStatus(value: unknown): MessageStatus {
+  return value === "in_progress" || value === "resolved" || value === "spam" ? value : "pending"
+}
+
+function normalizePriority(value: unknown): MessagePriority {
+  return value === "low" || value === "high" ? value : "medium"
+}
+
+function normalizeMessage(value: unknown): Message | null {
+  if (!value || typeof value !== "object") return null
+  const row = value as Record<string, unknown>
+
+  if (
+    typeof row.id !== "number" ||
+    typeof row.name !== "string" ||
+    typeof row.email !== "string" ||
+    typeof row.subject !== "string" ||
+    typeof row.message !== "string"
+  ) {
+    return null
+  }
+
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    subject: row.subject,
+    message: row.message,
+    created_at: typeof row.created_at === "string" ? row.created_at : null,
+    status: normalizeStatus(row.status),
+    priority: normalizePriority(row.priority),
+  }
 }
 
 export function MessagesTable() {
   return (
-    <Suspense fallback={<div className="h-96 bg-muted/30 rounded-lg animate-pulse"></div>}>
+    <Suspense fallback={<div className="h-96 bg-muted/30 rounded-lg animate-pulse" />}>
       <MessagesTableContent />
     </Suspense>
   )
@@ -46,17 +79,20 @@ export function MessagesTable() {
 
 function MessagesTableContent() {
   const [messages, setMessages] = useState<Message[]>([])
-  const [selectedMessages, setSelectedMessages] = useState<string[]>([])
+  const [selectedMessages, setSelectedMessages] = useState<number[]>([])
   const [loading, setLoading] = useState(true)
   const router = useRouter()
 
   useEffect(() => {
-    fetchMessages()
+    void fetchMessages()
   }, [])
 
   async function fetchMessages() {
     setLoading(true)
-    const { data, error } = await supabase.from("messages").select("*").order("created_at", { ascending: false })
+    const { data, error } = await supabase
+      .from("messages")
+      .select("id, name, email, subject, message, created_at, status, priority")
+      .order("created_at", { ascending: false })
 
     if (error) {
       toast({
@@ -65,12 +101,15 @@ function MessagesTableContent() {
         variant: "destructive",
       })
     } else {
-      setMessages(data || [])
+      const normalized = (Array.isArray(data) ? data : [])
+        .map(normalizeMessage)
+        .filter((message): message is Message => message !== null)
+      setMessages(normalized)
     }
     setLoading(false)
   }
 
-  const toggleSelectMessage = (id: string) => {
+  const toggleSelectMessage = (id: number) => {
     setSelectedMessages((prev) => (prev.includes(id) ? prev.filter((messageId) => messageId !== id) : [...prev, id]))
   }
 
@@ -82,28 +121,7 @@ function MessagesTableContent() {
     }
   }
 
-  const markAsRead = async (id: string) => {
-    const readAt = new Date().toISOString()
-    const { error } = await supabase.from("messages").update({ read: true, read_at: readAt }).eq("id", id)
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: "No se pudo marcar el mensaje como leído",
-        variant: "destructive",
-      })
-    } else {
-      setMessages((prev) =>
-        prev.map((message) => (message.id === id ? { ...message, read: true, read_at: readAt } : message)),
-      )
-      toast({
-        title: "Éxito",
-        description: "Mensaje marcado como leído",
-      })
-    }
-  }
-
-  const deleteMessage = async (id: string) => {
+  const deleteMessage = async (id: number) => {
     const { error } = await supabase.from("messages").delete().eq("id", id)
 
     if (error) {
@@ -115,14 +133,11 @@ function MessagesTableContent() {
     } else {
       setMessages((prev) => prev.filter((message) => message.id !== id))
       setSelectedMessages((prev) => prev.filter((messageId) => messageId !== id))
-      toast({
-        title: "Éxito",
-        description: "Mensaje eliminado correctamente",
-      })
+      toast({ title: "Éxito", description: "Mensaje eliminado correctamente" })
     }
   }
 
-  const updateStatus = async (id: string, status: Message["status"]) => {
+  const updateStatus = async (id: number, status: MessageStatus) => {
     const { error } = await supabase.from("messages").update({ status }).eq("id", id)
 
     if (error) {
@@ -133,10 +148,7 @@ function MessagesTableContent() {
       })
     } else {
       setMessages((prev) => prev.map((message) => (message.id === id ? { ...message, status } : message)))
-      toast({
-        title: "Éxito",
-        description: `Estado actualizado a ${getStatusText(status)}`,
-      })
+      toast({ title: "Éxito", description: `Estado actualizado a ${getStatusText(status)}` })
     }
   }
 
@@ -155,43 +167,24 @@ function MessagesTableContent() {
       const deletedCount = selectedMessages.length
       setMessages((prev) => prev.filter((message) => !selectedMessages.includes(message.id)))
       setSelectedMessages([])
-      toast({
-        title: "Éxito",
-        description: `${deletedCount} mensajes eliminados correctamente`,
-      })
+      toast({ title: "Éxito", description: `${deletedCount} mensajes eliminados correctamente` })
     }
   }
 
-  const getStatusBadge = (status: Message["status"]) => {
+  const getStatusBadge = (status: MessageStatus) => {
     switch (status) {
       case "pending":
-        return (
-          <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-            Pendiente
-          </Badge>
-        )
+        return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">Pendiente</Badge>
       case "in_progress":
-        return (
-          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-            En Proceso
-          </Badge>
-        )
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">En Proceso</Badge>
       case "resolved":
-        return (
-          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-            Resuelto
-          </Badge>
-        )
+        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Resuelto</Badge>
       case "spam":
-        return (
-          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-            Spam
-          </Badge>
-        )
+        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">Spam</Badge>
     }
   }
 
-  const getStatusText = (status: Message["status"]) => {
+  const getStatusText = (status: MessageStatus) => {
     switch (status) {
       case "pending":
         return "Pendiente"
@@ -204,39 +197,25 @@ function MessagesTableContent() {
     }
   }
 
-  const getPriorityBadge = (priority: Message["priority"]) => {
+  const getPriorityBadge = (priority: MessagePriority) => {
     switch (priority) {
       case "low":
-        return (
-          <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">
-            Baja
-          </Badge>
-        )
+        return <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">Baja</Badge>
       case "medium":
-        return (
-          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-            Media
-          </Badge>
-        )
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Media</Badge>
       case "high":
-        return (
-          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-            Alta
-          </Badge>
-        )
+        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">Alta</Badge>
     }
   }
 
-  if (loading) {
-    return <p>Cargando mensajes...</p>
-  }
+  if (loading) return <p>Cargando mensajes...</p>
 
   return (
     <div className="space-y-4">
       {selectedMessages.length > 0 && (
         <div className="bg-muted p-4 rounded-lg flex items-center justify-between">
           <p>{selectedMessages.length} mensajes seleccionados</p>
-          <Button variant="destructive" size="sm" onClick={bulkDelete}>
+          <Button variant="destructive" size="sm" onClick={() => void bulkDelete()}>
             <Trash2 className="h-4 w-4 mr-2" />
             Eliminar seleccionados
           </Button>
@@ -256,7 +235,6 @@ function MessagesTableContent() {
               </TableHead>
               <TableHead className="w-[180px]">Remitente</TableHead>
               <TableHead>Asunto</TableHead>
-              <TableHead className="w-[150px]">Propiedad</TableHead>
               <TableHead className="w-[120px]">Estado</TableHead>
               <TableHead className="w-[100px]">Prioridad</TableHead>
               <TableHead className="w-[150px]">Fecha</TableHead>
@@ -266,13 +244,13 @@ function MessagesTableContent() {
           <TableBody>
             {messages.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="h-24 text-center">
+                <TableCell colSpan={7} className="h-24 text-center">
                   No hay mensajes para mostrar
                 </TableCell>
               </TableRow>
             ) : (
               messages.map((message) => (
-                <TableRow key={message.id} className={!message.read ? "bg-muted/30 font-medium" : ""}>
+                <TableRow key={message.id} className={message.status === "pending" ? "bg-muted/30 font-medium" : ""}>
                   <TableCell>
                     <Checkbox
                       checked={selectedMessages.includes(message.id)}
@@ -289,23 +267,17 @@ function MessagesTableContent() {
                       {message.subject || "Sin asunto"}
                     </Link>
                   </TableCell>
-                  <TableCell>
-                    {message.property_id ? (
-                      <Link
-                        href={`/admin/propiedades/editar/${message.property_id}`}
-                        className="text-sm hover:underline text-blue-600"
-                      >
-                        {message.property_title || "Ver propiedad"}
-                      </Link>
-                    ) : (
-                      <span className="text-sm text-muted-foreground">N/A</span>
-                    )}
-                  </TableCell>
                   <TableCell>{getStatusBadge(message.status)}</TableCell>
                   <TableCell>{getPriorityBadge(message.priority)}</TableCell>
                   <TableCell>
-                    {format(new Date(message.created_at), "dd MMM yyyy", { locale: es })}
-                    <div className="text-xs text-muted-foreground">{format(new Date(message.created_at), "HH:mm")}</div>
+                    {message.created_at ? (
+                      <>
+                        {format(new Date(message.created_at), "dd MMM yyyy", { locale: es })}
+                        <div className="text-xs text-muted-foreground">{format(new Date(message.created_at), "HH:mm")}</div>
+                      </>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">Sin fecha</span>
+                    )}
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
@@ -321,31 +293,25 @@ function MessagesTableContent() {
                           <Eye className="h-4 w-4 mr-2" />
                           Ver detalle
                         </DropdownMenuItem>
-                        {!message.read && (
-                          <DropdownMenuItem onClick={() => markAsRead(message.id)}>
-                            <CheckCircle className="h-4 w-4 mr-2" />
-                            Marcar como leído
-                          </DropdownMenuItem>
-                        )}
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => updateStatus(message.id, "pending")}>
+                        <DropdownMenuItem onClick={() => void updateStatus(message.id, "pending")}>
                           <Clock className="h-4 w-4 mr-2" />
                           Marcar como pendiente
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => updateStatus(message.id, "in_progress")}>
+                        <DropdownMenuItem onClick={() => void updateStatus(message.id, "in_progress")}>
                           <Star className="h-4 w-4 mr-2" />
                           Marcar en proceso
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => updateStatus(message.id, "resolved")}>
+                        <DropdownMenuItem onClick={() => void updateStatus(message.id, "resolved")}>
                           <CheckCircle className="h-4 w-4 mr-2" />
                           Marcar como resuelto
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => updateStatus(message.id, "spam")}>
+                        <DropdownMenuItem onClick={() => void updateStatus(message.id, "spam")}>
                           <AlertCircle className="h-4 w-4 mr-2" />
                           Marcar como spam
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => deleteMessage(message.id)} className="text-red-600">
+                        <DropdownMenuItem onClick={() => void deleteMessage(message.id)} className="text-red-600">
                           <Trash2 className="h-4 w-4 mr-2" />
                           Eliminar
                         </DropdownMenuItem>
