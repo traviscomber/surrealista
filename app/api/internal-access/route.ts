@@ -3,13 +3,17 @@ import {
   createInternalAccessToken,
   INTERNAL_ACCESS_COOKIE,
   INTERNAL_ACCESS_MAX_AGE_SECONDS,
+  INTERNAL_OPERATOR,
   verifyInternalAccessToken,
 } from "@/lib/auth/internal-access"
 
 export async function GET(request: NextRequest) {
   const token = request.cookies.get(INTERNAL_ACCESS_COOKIE)?.value
   const authorized = await verifyInternalAccessToken(token)
-  return NextResponse.json({ authorized }, { status: authorized ? 200 : 401 })
+  return NextResponse.json(
+    { authorized, operator: authorized ? INTERNAL_OPERATOR : null },
+    { status: authorized ? 200 : 401 },
+  )
 }
 
 export async function POST(request: NextRequest) {
@@ -22,7 +26,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
     }
 
-    const response = NextResponse.json({ success: true })
+    const response = NextResponse.json({ success: true, operator: INTERNAL_OPERATOR })
     response.cookies.set(INTERNAL_ACCESS_COOKIE, token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
