@@ -4,14 +4,9 @@ import { streamText, tool } from "ai"
 import { z } from "zod"
 import { createClient } from "@supabase/supabase-js"
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-const supabase = createClient(supabaseUrl, supabaseKey)
-
 export type CAMPOSAgentContext = {
   title?: string | null
   role?: string | null
-  owner?: string | null
   commune?: string | null
   area?: string | null
   latitude?: string | null
@@ -22,13 +17,19 @@ export type CAMPOSAgentContext = {
   capturedAt?: string | null
 }
 
+function getSupabaseAdmin() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) throw new Error("CAMPOS data connection is not configured")
+  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
+}
+
 const contextBlock = (context?: CAMPOSAgentContext | null) => {
   if (!context?.title) return "No hay un expediente seleccionado actualmente."
 
   return [
     `Predio: ${context.title}`,
     `ROL: ${context.role || "no disponible"}`,
-    `Propietario: ${context.owner || "no disponible"}`,
     `Comuna o sector: ${context.commune || "no disponible"}`,
     `Superficie: ${context.area || "no disponible"}`,
     `Latitud: ${context.latitude || "no disponible"}`,
@@ -41,12 +42,14 @@ const contextBlock = (context?: CAMPOSAgentContext | null) => {
 }
 
 export async function streamCAMPOSAgent(userMessage: string, context?: CAMPOSAgentContext | null) {
+  const supabase = getSupabaseAdmin()
   const result = streamText({
     model: "openai/gpt-4-turbo",
     system: `Eres el copiloto territorial experto de CAMPOS, el sistema de inteligencia y gestión de propiedades de Sur Realista.
 Responde siempre en español claro, profesional y orientado a decisiones.
 Usa primero el expediente activo incluido abajo. Distingue expresamente entre datos confirmados, inferencias y datos faltantes.
 No inventes antecedentes legales, registrales, comerciales ni geográficos. Cuando falte evidencia, indícalo y recomienda la verificación concreta necesaria.
+No infieras ni atribuyas propietarios. Los antecedentes de dominio sólo pueden tratarse como confirmados cuando exista evidencia documental o registral verificable.
 Puedes consultar la base de datos CAMPOS mediante herramientas para buscar ROL, regiones, archivos KMZ, estadísticas y documentos vinculados.
 
 EXPEDIENTE ACTIVO
