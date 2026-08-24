@@ -3,9 +3,15 @@ const encoder = new TextEncoder()
 export const INTERNAL_ACCESS_COOKIE = "sur_realista_internal_access"
 export const INTERNAL_ACCESS_MAX_AGE_SECONDS = 12 * 60 * 60
 
+export const INTERNAL_OPERATOR = {
+  id: "juan-navarro",
+  name: "Juan Navarro",
+  role: "operator-admin",
+} as const
+
 const PASSWORD_SALT_HEX = "12ed3f3c052a8c532a5178dca1dd607f"
 const PASSWORD_ITERATIONS = 210_000
-const PASSWORD_VERIFIER_HEX = "28e0cd954686ab28cbe5fbb48e1e6188a53686bc72f0860126bf1697b7603c71"
+const PASSWORD_VERIFIER_HEX = "b7729c9a2b627ac1d07123b44aac4346378d88e4fc4d137853491a5d58bfa438"
 
 function getSigningSecret() {
   return process.env.INTERNAL_ACCESS_SECRET?.trim() || process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || null
@@ -61,7 +67,7 @@ async function hmacHex(value: string, secret: string) {
 async function expectedInternalAccessToken() {
   const signingSecret = getSigningSecret()
   if (!signingSecret) return null
-  return hmacHex("sur-realista:internal-access:v2", signingSecret)
+  return hmacHex(`sur-realista:internal-access:v3:${INTERNAL_OPERATOR.id}`, signingSecret)
 }
 
 export async function createInternalAccessToken(password: string) {
