@@ -35,6 +35,50 @@ interface Client {
   properties_quoted?: number
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {}
+}
+
+function optionalString(row: Record<string, unknown>, key: string): string | undefined {
+  const value = row[key]
+  return typeof value === "string" ? value : undefined
+}
+
+function optionalNumber(row: Record<string, unknown>, key: string): number | undefined {
+  const value = row[key]
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined
+}
+
+function normalizeClient(value: unknown): Client | null {
+  const row = asRecord(value)
+  const id = optionalString(row, "id")
+  if (!id) return null
+
+  return {
+    id,
+    first_name: optionalString(row, "first_name"),
+    last_name: optionalString(row, "last_name"),
+    second_last_name: optionalString(row, "second_last_name"),
+    email: optionalString(row, "email"),
+    phone: optionalString(row, "phone"),
+    mobile: optionalString(row, "mobile"),
+    company_name: optionalString(row, "company_name"),
+    industry: optionalString(row, "industry"),
+    city: optionalString(row, "city"),
+    region: optionalString(row, "region"),
+    status: optionalString(row, "status"),
+    budget_min: optionalNumber(row, "budget_min"),
+    budget_max: optionalNumber(row, "budget_max"),
+    last_contact_date: optionalString(row, "last_contact_date"),
+    created_at: optionalString(row, "created_at"),
+    properties_bought: optionalNumber(row, "properties_bought"),
+    properties_sold: optionalNumber(row, "properties_sold"),
+    properties_quoted: optionalNumber(row, "properties_quoted"),
+  }
+}
+
 const statusLabels: Record<string, string> = {
   hot: "Caliente",
   warm: "Tibio",
@@ -78,7 +122,10 @@ export function ClientRepositoryDashboard() {
     ])
 
     if (clientsResult.success) {
-      setClients(clientsResult.data || [])
+      const normalizedClients = (clientsResult.data || [])
+        .map(normalizeClient)
+        .filter((client): client is Client => client !== null)
+      setClients(normalizedClients)
       setTotalPages(clientsResult.totalPages || 0)
       setTotalClients(clientsResult.total || 0)
     }
