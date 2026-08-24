@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { extractKmzGeometry } from "@/lib/kmz/kmz-geometry-compat"
 import {
   normalizeKmzRecord,
   type KmzCollectionRecord,
@@ -25,7 +26,6 @@ type Recoverability =
   | "geometry_persisted"
   | "stored_placemarks"
   | "collection_coordinates"
-  | "normalized_metadata"
   | "reference_only"
   | "needs_source_reingest"
   | "needs_external_reupload"
@@ -33,35 +33,23 @@ type Recoverability =
 
 function getSupabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  if (!url || !key) {
-    throw new Error("Missing Supabase configuration")
-  }
-
-  return createClient(url, key, {
-    auth: { persistSession: false },
-  })
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) throw new Error("Missing Supabase admin configuration")
+  return createClient(url, key, { auth: { persistSession: false } })
 }
 
 function hasCollectionCoordinates(row: AuditRow) {
-  return Array.isArray(row.coordinates) && row.coordinates.length > 0
-}
-
-function getNormalizedGeometryCount(row: AuditRow) {
-  const metadata = row.metadata || {}
-  const normalized = Number(metadata.normalized_geometry_count || 0)
-  const total = Number(metadata.total_geometry_count || 0)
-  return Math.max(normalized, total)
+  return extractKmzGeometry(row.coordinates, {
+    name: row.file_name,
+    description: row.description || "",
+  }).length > 0
 }
 
 function hasSiiReference(row: AuditRow) {
   const resolution = row.metadata?.sii_point_resolution
-  if (!resolution || typeof resolution !== "object") return false
-
+  if (!resolution || typeof resolution !== "object" || Array.isArray(resolution)) return false
   const center = (resolution as Record<string, unknown>).center
-  if (!center || typeof center !== "object") return false
-
+  if (!center || typeof center !== "object" || Array.isArray(center)) return false
   const lat = Number((center as Record<string, unknown>).lat)
   const lng = Number((center as Record<string, unknown>).lng)
   return Number.isFinite(lat) && Number.isFinite(lng)
@@ -76,13 +64,10 @@ function hasOfflinePlaceholder(row: AuditRow) {
 }
 
 function classifyRecoverability(row: AuditRow, storedCount: number): Recoverability {
-  if ((row.placemarks_count || 0) > 0 || storedCount > 0 || hasCollectionCoordinates(row) || getNormalizedGeometryCount(row) > 0) {
-    return "geometry_persisted"
-  }
-  if (hasSiiReference(row)) return "reference_only"
+  if ((row.placemarks_count || 0) > 0) return "geometry_persisted"
   if (storedCount > 0) return "stored_placemarks"
   if (hasCollectionCoordinates(row)) return "collection_coordinates"
-  if (getNormalizedGeometryCount(row) > 0) return "normalized_metadata"
+  if (hasSiiReference(row)) return "reference_only"
   if (hasPotentialSourceFile(row)) return "needs_source_reingest"
   if (hasOfflinePlaceholder(row)) return "needs_external_reupload"
   return "no_source"
@@ -90,7 +75,6 @@ function classifyRecoverability(row: AuditRow, storedCount: number): Recoverabil
 
 export async function GET() {
   const supabase = getSupabaseAdmin()
-
   const { data: rows, error } = await supabase
     .from("kmz_collection")
     .select("id,file_name,region,file_path,drive_file_id,placemarks_count,coordinates,bounds,description,category,rol_numbers,metadata")
@@ -98,31 +82,32 @@ export async function GET() {
     .order("region", { ascending: true })
     .limit(5000)
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   const kmzRows = (rows || []) as AuditRow[]
   const ids = kmzRows.map((row) => row.id)
-
   const placemarkCountByKmz = new Map<string, number>()
-  if (ids.length > 0) {
-    const { data: placemarkRows } = await supabase.from("kmz_placemarks").select("kmz_id").in("kmz_id", ids).limit(200000)
 
+  for (let index = 0; index < ids.length; index += 500) {
+    const chunk = ids.slice(index, index + 500)
+    if (chunk.length === 0) continue
+    const { data: placemarkRows, error: placemarkError } = await supabase
+      .from("kmz_placemarks")
+      .select("kmz_id")
+      .in("kmz_id", chunk)
+      .limit(50000)
+    if (placemarkError) return NextResponse.json({ error: placemarkError.message }, { status: 500 })
     for (const item of placemarkRows || []) {
-      const key = `${item.kmz_id}`
+      const key = String(item.kmz_id)
       placemarkCountByKmz.set(key, (placemarkCountByKmz.get(key) || 0) + 1)
     }
   }
 
   const enriched = kmzRows.map((row) => {
     const storedPlacemarks = placemarkCountByKmz.get(row.id) || 0
-    const normalizedGeometryCount = getNormalizedGeometryCount(row)
     const hasCoordinates = hasCollectionCoordinates(row)
-    const hasReference = hasSiiReference(row)
-    const geometryPresent = (row.placemarks_count || 0) > 0 || storedPlacemarks > 0 || hasCoordinates || normalizedGeometryCount > 0
     const recoverability = classifyRecoverability(row, storedPlacemarks)
-
+    const geometryPresent = ["geometry_persisted", "stored_placemarks", "collection_coordinates"].includes(recoverability)
     return {
       id: row.id,
       file_name: row.file_name,
@@ -132,36 +117,23 @@ export async function GET() {
       placemarks_count: row.placemarks_count || 0,
       stored_placemarks_count: storedPlacemarks,
       has_collection_coordinates: hasCoordinates,
-      normalized_geometry_count: normalizedGeometryCount,
-      has_sii_reference: hasReference,
+      normalized_geometry_count: Number(row.metadata?.normalized_geometry_count || 0),
+      has_sii_reference: hasSiiReference(row),
       geometry_present: geometryPresent,
       recoverability,
     }
   })
 
-  const persisted = enriched.filter((row) => row.geometry_present)
-  const referenceOnly = enriched.filter((row) => !row.geometry_present && row.recoverability === "reference_only")
-  const recoverableNow = enriched.filter((row) =>
-    row.recoverability === "stored_placemarks" ||
-    row.recoverability === "collection_coordinates" ||
-    row.recoverability === "normalized_metadata",
-  )
-  const sourceReingestNeeded = enriched.filter((row) => row.recoverability === "needs_source_reingest")
-  const noSource = enriched.filter((row) => row.recoverability === "no_source")
-
-  const byRegionMap = new Map<
-    string,
-    {
-      region: string
-      total: number
-      geometryPersisted: number
-      referenceOnly: number
-      recoverableNow: number
-      sourceReingestNeeded: number
-      externalReupload: number
-      noSource: number
-    }
-  >()
+  const byRegionMap = new Map<string, {
+    region: string
+    total: number
+    geometryPersisted: number
+    referenceOnly: number
+    recoverableNow: number
+    sourceReingestNeeded: number
+    externalReupload: number
+    noSource: number
+  }>()
 
   for (const row of enriched) {
     const bucket = byRegionMap.get(row.region) || {
@@ -174,24 +146,13 @@ export async function GET() {
       externalReupload: 0,
       noSource: 0,
     }
-
     bucket.total += 1
-    if (row.geometry_present) bucket.geometryPersisted += 1
+    if (row.recoverability === "geometry_persisted") bucket.geometryPersisted += 1
+    else if (row.recoverability === "stored_placemarks" || row.recoverability === "collection_coordinates") bucket.recoverableNow += 1
     else if (row.recoverability === "reference_only") bucket.referenceOnly += 1
-    else if (
-      row.recoverability === "stored_placemarks" ||
-      row.recoverability === "collection_coordinates" ||
-      row.recoverability === "normalized_metadata"
-    ) {
-      bucket.recoverableNow += 1
-    } else if (row.recoverability === "needs_source_reingest") {
-      bucket.sourceReingestNeeded += 1
-    } else if (row.recoverability === "needs_external_reupload") {
-      bucket.externalReupload += 1
-    } else {
-      bucket.noSource += 1
-    }
-
+    else if (row.recoverability === "needs_source_reingest") bucket.sourceReingestNeeded += 1
+    else if (row.recoverability === "needs_external_reupload") bucket.externalReupload += 1
+    else bucket.noSource += 1
     byRegionMap.set(row.region, bucket)
   }
 
@@ -202,22 +163,29 @@ export async function GET() {
     return b.total - a.total
   })
 
+  const geometryPersisted = enriched.filter((row) => row.recoverability === "geometry_persisted")
+  const referenceOnly = enriched.filter((row) => row.recoverability === "reference_only")
+  const recoverableNow = enriched.filter((row) => row.recoverability === "stored_placemarks" || row.recoverability === "collection_coordinates")
+  const sourceReingestNeeded = enriched.filter((row) => row.recoverability === "needs_source_reingest")
+  const externalReupload = enriched.filter((row) => row.recoverability === "needs_external_reupload")
+  const noSource = enriched.filter((row) => row.recoverability === "no_source")
+
   return NextResponse.json({
     generatedAt: new Date().toISOString(),
     summary: {
       totalActive: enriched.length,
-      geometryPersisted: persisted.length,
+      geometryPersisted: geometryPersisted.length,
       referenceOnly: referenceOnly.length,
       recoverableNow: recoverableNow.length,
       sourceReingestNeeded: sourceReingestNeeded.length,
-      externalReupload: enriched.filter((row) => row.recoverability === "needs_external_reupload").length,
+      externalReupload: externalReupload.length,
       noSource: noSource.length,
     },
     byRegion,
     samples: {
       referenceOnly: referenceOnly.slice(0, 50),
       sourceReingestNeeded: sourceReingestNeeded.slice(0, 50),
-      externalReupload: enriched.filter((row) => row.recoverability === "needs_external_reupload").slice(0, 50),
+      externalReupload: externalReupload.slice(0, 50),
       recoverableNow: recoverableNow.slice(0, 50),
       noSource: noSource.slice(0, 50),
     },
@@ -236,9 +204,7 @@ export async function POST(request: NextRequest) {
     .eq("placemarks_count", 0)
     .limit(limit * 4)
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   const candidates = (rows || []) as AuditRow[]
   const results: Array<Record<string, unknown>> = []
@@ -247,19 +213,26 @@ export async function POST(request: NextRequest) {
   for (const row of candidates) {
     if (repaired >= limit) break
 
-    const { data: storedPlacemarks } = await supabase
+    const { data: storedPlacemarks, error: placemarkError } = await supabase
       .from("kmz_placemarks")
       .select("name,description,coordinates,type,style_url,properties,region")
       .eq("kmz_id", row.id)
       .limit(5000)
 
+    if (placemarkError) {
+      results.push({ id: row.id, file_name: row.file_name, status: "error", reason: placemarkError.message })
+      continue
+    }
+
     const proposal = normalizeKmzRecord(row as KmzCollectionRecord, (storedPlacemarks || []) as NormalizerPlacemark[])
-    if (proposal.placemarks.length === 0) {
+    const hasRealGeometry = proposal.source !== "record_location" && proposal.placemarks.some((placemark) => placemark.properties.isReferenceLocation === false)
+
+    if (!hasRealGeometry) {
       results.push({
         id: row.id,
         file_name: row.file_name,
         status: "skipped",
-        reason: storedPlacemarks && storedPlacemarks.length > 0 ? "invalid_geometry" : "no_geometry_source",
+        reason: proposal.source === "record_location" ? "reference_only" : "no_geometry_source",
       })
       continue
     }
@@ -279,14 +252,8 @@ export async function POST(request: NextRequest) {
     }
 
     const { error: updateError } = await supabase.from("kmz_collection").update(updatePayload).eq("id", row.id)
-
     if (updateError) {
-      results.push({
-        id: row.id,
-        file_name: row.file_name,
-        status: "error",
-        reason: updateError.message,
-      })
+      results.push({ id: row.id, file_name: row.file_name, status: "error", reason: updateError.message })
       continue
     }
 
@@ -300,10 +267,5 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  return NextResponse.json({
-    success: true,
-    repaired,
-    attempted: results.length,
-    results,
-  })
+  return NextResponse.json({ success: true, repaired, attempted: results.length, results })
 }
