@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -8,28 +8,60 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { supabase } from "@/lib/supabase/client"
 import { toast } from "@/components/ui/use-toast"
-import { Mail, Phone, MapPin, Home } from "lucide-react"
-import Link from "next/link"
+import { Mail, Phone } from "lucide-react"
 
 type MessageDetailProps = {
   messageId: string
 }
 
+type MessageStatus = "pending" | "in_progress" | "resolved" | "spam"
+type MessagePriority = "low" | "medium" | "high"
+
 type Message = {
-  id: string
+  id: number
   name: string
   email: string
-  phone?: string
+  phone: string | null
   subject: string
   message: string
-  property_id?: string
-  property_title?: string
-  created_at: string
-  read: boolean
-  read_at?: string
-  status: "pending" | "in_progress" | "resolved" | "spam"
-  priority: "low" | "medium" | "high"
-  location?: string
+  created_at: string | null
+  status: MessageStatus
+  priority: MessagePriority
+}
+
+function normalizeStatus(value: unknown): MessageStatus {
+  return value === "in_progress" || value === "resolved" || value === "spam" ? value : "pending"
+}
+
+function normalizePriority(value: unknown): MessagePriority {
+  return value === "low" || value === "high" ? value : "medium"
+}
+
+function normalizeMessage(value: unknown): Message | null {
+  if (!value || typeof value !== "object") return null
+  const row = value as Record<string, unknown>
+
+  if (
+    typeof row.id !== "number" ||
+    typeof row.name !== "string" ||
+    typeof row.email !== "string" ||
+    typeof row.subject !== "string" ||
+    typeof row.message !== "string"
+  ) {
+    return null
+  }
+
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    phone: typeof row.phone === "string" ? row.phone : null,
+    subject: row.subject,
+    message: row.message,
+    created_at: typeof row.created_at === "string" ? row.created_at : null,
+    status: normalizeStatus(row.status),
+    priority: normalizePriority(row.priority),
+  }
 }
 
 export function MessageDetail({ messageId }: MessageDetailProps) {
@@ -37,12 +69,23 @@ export function MessageDetail({ messageId }: MessageDetailProps) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchMessage()
+    void fetchMessage()
   }, [messageId])
 
   async function fetchMessage() {
     setLoading(true)
-    const { data, error } = await supabase.from("messages").select("*").eq("id", messageId).single()
+    const numericMessageId = Number(messageId)
+    if (!Number.isInteger(numericMessageId)) {
+      setMessage(null)
+      setLoading(false)
+      return
+    }
+
+    const { data, error } = await supabase
+      .from("messages")
+      .select("id, name, email, phone, subject, message, created_at, status, priority")
+      .eq("id", numericMessageId)
+      .single()
 
     if (error) {
       toast({
@@ -50,8 +93,9 @@ export function MessageDetail({ messageId }: MessageDetailProps) {
         description: "No se pudo cargar el mensaje",
         variant: "destructive",
       })
+      setMessage(null)
     } else {
-      setMessage(data)
+      setMessage(normalizeMessage(data))
     }
     setLoading(false)
   }
@@ -60,13 +104,13 @@ export function MessageDetail({ messageId }: MessageDetailProps) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="h-6 bg-muted animate-pulse rounded"></CardTitle>
-          <CardDescription className="h-4 bg-muted animate-pulse rounded w-1/2"></CardDescription>
+          <CardTitle className="h-6 bg-muted animate-pulse rounded" />
+          <CardDescription className="h-4 bg-muted animate-pulse rounded w-1/2" />
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="h-4 bg-muted animate-pulse rounded"></div>
-          <div className="h-4 bg-muted animate-pulse rounded"></div>
-          <div className="h-4 bg-muted animate-pulse rounded w-3/4"></div>
+          <div className="h-4 bg-muted animate-pulse rounded" />
+          <div className="h-4 bg-muted animate-pulse rounded" />
+          <div className="h-4 bg-muted animate-pulse rounded w-3/4" />
         </CardContent>
       </Card>
     )
@@ -83,55 +127,27 @@ export function MessageDetail({ messageId }: MessageDetailProps) {
     )
   }
 
-  const getStatusBadge = (status: Message["status"]) => {
+  const getStatusBadge = (status: MessageStatus) => {
     switch (status) {
       case "pending":
-        return (
-          <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-            Pendiente
-          </Badge>
-        )
+        return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">Pendiente</Badge>
       case "in_progress":
-        return (
-          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-            En Proceso
-          </Badge>
-        )
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">En Proceso</Badge>
       case "resolved":
-        return (
-          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-            Resuelto
-          </Badge>
-        )
+        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Resuelto</Badge>
       case "spam":
-        return (
-          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-            Spam
-          </Badge>
-        )
+        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">Spam</Badge>
     }
   }
 
-  const getPriorityBadge = (priority: Message["priority"]) => {
+  const getPriorityBadge = (priority: MessagePriority) => {
     switch (priority) {
       case "low":
-        return (
-          <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">
-            Baja
-          </Badge>
-        )
+        return <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">Baja</Badge>
       case "medium":
-        return (
-          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-            Media
-          </Badge>
-        )
+        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Media</Badge>
       case "high":
-        return (
-          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">
-            Alta
-          </Badge>
-        )
+        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">Alta</Badge>
     }
   }
 
@@ -142,7 +158,8 @@ export function MessageDetail({ messageId }: MessageDetailProps) {
           <div>
             <CardTitle>{message.subject || "Sin asunto"}</CardTitle>
             <CardDescription>
-              De {message.name} • {format(new Date(message.created_at), "dd MMMM yyyy, HH:mm", { locale: es })}
+              De {message.name}
+              {message.created_at ? ` • ${format(new Date(message.created_at), "dd MMMM yyyy, HH:mm", { locale: es })}` : ""}
             </CardDescription>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -166,22 +183,6 @@ export function MessageDetail({ messageId }: MessageDetailProps) {
               <a href={`tel:${message.phone}`} className="text-blue-600 hover:underline">
                 {message.phone}
               </a>
-            </div>
-          )}
-
-          {message.property_id && (
-            <div className="flex items-center gap-2">
-              <Home className="h-4 w-4 text-muted-foreground" />
-              <Link href={`/admin/propiedades/editar/${message.property_id}`} className="text-blue-600 hover:underline">
-                {message.property_title || "Ver propiedad"}
-              </Link>
-            </div>
-          )}
-
-          {message.location && (
-            <div className="flex items-center gap-2">
-              <MapPin className="h-4 w-4 text-muted-foreground" />
-              <span>{message.location}</span>
             </div>
           )}
         </div>
