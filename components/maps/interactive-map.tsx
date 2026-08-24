@@ -53,9 +53,19 @@ interface Property {
 
 interface KMZData {
   fileName: string
-  coordinates: Array<[number, number]>
+  placemarks: Array<{
+    name: string
+    coordinates: Array<[number, number]>
+    type: string
+    description?: string
+  }>
+  bounds?: {
+    north: number
+    south: number
+    east: number
+    west: number
+  }
   rolNumbers: string[]
-  properties: any[]
 }
 
 const mockProperties: Property[] = [
@@ -198,9 +208,13 @@ export function InteractiveMap() {
 
       const kmzDataArray: KMZData[] = storedKMZ.map((kmz) => ({
         fileName: kmz.fileName,
-        coordinates: kmz.coordinates,
+        placemarks: [{
+          name: kmz.fileName,
+          coordinates: kmz.coordinates,
+          type: "Point",
+        }],
+        bounds: kmz.bounds,
         rolNumbers: kmz.rolNumbers,
-        properties: [],
       }))
 
       setKmzData(kmzDataArray)
@@ -263,11 +277,14 @@ export function InteractiveMap() {
         const result = await kmzReader.readKMZFile(file)
         newKmzData.push({
           fileName: result.fileName,
-          coordinates: result.placemarks.flatMap((placemark) =>
-            placemark.coordinates.map(([lng, lat]) => [lng, lat] as [number, number]),
-          ),
+          placemarks: result.placemarks.map((placemark) => ({
+            name: placemark.name,
+            coordinates: placemark.coordinates.map(([lng, lat]) => [lng, lat] as [number, number]),
+            type: placemark.type,
+            description: placemark.description,
+          })),
+          bounds: result.bounds,
           rolNumbers: kmzReader.extractPropertyRoles(result),
-          properties: result.placemarks,
         })
       } catch (error) {
         console.error(`Error reading KMZ file ${file.name}:`, error)
