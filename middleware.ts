@@ -5,7 +5,7 @@ import { updateSession } from "@/lib/supabase/middleware"
 function isPublicApiPath(pathname: string) {
   return (
     pathname === "/api/internal-access" ||
-    pathname.startsWith("/api/auth/") ||
+    pathname === "/api/auth/google" ||
     pathname.startsWith("/api/cron/")
   )
 }
@@ -19,6 +19,16 @@ function isPrivilegedPath(pathname: string) {
   return !isPublicPagePath(pathname)
 }
 
+function unauthorizedResponse() {
+  return NextResponse.json(
+    { error: "Unauthorized" },
+    {
+      status: 401,
+      headers: { "Cache-Control": "private, no-store" },
+    },
+  )
+}
+
 export async function middleware(request: NextRequest) {
   if (isPrivilegedPath(request.nextUrl.pathname)) {
     const token = request.cookies.get(INTERNAL_ACCESS_COOKIE)?.value
@@ -26,7 +36,7 @@ export async function middleware(request: NextRequest) {
 
     if (!authorized) {
       if (request.nextUrl.pathname.startsWith("/api/")) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+        return unauthorizedResponse()
       }
 
       const url = request.nextUrl.clone()
