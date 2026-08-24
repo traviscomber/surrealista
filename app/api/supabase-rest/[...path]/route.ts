@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server"
+import { createClient } from "@supabase/supabase-js"
 import { INTERNAL_ACCESS_COOKIE, verifyInternalAccessToken } from "@/lib/auth/internal-access"
+import { recordOperatorAudit } from "@/lib/audit/operator-audit"
 
 const FORWARDED_REQUEST_HEADERS = [
   "accept",
@@ -24,6 +26,17 @@ const FORWARDED_RESPONSE_HEADERS = [
 ]
 
 const RELATION_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/
+const PROTECTED_RELATIONS = new Set(["operator_audit_log"])
+const MUTATION_METHODS = new Set(["POST", "PATCH", "PUT", "DELETE"])
+
+function parsePayload(bytes?: ArrayBuffer) {
+  if (!bytes || bytes.byteLength === 0) return null
+  try {
+    return JSON.parse(new TextDecoder().decode(bytes))
+  } catch {
+    return { byteLength: bytes.byteLength }
+  }
+}
 
 async function proxyPostgrest(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   const token = request.cookies.get(INTERNAL_ACCESS_COOKIE)?.value
@@ -42,9 +55,11 @@ async function proxyPostgrest(request: NextRequest, context: { params: Promise<{
     return NextResponse.json({ error: "Unsupported database path" }, { status: 404 })
   }
 
-  // This proxy intentionally supports public-schema table/view operations only.
-  // PostgREST RPC endpoints and alternate schema profiles are not reachable from the browser.
   const relation = path[0]
+  if (PROTECTED_RELATIONS.has(relation)) {
+    return NextResponse.json({ error: "Protected relation" }, { status: 403 })
+  }
+
   const target = `${supabaseUrl.replace(/\/$/, "")}/rest/v1/${encodeURIComponent(relation)}${request.nextUrl.search}`
   const headers = new Headers({
     apikey: serviceRoleKey,
@@ -63,15 +78,33 @@ async function proxyPostgrest(request: NextRequest, context: { params: Promise<{
 
   let upstream: Response
   try {
-    upstream = await fetch(target, {
-      method,
-      headers,
-      body,
-      cache: "no-store",
-    })
+    upstream = await fetch(target, { method, headers, body, cache: "no-store" })
   } catch (error) {
     console.error("[supabase-rest-proxy] upstream request failed", error)
     return NextResponse.json({ error: "Database request failed" }, { status: 502 })
+  }
+
+  const responseBytes = method === "HEAD" || upstream.status === 204 || upstream.status === 304 ? null : await upstream.arrayBuffer()
+
+  if (MUTATION_METHODS.has(method) && upstream.ok) {
+    const supabase = createClient(supabaseUrl, serviceRoleKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+    try {
+      await recordOperatorAudit(supabase, {
+        action: `database_${method.toLowerCase()}`,
+        entityType: relation,
+        requestPath: request.nextUrl.pathname,
+        after: parsePayload(body),
+        metadata: {
+          query: request.nextUrl.searchParams.toString(),
+          status: upstream.status,
+        },
+      })
+    } catch (error) {
+      console.error("[supabase-rest-proxy] audit write failed", error)
+      return NextResponse.json({ error: "Mutation completed but audit logging failed" }, { status: 500 })
+    }
   }
 
   const responseHeaders = new Headers()
@@ -81,14 +114,8 @@ async function proxyPostgrest(request: NextRequest, context: { params: Promise<{
   }
   responseHeaders.set("cache-control", "private, no-store")
 
-  if (method === "HEAD" || upstream.status === 204 || upstream.status === 304) {
-    return new NextResponse(null, { status: upstream.status, headers: responseHeaders })
-  }
-
-  return new NextResponse(await upstream.arrayBuffer(), {
-    status: upstream.status,
-    headers: responseHeaders,
-  })
+  if (!responseBytes) return new NextResponse(null, { status: upstream.status, headers: responseHeaders })
+  return new NextResponse(responseBytes, { status: upstream.status, headers: responseHeaders })
 }
 
 export const GET = proxyPostgrest
