@@ -19,8 +19,8 @@ export function initSentry() {
         blockAllMedia: true,
       }),
     ],
-    replaySessionSampleRate: 0.1,
-    replayOnErrorSampleRate: 1.0,
+    replaysSessionSampleRate: 0.1,
+    replaysOnErrorSampleRate: 1.0,
   })
 }
 
