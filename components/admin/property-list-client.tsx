@@ -4,42 +4,52 @@ import { useState, useEffect } from "react"
 import { createClient } from "@/lib/supabase/client"
 import Link from "next/link"
 
+type PropertyListItem = {
+  id: string
+  title?: string | null
+  description?: string | null
+  location?: string | null
+  price?: number | null
+}
+
 export default function PropertyListClient() {
-  const [properties, setProperties] = useState([])
+  const [properties, setProperties] = useState<PropertyListItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
 
   useEffect(() => {
     const fetchProperties = async () => {
       try {
         setLoading(true)
+        setError(null)
         const supabase = createClient()
-        const { data, error } = await supabase.from("properties").select("*").order("created_at", { ascending: false })
+        const { data, error: queryError } = await supabase
+          .from("properties")
+          .select("id,title,description,location,price")
+          .order("created_at", { ascending: false })
 
-        if (error) {
-          throw error
-        }
-
-        setProperties(data || [])
-      } catch (error) {
-        console.error("Error fetching properties:", error)
-        setError(error.message)
+        if (queryError) throw queryError
+        setProperties((data || []) as PropertyListItem[])
+      } catch (caughtError) {
+        console.error("Error fetching properties:", caughtError)
+        setError(caughtError instanceof Error ? caughtError.message : "No se pudieron cargar las propiedades")
       } finally {
         setLoading(false)
       }
     }
 
-    fetchProperties()
+    void fetchProperties()
   }, [])
 
+  const normalizedSearch = searchTerm.trim().toLowerCase()
   const filteredProperties = properties.filter((property) => {
-    const searchTermLower = searchTerm.toLowerCase()
+    if (!normalizedSearch) return true
     return (
-      (property?.title || "").toLowerCase().includes(searchTermLower) ||
-      (property?.description || "").toLowerCase().includes(searchTermLower) ||
-      (property?.location || "").toLowerCase().includes(searchTermLower) ||
-      (property?.price?.toString() || "").includes(searchTerm)
+      (property.title || "").toLowerCase().includes(normalizedSearch) ||
+      (property.description || "").toLowerCase().includes(normalizedSearch) ||
+      (property.location || "").toLowerCase().includes(normalizedSearch) ||
+      (property.price?.toString() || "").includes(normalizedSearch)
     )
   })
 
@@ -51,7 +61,7 @@ export default function PropertyListClient() {
           placeholder="Buscar propiedades..."
           className="w-full p-2 border rounded"
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
+          onChange={(event) => setSearchTerm(event.target.value)}
         />
       </div>
 
@@ -78,18 +88,10 @@ export default function PropertyListClient() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Título
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Ubicación
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Precio
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Acciones
-                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Título</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ubicación</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Precio</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -104,17 +106,16 @@ export default function PropertyListClient() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-500">
-                            {property.price ? `$${property.price.toLocaleString()}` : "N/A"}
+                            {property.price != null ? `$${property.price.toLocaleString("es-CL")}` : "N/A"}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <Link
                             href={`/admin/propiedades/editar/${property.id}`}
-                            className="text-indigo-600 hover:text-indigo-900 mr-4"
+                            className="text-indigo-600 hover:text-indigo-900"
                           >
                             Editar
                           </Link>
-                          <button className="text-red-600 hover:text-red-900">Eliminar</button>
                         </td>
                       </tr>
                     ))
