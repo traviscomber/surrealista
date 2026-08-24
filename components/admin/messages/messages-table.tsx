@@ -18,7 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Eye, MoreHorizontal, Star, Trash2, CheckCircle, Clock, AlertCircle } from "lucide-react"
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { supabase } from "@/lib/supabase/client"
 import { toast } from "@/components/ui/use-toast"
 
 type Message = {
@@ -49,7 +49,6 @@ function MessagesTableContent() {
   const [selectedMessages, setSelectedMessages] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const router = useRouter()
-  const supabase = createClientComponentClient()
 
   useEffect(() => {
     fetchMessages()
@@ -84,10 +83,8 @@ function MessagesTableContent() {
   }
 
   const markAsRead = async (id: string) => {
-    const { error } = await supabase
-      .from("messages")
-      .update({ read: true, read_at: new Date().toISOString() })
-      .eq("id", id)
+    const readAt = new Date().toISOString()
+    const { error } = await supabase.from("messages").update({ read: true, read_at: readAt }).eq("id", id)
 
     if (error) {
       toast({
@@ -97,9 +94,7 @@ function MessagesTableContent() {
       })
     } else {
       setMessages((prev) =>
-        prev.map((message) =>
-          message.id === id ? { ...message, read: true, read_at: new Date().toISOString() } : message,
-        ),
+        prev.map((message) => (message.id === id ? { ...message, read: true, read_at: readAt } : message)),
       )
       toast({
         title: "Éxito",
@@ -157,11 +152,12 @@ function MessagesTableContent() {
         variant: "destructive",
       })
     } else {
+      const deletedCount = selectedMessages.length
       setMessages((prev) => prev.filter((message) => !selectedMessages.includes(message.id)))
       setSelectedMessages([])
       toast({
         title: "Éxito",
-        description: `${selectedMessages.length} mensajes eliminados correctamente`,
+        description: `${deletedCount} mensajes eliminados correctamente`,
       })
     }
   }
