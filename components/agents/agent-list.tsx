@@ -23,6 +23,56 @@ export interface AgentRecord {
   last_run: string | null
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {}
+}
+
+function getString(row: Record<string, unknown>, key: string, fallback = ""): string {
+  const value = row[key]
+  return typeof value === "string" ? value : fallback
+}
+
+function getNullableString(row: Record<string, unknown>, key: string): string | null {
+  const value = row[key]
+  return typeof value === "string" ? value : null
+}
+
+function getStringArray(row: Record<string, unknown>, key: string): string[] {
+  const value = row[key]
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : []
+}
+
+function getNumber(row: Record<string, unknown>, key: string, fallback = 0): number {
+  const value = row[key]
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback
+}
+
+function normalizeAgent(value: unknown): AgentRecord | null {
+  const row = asRecord(value)
+  const id = getString(row, "id")
+  const name = getString(row, "name")
+  const role = getString(row, "role")
+  const model = getString(row, "model")
+  if (!id || !name || !role || !model) return null
+
+  return {
+    id,
+    name,
+    role,
+    description: getString(row, "description"),
+    capabilities: getStringArray(row, "capabilities"),
+    model,
+    status: getString(row, "status", "inactive"),
+    success_rate: getNumber(row, "success_rate"),
+    parameters: asRecord(row.parameters),
+    created_at: getString(row, "created_at"),
+    updated_at: getString(row, "updated_at"),
+    last_run: getNullableString(row, "last_run"),
+  }
+}
+
 export function AgentList({
   onSelectAgent,
   onCreateAgent,
@@ -42,7 +92,7 @@ export function AgentList({
       setLoading(true)
       const { data, error } = await supabase.from("ai_agents").select("*").order("created_at", { ascending: false })
       if (error) throw error
-      setAgents((data || []) as AgentRecord[])
+      setAgents((data || []).map(normalizeAgent).filter((agent): agent is AgentRecord => agent !== null))
     } catch (error) {
       console.error("[agents] Error loading agents:", error)
       toast({
@@ -174,12 +224,12 @@ export function AgentList({
                   <span className="text-gray-600">éxito registrado</span>
                 </div>
                 <div className="flex flex-wrap gap-1">
-                  {agent.capabilities?.slice(0, 3).map((capability, index) => (
+                  {agent.capabilities.slice(0, 3).map((capability, index) => (
                     <Badge key={`${capability}-${index}`} variant="outline" className="text-xs">
                       {capability}
                     </Badge>
                   ))}
-                  {agent.capabilities?.length > 3 && (
+                  {agent.capabilities.length > 3 && (
                     <Badge variant="outline" className="text-xs">+{agent.capabilities.length - 3}</Badge>
                   )}
                 </div>
