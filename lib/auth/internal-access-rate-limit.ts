@@ -27,20 +27,28 @@ function createAdminClient() {
 function normalizeRateLimitState(value: unknown): InternalAccessRateLimitState {
   const row = Array.isArray(value) ? value[0] : value
   if (!row || typeof row !== "object" || Array.isArray(row)) {
-    return { locked: false, retryAfterSeconds: 0, failedAttempts: 0 }
+    throw new Error("Internal access rate limit returned an invalid state")
   }
 
   const record = row as Record<string, unknown>
+  const locked = record.locked
+  const retryAfterSeconds = record.retry_after_seconds
+  const failedAttempts = record.failed_attempts
+
+  if (
+    typeof locked !== "boolean" ||
+    typeof retryAfterSeconds !== "number" ||
+    !Number.isFinite(retryAfterSeconds) ||
+    typeof failedAttempts !== "number" ||
+    !Number.isFinite(failedAttempts)
+  ) {
+    throw new Error("Internal access rate limit returned malformed values")
+  }
+
   return {
-    locked: record.locked === true,
-    retryAfterSeconds:
-      typeof record.retry_after_seconds === "number" && Number.isFinite(record.retry_after_seconds)
-        ? Math.max(0, Math.floor(record.retry_after_seconds))
-        : 0,
-    failedAttempts:
-      typeof record.failed_attempts === "number" && Number.isFinite(record.failed_attempts)
-        ? Math.max(0, Math.floor(record.failed_attempts))
-        : 0,
+    locked,
+    retryAfterSeconds: Math.max(0, Math.floor(retryAfterSeconds)),
+    failedAttempts: Math.max(0, Math.floor(failedAttempts)),
   }
 }
 
