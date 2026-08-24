@@ -11,15 +11,14 @@ import { useChat } from "ai/react"
 export type CAMPOSAgentContext = {
   title?: string | null
   role?: string | null
-  owner?: string | null
   commune?: string | null
   area?: string | null
   latitude?: string | null
   longitude?: string | null
   sections?: string[]
-  text?: string
-  source?: string
-  capturedAt?: string
+  text?: string | null
+  source?: string | null
+  capturedAt?: string | null
 }
 
 interface CAMPOSAIWidgetProps {
@@ -36,10 +35,9 @@ const buildBriefing = (context?: CAMPOSAgentContext | null) => {
   return [
     `Expediente activo: ${context.title}`,
     context.role ? `ROL: ${context.role}` : null,
-    context.owner ? `Propietario: ${context.owner}` : null,
     context.commune ? `Comuna: ${context.commune}` : null,
     context.area ? `Superficie: ${context.area}` : null,
-    "Puedes preguntar por riesgos, documentos, propiedad, ubicación o análisis territorial.",
+    "Puedes preguntar por riesgos, documentos, ubicación o análisis territorial. Los antecedentes de dominio requieren evidencia documental verificable.",
   ]
     .filter(Boolean)
     .join("\n")
@@ -57,7 +55,7 @@ export function CAMPOSAIWidget({ isOpen, onOpenChange, context }: CAMPOSAIWidget
         id: "initial",
         role: "assistant",
         content:
-          "Soy el copiloto territorial de CAMPOS. Analizo expedientes, propiedades, documentos y contexto geográfico.",
+          "Soy el copiloto territorial de CAMPOS. Analizo expedientes, documentos y contexto geográfico sin sustituir evidencia registral.",
       },
     ],
   })
@@ -94,21 +92,24 @@ export function CAMPOSAIWidget({ isOpen, onOpenChange, context }: CAMPOSAIWidget
       </div>
 
       {isOpen && (
-        <div className="fixed bottom-24 right-6 z-40 w-96 h-[500px] max-w-[calc(100vw-3rem)]">
-          <Card className="h-full flex col flex-col shadow-2xl">
+        <div className="fixed bottom-24 right-6 z-40 h-[500px] w-96 max-w-[calc(100vw-3rem)]">
+          <Card className="flex h-full flex-col shadow-2xl">
             <CardHeader className="py-3">
-              <CardTitle className="text-sm flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-sm">
                 <Sparkles className="h-4 w-4" />
                 Asistente IA CAMPOS
                 <Badge className="ml-auto text-xs">En línea</Badge>
               </CardTitle>
-              <p className="text-xs text-muted-foreground truncate">{contextLabel}</p>
+              <p className="truncate text-xs text-muted-foreground">{contextLabel}</p>
             </CardHeader>
 
-            <CardContent className="flex-1 flex flex-col p-0">
-              <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <CardContent className="flex flex-1 flex-col p-0">
+              <div className="flex-1 space-y-3 overflow-y-auto p-4">
                 {messages.map((message) => (
-                  <div key={message.id} className={`rounded-lg p-3 text-sm ${message.role === "user" ? "bg-primary text-primary-foreground ml-auto" : "bg-muted"}`}>
+                  <div
+                    key={message.id}
+                    className={`rounded-lg p-3 text-sm ${message.role === "user" ? "ml-auto bg-primary text-primary-foreground" : "bg-muted"}`}
+                  >
                     {message.content}
                   </div>
                 ))}
@@ -116,7 +117,7 @@ export function CAMPOSAIWidget({ isOpen, onOpenChange, context }: CAMPOSAIWidget
                 <div ref={messagesEndRef} />
               </div>
 
-              <form onSubmit={handleSubmit} className="border-t p-3 flex gap-2">
+              <form onSubmit={handleSubmit} className="flex gap-2 border-t p-3">
                 <Input value={input} onChange={handleInputChange} placeholder="Pregunta sobre el predio..." disabled={isLoading} />
                 <Button type="submit" disabled={!input.trim() || isLoading} size="sm">
                   <Send className="h-4 w-4" />
