@@ -530,11 +530,11 @@ export function KMZCollectionManager() {
         onOpenChange={setShowOwnerEditModal}
         kmzId={selectedKmzForOwnerEdit?.id || ''}
         kmzFileName={selectedKmzForOwnerEdit?.file_name}
-        currentOwner={selectedKmzForOwnerEdit?.owner}
-        currentPic={selectedKmzForOwnerEdit?.pic}
-        currentPicPhone={selectedKmzForOwnerEdit?.pic_phone}
-        currentPicEmail={selectedKmzForOwnerEdit?.pic_email}
-        currentGoogleDocsLink={selectedKmzForOwnerEdit?.google_docs_link}
+        currentOwner={selectedKmzForOwnerEdit?.owner ?? undefined}
+        currentPic={selectedKmzForOwnerEdit?.pic ?? undefined}
+        currentPicPhone={selectedKmzForOwnerEdit?.pic_phone ?? undefined}
+        currentPicEmail={selectedKmzForOwnerEdit?.pic_email ?? undefined}
+        currentGoogleDocsLink={selectedKmzForOwnerEdit?.google_docs_link ?? undefined}
         onSave={loadKMZCollection}
       />
       <div className="container mx-auto p-6 space-y-8">
