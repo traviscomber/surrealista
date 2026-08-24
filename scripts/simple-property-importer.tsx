@@ -23,17 +23,10 @@ export default function SimplePropertyImporter() {
     setSuccess(null)
 
     try {
-      // Parse JSON to check if it's valid
-      const parsedData = JSON.parse(jsonData)
-
-      // Here you would typically send the data to your API to save it
-      // For now, we'll just simulate a successful import
-
-      // Simulate API call delay
+      JSON.parse(jsonData)
       await new Promise((resolve) => setTimeout(resolve, 1500))
-
       setSuccess("Propiedad importada correctamente")
-    } catch (err) {
+    } catch {
       setError("Error al analizar el JSON. Asegúrate de que el formato sea correcto.")
     } finally {
       setLoading(false)
@@ -74,7 +67,7 @@ export default function SimplePropertyImporter() {
         )}
 
         {success && (
-          <Alert variant="success" className="bg-green-50 text-green-800 border-green-200">
+          <Alert className="bg-green-50 text-green-800 border-green-200">
             <CheckCircle className="h-4 w-4 text-green-600" />
             <AlertTitle>Éxito</AlertTitle>
             <AlertDescription>{success}</AlertDescription>
