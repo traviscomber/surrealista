@@ -134,7 +134,7 @@ console.log("✓ Metadata prepared for storage")
 
 if (
   preparedMetadata.public_owner_candidate?.name === "Agrícola Santa María" &&
-  preparedMetadata.owner_confidence > 0
+  (preparedMetadata.owner_confidence ?? 0) > 0
 ) {
   console.log("✓ PASS: Enrichment pipeline working\n")
 } else {
