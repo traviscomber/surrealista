@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase/client"
-import { normalizeStoredKMZ, type StoredKMZ, type KMZForMap } from "./kmz-storage-service"
+import { normalizeKMZBounds, normalizeStoredKMZ, type StoredKMZ, type KMZForMap } from "./kmz-storage-service"
 import type { AdvancedFiltersState } from "@/components/campos/advanced-filters"
 
 export interface FilteredKMZ extends KMZForMap {
@@ -72,7 +72,7 @@ class KMZAdvancedFilterService {
       id: kmz.id,
       fileName: kmz.file_name,
       coordinates,
-      bounds: kmz.bounds,
+      bounds: normalizeKMZBounds(kmz.bounds),
       placemarks: kmz.placemarks_count,
       rolNumbers: kmz.rol_numbers,
       category: kmz.category,
