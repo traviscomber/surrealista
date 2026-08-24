@@ -68,23 +68,28 @@ export function detectRegionFromBounds(bounds: Bounds): string {
 }
 
 /**
- * Detects region from an array of coordinates
- * Uses the center of all coordinates
+ * Detects region from an array of coordinates.
+ * KML/KMZ coordinates may include an optional altitude as the third value;
+ * only finite longitude/latitude pairs participate in the center calculation.
  */
-export function detectRegionFromCoordinateArray(coordinates: number[][]): string {
+export function detectRegionFromCoordinateArray(
+  coordinates: ReadonlyArray<ReadonlyArray<number | undefined>>,
+): string {
   if (!coordinates || coordinates.length === 0) {
     return "Sin Región"
   }
 
-  // Calculate center point
   let sumLat = 0
   let sumLng = 0
   let count = 0
 
   for (const coord of coordinates) {
-    if (coord && coord.length >= 2) {
-      sumLng += coord[0] // KMZ format: [lng, lat]
-      sumLat += coord[1]
+    const lng = coord?.[0]
+    const lat = coord?.[1]
+
+    if (typeof lng === "number" && Number.isFinite(lng) && typeof lat === "number" && Number.isFinite(lat)) {
+      sumLng += lng
+      sumLat += lat
       count++
     }
   }
