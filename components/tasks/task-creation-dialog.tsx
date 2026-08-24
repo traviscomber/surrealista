@@ -332,13 +332,13 @@ export function TaskCreationDialog({
 
       console.log(`[v0] Sending WhatsApp notifications to ${usersWithWhatsApp.length} users`)
 
-      const priorityText =
-        {
-          urgent: "URGENTE",
-          high: "ALTA",
-          medium: "MEDIA",
-          low: "BAJA",
-        }[taskData.priority] || "MEDIA"
+      const priorityLabels: Record<string, string> = {
+        urgent: "URGENTE",
+        high: "ALTA",
+        medium: "MEDIA",
+        low: "BAJA",
+      }
+      const priorityText = priorityLabels[typeof taskData.priority === "string" ? taskData.priority : "medium"] || "MEDIA"
 
       const dueText = taskData.due_date
         ? new Date(taskData.due_date).toLocaleDateString("es-CL", {
