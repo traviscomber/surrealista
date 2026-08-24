@@ -1,18 +1,10 @@
 type DynamicRow = any
 
-type DynamicRelationship = {
-  foreignKeyName: string
-  columns: string[]
-  isOneToOne: boolean
-  referencedRelation: string
-  referencedColumns: string[]
-}
-
 type DynamicTable = {
   Row: DynamicRow
   Insert: DynamicRow
   Update: DynamicRow
-  Relationships: DynamicRelationship[]
+  Relationships: any[]
 }
 
 /**
