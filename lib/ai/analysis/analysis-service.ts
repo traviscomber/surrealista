@@ -1,4 +1,4 @@
-import type { Database } from "../database.types"
+import type { Database } from "@/lib/database.types"
 
 type Property = Database["public"]["Tables"]["properties"]["Row"]
 
