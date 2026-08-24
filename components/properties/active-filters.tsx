@@ -62,7 +62,7 @@ export function ActiveFilters() {
       case "bathrooms":
         return `${value}+ baños`
       case "type":
-        const propertyTypes = {
+        const propertyTypes: Record<string, string> = {
           house: "Casa",
           apartment: "Departamento",
           land: "Terreno",
@@ -71,7 +71,7 @@ export function ActiveFilters() {
         }
         return propertyTypes[value] || value
       case "city":
-        const cities = {
+        const cities: Record<string, string> = {
           puerto_montt: "Puerto Montt",
           puerto_varas: "Puerto Varas",
           frutillar: "Frutillar",
@@ -82,7 +82,7 @@ export function ActiveFilters() {
         }
         return cities[value] || value
       case "condition":
-        const conditions = {
+        const conditions: Record<string, string> = {
           new: "Nueva",
           used: "Usada",
           under_construction: "En construcción",
