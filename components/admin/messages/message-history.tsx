@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -20,7 +20,33 @@ type Reply = {
   content: string
   sent_to: string
   sent_by: string
-  created_at: string
+  created_at: string | null
+}
+
+function normalizeReply(value: unknown): Reply | null {
+  if (!value || typeof value !== "object") return null
+  const row = value as Record<string, unknown>
+
+  if (
+    typeof row.id !== "string" ||
+    typeof row.message_id !== "string" ||
+    typeof row.subject !== "string" ||
+    typeof row.content !== "string" ||
+    typeof row.sent_to !== "string" ||
+    typeof row.sent_by !== "string"
+  ) {
+    return null
+  }
+
+  return {
+    id: row.id,
+    message_id: row.message_id,
+    subject: row.subject,
+    content: row.content,
+    sent_to: row.sent_to,
+    sent_by: row.sent_by,
+    created_at: typeof row.created_at === "string" ? row.created_at : null,
+  }
 }
 
 export function MessageHistory({ messageId }: MessageHistoryProps) {
@@ -28,14 +54,14 @@ export function MessageHistory({ messageId }: MessageHistoryProps) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchReplies()
+    void fetchReplies()
   }, [messageId])
 
   async function fetchReplies() {
     setLoading(true)
     const { data, error } = await supabase
       .from("message_replies")
-      .select("*")
+      .select("id, message_id, subject, content, sent_to, sent_by, created_at")
       .eq("message_id", messageId)
       .order("created_at", { ascending: true })
 
@@ -46,7 +72,10 @@ export function MessageHistory({ messageId }: MessageHistoryProps) {
         variant: "destructive",
       })
     } else {
-      setReplies(data || [])
+      const normalized = (Array.isArray(data) ? data : [])
+        .map(normalizeReply)
+        .filter((reply): reply is Reply => reply !== null)
+      setReplies(normalized)
     }
     setLoading(false)
   }
@@ -64,8 +93,8 @@ export function MessageHistory({ messageId }: MessageHistoryProps) {
       <CardContent>
         {loading ? (
           <div className="space-y-4">
-            <div className="h-20 bg-muted animate-pulse rounded"></div>
-            <div className="h-20 bg-muted animate-pulse rounded"></div>
+            <div className="h-20 bg-muted animate-pulse rounded" />
+            <div className="h-20 bg-muted animate-pulse rounded" />
           </div>
         ) : replies.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
@@ -85,7 +114,9 @@ export function MessageHistory({ messageId }: MessageHistoryProps) {
                     <div>
                       <p className="text-sm font-medium">{reply.sent_by}</p>
                       <p className="text-xs text-muted-foreground">
-                        {format(new Date(reply.created_at), "dd MMM yyyy, HH:mm", { locale: es })}
+                        {reply.created_at
+                          ? format(new Date(reply.created_at), "dd MMM yyyy, HH:mm", { locale: es })
+                          : "Sin fecha"}
                       </p>
                     </div>
                   </div>
