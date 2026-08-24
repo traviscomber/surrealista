@@ -854,7 +854,10 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
             </div>
           </div>
 
-          <Select value={filterType} onValueChange={setFilterType}>
+          <Select
+            value={filterType}
+            onValueChange={(value) => setFilterType(value as typeof filterType)}
+          >
             <SelectTrigger className="w-40">
               <SelectValue />
             </SelectTrigger>
@@ -868,7 +871,10 @@ export function EnhancedFolderView({ folderId, folderName }: { folderId: string;
             </SelectContent>
           </Select>
 
-          <Select value={sortBy} onValueChange={setSortBy}>
+          <Select
+            value={sortBy}
+            onValueChange={(value) => setSortBy(value as typeof sortBy)}
+          >
             <SelectTrigger className="w-40">
               <SelectValue />
             </SelectTrigger>
