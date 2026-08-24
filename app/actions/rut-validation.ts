@@ -22,8 +22,29 @@ type RutReferenceData = {
   address?: string
 }
 
+type ClientRutRow = {
+  id: string
+  rut: string
+  firstName: string
+  lastName: string
+}
+
 function normalizeName(value: string) {
   return value.trim().toLocaleLowerCase("es-CL").replace(/\s+/g, " ")
+}
+
+function parseClientRutRow(value: unknown): ClientRutRow | null {
+  if (!value || typeof value !== "object") return null
+
+  const row = value as Record<string, unknown>
+  if (typeof row.id !== "string" || typeof row.rut !== "string" || !row.rut.trim()) return null
+
+  return {
+    id: row.id,
+    rut: row.rut,
+    firstName: typeof row.first_name === "string" ? row.first_name : "",
+    lastName: typeof row.last_name === "string" ? row.last_name : "",
+  }
 }
 
 /**
@@ -34,10 +55,16 @@ function normalizeName(value: string) {
 export async function validateClientRUT(clientId: string) {
   try {
     const supabase = await createSupabaseClient()
-    const { data: client, error } = await supabase.from("clients").select("*").eq("id", clientId).single()
+    const { data, error } = await supabase
+      .from("clients")
+      .select("id, rut, first_name, last_name")
+      .eq("id", clientId)
+      .single()
 
-    if (error || !client) return { success: false, error: "Cliente no encontrado" }
-    if (!client.rut) return { success: false, error: "Cliente no tiene RUT registrado" }
+    if (error || !data) return { success: false, error: "Cliente no encontrado" }
+
+    const client = parseClientRutRow(data)
+    if (!client) return { success: false, error: "Cliente no tiene RUT registrado" }
 
     const lookupResult = await lookupRUT(client.rut)
     if (!lookupResult.success || !lookupResult.data) {
@@ -54,7 +81,7 @@ export async function validateClientRUT(clientId: string) {
       return { success: false, error: "La referencia del RUT no contiene nombre" }
     }
 
-    const currentName = `${client.first_name || ""} ${client.last_name || ""}`.trim()
+    const currentName = `${client.firstName} ${client.lastName}`.trim()
     const normalizedReference = normalizeName(referenceName)
     const normalizedCurrent = normalizeName(currentName)
     const match =
@@ -126,11 +153,19 @@ export async function updateClientFromRUT(clientId: string, officialData: RutRef
 export async function validateAndCorrectAllClients() {
   try {
     const supabase = await createSupabaseClient()
-    const { data: clients, error } = await supabase.from("clients").select("*").not("rut", "is", null).limit(100)
+    const { data, error } = await supabase
+      .from("clients")
+      .select("id, rut, first_name, last_name")
+      .not("rut", "is", null)
+      .limit(100)
     if (error) return { success: false, error: error.message }
 
+    const clients = (Array.isArray(data) ? data : [])
+      .map(parseClientRutRow)
+      .filter((client): client is ClientRutRow => client !== null)
+
     const results = {
-      total: clients?.length || 0,
+      total: clients.length,
       validated: 0,
       corrected: 0,
       failed: 0,
@@ -139,7 +174,7 @@ export async function validateAndCorrectAllClients() {
       details: [] as Array<Record<string, unknown>>,
     }
 
-    for (const client of clients || []) {
+    for (const client of clients) {
       try {
         const validationResult = await validateClientRUT(client.id)
         if (!validationResult.success || !validationResult.data) {
