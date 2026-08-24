@@ -97,6 +97,10 @@ export class KmzLocationSearchService {
   /**
    * Get all locations from a specific KMZ file
    */
+  async searchByKMZFile(kmzFileName: string): Promise<LocationSearchResult[]> {
+    return this.getLocationsByKmzFile(kmzFileName)
+  }
+
   async getLocationsByKmzFile(kmzFileName: string): Promise<LocationSearchResult[]> {
     console.log("[v0] Fetching locations from KMZ file:", kmzFileName)
 
@@ -204,3 +208,5 @@ export class KmzLocationSearchService {
     }
   }
 }
+
+export const KMZLocationSearch = new KmzLocationSearchService()
