@@ -1,14 +1,25 @@
 'use client'
 
 import { useState } from 'react'
-import { AlertCircle, BarChart3, Calculator, CheckCircle2, Loader2 } from 'lucide-react'
+import { AlertCircle, BarChart3, CheckCircle2, Loader2, MapPin, RotateCcw, Send } from 'lucide-react'
 import { WorkspaceHeading } from '@/components/ui/workspace-heading'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+
+interface ResolvedContext {
+  address: string | null
+  display_name: string | null
+  region: string | null
+  city: string | null
+  lat: number | null
+  lng: number | null
+  property_type: string
+  area_sqm: number | null
+}
 
 interface QuoteResult {
+  status?: 'valued'
   estimated_price: number
   price_range: { min: number; max: number }
   price_per_sqm: number
@@ -20,31 +31,16 @@ interface QuoteResult {
   recommendations: string[]
   data_sources?: string[]
   last_updated?: string | null
-  uf_value?: number | null
-  uf_date?: string | null
+  resolved_context?: ResolvedContext
 }
 
-const regions = [
-  'Arica y Parinacota', 'Tarapacá', 'Antofagasta', 'Atacama', 'Coquimbo', 'Valparaíso',
-  'Metropolitana', "O'Higgins", 'Maule', 'Ñuble', 'Biobío', 'Araucanía', 'Los Ríos',
-  'Los Lagos', 'Aysén', 'Magallanes',
-]
-
-// Keep these values aligned with the normalized property_type values that actually
-// have enough active sale comparables in properties_external. Unsupported types
-// must not be offered as if a valuation were available.
-const propertyTypes = [
-  { id: 'terreno', label: 'Terreno' },
-  { id: 'parcela', label: 'Parcela' },
-  { id: 'campo', label: 'Campo' },
-  { id: 'casa rural', label: 'Casa rural' },
-  { id: 'casa urbana', label: 'Casa urbana' },
-  { id: 'comercial', label: 'Propiedad comercial' },
-  { id: 'loteo / parcelación', label: 'Loteo o parcelación' },
-  { id: 'agrícola', label: 'Propiedad agrícola' },
-  { id: 'terreno residencial', label: 'Terreno residencial' },
-  { id: 'campo forestal', label: 'Campo forestal' },
-]
+interface NeedsInput {
+  status: 'needs_input'
+  question: string
+  missing: string[]
+  options?: string[] | null
+  resolved_context: ResolvedContext
+}
 
 function formatClp(value: number) {
   return new Intl.NumberFormat('es-CL', {
@@ -55,36 +51,47 @@ function formatClp(value: number) {
 }
 
 export default function CotizadorPage() {
-  const [formData, setFormData] = useState({
-    property_type: '',
-    region: '',
-    city: '',
-    area_sqm: '',
-  })
+  const [address, setAddress] = useState('')
+  const [followUp, setFollowUp] = useState('')
+  const [resolvedContext, setResolvedContext] = useState<ResolvedContext | null>(null)
+  const [question, setQuestion] = useState<string | null>(null)
+  const [missing, setMissing] = useState<string[]>([])
+  const [options, setOptions] = useState<string[]>([])
   const [result, setResult] = useState<QuoteResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault()
-    if (!formData.property_type || !formData.region || !formData.area_sqm) {
-      setError('Completa tipo de propiedad, región y superficie para generar una referencia.')
-      return
-    }
-
+  const runValuation = async (payload: Record<string, unknown>) => {
     setLoading(true)
     setError(null)
-    setResult(null)
-
     try {
       const response = await fetch('/api/cotizador/valuar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       })
-      const payload = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(payload.error || 'No se pudo calcular la referencia de valor.')
-      setResult(payload)
+      const body = await response.json().catch(() => ({}))
+
+      if (body.status === 'needs_input') {
+        const needs = body as NeedsInput
+        setResolvedContext(needs.resolved_context)
+        setQuestion(needs.question)
+        setMissing(needs.missing ?? [])
+        setOptions(needs.options ?? [])
+        setFollowUp('')
+        setResult(null)
+        return
+      }
+
+      if (!response.ok) {
+        throw new Error(body.error || 'No se pudo calcular la referencia de valor.')
+      }
+
+      setResult(body as QuoteResult)
+      setResolvedContext(body.resolved_context ?? resolvedContext)
+      setQuestion(null)
+      setMissing([])
+      setOptions([])
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : 'No se pudo completar el cálculo.')
     } finally {
@@ -92,82 +99,155 @@ export default function CotizadorPage() {
     }
   }
 
+  const handleAddressSubmit = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (address.trim().length < 3) {
+      setError('Escribe una dirección, camino, sector o localidad.')
+      return
+    }
+    setResult(null)
+    setResolvedContext(null)
+    setQuestion(null)
+    setOptions([])
+    await runValuation({ address: address.trim() })
+  }
+
+  const handleFollowUp = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!followUp.trim() || !resolvedContext) return
+
+    const needsAddressClarification = missing.includes('address_clarification') || missing.includes('region')
+    const nextAddress = needsAddressClarification
+      ? `${address.trim()}, ${followUp.trim()}`
+      : address.trim()
+
+    if (needsAddressClarification) setAddress(nextAddress)
+
+    await runValuation({
+      address: nextAddress,
+      natural_input: followUp.trim(),
+      resolved_context: resolvedContext,
+    })
+  }
+
+  const chooseLocation = async (option: string) => {
+    setAddress(option)
+    setQuestion(null)
+    setOptions([])
+    setResolvedContext(null)
+    await runValuation({ address: option })
+  }
+
+  const reset = () => {
+    setAddress('')
+    setFollowUp('')
+    setResolvedContext(null)
+    setQuestion(null)
+    setMissing([])
+    setOptions([])
+    setResult(null)
+    setError(null)
+  }
+
   return (
     <main className="container mx-auto space-y-8 px-4 py-8">
       <WorkspaceHeading
-        eyebrow="Análisis comercial"
-        title="Referencia de valor con comparables"
-        description="Calcula una referencia interna únicamente cuando existen suficientes avisos comparables trazables por región, tipo y superficie."
-        outcome="Obtendrás un rango de trabajo, precio mediano por metro cuadrado, tamaño de muestra, fuentes y fecha de actualización."
+        eyebrow="Valorizador de terrenos"
+        title="¿Dónde está el terreno?"
+        description="Escribe la dirección, camino, sector o localidad. Sur-realista resuelve la ubicación y busca evidencia de mercado en Chile."
+        outcome="Si falta un dato importante, te lo preguntaremos en lenguaje natural antes de calcular."
       />
 
-      <Card className="border-border/70 bg-muted/30">
-        <CardContent className="flex gap-3 p-4 text-sm leading-6">
-          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-          <p>
-            <strong>Alcance:</strong> no se generan valores cuando faltan comparables suficientes. Esta herramienta no reemplaza una tasación profesional, bancaria, tributaria ni legal.
-          </p>
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(340px,0.8fr)]">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)]">
         <Card>
           <CardHeader>
-            <CardTitle>Datos para buscar comparables</CardTitle>
-            <CardDescription>Solo se ofrecen categorías con inventario comparable activo. La comuna es opcional; al ingresarla, la muestra será más específica y puede resultar insuficiente.</CardDescription>
+            <CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5" /> Ubicación</CardTitle>
+            <CardDescription>No necesitas saber coordenadas, región ni códigos internos.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Tipo de propiedad *</label>
-                  <Select value={formData.property_type} onValueChange={(value) => setFormData({ ...formData, property_type: value })}>
-                    <SelectTrigger><SelectValue placeholder="Seleccionar tipo" /></SelectTrigger>
-                    <SelectContent>{propertyTypes.map((item) => <SelectItem key={item.id} value={item.id}>{item.label}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Región *</label>
-                  <Select value={formData.region} onValueChange={(value) => setFormData({ ...formData, region: value })}>
-                    <SelectTrigger><SelectValue placeholder="Seleccionar región" /></SelectTrigger>
-                    <SelectContent>{regions.map((region) => <SelectItem key={region} value={region}>{region}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Comuna o localidad</label>
-                  <Input value={formData.city} onChange={(event) => setFormData({ ...formData, city: event.target.value })} placeholder="Ej.: Futrono" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Superficie en m² *</label>
-                  <Input type="number" min="1" value={formData.area_sqm} onChange={(event) => setFormData({ ...formData, area_sqm: event.target.value })} placeholder="Ej.: 50000" />
-                </div>
-              </div>
-
-              {error ? (
-                <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                  {error}
-                </div>
-              ) : null}
-
-              <Button type="submit" disabled={loading} className="w-full md:w-auto">
-                {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Calculator className="mr-2 h-4 w-4" />}
-                {loading ? 'Buscando comparables…' : 'Calcular referencia'}
+          <CardContent className="space-y-5">
+            <form onSubmit={handleAddressSubmit} className="flex flex-col gap-3 sm:flex-row">
+              <Input
+                value={address}
+                onChange={(event) => setAddress(event.target.value)}
+                placeholder="Ej.: Camino a Ensenada km 12, Puerto Varas"
+                disabled={loading}
+                className="min-h-11 flex-1"
+              />
+              <Button type="submit" disabled={loading} className="min-h-11">
+                {loading && !question ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                Analizar
               </Button>
             </form>
+
+            {resolvedContext?.display_name ? (
+              <div className="rounded-md border bg-muted/30 p-3 text-sm">
+                <p className="font-medium">Ubicación resuelta</p>
+                <p className="mt-1 text-muted-foreground">{resolvedContext.display_name}</p>
+              </div>
+            ) : null}
+
+            {question ? (
+              <div className="space-y-4 rounded-md border p-4">
+                <p className="text-sm font-medium leading-6">{question}</p>
+
+                {options.length ? (
+                  <div className="space-y-2">
+                    {options.map((option) => (
+                      <button
+                        key={option}
+                        type="button"
+                        disabled={loading}
+                        onClick={() => chooseLocation(option)}
+                        className="w-full rounded-md border px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+
+                <form onSubmit={handleFollowUp} className="flex flex-col gap-3 sm:flex-row">
+                  <Input
+                    value={followUp}
+                    onChange={(event) => setFollowUp(event.target.value)}
+                    placeholder={missing.includes('area_sqm') ? 'Ej.: 5.000 m² o 12 hectáreas' : 'Escribe una referencia breve'}
+                    disabled={loading}
+                    autoFocus
+                    className="min-h-11 flex-1"
+                  />
+                  <Button type="submit" disabled={loading || !followUp.trim()} className="min-h-11">
+                    {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                    Continuar
+                  </Button>
+                </form>
+              </div>
+            ) : null}
+
+            {error ? (
+              <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                {error}
+              </div>
+            ) : null}
+
+            {(result || resolvedContext || error) ? (
+              <Button type="button" variant="ghost" size="sm" onClick={reset} disabled={loading}>
+                <RotateCcw className="mr-2 h-4 w-4" /> Nueva valorización
+              </Button>
+            ) : null}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Resultado verificable</CardTitle>
-            <CardDescription>El resultado aparece solo cuando la muestra cumple el mínimo requerido.</CardDescription>
+            <CardTitle>Referencia de mercado</CardTitle>
+            <CardDescription>Se calcula solo con evidencia suficiente y trazable.</CardDescription>
           </CardHeader>
           <CardContent>
             {loading ? (
               <div className="flex min-h-72 flex-col items-center justify-center gap-3 text-center text-sm text-muted-foreground">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                <p>Consultando comparables activos.</p>
+                <p>Resolviendo ubicación y buscando comparables.</p>
               </div>
             ) : result ? (
               <div className="space-y-5">
@@ -190,7 +270,7 @@ export default function CotizadorPage() {
 
                 {result.market_factors?.length ? (
                   <div>
-                    <h3 className="text-sm font-semibold">Factores observados</h3>
+                    <h3 className="text-sm font-semibold">Evidencia usada</h3>
                     <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
                       {result.market_factors.map((item) => <li key={item} className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />{item}</li>)}
                     </ul>
@@ -199,7 +279,7 @@ export default function CotizadorPage() {
 
                 {result.data_sources?.length ? (
                   <div>
-                    <h3 className="text-sm font-semibold">Fuentes declaradas</h3>
+                    <h3 className="text-sm font-semibold">Fuentes</h3>
                     <p className="mt-2 text-sm leading-6 text-muted-foreground">{result.data_sources.join(', ')}</p>
                   </div>
                 ) : null}
@@ -210,8 +290,8 @@ export default function CotizadorPage() {
               <div className="flex min-h-72 flex-col items-center justify-center gap-3 text-center">
                 <BarChart3 className="h-7 w-7 text-muted-foreground" />
                 <div>
-                  <p className="font-medium">Aún no hay una referencia calculada</p>
-                  <p className="mt-1 max-w-xs text-sm leading-6 text-muted-foreground">Completa los datos mínimos para buscar una muestra comparable real.</p>
+                  <p className="font-medium">Parte por la dirección</p>
+                  <p className="mt-1 max-w-xs text-sm leading-6 text-muted-foreground">El sistema resolverá la ubicación y pedirá solo lo que falte para construir una referencia responsable.</p>
                 </div>
               </div>
             )}
