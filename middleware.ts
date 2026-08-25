@@ -46,6 +46,12 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  if (request.nextUrl.pathname === "/api/cotizador/valuar") {
+    const url = request.nextUrl.clone()
+    url.pathname = "/api/cotizador/valuar-canonico"
+    return NextResponse.rewrite(url)
+  }
+
   return updateSession(request)
 }
 
