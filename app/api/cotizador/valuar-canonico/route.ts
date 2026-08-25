@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     marketNeighbors: nearbyIntelligence.market_neighbors ?? [],
     kmzNeighbors: nearbyIntelligence.kmz_neighbors ?? [],
     contextStatus: currentContext.status,
-    contextSignals: currentContext.signals ?? currentContext.evidence ?? [],
+    contextSignals: currentContext.items,
   })
 
   const canonical = {
