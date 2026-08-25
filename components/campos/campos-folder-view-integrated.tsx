@@ -77,6 +77,31 @@ function toPointPlacemark(record: KmzInventoryRecord): KmzRenderablePlacemark {
   }
 }
 
+function toRegionalPointFile(record: KmzInventoryRecord) {
+  return {
+    id: record.id,
+    dbId: record.id,
+    fileName: record.file_name,
+    placemarks: [toPointPlacemark(record)],
+    bounds: record.bounds,
+    metadata: {
+      id: record.id,
+      region: record.region,
+      geometryStatus: record.geometry_status,
+      geometryLabel: geometryBadge(record).label,
+      rolNumbers: record.rol_numbers || [],
+      regionalPreview: true,
+    },
+  }
+}
+
+function regionalPointFiles(records: KmzInventoryRecord[], excludedId?: string | number | null) {
+  return records
+    .filter((record) => Number.isFinite(Number(record.latitude)) && Number.isFinite(Number(record.longitude)))
+    .filter((record) => excludedId == null || String(record.id) !== String(excludedId))
+    .map(toRegionalPointFile)
+}
+
 function asRecord(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -208,30 +233,17 @@ export function CAMPOSFolderViewIntegrated() {
 
     try {
       const records = await ensureRegionRecords(region)
-      const pointRecords = records.filter(
-        (record) => Number.isFinite(Number(record.latitude)) && Number.isFinite(Number(record.longitude)),
-      )
+      const pointFiles = regionalPointFiles(records)
 
-      setKmzFiles(pointRecords.map((record) => ({
-        id: record.id,
-        dbId: record.id,
-        fileName: record.file_name,
-        placemarks: [toPointPlacemark(record)],
-        bounds: record.bounds,
-        metadata: {
-          id: record.id,
-          region: record.region,
-          geometryStatus: record.geometry_status,
-          geometryLabel: geometryBadge(record).label,
-          rolNumbers: record.rol_numbers || [],
-          regionalPreview: true,
-        },
-      })))
+      setKmzFiles(pointFiles)
 
       const summary = summaries.find((item) => item.region === region)
+      const firstPoint = records.find(
+        (record) => Number.isFinite(Number(record.latitude)) && Number.isFinite(Number(record.longitude)),
+      )
       setMapCenter({
-        lat: Number(summary?.center_latitude || pointRecords[0]?.latitude || -39.8),
-        lng: Number(summary?.center_longitude || pointRecords[0]?.longitude || -73.2),
+        lat: Number(summary?.center_latitude || firstPoint?.latitude || -39.8),
+        lng: Number(summary?.center_longitude || firstPoint?.longitude || -73.2),
       })
     } catch (error) {
       console.error("[CAMPOS] region inventory failed", error)
@@ -312,6 +324,9 @@ export function CAMPOSFolderViewIntegrated() {
     setLoadingMap(true)
     setMapCenter({ lat: Number(record.latitude), lng: Number(record.longitude) })
 
+    const regionRecords = await ensureRegionRecords(record.region)
+    const surroundingPoints = regionalPointFiles(regionRecords, record.id)
+
     try {
       const [{ data: collection, error: collectionError }, { data: storedPlacemarks, error: placemarkError }] = await Promise.all([
         supabase.from("kmz_collection").select("*").eq("id", record.id).single(),
@@ -344,7 +359,7 @@ export function CAMPOSFolderViewIntegrated() {
 
       if (placemarks.length === 0) placemarks.push(toPointPlacemark(record))
       const hasRealGeometry = placemarks.some((placemark) => placemark.properties?.isReferenceLocation === false)
-      setKmzFiles([{
+      setKmzFiles([...surroundingPoints, {
         id: record.id,
         dbId: record.id,
         fileName: record.file_name,
@@ -356,31 +371,25 @@ export function CAMPOSFolderViewIntegrated() {
           geometryStatus: hasRealGeometry ? "real_geometry" : record.geometry_status,
           geometryLabel: hasRealGeometry ? "Geometría KMZ" : geometryBadge(record).label,
           rolNumbers: record.rol_numbers || [],
+          selectedDetail: true,
         },
       }])
       setMapCenter(centerFromBounds(collectionBounds, { lat: Number(record.latitude), lng: Number(record.longitude) }))
       if (hasRealGeometry) void loadCirenContext(record, requestToken)
     } catch (error) {
       console.error("[CAMPOS] selected KMZ failed", error)
-      setKmzFiles([{
-        id: record.id,
-        dbId: record.id,
-        fileName: record.file_name,
-        placemarks: [toPointPlacemark(record)],
-        bounds: record.bounds,
-        metadata: { id: record.id, region: record.region },
-      }])
+      setKmzFiles([...surroundingPoints, toRegionalPointFile(record)])
     } finally {
       setLoadingMap(false)
     }
-  }, [loadCirenContext, supabase])
+  }, [ensureRegionRecords, loadCirenContext, supabase])
 
   const handlePlacemarkSelect = useCallback((layer: LayerInfo | null) => {
     setSelectedLayer(layer)
-    if (!layer || selectedRecord || !selectedRegion) return
+    if (!layer || !selectedRegion) return
     const record = (recordsByRegion[selectedRegion] || []).find((item) => String(item.id) === String(layer.fileId))
-    if (record) void loadSelectedKmz(record)
-  }, [loadSelectedKmz, recordsByRegion, selectedRecord, selectedRegion])
+    if (record && String(record.id) !== String(selectedRecord?.id || "")) void loadSelectedKmz(record)
+  }, [loadSelectedKmz, recordsByRegion, selectedRecord?.id, selectedRegion])
 
   const filteredSummaries = useMemo(() => {
     const query = search.trim().toLocaleLowerCase("es")
