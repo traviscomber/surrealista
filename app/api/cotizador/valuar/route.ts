@@ -1,6 +1,8 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { geocodeChileAddress, isAmbiguousAddress } from '@/lib/geocoding/forward-geocode'
+import { inferLandType, parseNaturalArea } from '@/lib/valuation/natural-input'
 import { buildMarketChallenger, type MarketComparableInput } from '@/lib/valuation/market-challenger'
 
 export const maxDuration = 30
@@ -9,6 +11,20 @@ export const runtime = 'nodejs'
 const ACCESS_COOKIE = 'sur_realista_access'
 const MIN_COMPARABLES = 3
 const MAX_AREA_SQM = 1_000_000_000
+const LAND_PROPERTY_TYPES = [
+  'terreno',
+  'parcela',
+  'campo',
+  'agrícola',
+  'terreno rural',
+  'terreno residencial',
+  'campo agrícola',
+  'campo forestal',
+  'fundo agrícola',
+  'fundo ganadero',
+  'fundo lechero',
+  'loteo / parcelación',
+]
 
 interface MarketSnapshot {
   sample_count: number
@@ -19,6 +35,17 @@ interface MarketSnapshot {
 }
 
 type Comparable = MarketComparableInput
+
+type ResolvedContext = {
+  address: string | null
+  display_name: string | null
+  region: string | null
+  city: string | null
+  lat: number | null
+  lng: number | null
+  property_type: string
+  area_sqm: number | null
+}
 
 function isAuthorized(request: NextRequest): boolean {
   const password = process.env.APP_PASSWORD?.trim()
@@ -61,6 +88,16 @@ function median(values: number[]): number {
     : sorted[middle]
 }
 
+function needsInput(question: string, missing: string[], context: ResolvedContext, options?: string[]) {
+  return NextResponse.json({
+    status: 'needs_input',
+    question,
+    missing,
+    options: options ?? null,
+    resolved_context: context,
+  })
+}
+
 export async function POST(request: NextRequest) {
   if (!isAuthorized(request)) {
     return NextResponse.json({ error: 'No autorizado.' }, { status: 401 })
@@ -68,20 +105,82 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const propertyType = String(body.property_type ?? '').trim().toLowerCase()
-    const region = String(body.region ?? '').trim()
-    const city = String(body.city ?? '').trim()
-    const sqm = Number(body.area_sqm)
-    const lat = Number(body.lat ?? body.latitude)
-    const lng = Number(body.lng ?? body.longitude)
-    const subjectLat = Number.isFinite(lat) ? lat : null
-    const subjectLng = Number.isFinite(lng) ? lng : null
+    const prior = body.resolved_context ?? {}
+    const address = String(body.address ?? prior.address ?? '').trim()
+    const naturalInput = String(body.natural_input ?? body.answer ?? '').trim()
+    const explicitPropertyType = String(body.property_type ?? prior.property_type ?? '').trim().toLowerCase()
+    const propertyType = explicitPropertyType || inferLandType(`${address} ${naturalInput}`)
 
-    if (!propertyType || !region || !Number.isFinite(sqm) || sqm <= 0 || sqm > MAX_AREA_SQM) {
-      return NextResponse.json(
-        { error: 'Tipo de propiedad, región y superficie válida son obligatorios.' },
-        { status: 400 },
+    let region = String(body.region ?? prior.region ?? '').trim()
+    let city = String(body.city ?? prior.city ?? '').trim()
+    let displayName = String(prior.display_name ?? '').trim()
+
+    const rawArea = Number(body.area_sqm ?? prior.area_sqm)
+    let sqm = Number.isFinite(rawArea) && rawArea > 0 ? rawArea : parseNaturalArea(naturalInput) ?? parseNaturalArea(address)
+
+    const rawLat = Number(body.lat ?? body.latitude ?? prior.lat)
+    const rawLng = Number(body.lng ?? body.longitude ?? prior.lng)
+    let subjectLat = Number.isFinite(rawLat) ? rawLat : null
+    let subjectLng = Number.isFinite(rawLng) ? rawLng : null
+
+    const emptyContext = (): ResolvedContext => ({
+      address: address || null,
+      display_name: displayName || null,
+      region: region || null,
+      city: city || null,
+      lat: subjectLat,
+      lng: subjectLng,
+      property_type: propertyType,
+      area_sqm: sqm ?? null,
+    })
+
+    if (!address && !region) {
+      return needsInput('¿Dónde está el terreno? Escríbeme la dirección o el sector tal como lo conoces.', ['address'], emptyContext())
+    }
+
+    if (address && (!region || subjectLat === null || subjectLng === null)) {
+      const matches = await geocodeChileAddress(address)
+      if (!matches.length) {
+        return needsInput(
+          'No pude ubicar esa dirección con suficiente seguridad. ¿Puedes agregar la comuna o una referencia cercana?',
+          ['address_clarification'],
+          emptyContext(),
+        )
+      }
+
+      if (isAmbiguousAddress(matches)) {
+        const options = matches.slice(0, 3).map((item) => item.display_name)
+        return needsInput(
+          `Encontré más de una ubicación posible. ¿A cuál te refieres?`,
+          ['address_clarification'],
+          emptyContext(),
+          options,
+        )
+      }
+
+      const best = matches[0]
+      subjectLat = best.lat
+      subjectLng = best.lng
+      region = best.region ?? region
+      city = best.commune ?? city
+      displayName = best.display_name
+    }
+
+    if (!region) {
+      return needsInput('Pude aproximar la ubicación, pero me falta identificar la región. ¿En qué comuna o región está?', ['region'], emptyContext())
+    }
+
+    if (!sqm) {
+      return needsInput(
+        'Ubicación encontrada. ¿Cuántos m² o hectáreas tiene aproximadamente el terreno?',
+        ['area_sqm'],
+        emptyContext(),
       )
+    }
+
+    sqm = Math.round(sqm)
+    if (!Number.isFinite(sqm) || sqm <= 0 || sqm > MAX_AREA_SQM) {
+      return needsInput('No pude interpretar la superficie. Puedes responder, por ejemplo, “5.000 m²” o “12 hectáreas”.', ['area_sqm'], emptyContext())
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -94,7 +193,8 @@ export async function POST(request: NextRequest) {
       auth: { persistSession: false, autoRefreshToken: false },
     })
 
-    // Champion query is intentionally unchanged while V3 stays in shadow mode.
+    // Production champion remains intentionally unchanged: exact normalized type,
+    // region and subject-area window. Address resolution only supplies those inputs.
     let comparableQuery = supabase
       .from('properties_external')
       .select('price_clp,price_uf,area_m2,price_per_m2_clp,commune,source,source_url,days_active,scraped_at,title,lat,lng')
@@ -111,20 +211,19 @@ export async function POST(request: NextRequest) {
 
     if (city) comparableQuery = comparableQuery.ilike('commune', `%${city}%`)
 
-    // Challenger intentionally searches the full region. It ranks same-commune
-    // and spatially close evidence first, then falls back to regional evidence.
-    // The broad pool is also required because some rural feeds stored 5,000 m² as 5.00.
+    // Challenger is land-family based, not KMZ based and not tied to one literal
+    // listing category. It ranks local/spatial evidence and falls back to the region.
     const challengerQuery = supabase
       .from('properties_external')
       .select('price_clp,price_uf,area_m2,price_per_m2_clp,commune,source,source_url,days_active,scraped_at,title,lat,lng')
       .ilike('region', `%${region}%`)
-      .eq('property_type', propertyType)
+      .in('property_type', LAND_PROPERTY_TYPES)
       .eq('operation', 'venta')
       .eq('is_active', true)
       .gt('price_clp', 0)
       .gt('area_m2', 0)
       .order('scraped_at', { ascending: false })
-      .limit(200)
+      .limit(300)
 
     const [ufResult, comparableResult, challengerResult, marketResult] = await Promise.all([
       getCurrentUF(),
@@ -140,15 +239,9 @@ export async function POST(request: NextRequest) {
         .limit(1),
     ])
 
-    if (comparableResult.error) {
-      console.error('[Cotizador] Error consultando comparables:', comparableResult.error.message)
-    }
-    if (challengerResult.error) {
-      console.error('[Cotizador] Error consultando candidatos challenger:', challengerResult.error.message)
-    }
-    if (marketResult.error) {
-      console.error('[Cotizador] Error consultando estadísticas:', marketResult.error.message)
-    }
+    if (comparableResult.error) console.error('[Cotizador] Error consultando comparables:', comparableResult.error.message)
+    if (challengerResult.error) console.error('[Cotizador] Error consultando candidatos challenger:', challengerResult.error.message)
+    if (marketResult.error) console.error('[Cotizador] Error consultando estadísticas:', marketResult.error.message)
 
     const directComparables = ((comparableResult.data ?? []) as Comparable[]).filter(
       (item) => Number.isFinite(item.price_per_m2_clp) && item.price_per_m2_clp > 0,
@@ -205,12 +298,24 @@ export async function POST(request: NextRequest) {
       confidence = Math.min(60 + Math.floor(sampleCount / 3), 85)
     }
 
+    const resolvedContext: ResolvedContext = {
+      address: address || null,
+      display_name: displayName || null,
+      region,
+      city: city || null,
+      lat: subjectLat,
+      lng: subjectLng,
+      property_type: propertyType,
+      area_sqm: sqm,
+    }
+
     if (!basePriceM2) {
       return NextResponse.json(
         {
-          error: 'No hay suficientes comparables verificables para calcular una referencia responsable.',
+          error: 'No hay suficientes comparables del modelo actual para emitir una referencia vinculante.',
           code: 'INSUFFICIENT_COMPARABLES',
           sample_count: directComparables.length,
+          resolved_context: resolvedContext,
           challenger: challenger ? { status: 'shadow_only', non_binding: true, ...challenger } : null,
         },
         { status: 422 },
@@ -225,6 +330,8 @@ export async function POST(request: NextRequest) {
     const toUF = (value: number) => ufValue ? Number((value / ufValue).toFixed(2)) : null
 
     return NextResponse.json({
+      status: 'valued',
+      resolved_context: resolvedContext,
       estimated_price: estimatedPrice,
       estimated_price_uf: toUF(estimatedPrice),
       price_range: {
@@ -241,6 +348,7 @@ export async function POST(request: NextRequest) {
       comparable_analysis: methodology,
       data_sources: dataSources,
       market_factors: [
+        displayName ? `Ubicación resuelta: ${displayName}` : `Región analizada: ${region}`,
         `Superficie analizada: ${sqm.toLocaleString('es-CL')} m²`,
         `Precio mediano comparable: $${basePriceM2.toLocaleString('es-CL')}/m²`,
         `Muestra utilizada: ${sampleCount} registros`,
