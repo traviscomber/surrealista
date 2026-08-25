@@ -1,303 +1,52 @@
 'use client'
 
-import { useState } from 'react'
-import { AlertCircle, BarChart3, CheckCircle2, Loader2, MapPin, RotateCcw, Send } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { AlertCircle, BarChart3, CheckCircle2, Eye, History, Loader2, MapPin, RotateCcw, Send } from 'lucide-react'
 import { WorkspaceHeading } from '@/components/ui/workspace-heading'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
-interface ResolvedContext {
-  address: string | null
-  display_name: string | null
-  region: string | null
-  city: string | null
-  lat: number | null
-  lng: number | null
-  property_type: string
-  area_sqm: number | null
-}
+type ResolvedContext = { address:string|null; display_name:string|null; region:string|null; city:string|null; lat:number|null; lng:number|null; property_type:string; area_sqm:number|null }
+type QuoteResult = any
+type NeedsInput = { status:'needs_input'; question:string; missing:string[]; options?:string[]|null; resolved_context:ResolvedContext }
+function formatClp(value:number){return new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP',maximumFractionDigits:0}).format(value||0)}
 
-interface QuoteResult {
-  status?: 'valued'
-  estimated_price: number
-  price_range: { min: number; max: number }
-  price_per_sqm: number
-  methodology: string
-  confidence: number
-  sample_count: number
-  market_factors: string[]
-  comparable_analysis: string
-  recommendations: string[]
-  data_sources?: string[]
-  last_updated?: string | null
-  resolved_context?: ResolvedContext
-}
-
-interface NeedsInput {
-  status: 'needs_input'
-  question: string
-  missing: string[]
-  options?: string[] | null
-  resolved_context: ResolvedContext
-}
-
-function formatClp(value: number) {
-  return new Intl.NumberFormat('es-CL', {
-    style: 'currency',
-    currency: 'CLP',
-    maximumFractionDigits: 0,
-  }).format(value || 0)
-}
-
-export default function CotizadorPage() {
-  const [address, setAddress] = useState('')
-  const [followUp, setFollowUp] = useState('')
-  const [resolvedContext, setResolvedContext] = useState<ResolvedContext | null>(null)
-  const [question, setQuestion] = useState<string | null>(null)
-  const [missing, setMissing] = useState<string[]>([])
-  const [options, setOptions] = useState<string[]>([])
-  const [result, setResult] = useState<QuoteResult | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const runValuation = async (payload: Record<string, unknown>) => {
-    setLoading(true)
-    setError(null)
-    try {
-      const response = await fetch('/api/cotizador/valuar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      const body = await response.json().catch(() => ({}))
-
-      if (body.status === 'needs_input') {
-        const needs = body as NeedsInput
-        setResolvedContext(needs.resolved_context)
-        setQuestion(needs.question)
-        setMissing(needs.missing ?? [])
-        setOptions(needs.options ?? [])
-        setFollowUp('')
-        setResult(null)
-        return
-      }
-
-      if (!response.ok) {
-        throw new Error(body.error || 'No se pudo calcular la referencia de valor.')
-      }
-
-      setResult(body as QuoteResult)
-      setResolvedContext(body.resolved_context ?? resolvedContext)
-      setQuestion(null)
-      setMissing([])
-      setOptions([])
-    } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'No se pudo completar el cálculo.')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleAddressSubmit = async (event: React.FormEvent) => {
-    event.preventDefault()
-    if (address.trim().length < 3) {
-      setError('Escribe una dirección, camino, sector o localidad.')
-      return
-    }
-    setResult(null)
-    setResolvedContext(null)
-    setQuestion(null)
-    setOptions([])
-    await runValuation({ address: address.trim() })
-  }
-
-  const handleFollowUp = async (event: React.FormEvent) => {
-    event.preventDefault()
-    if (!followUp.trim() || !resolvedContext) return
-
-    const needsAddressClarification = missing.includes('address_clarification') || missing.includes('region')
-    const nextAddress = needsAddressClarification
-      ? `${address.trim()}, ${followUp.trim()}`
-      : address.trim()
-
-    if (needsAddressClarification) setAddress(nextAddress)
-
-    await runValuation({
-      address: nextAddress,
-      natural_input: followUp.trim(),
-      resolved_context: resolvedContext,
-    })
-  }
-
-  const chooseLocation = async (option: string) => {
-    setAddress(option)
-    setQuestion(null)
-    setOptions([])
-    setResolvedContext(null)
-    await runValuation({ address: option })
-  }
-
-  const reset = () => {
-    setAddress('')
-    setFollowUp('')
-    setResolvedContext(null)
-    setQuestion(null)
-    setMissing([])
-    setOptions([])
-    setResult(null)
-    setError(null)
-  }
-
-  return (
-    <main className="container mx-auto space-y-8 px-4 py-8">
-      <WorkspaceHeading
-        eyebrow="Valorizador de terrenos"
-        title="¿Dónde está el terreno?"
-        description="Escribe la dirección, camino, sector o localidad. Sur-realista resuelve la ubicación y busca evidencia de mercado en Chile."
-        outcome="Si falta un dato importante, te lo preguntaremos en lenguaje natural antes de calcular."
-      />
-
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)]">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5" /> Ubicación</CardTitle>
-            <CardDescription>No necesitas saber coordenadas, región ni códigos internos.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            <form onSubmit={handleAddressSubmit} className="flex flex-col gap-3 sm:flex-row">
-              <Input
-                value={address}
-                onChange={(event) => setAddress(event.target.value)}
-                placeholder="Ej.: Camino a Ensenada km 12, Puerto Varas"
-                disabled={loading}
-                className="min-h-11 flex-1"
-              />
-              <Button type="submit" disabled={loading} className="min-h-11">
-                {loading && !question ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                Analizar
-              </Button>
-            </form>
-
-            {resolvedContext?.display_name ? (
-              <div className="rounded-md border bg-muted/30 p-3 text-sm">
-                <p className="font-medium">Ubicación resuelta</p>
-                <p className="mt-1 text-muted-foreground">{resolvedContext.display_name}</p>
-              </div>
-            ) : null}
-
-            {question ? (
-              <div className="space-y-4 rounded-md border p-4">
-                <p className="text-sm font-medium leading-6">{question}</p>
-
-                {options.length ? (
-                  <div className="space-y-2">
-                    {options.map((option) => (
-                      <button
-                        key={option}
-                        type="button"
-                        disabled={loading}
-                        onClick={() => chooseLocation(option)}
-                        className="w-full rounded-md border px-3 py-2 text-left text-sm transition-colors hover:bg-muted"
-                      >
-                        {option}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-
-                <form onSubmit={handleFollowUp} className="flex flex-col gap-3 sm:flex-row">
-                  <Input
-                    value={followUp}
-                    onChange={(event) => setFollowUp(event.target.value)}
-                    placeholder={missing.includes('area_sqm') ? 'Ej.: 5.000 m² o 12 hectáreas' : 'Escribe una referencia breve'}
-                    disabled={loading}
-                    autoFocus
-                    className="min-h-11 flex-1"
-                  />
-                  <Button type="submit" disabled={loading || !followUp.trim()} className="min-h-11">
-                    {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                    Continuar
-                  </Button>
-                </form>
-              </div>
-            ) : null}
-
-            {error ? (
-              <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                {error}
-              </div>
-            ) : null}
-
-            {(result || resolvedContext || error) ? (
-              <Button type="button" variant="ghost" size="sm" onClick={reset} disabled={loading}>
-                <RotateCcw className="mr-2 h-4 w-4" /> Nueva valorización
-              </Button>
-            ) : null}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Referencia de mercado</CardTitle>
-            <CardDescription>Se calcula solo con evidencia suficiente y trazable.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <div className="flex min-h-72 flex-col items-center justify-center gap-3 text-center text-sm text-muted-foreground">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
-                <p>Resolviendo ubicación y buscando comparables.</p>
-              </div>
-            ) : result ? (
-              <div className="space-y-5">
-                <div className="rounded-md border bg-muted/30 p-4">
-                  <p className="text-sm text-muted-foreground">Referencia central</p>
-                  <p className="mt-1 font-serif text-3xl font-semibold">{formatClp(result.estimated_price)}</p>
-                  <p className="mt-2 text-sm text-muted-foreground">Rango: {formatClp(result.price_range.min)} – {formatClp(result.price_range.max)}</p>
-                </div>
-
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="rounded-md border p-3"><p className="text-xs text-muted-foreground">Valor por m²</p><p className="mt-1 font-medium">{formatClp(result.price_per_sqm)}</p></div>
-                  <div className="rounded-md border p-3"><p className="text-xs text-muted-foreground">Confianza</p><p className="mt-1 font-medium">{Math.round(result.confidence || 0)}%</p></div>
-                  <div className="rounded-md border p-3"><p className="text-xs text-muted-foreground">Muestra</p><p className="mt-1 font-medium">{result.sample_count || 0}</p></div>
-                </div>
-
-                <div>
-                  <h3 className="text-sm font-semibold">Metodología</h3>
-                  <p className="mt-2 text-sm leading-6 text-muted-foreground">{result.methodology}</p>
-                </div>
-
-                {result.market_factors?.length ? (
-                  <div>
-                    <h3 className="text-sm font-semibold">Evidencia usada</h3>
-                    <ul className="mt-2 space-y-2 text-sm text-muted-foreground">
-                      {result.market_factors.map((item) => <li key={item} className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />{item}</li>)}
-                    </ul>
-                  </div>
-                ) : null}
-
-                {result.data_sources?.length ? (
-                  <div>
-                    <h3 className="text-sm font-semibold">Fuentes</h3>
-                    <p className="mt-2 text-sm leading-6 text-muted-foreground">{result.data_sources.join(', ')}</p>
-                  </div>
-                ) : null}
-
-                {result.last_updated ? <p className="text-xs text-muted-foreground">Último dato utilizado: {new Date(result.last_updated).toLocaleString('es-CL')}</p> : null}
-              </div>
-            ) : (
-              <div className="flex min-h-72 flex-col items-center justify-center gap-3 text-center">
-                <BarChart3 className="h-7 w-7 text-muted-foreground" />
-                <div>
-                  <p className="font-medium">Parte por la dirección</p>
-                  <p className="mt-1 max-w-xs text-sm leading-6 text-muted-foreground">El sistema resolverá la ubicación y pedirá solo lo que falte para construir una referencia responsable.</p>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    </main>
-  )
+export default function CotizadorPage(){
+ const [address,setAddress]=useState(''); const [followUp,setFollowUp]=useState(''); const [resolvedContext,setResolvedContext]=useState<ResolvedContext|null>(null); const [question,setQuestion]=useState<string|null>(null); const [missing,setMissing]=useState<string[]>([]); const [options,setOptions]=useState<string[]>([]); const [result,setResult]=useState<QuoteResult|null>(null); const [loading,setLoading]=useState(false); const [error,setError]=useState<string|null>(null); const [history,setHistory]=useState<any[]>([]); const [watchlist,setWatchlist]=useState<any[]>([]); const [saving,setSaving]=useState(false)
+ const refreshSidebars=async()=>{const [h,w]=await Promise.all([fetch('/api/cotizador/history').then(r=>r.json()).catch(()=>({items:[]})),fetch('/api/cotizador/watchlist').then(r=>r.json()).catch(()=>({items:[]}))]);setHistory(h.items??[]);setWatchlist(w.items??[])}
+ useEffect(()=>{void refreshSidebars()},[])
+ const runValuation=async(payload:Record<string,unknown>)=>{setLoading(true);setError(null);try{const response=await fetch('/api/cotizador/valuar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const body=await response.json().catch(()=>({}));if(body.status==='needs_input'){const n=body as NeedsInput;setResolvedContext(n.resolved_context);setQuestion(n.question);setMissing(n.missing??[]);setOptions(n.options??[]);setFollowUp('');setResult(null);return}if(!response.ok)throw new Error(body.error||'No se pudo calcular la referencia de valor.');setResult(body);setResolvedContext(body.resolved_context??resolvedContext);setQuestion(null);setMissing([]);setOptions([]);void refreshSidebars()}catch(e){setError(e instanceof Error?e.message:'No se pudo completar el cálculo.')}finally{setLoading(false)}}
+ const handleAddressSubmit=async(e:React.FormEvent)=>{e.preventDefault();if(address.trim().length<3){setError('Escribe una dirección, camino, sector o localidad.');return}setResult(null);setResolvedContext(null);setQuestion(null);setOptions([]);await runValuation({address:address.trim()})}
+ const handleFollowUp=async(e:React.FormEvent)=>{e.preventDefault();if(!followUp.trim()||!resolvedContext)return;const clarify=missing.includes('address_clarification')||missing.includes('region');const nextAddress=clarify?`${address.trim()}, ${followUp.trim()}`:address.trim();if(clarify)setAddress(nextAddress);await runValuation({address:nextAddress,natural_input:followUp.trim(),resolved_context:resolvedContext})}
+ const chooseLocation=async(option:string)=>{setAddress(option);setQuestion(null);setOptions([]);setResolvedContext(null);await runValuation({address:option})}
+ const saveWatch=async()=>{if(!result)return;setSaving(true);try{await fetch('/api/cotizador/watchlist',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...result,label:resolvedContext?.display_name||address})});await refreshSidebars()}finally{setSaving(false)}}
+ const reset=()=>{setAddress('');setFollowUp('');setResolvedContext(null);setQuestion(null);setMissing([]);setOptions([]);setResult(null);setError(null)}
+ const rec=result?.recommendation_sr; const nearby=result?.nearby_intelligence
+ return <main className="container mx-auto space-y-8 px-4 py-8">
+  <WorkspaceHeading eyebrow="Valorizador interno SR" title="Decisión de terreno" description="Dirección primero. Mercado, vecinos, KMZ, actualidad y recomendación para Juan en una sola ficha." outcome="Cada valorización queda registrada y puede pasar a seguimiento." />
+  <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_360px]">
+   <div className="space-y-6">
+    <Card><CardHeader><CardTitle className="flex items-center gap-2"><MapPin className="h-5 w-5"/>Ubicación</CardTitle><CardDescription>Escribe como hablarías normalmente.</CardDescription></CardHeader><CardContent className="space-y-5">
+     <form onSubmit={handleAddressSubmit} className="flex gap-3"><Input value={address} onChange={e=>setAddress(e.target.value)} placeholder="Ej.: parcela 5.000 m² camino a Llifén, Futrono" disabled={loading}/><Button disabled={loading}>{loading?<Loader2 className="mr-2 h-4 w-4 animate-spin"/>:<Send className="mr-2 h-4 w-4"/>}Analizar</Button></form>
+     {resolvedContext?.display_name?<div className="rounded-md border bg-muted/30 p-3 text-sm"><b>Ubicación resuelta</b><p className="mt-1 text-muted-foreground">{resolvedContext.display_name}</p></div>:null}
+     {question?<div className="space-y-3 rounded-md border p-4"><p className="text-sm font-medium">{question}</p>{options.map(o=><button key={o} onClick={()=>chooseLocation(o)} className="block w-full rounded-md border p-2 text-left text-sm">{o}</button>)}<form onSubmit={handleFollowUp} className="flex gap-3"><Input value={followUp} onChange={e=>setFollowUp(e.target.value)} placeholder={missing.includes('area_sqm')?'Ej.: 5.000 m²':'Agrega una referencia'}/><Button disabled={loading||!followUp.trim()}>Continuar</Button></form></div>:null}
+     {error?<div className="flex gap-2 rounded-md border border-destructive/40 p-3 text-sm text-destructive"><AlertCircle className="h-4 w-4"/>{error}</div>:null}
+     {(result||resolvedContext||error)?<Button variant="ghost" size="sm" onClick={reset}><RotateCcw className="mr-2 h-4 w-4"/>Nueva valorización</Button>:null}
+    </CardContent></Card>
+    <Card><CardHeader><CardTitle>Ficha de decisión</CardTitle><CardDescription>Referencia comercial interna, evidencia y próximos pasos.</CardDescription></CardHeader><CardContent>
+     {loading?<div className="flex min-h-64 items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin"/>Contrastando mercado y territorio…</div>:result?<div className="space-y-5">
+      <div className="grid gap-3 md:grid-cols-4"><div className="rounded-md border p-4 md:col-span-2"><p className="text-xs text-muted-foreground">Valor central</p><p className="mt-1 text-3xl font-semibold">{formatClp(result.estimated_price)}</p><p className="mt-1 text-sm text-muted-foreground">{formatClp(result.price_range?.min??result.price_range?.low)} – {formatClp(result.price_range?.max??result.price_range?.high)}</p></div><div className="rounded-md border p-3"><p className="text-xs text-muted-foreground">Confianza</p><p className="mt-1 text-xl font-medium">{Math.round(result.confidence||0)}%</p></div><div className="rounded-md border p-3"><p className="text-xs text-muted-foreground">Evidencia</p><p className="mt-1 text-xl font-medium">{rec?.evidence_score??'—'}/100</p></div></div>
+      {rec?<div className="rounded-md border p-4"><p className="text-xs uppercase tracking-wide text-muted-foreground">Recomendación SR</p><p className="mt-2 font-medium">{rec.verdict?.replaceAll('_',' ')}</p><p className="mt-2 text-sm leading-6 text-muted-foreground">{rec.decision_summary}</p><ul className="mt-3 space-y-2 text-sm">{rec.recommended_actions?.map((a:string)=><li key={a} className="flex gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 text-primary"/>{a}</li>)}</ul></div>:null}
+      <div className="grid gap-3 md:grid-cols-3"><div className="rounded-md border p-3"><p className="text-xs text-muted-foreground">Comparables</p><p className="mt-1 font-medium">{result.sample_count||0}</p></div><div className="rounded-md border p-3"><p className="text-xs text-muted-foreground">Vecinos mercado</p><p className="mt-1 font-medium">{nearby?.market_neighbors?.length??0}</p></div><div className="rounded-md border p-3"><p className="text-xs text-muted-foreground">Vecinos KMZ</p><p className="mt-1 font-medium">{nearby?.kmz_neighbors?.length??0}</p></div></div>
+      <div className="flex flex-wrap gap-2"><Button onClick={saveWatch} disabled={saving}>{saving?<Loader2 className="mr-2 h-4 w-4 animate-spin"/>:<Eye className="mr-2 h-4 w-4"/>}Seguir terreno</Button>{result.current_market?.refresh_recommended?<span className="rounded-md border px-3 py-2 text-xs">Refresh de mercado recomendado</span>:null}{result.progressive_geocoding?.updated?<span className="rounded-md border px-3 py-2 text-xs">{result.progressive_geocoding.updated} avisos georreferenciados</span>:null}</div>
+     </div>:<div className="flex min-h-64 flex-col items-center justify-center text-center"><BarChart3 className="h-7 w-7 text-muted-foreground"/><p className="mt-3 font-medium">Parte por una dirección</p><p className="mt-1 max-w-sm text-sm text-muted-foreground">La ficha se arma automáticamente con evidencia de mercado, KMZ y contexto actual.</p></div>}
+    </CardContent></Card>
+   </div>
+   <div className="space-y-6">
+    <Card><CardHeader><CardTitle className="flex items-center gap-2"><Eye className="h-4 w-4"/>Seguimiento</CardTitle><CardDescription>Terrenos que Juan quiere volver a revisar.</CardDescription></CardHeader><CardContent className="space-y-3">{watchlist.length?watchlist.slice(0,8).map(w=><div key={w.id} className="border-b pb-3 text-sm"><p className="font-medium line-clamp-2">{w.label}</p><p className="mt-1 text-xs text-muted-foreground">{w.last_price?formatClp(w.last_price):'Sin valor'} · {w.last_confidence?Math.round(w.last_confidence)+'%':'—'}</p></div>):<p className="text-sm text-muted-foreground">Aún no hay terrenos en seguimiento.</p>}</CardContent></Card>
+    <Card><CardHeader><CardTitle className="flex items-center gap-2"><History className="h-4 w-4"/>Historial</CardTitle><CardDescription>Últimas valorizaciones canónicas.</CardDescription></CardHeader><CardContent className="space-y-3">{history.length?history.slice(0,8).map(h=><div key={h.id} className="border-b pb-3 text-sm"><p className="font-medium line-clamp-2">{h.resolved_address||h.commune}</p><p className="mt-1 text-xs text-muted-foreground">{formatClp(h.estimated_price)} · {Math.round(h.confidence||0)}% · {new Date(h.created_at).toLocaleDateString('es-CL')}</p></div>):<p className="text-sm text-muted-foreground">El historial comenzará con la próxima valorización.</p>}</CardContent></Card>
+   </div>
+  </div>
+ </main>
 }
