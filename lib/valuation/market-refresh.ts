@@ -22,7 +22,11 @@ export async function refreshMarketForValuation(input: { region: string; commune
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (url && key) {
     const db = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
-    await db.rpc('deduplicate_properties_external').catch(() => null)
+    try {
+      await db.rpc('deduplicate_properties_external')
+    } catch {
+      // Refresh remains useful even if the optional dedupe RPC is unavailable.
+    }
   }
 
   return {
