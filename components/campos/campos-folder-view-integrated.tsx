@@ -149,10 +149,10 @@ function cirenNeighborPlacemarks(context: CirenContext | null): KmzRenderablePla
         .filter((pair) => Array.isArray(pair) && pair.length >= 2)
         .map((pair) => [Number(pair[0]), Number(pair[1])]),
       description: [
-        "Cartografía de referencia CIREN / IDE Minagri",
+        "Cartografía complementaria CIREN / IDE Minagri",
         neighbor.comuna ? `Comuna: ${neighbor.comuna}` : null,
         sourceYear ? `Cartografía ${sourceYear}` : null,
-        neighbor.relation === "adjacent" ? "Próximo al límite del KMZ (estimación espacial)" : null,
+        neighbor.relation === "adjacent" ? "Próximo al límite del KMZ" : null,
         neighbor.relation === "nearby" ? `Aprox. ${neighbor.distanceM} m del KMZ` : null,
       ].filter(Boolean).join(" · "),
       properties: {
@@ -185,9 +185,9 @@ export function CAMPOSFolderViewIntegrated() {
   const [loadingRegions, setLoadingRegions] = useState<Set<string>>(new Set())
   const [loadingInitial, setLoadingInitial] = useState(true)
   const [loadingMap, setLoadingMap] = useState(false)
-  const [loadingCiren, setLoadingCiren] = useState(false)
+  const [, setLoadingCiren] = useState(false)
   const [cirenContext, setCirenContext] = useState<CirenContext | null>(null)
-  const [cirenError, setCirenError] = useState(false)
+  const [, setCirenError] = useState(false)
   const [fatalError, setFatalError] = useState(false)
 
   const loadSummaries = useCallback(async () => {
@@ -234,7 +234,6 @@ export function CAMPOSFolderViewIntegrated() {
     try {
       const records = await ensureRegionRecords(region)
       const pointFiles = regionalPointFiles(records)
-
       setKmzFiles(pointFiles)
 
       const summary = summaries.find((item) => item.region === region)
@@ -292,7 +291,7 @@ export function CAMPOSFolderViewIntegrated() {
         return [...base, {
           id: `ciren:${record.id}`,
           dbId: String(record.id),
-          fileName: "CIREN · Predios rurales cercanos",
+          fileName: "Referencia CIREN",
           placemarks: overlayPlacemarks,
           metadata: {
             source: "ciren",
@@ -410,19 +409,6 @@ export function CAMPOSFolderViewIntegrated() {
 
   const cirenNeighbors = cirenContext?.properties?.neighbors || []
   const cirenSameProperty = cirenNeighbors.find((neighbor) => neighbor.relation === "same_property") || null
-  const cirenAdjacentCount = cirenNeighbors.filter((neighbor) => neighbor.relation === "adjacent").length
-  const cirenNearbyCount = cirenNeighbors.filter((neighbor) => neighbor.relation === "nearby").length
-  const cirenSoilClasses = cirenContext?.soils?.classes || []
-  const cirenHasCoverage = Boolean(
-    (cirenContext?.properties && !cirenContext.properties.unsupported)
-    || (cirenContext?.soils && !cirenContext.soils.unsupported),
-  )
-  const cirenUsingSnapshot = Boolean(
-    cirenContext?.properties?.cached
-    || cirenContext?.soils?.cached
-    || cirenContext?.properties?.upstreamUnavailable
-    || cirenContext?.soils?.upstreamUnavailable,
-  )
 
   if (fatalError) {
     return (
@@ -544,7 +530,7 @@ export function CAMPOSFolderViewIntegrated() {
                   <span>{selectedRecord.region}</span>
                   {selectedRecord.rol_numbers?.[0] ? <><span aria-hidden="true">·</span><span>ROL {selectedRecord.rol_numbers[0]}</span></> : null}
                 </div>
-                <p className="mt-2 text-[11px] text-muted-foreground">Se muestran únicamente datos territoriales documentados y fuentes cartográficas identificables.</p>
+                <p className="mt-2 text-[11px] text-muted-foreground">Datos documentados del campo y evidencia territorial disponible.</p>
               </div>
               <div className="flex flex-wrap justify-end gap-2">
                 <Badge variant="outline" className={geometryBadge(selectedRecord).className}>{geometryBadge(selectedRecord).label}</Badge>
@@ -556,74 +542,9 @@ export function CAMPOSFolderViewIntegrated() {
               record={selectedRecord}
               ciren={{
                 samePropertyRol: cirenSameProperty?.rol || null,
-                commune: cirenSameProperty?.comuna || cirenNeighbors.find((neighbor) => neighbor.comuna)?.comuna || null,
                 neighborCount: cirenNeighbors.length,
-                hasCoverage: cirenHasCoverage,
               }}
             />
-
-            <div className="mt-4 rounded-lg border border-border/70 bg-secondary/25 px-4 py-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <p className="sr-meta">Contexto territorial CIREN</p>
-                  <p className="mt-1 text-xs text-muted-foreground">Referencia cartográfica CIREN / IDE Minagri. El KMZ sigue siendo la geometría principal.</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {loadingCiren ? <Badge variant="outline"><Loader2 className="mr-1.5 h-3 w-3 animate-spin" /> Consultando CIREN</Badge> : null}
-                  {cirenUsingSnapshot ? <Badge variant="outline">Último snapshot válido</Badge> : null}
-                </div>
-              </div>
-
-              {!loadingCiren && cirenError ? (
-                <p className="mt-3 text-xs text-muted-foreground">CIREN no está disponible en este momento. El mapa KMZ continúa operativo sin esta capa.</p>
-              ) : null}
-
-              {!loadingCiren && cirenContext && !cirenHasCoverage ? (
-                <p className="mt-3 text-xs text-muted-foreground">CIREN no publica una capa compatible para esta región en los datasets conectados.</p>
-              ) : null}
-
-              {cirenContext && cirenHasCoverage ? (
-                <div className="mt-3 grid gap-3 md:grid-cols-2">
-                  <div className="rounded-md border border-border/60 bg-background/75 p-3">
-                    <p className="text-xs font-medium">Propiedades rurales</p>
-                    {cirenContext.properties?.unsupported ? (
-                      <p className="mt-1 text-xs text-muted-foreground">Sin cobertura publicada para esta región.</p>
-                    ) : (
-                      <>
-                        <p className="mt-1 text-sm font-semibold">
-                          {cirenSameProperty?.rol ? `ROL CIREN ${cirenSameProperty.rol}` : `${cirenNeighbors.length} predios de referencia`}
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {[
-                            cirenSameProperty?.comuna || null,
-                            cirenAdjacentCount ? `${cirenAdjacentCount} próximos al límite` : null,
-                            cirenNearbyCount ? `${cirenNearbyCount} cercanos` : null,
-                            cirenContext.properties?.sourceYear ? `cartografía ${cirenContext.properties.sourceYear}` : null,
-                          ].filter(Boolean).join(" · ") || "Sin predios rurales coincidentes en el radio consultado."}
-                        </p>
-                      </>
-                    )}
-                  </div>
-
-                  <div className="rounded-md border border-border/60 bg-background/75 p-3">
-                    <p className="text-xs font-medium">Capacidad de uso de suelo</p>
-                    {cirenContext.soils?.unsupported ? (
-                      <p className="mt-1 text-xs text-muted-foreground">Sin cobertura publicada para esta región.</p>
-                    ) : cirenSoilClasses.length > 0 ? (
-                      <>
-                        <p className="mt-1 text-sm font-semibold">Clases {cirenSoilClasses.join(", ")}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {cirenContext.soils?.sourceYear ? `Cartografía CIREN ${cirenContext.soils.sourceYear}` : "Cartografía CIREN"}
-                          {cirenContext.soils?.featureCount ? ` · ${cirenContext.soils.featureCount} unidad${cirenContext.soils.featureCount === 1 ? "" : "es"} intersectada${cirenContext.soils.featureCount === 1 ? "" : "s"}` : ""}
-                        </p>
-                      </>
-                    ) : (
-                      <p className="mt-1 text-xs text-muted-foreground">Sin unidades de suelo intersectadas para este polígono.</p>
-                    )}
-                  </div>
-                </div>
-              ) : null}
-            </div>
           </section>
         ) : null}
       </main>
