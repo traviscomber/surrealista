@@ -1,4 +1,4 @@
-export const MARKET_CHALLENGER_VERSION = 'sr-market-challenger-v3'
+export const MARKET_CHALLENGER_VERSION = 'sr-market-challenger-v4'
 
 export type MarketComparableInput = {
   price_clp: number
@@ -180,6 +180,30 @@ function normalizeComparableSurface(item: MarketComparableInput, propertyType: s
   }
 }
 
+function propertyTypeConflict(item: MarketComparableInput, propertyType: string) {
+  const type = normalizeText(propertyType)
+  const title = normalizeText(item.title)
+  if (!title) return false
+
+  const hasBuiltAsset = /\b(casa|caba(?:n|ñ)a|caba(?:n|ñ)as|complejo tur[ií]stico|hotel|hostal|bodega|galp[oó]n|construcci[oó]n|vivienda|departamento)\b/i.test(title)
+  const hasParcelSignal = /\b(parcela|parcelaci[oó]n)\b/i.test(title)
+  const hasUrbanSignal = /\b(sitio|urbano|comercial|industrial)\b/i.test(title)
+
+  if (type === 'terreno') {
+    return hasBuiltAsset || hasParcelSignal || hasUrbanSignal
+  }
+
+  if (type === 'parcela') {
+    return hasBuiltAsset && !/\bparcela\b/i.test(title)
+  }
+
+  if (type === 'campo') {
+    return /\b(casa urbana|departamento|sitio urbano|local comercial)\b/i.test(title)
+  }
+
+  return false
+}
+
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number) {
   const toRad = (value: number) => value * Math.PI / 180
   const earthKm = 6371
@@ -308,8 +332,9 @@ export function buildMarketChallenger(input: {
 
   if (candidates.length < 3) return null
 
-  const qualityEligible = candidates.filter((item) => item.data_quality_score >= 45)
-  const basePool = qualityEligible.length >= 3 ? qualityEligible : candidates
+  const typeEligible = candidates.filter((item) => !propertyTypeConflict(item, input.property_type))
+  const qualityEligible = typeEligible.filter((item) => item.data_quality_score >= 45)
+  const basePool = qualityEligible.length >= 3 ? qualityEligible : typeEligible.length >= 3 ? typeEligible : candidates
   const prices = basePool.map((item) => item.effective_price_per_m2_clp)
   const q1 = quantile(prices, 0.25)
   const q3 = quantile(prices, 0.75)
@@ -318,6 +343,9 @@ export function buildMarketChallenger(input: {
   const upperFence = q3 + 1.5 * iqr
 
   const ranked = candidates.map((item) => {
+    if (propertyTypeConflict(item, input.property_type) && typeEligible.length >= 3) {
+      return { ...item, included: false, exclusion_reason: 'property_type_conflict' }
+    }
     if (item.data_quality_score < 45 && qualityEligible.length >= 3) {
       return { ...item, included: false, exclusion_reason: 'low_data_quality' }
     }
