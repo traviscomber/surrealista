@@ -10,6 +10,7 @@ export const runtime = 'nodejs'
 
 const ACCESS_COOKIE = 'sur_realista_access'
 const MIN_COMPARABLES = 3
+const MIN_CHALLENGER_CONFIDENCE = 45
 const MAX_AREA_SQM = 1_000_000_000
 const LAND_PROPERTY_TYPES = [
   'terreno',
@@ -24,15 +25,11 @@ const LAND_PROPERTY_TYPES = [
   'fundo ganadero',
   'fundo lechero',
   'loteo / parcelación',
+  'sitio',
+  'lote',
+  'fundo',
+  'predio',
 ]
-
-interface MarketSnapshot {
-  sample_count: number
-  median_price_m2_clp: number | null
-  avg_days_active: number | null
-  sources: string[] | null
-  computed_at: string
-}
 
 type Comparable = MarketComparableInput
 
@@ -116,14 +113,16 @@ export async function POST(request: NextRequest) {
     let displayName = String(prior.display_name ?? '').trim()
 
     const rawArea = Number(body.area_sqm ?? prior.area_sqm)
-    let sqm = Number.isFinite(rawArea) && rawArea > 0 ? rawArea : parseNaturalArea(naturalInput) ?? parseNaturalArea(address)
+    let sqm = Number.isFinite(rawArea) && rawArea > 0
+      ? rawArea
+      : parseNaturalArea(naturalInput) ?? parseNaturalArea(address)
 
     const rawLat = Number(body.lat ?? body.latitude ?? prior.lat)
     const rawLng = Number(body.lng ?? body.longitude ?? prior.lng)
     let subjectLat = Number.isFinite(rawLat) ? rawLat : null
     let subjectLng = Number.isFinite(rawLng) ? rawLng : null
 
-    const emptyContext = (): ResolvedContext => ({
+    const currentContext = (): ResolvedContext => ({
       address: address || null,
       display_name: displayName || null,
       region: region || null,
@@ -135,7 +134,11 @@ export async function POST(request: NextRequest) {
     })
 
     if (!address && !region) {
-      return needsInput('¿Dónde está el terreno? Escríbeme la dirección o el sector tal como lo conoces.', ['address'], emptyContext())
+      return needsInput(
+        '¿Dónde está el terreno? Escríbeme la dirección o el sector tal como lo conoces.',
+        ['address'],
+        currentContext(),
+      )
     }
 
     if (address && (!region || subjectLat === null || subjectLng === null)) {
@@ -144,17 +147,16 @@ export async function POST(request: NextRequest) {
         return needsInput(
           'No pude ubicar esa dirección con suficiente seguridad. ¿Puedes agregar la comuna o una referencia cercana?',
           ['address_clarification'],
-          emptyContext(),
+          currentContext(),
         )
       }
 
       if (isAmbiguousAddress(matches)) {
-        const options = matches.slice(0, 3).map((item) => item.display_name)
         return needsInput(
-          `Encontré más de una ubicación posible. ¿A cuál te refieres?`,
+          'Encontré más de una ubicación posible. ¿A cuál te refieres?',
           ['address_clarification'],
-          emptyContext(),
-          options,
+          currentContext(),
+          matches.slice(0, 3).map((item) => item.display_name),
         )
       }
 
@@ -167,20 +169,39 @@ export async function POST(request: NextRequest) {
     }
 
     if (!region) {
-      return needsInput('Pude aproximar la ubicación, pero me falta identificar la región. ¿En qué comuna o región está?', ['region'], emptyContext())
+      return needsInput(
+        'Pude aproximar la ubicación, pero me falta identificar la región. ¿En qué comuna o región está?',
+        ['region'],
+        currentContext(),
+      )
     }
 
     if (!sqm) {
       return needsInput(
         'Ubicación encontrada. ¿Cuántos m² o hectáreas tiene aproximadamente el terreno?',
         ['area_sqm'],
-        emptyContext(),
+        currentContext(),
       )
     }
 
     sqm = Math.round(sqm)
     if (!Number.isFinite(sqm) || sqm <= 0 || sqm > MAX_AREA_SQM) {
-      return needsInput('No pude interpretar la superficie. Puedes responder, por ejemplo, “5.000 m²” o “12 hectáreas”.', ['area_sqm'], emptyContext())
+      return needsInput(
+        'No pude interpretar la superficie. Puedes responder, por ejemplo, “5.000 m²” o “12 hectáreas”.',
+        ['area_sqm'],
+        currentContext(),
+      )
+    }
+
+    const resolvedContext: ResolvedContext = {
+      address: address || null,
+      display_name: displayName || null,
+      region,
+      city: city || null,
+      lat: subjectLat,
+      lng: subjectLng,
+      property_type: propertyType,
+      area_sqm: sqm,
     }
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -193,8 +214,7 @@ export async function POST(request: NextRequest) {
       auth: { persistSession: false, autoRefreshToken: false },
     })
 
-    // Production champion remains intentionally unchanged: exact normalized type,
-    // region and subject-area window. Address resolution only supplies those inputs.
+    // Champion: keep the proven exact-type/local-window logic unchanged.
     let comparableQuery = supabase
       .from('properties_external')
       .select('price_clp,price_uf,area_m2,price_per_m2_clp,commune,source,source_url,days_active,scraped_at,title,lat,lng')
@@ -211,8 +231,8 @@ export async function POST(request: NextRequest) {
 
     if (city) comparableQuery = comparableQuery.ilike('commune', `%${city}%`)
 
-    // Challenger is land-family based, not KMZ based and not tied to one literal
-    // listing category. It ranks local/spatial evidence and falls back to the region.
+    // National fallback: all compatible land-family listings in the resolved region.
+    // This is independent from KMZ coverage and ranks locality/spatial distance later.
     const challengerQuery = supabase
       .from('properties_external')
       .select('price_clp,price_uf,area_m2,price_per_m2_clp,commune,source,source_url,days_active,scraped_at,title,lat,lng')
@@ -225,23 +245,18 @@ export async function POST(request: NextRequest) {
       .order('scraped_at', { ascending: false })
       .limit(300)
 
-    const [ufResult, comparableResult, challengerResult, marketResult] = await Promise.all([
+    const [ufResult, comparableResult, challengerResult] = await Promise.all([
       getCurrentUF(),
       comparableQuery,
       challengerQuery,
-      supabase
-        .from('market_comparable_data')
-        .select('sample_count,median_price_m2_clp,avg_days_active,sources,computed_at')
-        .ilike('region', `%${region}%`)
-        .eq('property_type', propertyType)
-        .eq('operation', 'venta')
-        .order('computed_at', { ascending: false })
-        .limit(1),
     ])
 
-    if (comparableResult.error) console.error('[Cotizador] Error consultando comparables:', comparableResult.error.message)
-    if (challengerResult.error) console.error('[Cotizador] Error consultando candidatos challenger:', challengerResult.error.message)
-    if (marketResult.error) console.error('[Cotizador] Error consultando estadísticas:', marketResult.error.message)
+    if (comparableResult.error) {
+      console.error('[Cotizador] Error consultando comparables champion:', comparableResult.error.message)
+    }
+    if (challengerResult.error) {
+      console.error('[Cotizador] Error consultando comparables challenger:', challengerResult.error.message)
+    }
 
     const directComparables = ((comparableResult.data ?? []) as Comparable[]).filter(
       (item) => Number.isFinite(item.price_per_m2_clp) && item.price_per_m2_clp > 0,
@@ -249,7 +264,6 @@ export async function POST(request: NextRequest) {
     const challengerComparables = ((challengerResult.data ?? []) as Comparable[]).filter(
       (item) => Number.isFinite(item.price_clp) && item.price_clp > 0 && Number.isFinite(item.area_m2) && item.area_m2 > 0,
     )
-    const marketSnapshot = (marketResult.data?.[0] ?? null) as MarketSnapshot | null
 
     const challenger = challengerComparables.length >= MIN_COMPARABLES
       ? buildMarketChallenger({
@@ -263,17 +277,34 @@ export async function POST(request: NextRequest) {
         })
       : null
 
+    let modelSource: 'champion_local' | 'challenger_national' = 'champion_local'
     let basePriceM2: number | null = null
+    let estimatedPrice = 0
+    let minPrice = 0
+    let maxPrice = 0
     let methodology = ''
     let sampleCount = 0
     let dataSources: string[] = []
     let lastUpdated: string | null = null
     let confidence = 0
+    let summaryComparables: Array<{
+      price_clp: number
+      price_uf: number | null
+      area_m2: number
+      price_per_m2_clp: number
+      commune: string | null
+      source: string
+      source_url: string | null
+      scraped_at: string | null
+      similarity_score?: number
+      geographic_tier?: string
+    }> = []
 
     if (directComparables.length >= MIN_COMPARABLES) {
       const prices = directComparables.map((item) => item.price_per_m2_clp)
-      const q1 = [...prices].sort((a, b) => a - b)[Math.floor(prices.length * 0.25)]
-      const q3 = [...prices].sort((a, b) => a - b)[Math.floor(prices.length * 0.75)]
+      const ordered = [...prices].sort((a, b) => a - b)
+      const q1 = ordered[Math.floor(ordered.length * 0.25)]
+      const q3 = ordered[Math.floor(ordered.length * 0.75)]
       const filtered = directComparables.filter(
         (item) => item.price_per_m2_clp >= q1 && item.price_per_m2_clp <= q3,
       )
@@ -283,54 +314,79 @@ export async function POST(request: NextRequest) {
       sampleCount = usable.length
       dataSources = [...new Set(usable.map((item) => item.source).filter(Boolean))]
       lastUpdated = usable.map((item) => item.scraped_at).filter(Boolean).sort().at(-1) ?? null
-      methodology = `Mediana de ${sampleCount} avisos comparables activos, filtrados por región, tipo y superficie.`
+      methodology = `Modelo local: mediana de ${sampleCount} avisos comparables activos, filtrados por región, tipo y superficie.`
       confidence = Math.min(65 + sampleCount * 2, 90)
+      estimatedPrice = Math.round(basePriceM2 * sqm)
+      const margin = sampleCount >= 15 ? 0.12 : sampleCount >= 8 ? 0.16 : 0.22
+      minPrice = Math.round(estimatedPrice * (1 - margin))
+      maxPrice = Math.round(estimatedPrice * (1 + margin))
+      summaryComparables = usable.slice(0, 5).map((item) => ({
+        price_clp: item.price_clp,
+        price_uf: item.price_uf,
+        area_m2: item.area_m2,
+        price_per_m2_clp: item.price_per_m2_clp,
+        commune: item.commune,
+        source: item.source,
+        source_url: item.source_url,
+        scraped_at: item.scraped_at,
+      }))
     } else if (
-      marketSnapshot &&
-      marketSnapshot.sample_count >= MIN_COMPARABLES &&
-      Number(marketSnapshot.median_price_m2_clp) > 0
+      challenger &&
+      challenger.sample_count >= MIN_COMPARABLES &&
+      challenger.confidence >= MIN_CHALLENGER_CONFIDENCE
     ) {
-      basePriceM2 = Number(marketSnapshot.median_price_m2_clp)
-      sampleCount = marketSnapshot.sample_count
-      dataSources = marketSnapshot.sources ?? []
-      lastUpdated = marketSnapshot.computed_at
-      methodology = `Mediana agregada de ${sampleCount} registros comparables de mercado.`
-      confidence = Math.min(60 + Math.floor(sampleCount / 3), 85)
-    }
+      modelSource = 'challenger_national'
+      basePriceM2 = challenger.price_per_sqm
+      sampleCount = challenger.sample_count
+      confidence = challenger.confidence
+      estimatedPrice = challenger.estimated_price
+      minPrice = challenger.price_range.low
+      maxPrice = challenger.price_range.high
 
-    const resolvedContext: ResolvedContext = {
-      address: address || null,
-      display_name: displayName || null,
-      region,
-      city: city || null,
-      lat: subjectLat,
-      lng: subjectLng,
-      property_type: propertyType,
-      area_sqm: sqm,
+      const selected = challenger.comparables.filter((item) => item.included)
+      dataSources = [...new Set(selected.map((item) => item.source).filter(Boolean))]
+      lastUpdated = selected.map((item) => item.scraped_at).filter(Boolean).sort().at(-1) ?? null
+      methodology = `Modelo nacional ${challenger.algorithm_version}: ${sampleCount} comparables de familia suelo, priorizados por comuna/distancia, similitud de superficie, recencia y calidad de evidencia.`
+      summaryComparables = selected.slice(0, 5).map((item) => ({
+        price_clp: item.price_clp,
+        price_uf: item.price_uf,
+        area_m2: item.effective_area_m2,
+        price_per_m2_clp: Math.round(item.effective_price_per_m2_clp),
+        commune: item.commune,
+        source: item.source,
+        source_url: item.source_url,
+        scraped_at: item.scraped_at,
+        similarity_score: item.similarity_score,
+        geographic_tier: item.geographic_tier,
+      }))
     }
 
     if (!basePriceM2) {
+      const lowConfidence = challenger && challenger.sample_count >= MIN_COMPARABLES
       return NextResponse.json(
         {
-          error: 'No hay suficientes comparables del modelo actual para emitir una referencia vinculante.',
-          code: 'INSUFFICIENT_COMPARABLES',
+          status: 'insufficient_evidence',
+          error: lowConfidence
+            ? 'Hay evidencia de mercado, pero todavía no alcanza el nivel mínimo de confianza para emitir una referencia responsable.'
+            : 'No hay suficientes comparables verificables para emitir una referencia responsable.',
+          code: lowConfidence ? 'LOW_CHALLENGER_CONFIDENCE' : 'INSUFFICIENT_COMPARABLES',
+          question: lowConfidence
+            ? 'Si tienes una referencia más precisa del sector o un enlace de ubicación, puedo intentar afinar la búsqueda.'
+            : null,
           sample_count: directComparables.length,
           resolved_context: resolvedContext,
-          challenger: challenger ? { status: 'shadow_only', non_binding: true, ...challenger } : null,
+          challenger: challenger ? { status: 'diagnostic', non_binding: true, ...challenger } : null,
         },
         { status: 422 },
       )
     }
 
-    const estimatedPrice = Math.round(basePriceM2 * sqm)
-    const margin = sampleCount >= 15 ? 0.12 : sampleCount >= 8 ? 0.16 : 0.22
-    const minPrice = Math.round(estimatedPrice * (1 - margin))
-    const maxPrice = Math.round(estimatedPrice * (1 + margin))
     const ufValue = ufResult?.value ?? null
     const toUF = (value: number) => ufValue ? Number((value / ufValue).toFixed(2)) : null
 
     return NextResponse.json({
       status: 'valued',
+      model_source: modelSource,
       resolved_context: resolvedContext,
       estimated_price: estimatedPrice,
       estimated_price_uf: toUF(estimatedPrice),
@@ -343,6 +399,7 @@ export async function POST(request: NextRequest) {
       price_per_sqm: basePriceM2,
       price_per_sqm_uf: ufValue ? Number((basePriceM2 / ufValue).toFixed(4)) : null,
       confidence,
+      confidence_label: confidence >= 75 ? 'alta' : confidence >= 55 ? 'media' : 'baja',
       sample_count: sampleCount,
       methodology,
       comparable_analysis: methodology,
@@ -352,22 +409,22 @@ export async function POST(request: NextRequest) {
         `Superficie analizada: ${sqm.toLocaleString('es-CL')} m²`,
         `Precio mediano comparable: $${basePriceM2.toLocaleString('es-CL')}/m²`,
         `Muestra utilizada: ${sampleCount} registros`,
+        modelSource === 'challenger_national'
+          ? 'Cobertura ampliada: familia de terrenos con priorización territorial y por similitud.'
+          : 'Cobertura local: tipo exacto y comuna cuando existe muestra suficiente.',
       ],
       recommendations: [
         'Este resultado es una referencia comercial interna y no una tasación oficial.',
         'Verifique estado jurídico, accesos, servicios, topografía y restricciones antes de tomar una decisión.',
       ],
-      comparables_summary: directComparables.slice(0, 5).map((item) => ({
-        price_clp: item.price_clp,
-        price_uf: item.price_uf,
-        area_m2: item.area_m2,
-        price_per_m2_clp: item.price_per_m2_clp,
-        commune: item.commune,
-        source: item.source,
-        source_url: item.source_url,
-        scraped_at: item.scraped_at,
-      })),
-      challenger: challenger ? { status: 'shadow_only', non_binding: true, ...challenger } : null,
+      comparables_summary: summaryComparables,
+      challenger: challenger
+        ? {
+            status: modelSource === 'challenger_national' ? 'active_fallback' : 'shadow_only',
+            non_binding: modelSource !== 'challenger_national',
+            ...challenger,
+          }
+        : null,
       last_updated: lastUpdated,
       uf_value: ufValue,
       uf_date: ufResult?.date ?? null,
