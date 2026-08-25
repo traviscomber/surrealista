@@ -1,4 +1,4 @@
-export const MARKET_CHALLENGER_VERSION = 'sr-market-challenger-v4'
+export const MARKET_CHALLENGER_VERSION = 'sr-market-challenger-v5'
 
 export type MarketComparableInput = {
   price_clp: number
@@ -26,6 +26,8 @@ export type RankedComparable = MarketComparableInput & {
   area_confidence: AreaConfidence
   data_quality_score: number
   data_quality_reasons: string[]
+  property_type_fit_score: number
+  property_type_fit_reason: string
   geographic_tier: GeographicTier
   distance_km: number | null
   similarity_score: number
@@ -180,28 +182,44 @@ function normalizeComparableSurface(item: MarketComparableInput, propertyType: s
   }
 }
 
-function propertyTypeConflict(item: MarketComparableInput, propertyType: string) {
+function propertyTypeEvidence(item: MarketComparableInput, propertyType: string) {
   const type = normalizeText(propertyType)
   const title = normalizeText(item.title)
-  if (!title) return false
+  if (!title) return { conflict: false, score: 75, reason: 'titulo_no_especifica_subtipo' }
 
-  const hasBuiltAsset = /\b(casa|caba(?:n|ñ)a|caba(?:n|ñ)as|complejo tur[ií]stico|hotel|hostal|bodega|galp[oó]n|construcci[oó]n|vivienda|departamento)\b/i.test(title)
-  const hasParcelSignal = /\b(parcela|parcelaci[oó]n)\b/i.test(title)
-  const hasUrbanSignal = /\b(sitio|urbano|comercial|industrial)\b/i.test(title)
+  const landFamilyTarget = ['terreno', 'parcela', 'campo', 'agrícola', 'agricola', 'terreno rural', 'campo agrícola', 'campo forestal'].includes(type)
+  if (!landFamilyTarget) return { conflict: false, score: 80, reason: 'tipo_sin_taxonomia_sr' }
 
-  if (type === 'terreno') {
-    return hasBuiltAsset || hasParcelSignal || hasUrbanSignal
+  const hasLandSignal = /\b(terreno|parcela|parcelaci[oó]n|sitio|lote|loteo|campo|fundo|predio|hect[aá]rea|agr[ií]cola|forestal)\b/i.test(title)
+  const hasBuiltAsset = /\b(casa|caba(?:n|ñ)a|caba(?:n|ñ)as|complejo tur[ií]stico|hotel|hostal|bodega|galp[oó]n|vivienda|departamento|oficina|local comercial)\b/i.test(title)
+  const clearlyNonLand = /\b(departamento|oficina|local comercial|casa urbana)\b/i.test(title)
+
+  if (clearlyNonLand && !hasLandSignal) {
+    return { conflict: true, score: 0, reason: 'activo_principal_no_es_suelo' }
   }
 
-  if (type === 'parcela') {
-    return hasBuiltAsset && !/\bparcela\b/i.test(title)
+  if (hasLandSignal && hasBuiltAsset) {
+    return { conflict: false, score: 68, reason: 'suelo_con_mejoras_construidas' }
   }
 
-  if (type === 'campo') {
-    return /\b(casa urbana|departamento|sitio urbano|local comercial)\b/i.test(title)
+  if (hasLandSignal) {
+    if (type === 'campo' && /\b(campo|fundo|predio|hect[aá]rea|agr[ií]cola|forestal)\b/i.test(title)) {
+      return { conflict: false, score: 100, reason: 'misma_familia_campo' }
+    }
+    if (type === 'parcela' && /\b(parcela|parcelaci[oó]n|lote|loteo)\b/i.test(title)) {
+      return { conflict: false, score: 100, reason: 'misma_familia_parcela' }
+    }
+    if (type === 'terreno' && /\b(terreno|sitio|lote|parcela|campo|fundo|predio)\b/i.test(title)) {
+      return { conflict: false, score: 92, reason: 'familia_suelo_compatible' }
+    }
+    return { conflict: false, score: 82, reason: 'familia_suelo_compatible' }
   }
 
-  return false
+  if (hasBuiltAsset) {
+    return { conflict: true, score: 0, reason: 'construccion_sin_evidencia_de_suelo' }
+  }
+
+  return { conflict: false, score: 72, reason: 'titulo_ambiguo_sin_conflicto' }
 }
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number) {
@@ -285,7 +303,7 @@ function comparableSimilarity(item: RankedComparable, subjectArea: number) {
     : item.geographic_tier === 'radius_15km' ? 90
       : item.geographic_tier === 'radius_50km' ? 70
         : 45
-  return Math.round(area * 0.4 + location * 0.25 + recency * 0.1 + item.data_quality_score * 0.25)
+  return Math.round(area * 0.35 + location * 0.25 + recency * 0.1 + item.data_quality_score * 0.2 + item.property_type_fit_score * 0.1)
 }
 
 function emptyGeographicMix(): Record<GeographicTier, number> {
@@ -309,17 +327,20 @@ export function buildMarketChallenger(input: {
     .map((item) => {
       const normalized = normalizeComparableSurface(item, input.property_type)
       const geographic = geographicEvidence(item, input.commune ?? null, subjectLat, subjectLng)
+      const typeEvidence = propertyTypeEvidence(item, input.property_type)
       const ranked: RankedComparable = {
         ...item,
         ...normalized,
         effective_price_per_m2_clp: item.price_clp / normalized.effective_area_m2,
         data_quality_score: 0,
         data_quality_reasons: [],
+        property_type_fit_score: typeEvidence.score,
+        property_type_fit_reason: typeEvidence.reason,
         geographic_tier: geographic.tier,
         distance_km: geographic.distance_km,
         similarity_score: 0,
         included: true,
-        exclusion_reason: null,
+        exclusion_reason: typeEvidence.conflict ? 'property_type_conflict' : null,
       }
       const quality = qualityEvidence(ranked)
       ranked.data_quality_score = quality.score
@@ -332,7 +353,7 @@ export function buildMarketChallenger(input: {
 
   if (candidates.length < 3) return null
 
-  const typeEligible = candidates.filter((item) => !propertyTypeConflict(item, input.property_type))
+  const typeEligible = candidates.filter((item) => item.exclusion_reason !== 'property_type_conflict')
   const qualityEligible = typeEligible.filter((item) => item.data_quality_score >= 45)
   const basePool = qualityEligible.length >= 3 ? qualityEligible : typeEligible.length >= 3 ? typeEligible : candidates
   const prices = basePool.map((item) => item.effective_price_per_m2_clp)
@@ -343,16 +364,14 @@ export function buildMarketChallenger(input: {
   const upperFence = q3 + 1.5 * iqr
 
   const ranked = candidates.map((item) => {
-    if (propertyTypeConflict(item, input.property_type) && typeEligible.length >= 3) {
-      return { ...item, included: false, exclusion_reason: 'property_type_conflict' }
-    }
+    if (item.exclusion_reason === 'property_type_conflict' && typeEligible.length >= 3) return item
     if (item.data_quality_score < 45 && qualityEligible.length >= 3) {
       return { ...item, included: false, exclusion_reason: 'low_data_quality' }
     }
     const areaRatio = Math.min(input.area_m2, item.effective_area_m2) / Math.max(input.area_m2, item.effective_area_m2)
     if (areaRatio < 0.2) return { ...item, included: false, exclusion_reason: 'surface_mismatch' }
     const isOutlier = iqr > 0 && (item.effective_price_per_m2_clp < lowerFence || item.effective_price_per_m2_clp > upperFence)
-    return isOutlier ? { ...item, included: false, exclusion_reason: 'price_outlier_iqr' } : item
+    return isOutlier ? { ...item, included: false, exclusion_reason: 'price_outlier_iqr' } : { ...item, included: true, exclusion_reason: null }
   })
 
   const usable = ranked.filter((item) => item.included)
