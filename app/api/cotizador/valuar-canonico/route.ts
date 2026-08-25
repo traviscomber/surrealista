@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { POST as valuate } from '../valuar/route'
 import { getCurrentLandContext } from '@/lib/valuation/current-context'
 import { getNearbyIntelligence } from '@/lib/valuation/nearby-intelligence'
+import { buildInternalRecommendation } from '@/lib/valuation/internal-recommendation'
 
 export const maxDuration = 30
 export const runtime = 'nodejs'
@@ -42,9 +43,21 @@ export async function POST(request: NextRequest) {
     ? Math.max(0, Math.floor((Date.now() - Date.parse(payload.last_updated)) / 86_400_000))
     : null
 
+  const internalRecommendation = buildInternalRecommendation({
+    estimatedPrice: Number.isFinite(Number(payload.estimated_price)) ? Number(payload.estimated_price) : null,
+    priceRange: payload.price_range ?? null,
+    confidence,
+    sampleCount: Number(payload.sample_count ?? 0),
+    marketAgeDays,
+    marketNeighbors: nearbyIntelligence.market_neighbors ?? [],
+    kmzNeighbors: nearbyIntelligence.kmz_neighbors ?? [],
+    contextStatus: currentContext.status,
+    contextSignals: currentContext.signals ?? currentContext.evidence ?? [],
+  })
+
   const canonical = {
     ...payload,
-    response_contract: 'sr-canonical-valuation-v2',
+    response_contract: 'sr-canonical-valuation-v3',
     confidence,
     confidence_label: confidence >= 75 ? 'alta' : confidence >= 55 ? 'media' : 'baja',
     current_market: {
@@ -52,20 +65,24 @@ export async function POST(request: NextRequest) {
       last_market_observation: payload.last_updated ?? null,
       age_days: marketAgeDays,
       sources: payload.data_sources ?? [],
+      refresh_recommended: Number(payload.sample_count ?? 0) < 5 || marketAgeDays === null || marketAgeDays > 14,
       summary: currentMarketVerified
         ? `Mercado contrastado con ${payload.sample_count ?? 0} comparables y ${payload.data_sources?.length ?? 0} fuentes.`
         : 'Mercado actual no verificado.',
     },
     nearby_intelligence: nearbyIntelligence,
     current_context: currentContext,
+    recommendation_sr: internalRecommendation,
     canonical_summary: {
       estimated_price: payload.estimated_price,
       price_range: payload.price_range,
       market: currentMarketVerified ? 'verified' : 'unverified',
+      market_refresh_recommended: Number(payload.sample_count ?? 0) < 5 || marketAgeDays === null || marketAgeDays > 14,
       nearby_market_neighbors: nearbyIntelligence.market_neighbors?.length ?? 0,
       nearby_kmz_neighbors: nearbyIntelligence.kmz_neighbors?.length ?? 0,
       news: currentContext.status,
       confidence,
+      sr_verdict: internalRecommendation.verdict,
       caveat: currentContext.status === 'verified'
         ? 'Las noticias y capas territoriales se muestran como evidencia y no alteran silenciosamente el precio calculado.'
         : 'Contexto actual no verificado; se reduce la confianza y no se aplica ajuste de precio por noticias.',
