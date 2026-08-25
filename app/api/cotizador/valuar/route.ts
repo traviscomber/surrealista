@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { buildMarketChallenger, type MarketComparableInput } from '@/lib/valuation/market-challenger'
 
 export const maxDuration = 30
 export const runtime = 'nodejs'
@@ -17,17 +18,7 @@ interface MarketSnapshot {
   computed_at: string
 }
 
-interface Comparable {
-  price_clp: number
-  price_uf: number | null
-  area_m2: number
-  price_per_m2_clp: number
-  commune: string | null
-  source: string
-  source_url: string | null
-  days_active: number | null
-  scraped_at: string | null
-}
+type Comparable = MarketComparableInput
 
 function isAuthorized(request: NextRequest): boolean {
   const password = process.env.APP_PASSWORD?.trim()
@@ -140,6 +131,16 @@ export async function POST(request: NextRequest) {
     )
     const marketSnapshot = (marketResult.data?.[0] ?? null) as MarketSnapshot | null
 
+    const challenger = directComparables.length >= MIN_COMPARABLES
+      ? buildMarketChallenger({
+          comparables: directComparables,
+          area_m2: sqm,
+          region,
+          commune: city || null,
+          property_type: propertyType,
+        })
+      : null
+
     let basePriceM2: number | null = null
     let methodology = ''
     let sampleCount = 0
@@ -147,6 +148,7 @@ export async function POST(request: NextRequest) {
     let lastUpdated: string | null = null
     let confidence = 0
 
+    // Production champion remains unchanged while the new generic challenger is evaluated.
     if (directComparables.length >= MIN_COMPARABLES) {
       const prices = directComparables.map((item) => item.price_per_m2_clp)
       const q1 = [...prices].sort((a, b) => a - b)[Math.floor(prices.length * 0.25)]
@@ -229,6 +231,13 @@ export async function POST(request: NextRequest) {
         source_url: item.source_url,
         scraped_at: item.scraped_at,
       })),
+      challenger: challenger
+        ? {
+            status: 'shadow_only',
+            non_binding: true,
+            ...challenger,
+          }
+        : null,
       last_updated: lastUpdated,
       uf_value: ufValue,
       uf_date: ufResult?.date ?? null,
