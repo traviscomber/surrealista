@@ -5,6 +5,7 @@ import { ChevronDown, ChevronRight, File, Folder, FolderOpen, Loader2, MapPin, R
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { CampoIntelligencePanel } from "@/components/campos/campo-intelligence-panel"
 import { KMZMapDisplay, type LayerInfo } from "@/components/kmz/kmz-map-display"
 import { createBrowserClient } from "@/lib/supabase/client"
 import {
@@ -525,7 +526,7 @@ export function CAMPOSFolderViewIntegrated() {
         </div>
 
         {selectedRecord ? (
-          <section className="border-t bg-card px-5 py-4">
+          <section className="max-h-[46vh] overflow-y-auto border-t bg-card px-5 py-4">
             <div className="flex items-start justify-between gap-6">
               <div className="min-w-0">
                 <p className="sr-meta">KMZ seleccionado</p>
@@ -541,6 +542,17 @@ export function CAMPOSFolderViewIntegrated() {
                 {selectedLayer ? <Badge variant="outline">{selectedLayer.name}</Badge> : null}
               </div>
             </div>
+
+            <CampoIntelligencePanel
+              record={selectedRecord}
+              ciren={{
+                samePropertyRol: cirenSameProperty?.rol || null,
+                commune: cirenSameProperty?.comuna || cirenNeighbors.find((neighbor) => neighbor.comuna)?.comuna || null,
+                neighborCount: cirenNeighbors.length,
+                hasCoverage: cirenHasCoverage,
+                sourceYear: cirenContext?.properties?.sourceYear || null,
+              }}
+            />
 
             <div className="mt-4 rounded-lg border border-border/70 bg-secondary/25 px-4 py-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
