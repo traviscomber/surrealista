@@ -12,7 +12,7 @@ export default function HomeSpotterFeedPage() {
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-xs uppercase tracking-wide text-muted-foreground">Home Spotter · Inteligencia comercial</p>
+        <p className="text-xs uppercase tracking-wide text-muted-foreground">Oportunidades · Inteligencia comercial</p>
         <h1 className="mt-2 text-3xl font-medium">Oportunidades reales de terrenos</h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
           Detecta avisos publicados bajo su benchmark de mercado y prioriza dónde conviene revisar primero. El detalle cruza mercado, vecinos y KMZ.
