@@ -7,9 +7,7 @@ import type { KmzInventoryRecord } from "@/lib/kmz/kmz-inventory-service"
 
 type CirenSignal = {
   samePropertyRol?: string | null
-  commune?: string | null
   neighborCount: number
-  hasCoverage: boolean
 }
 
 type NearbyFeature = {
@@ -163,8 +161,7 @@ export function CampoIntelligencePanelV2({ record, ciren }: { record: KmzInvento
     const roadDistance = Number(road?.distance_m)
     if (Number.isFinite(roadDistance)) territorial += roadDistance <= 250 ? 10 : roadDistance <= 1000 ? 7 : roadDistance <= 2000 ? 4 : 0
     const placeDistance = Number(place?.distance_m)
-    if (Number.isFinite(placeDistance)) territorial += placeDistance <= 2000 ? 5 : placeDistance <= 5000 ? 3 : 0
-    territorial += ciren.samePropertyRol ? 5 : ciren.neighborCount > 0 ? 3 : 0
+    if (Number.isFinite(placeDistance)) territorial += placeDistance <= 2000 ? 10 : placeDistance <= 5000 ? 6 : 0
     territorial = clamp(territorial, 0, 30)
 
     let market = 0
@@ -188,7 +185,7 @@ export function CampoIntelligencePanelV2({ record, ciren }: { record: KmzInvento
 
     const total = data + territorial + market + commercial
     return { total, data, territorial, market, commercial, label: scoreLabel(total) }
-  }, [ciren.neighborCount, ciren.samePropertyRol, contact, marketEvidence, place?.distance_m, record, road?.distance_m])
+  }, [contact, marketEvidence, place?.distance_m, record, road?.distance_m])
 
   const nextAction = useMemo(() => {
     if (!record.rol_numbers?.length) return "Resolver ROL antes de análisis comercial profundo."
@@ -198,6 +195,12 @@ export function CampoIntelligencePanelV2({ record, ciren }: { record: KmzInvento
     if (marketEvidence.maxSample === 0 && publicMetrics.length === 0) return "Falta evidencia de mercado regional actualizada."
     return "Base suficiente para revisión comercial priorizada."
   }, [contact, marketEvidence.maxSample, publicMetrics.length, record.owner, record.rol_numbers, road])
+
+  const cirenSummary = ciren.samePropertyRol
+    ? `Referencia complementaria: ROL ${ciren.samePropertyRol}`
+    : ciren.neighborCount > 0
+      ? `Referencia complementaria: ${ciren.neighborCount} predios cercanos`
+      : null
 
   return (
     <div className="mt-4 border-t border-border/70 pt-4">
@@ -239,9 +242,8 @@ export function CampoIntelligencePanelV2({ record, ciren }: { record: KmzInvento
 
         <Evidence icon={<MapPin className="h-4 w-4" />} title="Territorio">
           <Fact label="Región" value={record.region} />
-          <Fact label="Comuna CIREN" value={ciren.commune || "Sin coincidencia"} />
           <Fact label="Geometría" value={record.geometry_label || record.geometry_status} />
-          <Fact label="CIREN" value={ciren.samePropertyRol ? `Predio asociado · ${ciren.samePropertyRol}` : ciren.hasCoverage ? `${ciren.neighborCount} referencias` : "Sin cobertura"} />
+          <Fact label="Ubicación" value={Number.isFinite(Number(record.latitude)) && Number.isFinite(Number(record.longitude)) ? `${Number(record.latitude).toFixed(5)}, ${Number(record.longitude).toFixed(5)}` : "Sin coordenadas"} />
         </Evidence>
 
         <Evidence icon={<Route className="h-4 w-4" />} title="Entorno próximo">
@@ -258,6 +260,8 @@ export function CampoIntelligencePanelV2({ record, ciren }: { record: KmzInvento
           <Fact label="Fuentes" value={marketEvidence.sources.length ? marketEvidence.sources.join(", ") : "Sin métricas públicas"} />
         </Evidence>
       </div>
+
+      {cirenSummary ? <p className="mt-3 text-[11px] text-muted-foreground">CIREN · {cirenSummary}</p> : null}
 
       <div className="mt-3 flex items-start gap-3 rounded-lg border border-border/70 bg-secondary/25 px-4 py-3">
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
