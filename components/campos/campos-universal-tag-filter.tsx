@@ -99,6 +99,8 @@ export function CAMPOSUniversalTagFilter(){
   const clearTags=()=>{const params=new URLSearchParams(searchParams.toString());params.delete("tags");params.delete("q");router.replace(`${pathname}?${params.toString()}`,{scroll:false})}
   const exitFocus=()=>{const params=new URLSearchParams(searchParams.toString());params.delete("kmz");router.replace(`${pathname}?${params.toString()}`,{scroll:false})}
 
+  if(!focusedField&&!canonicalRegion)return null
+
   return <div ref={rootRef} className="pointer-events-auto absolute left-[372px] right-5 top-[58px] z-[620] hidden lg:block 2xl:left-[392px]">
     <div className="mx-auto max-w-[980px] overflow-hidden rounded-xl border border-slate-200/90 bg-white/95 shadow-[0_10px_30px_rgba(15,23,42,0.14)] backdrop-blur">
       {focusedField?(
@@ -112,15 +114,15 @@ export function CAMPOSUniversalTagFilter(){
       ):(
         <>
           <div className="flex min-h-11 items-center gap-2 px-2.5 py-2">
-            <Button type="button" variant="ghost" size="sm" onClick={()=>setOpen(value=>!value)} disabled={!canonicalRegion} className="h-8 shrink-0 gap-2 rounded-lg px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"><Filter className="h-3.5 w-3.5"/>Tags<ChevronDown className={`h-3.5 w-3.5 transition-transform ${open?"rotate-180":""}`}/></Button>
+            <Button type="button" variant="ghost" size="sm" onClick={()=>setOpen(value=>!value)} className="h-8 shrink-0 gap-2 rounded-lg px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"><Filter className="h-3.5 w-3.5"/>Tags<ChevronDown className={`h-3.5 w-3.5 transition-transform ${open?"rotate-180":""}`}/></Button>
             <div className="h-5 w-px bg-slate-200"/>
             <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden">
-              {!canonicalRegion?<span className="truncate px-1 text-xs font-medium text-slate-600">Selecciona una región en el panel izquierdo</span>:<><Badge className="h-7 max-w-[220px] rounded-full bg-slate-900 px-2.5 text-[11px] font-semibold text-white"><span className="truncate">{displayRegion(canonicalRegion)}</span></Badge>{selectedTags.slice(0,3).map(tag=><button key={tag} type="button" onClick={()=>toggleTag(tag)} className="flex h-7 max-w-[150px] items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 text-[11px] font-medium text-slate-700 hover:bg-slate-100"><span className="truncate">{LABEL_BY_TAG.get(tag)||tag}</span><X className="h-3 w-3 shrink-0"/></button>)}{selectedTags.length>3&&<span className="text-[11px] text-slate-500">+{selectedTags.length-3}</span>}</>}
+              <Badge className="h-7 max-w-[220px] rounded-full bg-slate-900 px-2.5 text-[11px] font-semibold text-white"><span className="truncate">{displayRegion(canonicalRegion)}</span></Badge>{selectedTags.slice(0,3).map(tag=><button key={tag} type="button" onClick={()=>toggleTag(tag)} className="flex h-7 max-w-[150px] items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 text-[11px] font-medium text-slate-700 hover:bg-slate-100"><span className="truncate">{LABEL_BY_TAG.get(tag)||tag}</span><X className="h-3 w-3 shrink-0"/></button>)}{selectedTags.length>3&&<span className="text-[11px] text-slate-500">+{selectedTags.length-3}</span>}
             </div>
-            {loading?<Loader2 className="h-4 w-4 animate-spin text-slate-400"/>:canonicalRegion?<button type="button" onClick={()=>setOpen(true)} className="shrink-0 rounded-md px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100">{visibleCount} de {regionalFields.length}</button>:null}
+            {loading?<Loader2 className="h-4 w-4 animate-spin text-slate-400"/>:<button type="button" onClick={()=>setOpen(true)} className="shrink-0 rounded-md px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100">{visibleCount} de {regionalFields.length}</button>}
             {selectedTags.length>0&&<Button type="button" variant="ghost" size="icon" onClick={clearTags} className="h-8 w-8 shrink-0 rounded-lg" title="Mostrar todos"><RotateCcw className="h-3.5 w-3.5"/></Button>}
           </div>
-          {open&&canonicalRegion&&<div className="border-t border-slate-200 p-3">
+          {open&&<div className="border-t border-slate-200 p-3">
             <div className="mb-2 flex items-center justify-between gap-3">
               <div><p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">Filtrar capas visibles</p><p className="mt-0.5 text-[11px] text-slate-600">{displayRegion(canonicalRegion)} · todos los tags seleccionados deben coincidir</p></div>
               <span className="text-xs font-semibold text-slate-700">{visibleCount} de {regionalFields.length}</span>
