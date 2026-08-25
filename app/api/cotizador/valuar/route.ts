@@ -72,6 +72,10 @@ export async function POST(request: NextRequest) {
     const region = String(body.region ?? '').trim()
     const city = String(body.city ?? '').trim()
     const sqm = Number(body.area_sqm)
+    const lat = Number(body.lat ?? body.latitude)
+    const lng = Number(body.lng ?? body.longitude)
+    const subjectLat = Number.isFinite(lat) ? lat : null
+    const subjectLng = Number.isFinite(lng) ? lng : null
 
     if (!propertyType || !region || !Number.isFinite(sqm) || sqm <= 0 || sqm > MAX_AREA_SQM) {
       return NextResponse.json(
@@ -90,10 +94,10 @@ export async function POST(request: NextRequest) {
       auth: { persistSession: false, autoRefreshToken: false },
     })
 
-    // Champion query is intentionally unchanged while V2 stays in shadow mode.
+    // Champion query is intentionally unchanged while V3 stays in shadow mode.
     let comparableQuery = supabase
       .from('properties_external')
-      .select('price_clp,price_uf,area_m2,price_per_m2_clp,commune,source,source_url,days_active,scraped_at,title')
+      .select('price_clp,price_uf,area_m2,price_per_m2_clp,commune,source,source_url,days_active,scraped_at,title,lat,lng')
       .ilike('region', `%${region}%`)
       .eq('property_type', propertyType)
       .eq('operation', 'venta')
@@ -105,11 +109,14 @@ export async function POST(request: NextRequest) {
       .order('scraped_at', { ascending: false })
       .limit(40)
 
-    // Challenger gets a broader candidate pool because some rural feeds stored
-    // 5,000 m² as 5.00. Surface normalization happens inside the V2 engine.
-    let challengerQuery = supabase
+    if (city) comparableQuery = comparableQuery.ilike('commune', `%${city}%`)
+
+    // Challenger intentionally searches the full region. It ranks same-commune
+    // and spatially close evidence first, then falls back to regional evidence.
+    // The broad pool is also required because some rural feeds stored 5,000 m² as 5.00.
+    const challengerQuery = supabase
       .from('properties_external')
-      .select('price_clp,price_uf,area_m2,price_per_m2_clp,commune,source,source_url,days_active,scraped_at,title')
+      .select('price_clp,price_uf,area_m2,price_per_m2_clp,commune,source,source_url,days_active,scraped_at,title,lat,lng')
       .ilike('region', `%${region}%`)
       .eq('property_type', propertyType)
       .eq('operation', 'venta')
@@ -117,12 +124,7 @@ export async function POST(request: NextRequest) {
       .gt('price_clp', 0)
       .gt('area_m2', 0)
       .order('scraped_at', { ascending: false })
-      .limit(120)
-
-    if (city) {
-      comparableQuery = comparableQuery.ilike('commune', `%${city}%`)
-      challengerQuery = challengerQuery.ilike('commune', `%${city}%`)
-    }
+      .limit(200)
 
     const [ufResult, comparableResult, challengerResult, marketResult] = await Promise.all([
       getCurrentUF(),
@@ -163,6 +165,8 @@ export async function POST(request: NextRequest) {
           region,
           commune: city || null,
           property_type: propertyType,
+          lat: subjectLat,
+          lng: subjectLng,
         })
       : null
 
@@ -173,7 +177,6 @@ export async function POST(request: NextRequest) {
     let lastUpdated: string | null = null
     let confidence = 0
 
-    // Production champion remains unchanged while the new generic challenger is evaluated.
     if (directComparables.length >= MIN_COMPARABLES) {
       const prices = directComparables.map((item) => item.price_per_m2_clp)
       const q1 = [...prices].sort((a, b) => a - b)[Math.floor(prices.length * 0.25)]
@@ -208,9 +211,7 @@ export async function POST(request: NextRequest) {
           error: 'No hay suficientes comparables verificables para calcular una referencia responsable.',
           code: 'INSUFFICIENT_COMPARABLES',
           sample_count: directComparables.length,
-          challenger: challenger
-            ? { status: 'shadow_only', non_binding: true, ...challenger }
-            : null,
+          challenger: challenger ? { status: 'shadow_only', non_binding: true, ...challenger } : null,
         },
         { status: 422 },
       )
@@ -220,7 +221,6 @@ export async function POST(request: NextRequest) {
     const margin = sampleCount >= 15 ? 0.12 : sampleCount >= 8 ? 0.16 : 0.22
     const minPrice = Math.round(estimatedPrice * (1 - margin))
     const maxPrice = Math.round(estimatedPrice * (1 + margin))
-
     const ufValue = ufResult?.value ?? null
     const toUF = (value: number) => ufValue ? Number((value / ufValue).toFixed(2)) : null
 
@@ -259,13 +259,7 @@ export async function POST(request: NextRequest) {
         source_url: item.source_url,
         scraped_at: item.scraped_at,
       })),
-      challenger: challenger
-        ? {
-            status: 'shadow_only',
-            non_binding: true,
-            ...challenger,
-          }
-        : null,
+      challenger: challenger ? { status: 'shadow_only', non_binding: true, ...challenger } : null,
       last_updated: lastUpdated,
       uf_value: ufValue,
       uf_date: ufResult?.date ?? null,
