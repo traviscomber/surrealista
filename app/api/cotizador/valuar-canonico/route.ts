@@ -5,16 +5,71 @@ import { getNearbyIntelligence } from '@/lib/valuation/nearby-intelligence'
 import { buildInternalRecommendation } from '@/lib/valuation/internal-recommendation'
 import { persistValuationSnapshot } from '@/lib/valuation/persistence'
 import { progressivelyGeocodeMarket } from '@/lib/valuation/progressive-geocode'
+import { refreshMarketForValuation } from '@/lib/valuation/market-refresh'
 
-export const maxDuration = 30
+export const maxDuration = 120
 export const runtime = 'nodejs'
+
+function valuationRequest(request: NextRequest, body: any) {
+  return new NextRequest(request.url, {
+    method: 'POST',
+    headers: request.headers,
+    body: JSON.stringify(body),
+  })
+}
+
+async function runValuation(request: NextRequest, body: any) {
+  const response = await valuate(valuationRequest(request, body))
+  const payload = await response.json().catch(() => null)
+  return { response, payload }
+}
+
+function marketAgeDays(payload: any) {
+  if (!payload?.last_updated) return null
+  const timestamp = Date.parse(payload.last_updated)
+  if (!Number.isFinite(timestamp)) return null
+  return Math.max(0, Math.floor((Date.now() - timestamp) / 86_400_000))
+}
 
 export async function POST(request: NextRequest) {
   const requestBody = await request.clone().json().catch(() => ({}))
-  const response = await valuate(request)
-  let payload: any
-  try { payload = await response.json() } catch { return response }
-  if (!response.ok || payload?.status !== 'valued') return NextResponse.json(payload, { status: response.status })
+  let { response, payload } = await runValuation(request, requestBody)
+  if (!payload) return response
+
+  const initialResolved = payload.resolved_context ?? requestBody.resolved_context ?? {}
+  const initialAge = marketAgeDays(payload)
+  const needsRefresh =
+    payload.status === 'insufficient_evidence' ||
+    (payload.status === 'valued' && (Number(payload.sample_count ?? 0) < 5 || initialAge === null || initialAge > 14))
+
+  let marketRefresh: any = null
+  if (needsRefresh && initialResolved.region) {
+    try {
+      marketRefresh = await refreshMarketForValuation({
+        region: initialResolved.region,
+        commune: initialResolved.city ?? null,
+      })
+      const rerun = await runValuation(request, {
+        ...requestBody,
+        resolved_context: initialResolved,
+        region: initialResolved.region,
+        city: initialResolved.city,
+        lat: initialResolved.lat,
+        lng: initialResolved.lng,
+        area_sqm: initialResolved.area_sqm,
+      })
+      if (rerun.payload) {
+        response = rerun.response
+        payload = rerun.payload
+      }
+    } catch (error) {
+      marketRefresh = { status: 'failed', error: error instanceof Error ? error.message : String(error) }
+    }
+  }
+
+  if (!response.ok || payload?.status !== 'valued') {
+    return NextResponse.json({ ...payload, market_refresh: marketRefresh }, { status: response.status })
+  }
 
   const resolved = payload.resolved_context ?? {}
   const [currentContext, nearbyIntelligence, geocoding] = await Promise.all([
@@ -32,14 +87,14 @@ export async function POST(request: NextRequest) {
   const rawConfidence = Number(payload.confidence ?? 0)
   const confidence = Math.max(0, Math.min(100, rawConfidence + currentContext.confidence_adjustment))
   const currentMarketVerified = Boolean(payload.last_updated)
-  const marketAgeDays = payload.last_updated ? Math.max(0, Math.floor((Date.now() - Date.parse(payload.last_updated)) / 86_400_000)) : null
-  const refreshRecommended = Number(payload.sample_count ?? 0) < 5 || marketAgeDays === null || marketAgeDays > 14
+  const ageDays = marketAgeDays(payload)
+  const refreshRecommended = Number(payload.sample_count ?? 0) < 5 || ageDays === null || ageDays > 14
   const internalRecommendation = buildInternalRecommendation({
     estimatedPrice: Number.isFinite(Number(payload.estimated_price)) ? Number(payload.estimated_price) : null,
     priceRange: payload.price_range ?? null,
     confidence,
     sampleCount: Number(payload.sample_count ?? 0),
-    marketAgeDays,
+    marketAgeDays: ageDays,
     marketNeighbors: nearbyIntelligence.market_neighbors ?? [],
     kmzNeighbors: nearbyIntelligence.kmz_neighbors ?? [],
     contextStatus: currentContext.status,
@@ -48,15 +103,17 @@ export async function POST(request: NextRequest) {
 
   const canonical: any = {
     ...payload,
-    response_contract: 'sr-canonical-valuation-v4',
+    response_contract: 'sr-canonical-valuation-v5',
     confidence,
     confidence_label: confidence >= 75 ? 'alta' : confidence >= 55 ? 'media' : 'baja',
+    market_refresh: marketRefresh,
     current_market: {
       status: currentMarketVerified ? 'verified' : 'unverified',
       last_market_observation: payload.last_updated ?? null,
-      age_days: marketAgeDays,
+      age_days: ageDays,
       sources: payload.data_sources ?? [],
       refresh_recommended: refreshRecommended,
+      refresh_executed: Boolean(marketRefresh && marketRefresh.status === 'completed'),
       summary: currentMarketVerified ? `Mercado contrastado con ${payload.sample_count ?? 0} comparables y ${payload.data_sources?.length ?? 0} fuentes.` : 'Mercado actual no verificado.',
     },
     progressive_geocoding: geocoding,
@@ -67,6 +124,7 @@ export async function POST(request: NextRequest) {
       estimated_price: payload.estimated_price,
       price_range: payload.price_range,
       market: currentMarketVerified ? 'verified' : 'unverified',
+      market_refresh_executed: Boolean(marketRefresh && marketRefresh.status === 'completed'),
       market_refresh_recommended: refreshRecommended,
       nearby_market_neighbors: nearbyIntelligence.market_neighbors?.length ?? 0,
       nearby_kmz_neighbors: nearbyIntelligence.kmz_neighbors?.length ?? 0,
