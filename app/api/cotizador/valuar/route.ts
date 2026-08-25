@@ -90,9 +90,10 @@ export async function POST(request: NextRequest) {
       auth: { persistSession: false, autoRefreshToken: false },
     })
 
+    // Champion query is intentionally unchanged while V2 stays in shadow mode.
     let comparableQuery = supabase
       .from('properties_external')
-      .select('price_clp,price_uf,area_m2,price_per_m2_clp,commune,source,source_url,days_active,scraped_at')
+      .select('price_clp,price_uf,area_m2,price_per_m2_clp,commune,source,source_url,days_active,scraped_at,title')
       .ilike('region', `%${region}%`)
       .eq('property_type', propertyType)
       .eq('operation', 'venta')
@@ -104,11 +105,29 @@ export async function POST(request: NextRequest) {
       .order('scraped_at', { ascending: false })
       .limit(40)
 
-    if (city) comparableQuery = comparableQuery.ilike('commune', `%${city}%`)
+    // Challenger gets a broader candidate pool because some rural feeds stored
+    // 5,000 m² as 5.00. Surface normalization happens inside the V2 engine.
+    let challengerQuery = supabase
+      .from('properties_external')
+      .select('price_clp,price_uf,area_m2,price_per_m2_clp,commune,source,source_url,days_active,scraped_at,title')
+      .ilike('region', `%${region}%`)
+      .eq('property_type', propertyType)
+      .eq('operation', 'venta')
+      .eq('is_active', true)
+      .gt('price_clp', 0)
+      .gt('area_m2', 0)
+      .order('scraped_at', { ascending: false })
+      .limit(120)
 
-    const [ufResult, comparableResult, marketResult] = await Promise.all([
+    if (city) {
+      comparableQuery = comparableQuery.ilike('commune', `%${city}%`)
+      challengerQuery = challengerQuery.ilike('commune', `%${city}%`)
+    }
+
+    const [ufResult, comparableResult, challengerResult, marketResult] = await Promise.all([
       getCurrentUF(),
       comparableQuery,
+      challengerQuery,
       supabase
         .from('market_comparable_data')
         .select('sample_count,median_price_m2_clp,avg_days_active,sources,computed_at')
@@ -122,6 +141,9 @@ export async function POST(request: NextRequest) {
     if (comparableResult.error) {
       console.error('[Cotizador] Error consultando comparables:', comparableResult.error.message)
     }
+    if (challengerResult.error) {
+      console.error('[Cotizador] Error consultando candidatos challenger:', challengerResult.error.message)
+    }
     if (marketResult.error) {
       console.error('[Cotizador] Error consultando estadísticas:', marketResult.error.message)
     }
@@ -129,11 +151,14 @@ export async function POST(request: NextRequest) {
     const directComparables = ((comparableResult.data ?? []) as Comparable[]).filter(
       (item) => Number.isFinite(item.price_per_m2_clp) && item.price_per_m2_clp > 0,
     )
+    const challengerComparables = ((challengerResult.data ?? []) as Comparable[]).filter(
+      (item) => Number.isFinite(item.price_clp) && item.price_clp > 0 && Number.isFinite(item.area_m2) && item.area_m2 > 0,
+    )
     const marketSnapshot = (marketResult.data?.[0] ?? null) as MarketSnapshot | null
 
-    const challenger = directComparables.length >= MIN_COMPARABLES
+    const challenger = challengerComparables.length >= MIN_COMPARABLES
       ? buildMarketChallenger({
-          comparables: directComparables,
+          comparables: challengerComparables,
           area_m2: sqm,
           region,
           commune: city || null,
@@ -183,6 +208,9 @@ export async function POST(request: NextRequest) {
           error: 'No hay suficientes comparables verificables para calcular una referencia responsable.',
           code: 'INSUFFICIENT_COMPARABLES',
           sample_count: directComparables.length,
+          challenger: challenger
+            ? { status: 'shadow_only', non_binding: true, ...challenger }
+            : null,
         },
         { status: 422 },
       )
