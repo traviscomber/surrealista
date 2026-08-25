@@ -5,7 +5,7 @@ import { ChevronDown, ChevronRight, File, Folder, FolderOpen, Loader2, MapPin, R
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { CampoIntelligencePanel } from "@/components/campos/campo-intelligence-panel"
+import { CampoIntelligencePanelV2 } from "@/components/campos/campo-intelligence-panel-v2"
 import { KMZMapDisplay, type LayerInfo } from "@/components/kmz/kmz-map-display"
 import { createBrowserClient } from "@/lib/supabase/client"
 import {
@@ -543,14 +543,13 @@ export function CAMPOSFolderViewIntegrated() {
               </div>
             </div>
 
-            <CampoIntelligencePanel
+            <CampoIntelligencePanelV2
               record={selectedRecord}
               ciren={{
                 samePropertyRol: cirenSameProperty?.rol || null,
                 commune: cirenSameProperty?.comuna || cirenNeighbors.find((neighbor) => neighbor.comuna)?.comuna || null,
                 neighborCount: cirenNeighbors.length,
                 hasCoverage: cirenHasCoverage,
-                sourceYear: cirenContext?.properties?.sourceYear || null,
               }}
             />
 
