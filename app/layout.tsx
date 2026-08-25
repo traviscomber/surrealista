@@ -21,11 +21,22 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: "Sur-Realista Interno",
+  title: {
+    default: "Sur Realista Intelligence",
+    template: "%s | Sur Realista Intelligence",
+  },
   description:
-    "Centro operativo interno para búsqueda, administración, análisis KMZ y documentación de Sur-Realista.",
-  keywords: "sur-realista, interno, operación, administración, kmz, análisis, documentación",
-  generator: "v0.dev",
+    "Plataforma interna de inteligencia territorial y comercial de Sur Realista para analizar campos, mercado, KMZ, valorizaciones y oportunidades.",
+  robots: {
+    index: false,
+    follow: false,
+    nocache: true,
+    googleBot: {
+      index: false,
+      follow: false,
+      noimageindex: true,
+    },
+  },
 }
 
 export default function RootLayout({

@@ -1,13 +1,14 @@
 import Link from "next/link"
-import { ArrowRight, BookOpen, MapPin, Search, Shield } from "lucide-react"
+import { ArrowRight, BarChart3, Building2, Eye, MapPin, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 
 const quickLinks = [
-  { title: "Operación diaria", description: "Búsqueda, clientes, tareas y comunicaciones.", href: "/busqueda", icon: Search },
-  { title: "Administración", description: "Gestión interna, KMZ, IA y conexiones.", href: "/admin/dashboard", icon: Shield },
-  { title: "Documentación", description: "Guías técnicas y de uso del sistema.", href: "/docs/usuario", icon: BookOpen },
-  { title: "Análisis territorial", description: "Vecindario, roles, capas y mapas.", href: "/kmz-analisis", icon: MapPin },
+  { title: "Operaciones comerciales", description: "Alertas, watchlist, tareas y próximas decisiones.", href: "/admin/operaciones-comerciales", icon: BarChart3 },
+  { title: "Campos y vecinos", description: "Inventario, propietarios, relaciones y contexto de cada terreno.", href: "/campos", icon: Building2 },
+  { title: "Inteligencia territorial", description: "KMZ, roles, capas, mapas y evidencia geográfica.", href: "/kmz-analisis", icon: MapPin },
+  { title: "Valorización de terrenos", description: "Mercado, comparables, vecinos, noticias y recomendación SR.", href: "/cotizador", icon: Eye },
+  { title: "Mercado", description: "Inventario externo, fuentes y búsqueda comercial.", href: "/busqueda", icon: Search },
 ]
 
 export default function HomePage() {
@@ -18,29 +19,29 @@ export default function HomePage() {
           <div className="max-w-3xl">
             <div className="mb-8 flex items-center gap-3">
               <Badge variant="secondary">Uso interno</Badge>
-              <span className="text-sm text-muted-foreground">Centro operativo Sur Realista</span>
+              <span className="text-sm text-muted-foreground">Sur Realista Intelligence</span>
             </div>
-            <p className="sr-meta mb-4">Territorio, datos y operación</p>
+            <p className="sr-meta mb-4">Inteligencia territorial y comercial</p>
             <h1 className="max-w-3xl text-4xl font-medium leading-[1.05] tracking-[-0.035em] sm:text-5xl lg:text-6xl">
-              Una entrada clara para trabajar con campos, clientes y territorio.
+              Decisiones de terreno con mercado, territorio y evidencia en un solo lugar.
             </h1>
             <p className="mt-7 max-w-2xl text-lg leading-8 text-muted-foreground">
-              Accede a las herramientas de operación, administración, documentación y análisis geoespacial desde un único punto, sin capas visuales innecesarias.
+              Plataforma interna de Sur Realista para analizar campos, valorizar terrenos, revisar vecinos, seguir oportunidades y priorizar acciones comerciales.
             </p>
             <div className="mt-9 flex flex-wrap gap-3">
               <Button asChild size="lg">
-                <Link href="/campos">Abrir CAMPOS <ArrowRight className="h-4 w-4" /></Link>
+                <Link href="/admin/operaciones-comerciales">Abrir operaciones <ArrowRight className="h-4 w-4" /></Link>
               </Button>
               <Button asChild size="lg" variant="outline">
-                <Link href="/busqueda">Ir a búsqueda</Link>
+                <Link href="/cotizador">Valorizar terreno</Link>
               </Button>
             </div>
           </div>
 
           <div className="border-l border-border pl-6 lg:pl-10">
-            <p className="sr-meta">Acceso principal</p>
+            <p className="sr-meta">Centro de decisión</p>
             <p className="mt-4 text-2xl font-medium leading-snug tracking-tight">
-              El territorio primero. La interfaz acompaña la decisión, no compite con ella.
+              Qué cambió, qué terreno revisar y qué acción tomar después.
             </p>
           </div>
         </div>
@@ -50,11 +51,11 @@ export default function HomePage() {
         <div className="mx-auto w-full max-w-[1280px] px-6 lg:px-12">
           <div className="grid gap-8 border-b border-border pb-12 md:grid-cols-[0.8fr_1.2fr] md:items-end">
             <div>
-              <p className="sr-meta">Herramientas</p>
-              <h2 className="sr-section-title mt-3">Accesos de trabajo</h2>
+              <p className="sr-meta">Sistema interno</p>
+              <h2 className="sr-section-title mt-3">Capacidades principales</h2>
             </div>
             <p className="max-w-2xl text-base leading-7 text-muted-foreground md:justify-self-end">
-              Cada acceso corresponde a una tarea real del equipo. La navegación secundaria mantiene la misma jerarquía y lenguaje visual del sistema principal.
+              Un mismo lenguaje para operar Sur Realista: inteligencia territorial, valorización de terrenos, mercado, campos y vecinos, y seguimiento comercial.
             </p>
           </div>
 
@@ -73,26 +74,6 @@ export default function HomePage() {
                 </span>
               </Link>
             ))}
-          </div>
-        </div>
-      </section>
-
-      <section className="sr-section bg-card">
-        <div className="mx-auto grid w-full max-w-[1280px] gap-10 px-6 md:grid-cols-3 lg:px-12">
-          <div>
-            <p className="sr-meta">01</p>
-            <h3 className="mt-3 text-lg font-semibold">Acceso protegido</h3>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">Sesión interna y rutas operativas separadas de la presentación pública.</p>
-          </div>
-          <div>
-            <p className="sr-meta">02</p>
-            <h3 className="mt-3 text-lg font-semibold">Operación conectada</h3>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">Búsqueda, tareas, comunicaciones y campos dentro del mismo flujo de trabajo.</p>
-          </div>
-          <div>
-            <p className="sr-meta">03</p>
-            <h3 className="mt-3 text-lg font-semibold">Datos territoriales</h3>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">KMZ, roles, documentos y contexto geográfico organizados sin ruido visual.</p>
           </div>
         </div>
       </section>
