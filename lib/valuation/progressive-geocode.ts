@@ -82,6 +82,46 @@ function candidateScore(row: Candidate) {
   return score
 }
 
+function isEligibleCandidate(row: Candidate, requireSpecificLocation: boolean) {
+  const specific = normalize(row.address || row.location || titleLocation(row.title))
+  const locality = localityOf(row)
+  if (requireSpecificLocation && !specific) return false
+  return Boolean(specific || locality)
+}
+
+function selectFairCandidates(rows: Candidate[], limit: number, requireSpecificLocation: boolean) {
+  const eligible = rows
+    .filter((row) => isEligibleCandidate(row, requireSpecificLocation))
+    .sort((a, b) => candidateScore(b) - candidateScore(a))
+
+  const buckets = new Map<string, Candidate[]>()
+  for (const row of eligible) {
+    const source = normalize(row.source) || 'unknown'
+    const bucket = buckets.get(source) ?? []
+    bucket.push(row)
+    buckets.set(source, bucket)
+  }
+
+  const sourceBuckets = [...buckets.entries()].sort((a, b) => candidateScore(b[1][0]) - candidateScore(a[1][0]))
+  const selected: Candidate[] = []
+
+  // Round-robin across sources so a fresh batch from one portal cannot monopolize
+  // every cron execution. High-quality candidates still go first within each source.
+  while (selected.length < limit) {
+    let progressed = false
+    for (const [, bucket] of sourceBuckets) {
+      const next = bucket.shift()
+      if (!next) continue
+      selected.push(next)
+      progressed = true
+      if (selected.length >= limit) break
+    }
+    if (!progressed) break
+  }
+
+  return selected
+}
+
 function buildAttempts(row: Candidate, kmzHints: KmzHint[] = []) {
   const address = normalize(row.address)
   const location = normalize(row.location)
@@ -101,9 +141,6 @@ function buildAttempts(row: Candidate, kmzHints: KmzHint[] = []) {
   if (address) add(`${address}, Chile`, 'address_only')
   if (location && normalizedKey(location) !== normalizedKey(address)) add(`${location}, Chile`, 'location_only')
   if (titleHint) add(`${titleHint}, Chile`, 'title_only')
-
-  // Locality-only is explicitly last and is only useful as a low-precision territorial
-  // fallback. It still needs to pass the same confidence and region validation.
   if (locality) add(`${locality}, Chile`, 'locality_only')
 
   const subject = address || location || titleHint
@@ -145,21 +182,15 @@ export async function progressivelyGeocodeMarket(input: GeocodeInput = {}) {
     .select('id,source,title,address,location,commune,city,region,scraped_at,geocode_attempted_at,geocode_attempt_count,geocode_next_retry_at')
     .eq('is_active', true).is('lat', null)
     .or(`geocode_attempted_at.is.null,geocode_next_retry_at.lte.${nowIso}`)
-    .order('geocode_attempted_at', { ascending: true, nullsFirst: true }).order('scraped_at', { ascending: false }).limit(limit * 16)
+    .order('geocode_attempted_at', { ascending: true, nullsFirst: true })
+    .order('scraped_at', { ascending: false })
+    .limit(Math.min(limit * 40, 1000))
   if (input.commune) query = query.ilike('commune', `%${input.commune}%`)
   else if (input.region) query = query.ilike('region', `%${input.region}%`)
   const { data, error } = await query
   if (error) return { attempted: 0, updated: 0, repairedRegions: 0, fallbackHits: 0, kmzHintHits: 0, titleHits: 0, localityHits: 0, skipped: 0, failed: 1 }
 
-  const candidates = ((data ?? []) as Candidate[])
-    .filter((row) => {
-      const specific = normalize(row.address || row.location || titleLocation(row.title))
-      const locality = localityOf(row)
-      if (input.requireSpecificLocation && !specific) return false
-      return Boolean(specific || locality)
-    })
-    .sort((a, b) => candidateScore(b) - candidateScore(a))
-    .slice(0, limit)
+  const candidates = selectFairCandidates((data ?? []) as Candidate[], limit, input.requireSpecificLocation ?? false)
 
   let updated = 0, repairedRegions = 0, fallbackHits = 0, kmzHintHits = 0, titleHits = 0, localityHits = 0, skipped = 0, failed = 0
   for (const row of candidates) {
