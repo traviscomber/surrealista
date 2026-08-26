@@ -44,6 +44,47 @@ interface iCasasProperty {
   nuevo?: boolean | number
 }
 
+function normalizedKey(value: string) {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
+ * iCasas cards encode most of their useful geography in the title. Keep only
+ * the address/locality components that help a Chile geocoder and drop postal,
+ * country and administrative noise such as "Provincia de" / "Región de".
+ */
+function cleanGeographicTitle(title: string) {
+  const raw = title
+    .replace(/^(parcela|terreno|sitio|lote|campo|fundo)\s+en\s+/i, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  const parts = raw
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .filter((part) => !/^(chl|chile)$/i.test(part))
+    .filter((part) => !/^\d{6,8}$/.test(part))
+    .filter((part) => !/^provincia\s+(de|del)\s+/i.test(part))
+    .filter((part) => !/^regi[oó]n\s+(de|del|metropolitana)/i.test(part))
+
+  const deduped: string[] = []
+  const seen = new Set<string>()
+  for (const part of parts) {
+    const key = normalizedKey(part)
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    deduped.push(part)
+  }
+
+  return deduped.join(', ').slice(0, 300)
+}
+
 async function fetchICasasHTML(
   operation: 'venta' | 'arriendo',
   regionSlug: string,
@@ -75,14 +116,17 @@ async function fetchICasasHTML(
     }).first()
     const imageUrl = image.attr('data-lazy') ?? image.attr('src')
     const area = description.match(/[\d.,]+\s*(?:hect[aá]reas?|ha|m[²2])/i)?.[0]
+    const title = detail.text().replace(/\s+/g, ' ').trim()
+    const cleanAddress = cleanGeographicTitle(title)
 
     return {
       id: card.attr('id'),
-      titulo: detail.text().replace(/\s+/g, ' ').trim(),
+      titulo: title,
       precio: card.find('.price').text().replace(/\s+/g, ' ').trim(),
       m2_total: area,
       tipo: 'terreno',
       tipo_operacion: operation,
+      direccion: cleanAddress || undefined,
       descripcion: description,
       fotos: imageUrl ? [imageUrl] : [],
       url: href,
