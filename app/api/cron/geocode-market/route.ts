@@ -15,27 +15,19 @@ function isAuthorizedCronCall(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  if (!isAuthorizedCronCall(request)) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  if (!isAuthorizedCronCall(request)) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const startedAt = Date.now()
-  const result = await progressivelyGeocodeMarket({
-    limit: 15,
-    requireSpecificLocation: true,
-  })
-
+  const result = await progressivelyGeocodeMarket({ limit: 30, requireSpecificLocation: false })
   const success = result.failed === 0
   const payload = {
     success,
     timestamp: new Date().toISOString(),
     duration_ms: Date.now() - startedAt,
     ...result,
-    policy: 'specific-address-first; serialized; confidence>=0.55; region-validated; batch=15',
+    policy: 'address/location/title/KMZ-context; serialized; confidence>=0.55; region-validated; batch=30',
   }
-
   if (success) console.log('[cron/geocode-market] completed', payload)
   else console.error('[cron/geocode-market] completed with failures', payload)
-
   return NextResponse.json(payload, { status: success ? 200 : 207 })
 }
