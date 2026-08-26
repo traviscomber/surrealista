@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useEffect, useState } from "react"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { AlertCircle, Lock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -38,9 +38,15 @@ function getServerRetryAfterMs(response: Response) {
     : LOCKOUT_TIME
 }
 
+function getSafeRedirect(redirect: string | null, pathname: string) {
+  if (redirect?.startsWith("/") && !redirect.startsWith("//")) return redirect
+  return pathname === "/" ? "/campos" : pathname
+}
+
 export function PasswordGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -152,7 +158,7 @@ export function PasswordGate({ children }: { children: React.ReactNode }) {
         setPassword("")
         setError("")
         captureMessage("Login exitoso", "info")
-        router.replace("/campos")
+        router.replace(getSafeRedirect(searchParams.get("redirect"), pathname))
         return
       }
 
