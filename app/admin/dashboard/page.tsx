@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { BarChart3, BriefcaseBusiness, Building, Globe, MapPinned, PlusCircle, Store } from "lucide-react"
 import { AppHeader } from "@/components/layout/app-header"
+import { MarketGeocodeHealth } from "@/components/admin/market-geocode-health"
 import { ScrapersPanel } from "@/components/admin/scrapers-panel"
 import { ScrapedPropertiesDashboard } from "@/components/admin/scraped-properties-dashboard"
 import { Button } from "@/components/ui/button"
@@ -37,7 +38,7 @@ function AdminDashboardContent() {
       </TabsList>
       <TabsContent value="overview" className="mt-0"><div className="mb-4 max-w-3xl"><h2 className="font-serif text-xl font-semibold">Estado general</h2><p className="mt-1 text-sm leading-6 text-muted-foreground">Revisa los principales indicadores del inventario y detecta rápidamente qué áreas requieren actualización o seguimiento.</p></div><ScrapedPropertiesDashboard mode="summary" initialShowFavorites={showFavorites}/></TabsContent>
       <TabsContent value="properties" className="mt-0"><div className="mb-4 max-w-3xl"><h2 className="font-serif text-xl font-semibold">Propiedades disponibles</h2><p className="mt-1 text-sm leading-6 text-muted-foreground">Consulta y filtra el inventario consolidado para comparar propiedades, revisar favoritos y verificar la fuente de cada registro.</p></div><ScrapedPropertiesDashboard mode="full" initialShowFavorites={showFavorites}/></TabsContent>
-      <TabsContent value="scrapers" className="mt-0"><div className="mb-4 max-w-3xl"><h2 className="font-serif text-xl font-semibold">Fuentes de información</h2><p className="mt-1 text-sm leading-6 text-muted-foreground">Supervisa las conexiones que incorporan información externa y ejecuta sincronizaciones solo cuando la fuente esté autorizada y disponible.</p></div><ScrapersPanel/></TabsContent>
+      <TabsContent value="scrapers" className="mt-0 space-y-6"><div className="max-w-3xl"><h2 className="font-serif text-xl font-semibold">Fuentes de información</h2><p className="mt-1 text-sm leading-6 text-muted-foreground">Supervisa las conexiones que incorporan información externa, la calidad geográfica del mercado y las sincronizaciones que mantienen la inteligencia vigente.</p></div><MarketGeocodeHealth/><ScrapersPanel/></TabsContent>
     </Tabs>
   </main></>
 }
