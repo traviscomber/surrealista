@@ -38,6 +38,11 @@ function getServerRetryAfterMs(response: Response) {
     : LOCKOUT_TIME
 }
 
+function getSafeRedirect(redirect: string | null, pathname: string) {
+  if (redirect?.startsWith("/") && !redirect.startsWith("//")) return redirect
+  return pathname === "/" ? "/campos" : pathname
+}
+
 export function PasswordGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
@@ -152,7 +157,8 @@ export function PasswordGate({ children }: { children: React.ReactNode }) {
         setPassword("")
         setError("")
         captureMessage("Login exitoso", "info")
-        router.replace("/campos")
+        const redirect = new URLSearchParams(window.location.search).get("redirect")
+        router.replace(getSafeRedirect(redirect, pathname))
         return
       }
 
