@@ -260,6 +260,44 @@ export async function upsertProperties(
 
   const unique = Array.from(new Map(normalised.map((property) => [property.external_id, property])).values())
 
+  async function persistChunk(chunk: NormalisedProperty[], existingIds: Set<string>): Promise<void> {
+    const { data, error } = await supabase
+      .from('properties_external')
+      .upsert(chunk, {
+        onConflict: 'external_id',
+        ignoreDuplicates: false,
+      })
+      .select('external_id')
+
+    if (error) {
+      // PostgREST rejects the whole request when a single row violates a database
+      // constraint. Split failed batches so one malformed marketplace listing does
+      // not discard every valid property travelling in the same chunk.
+      if (chunk.length > 1) {
+        const midpoint = Math.ceil(chunk.length / 2)
+        await persistChunk(chunk.slice(0, midpoint), existingIds)
+        await persistChunk(chunk.slice(midpoint), existingIds)
+        return
+      }
+
+      const property = chunk[0]
+      errors.push(`${property.source}/${property.external_id}: ${error.message}`)
+      skipped++
+      return
+    }
+
+    const persistedIds = new Set((data ?? []).map((row) => row.external_id))
+    for (const property of chunk) {
+      if (!persistedIds.has(property.external_id)) {
+        skipped++
+      } else if (existingIds.has(property.external_id)) {
+        updated++
+      } else {
+        inserted++
+      }
+    }
+  }
+
   const CHUNK = 100
   for (let i = 0; i < unique.length; i += CHUNK) {
     const chunk = unique.slice(i, i + CHUNK)
@@ -276,30 +314,7 @@ export async function upsertProperties(
     }
 
     const existingIds = new Set((existingRows ?? []).map((row) => row.external_id))
-    const { data, error } = await supabase
-      .from('properties_external')
-      .upsert(chunk, {
-        onConflict: 'external_id',
-        ignoreDuplicates: false,
-      })
-      .select('external_id')
-
-    if (error) {
-      errors.push(`Chunk ${i}-${i + CHUNK}: ${error.message}`)
-      skipped += chunk.length
-      continue
-    }
-
-    const persistedIds = new Set((data ?? []).map((row) => row.external_id))
-    for (const property of chunk) {
-      if (!persistedIds.has(property.external_id)) {
-        skipped++
-      } else if (existingIds.has(property.external_id)) {
-        updated++
-      } else {
-        inserted++
-      }
-    }
+    await persistChunk(chunk, existingIds)
   }
 
   return { inserted, updated, skipped, errors }
