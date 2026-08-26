@@ -32,6 +32,8 @@ type SourceStat = {
   total: number
   last_scraped: string | null
   regions: string[]
+  validLand?: number
+  legacyExcluded?: number
 }
 
 type ScraperSource = (typeof scraperConfig.sources)[number]
@@ -171,8 +173,15 @@ function SourceCard({
         </div>
 
         {stat ? (
-          <div className="mx-4 mb-4 grid grid-cols-3 gap-px overflow-hidden rounded-lg bg-border text-center">
-            <div className="bg-background px-3 py-2"><div className="text-sm font-semibold">{stat.total.toLocaleString("es-CL")}</div><div className="text-xs text-muted-foreground">propiedades</div></div>
+          <div className={`mx-4 mb-4 grid gap-px overflow-hidden rounded-lg bg-border text-center ${source.key === "portal_inmobiliario" ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`}>
+            {source.key === "portal_inmobiliario" ? (
+              <>
+                <div className="bg-background px-3 py-2"><div className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{(stat.validLand ?? 0).toLocaleString("es-CL")}</div><div className="text-xs text-muted-foreground">terrenos válidos</div></div>
+                <div className="bg-background px-3 py-2"><div className="text-sm font-semibold text-muted-foreground">{(stat.legacyExcluded ?? 0).toLocaleString("es-CL")}</div><div className="text-xs text-muted-foreground">legado excluido</div></div>
+              </>
+            ) : (
+              <div className="bg-background px-3 py-2"><div className="text-sm font-semibold">{stat.total.toLocaleString("es-CL")}</div><div className="text-xs text-muted-foreground">propiedades</div></div>
+            )}
             <div className="bg-background px-3 py-2"><div className="text-sm font-semibold">{stat.regions.length}</div><div className="text-xs text-muted-foreground">regiones</div></div>
             <div className="bg-background px-3 py-2"><div className="text-sm font-semibold">{formatRelative(stat.last_scraped)}</div><div className="text-xs text-muted-foreground">última vez</div></div>
           </div>
@@ -225,15 +234,28 @@ export function ScrapersPanel() {
   const fetchStats = useCallback(async () => {
     setLoading(true)
     try {
-      const [{ count }, { data: perSource }, { data: runs }] = await Promise.all([
+      const [{ count }, { data: perSource }, { data: runs }, sourceCounts, portalValid, portalLegacy] = await Promise.all([
         supabase.from("properties_external").select("*", { count: "exact", head: true }).eq("is_active", true),
         supabase.from("properties_external").select("source, region, scraped_at").eq("is_active", true).order("scraped_at", { ascending: false }),
         supabase.from("scrape_runs").select("*").order("created_at", { ascending: false }).limit(100),
+        Promise.all(SOURCES.map(async (source) => {
+          const { count: sourceCount } = await supabase
+            .from("properties_external")
+            .select("*", { count: "exact", head: true })
+            .eq("is_active", true)
+            .eq("source", source.key)
+          return { source: source.key, total: sourceCount ?? 0 }
+        })),
+        supabase.from("properties_external").select("*", { count: "exact", head: true }).eq("is_active", true).eq("source", "portal_inmobiliario").eq("property_type", "terreno"),
+        supabase.from("properties_external").select("*", { count: "exact", head: true }).eq("is_active", true).eq("source", "portal_inmobiliario").is("property_type", null),
       ])
 
       setTotalProps(count ?? 0)
       const grouped: Record<string, SourceStat> = {}
       const regionSet = new Set<string>()
+      for (const sourceCount of sourceCounts) {
+        grouped[sourceCount.source] = { source: sourceCount.source, total: sourceCount.total, last_scraped: null, regions: [] }
+      }
       for (const rawRow of perSource || []) {
         const row = asRecord(rawRow)
         const source = getString(row.source)
@@ -242,10 +264,13 @@ export function ScrapersPanel() {
         const scrapedAt = getString(row.scraped_at)
 
         grouped[source] ||= { source, total: 0, last_scraped: null, regions: [] }
-        grouped[source].total += 1
         if (region && !grouped[source].regions.includes(region)) grouped[source].regions.push(region)
         if (region) regionSet.add(region)
         if (!grouped[source].last_scraped && scrapedAt) grouped[source].last_scraped = scrapedAt
+      }
+      if (grouped.portal_inmobiliario) {
+        grouped.portal_inmobiliario.validLand = portalValid.count ?? 0
+        grouped.portal_inmobiliario.legacyExcluded = portalLegacy.count ?? 0
       }
       setSourceStats(Object.values(grouped))
       setTotalRegions(regionSet.size)
