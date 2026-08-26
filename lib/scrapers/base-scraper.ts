@@ -92,6 +92,16 @@ export interface ScrapeResult {
 
 let _ufCache: { value: number; fetchedAt: number } | null = null
 
+// Match the precision of the corresponding Postgres columns. Invalid source
+// values are omitted instead of aborting persistence or polluting comparables.
+const MAX_PRICE_UF = 10_000_000_000 // numeric(12,2)
+const MAX_AREA_M2 = 10_000_000_000 // numeric(12,2)
+const MAX_PRICE_PER_M2_UF = 100_000_000 // numeric(12,4)
+
+function numericWithin(value: number | null, exclusiveMax: number): number | null {
+  return value !== null && Number.isFinite(value) && Math.abs(value) < exclusiveMax ? value : null
+}
+
 export async function getUFValue(): Promise<number> {
   if (_ufCache && Date.now() - _ufCache.fetchedAt < 3_600_000) {
     return _ufCache.value
@@ -204,9 +214,13 @@ export async function normaliseProperty(raw: RawProperty): Promise<NormalisedPro
     }
   }
 
-  const area_m2 = parseArea(raw.areaRaw)
+  price_uf = numericWithin(price_uf, MAX_PRICE_UF)
+  const area_m2 = numericWithin(parseArea(raw.areaRaw), MAX_AREA_M2)
   const price_per_m2_clp = price_clp && area_m2 ? Math.round(price_clp / area_m2) : null
-  const price_per_m2_uf = price_uf && area_m2 ? parseFloat((price_uf / area_m2).toFixed(4)) : null
+  const price_per_m2_uf = numericWithin(
+    price_uf && area_m2 ? parseFloat((price_uf / area_m2).toFixed(4)) : null,
+    MAX_PRICE_PER_M2_UF,
+  )
 
   return {
     external_id: raw.externalId,
