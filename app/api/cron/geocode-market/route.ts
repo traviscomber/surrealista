@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
 
   const startedAt = Date.now()
   const result = await progressivelyGeocodeMarket({
-    limit: 8,
+    limit: 15,
     requireSpecificLocation: true,
   })
 
@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     timestamp: new Date().toISOString(),
     duration_ms: Date.now() - startedAt,
     ...result,
-    policy: 'specific-address-first; serialized; confidence>=0.55; region-validated',
+    policy: 'specific-address-first; serialized; confidence>=0.55; region-validated; batch=15',
   }
 
   if (success) console.log('[cron/geocode-market] completed', payload)
