@@ -1,6 +1,6 @@
 /**
  * Portal Inmobiliario scraper — HTTP-first, no Puppeteer required.
- * Uses the undocumented Elasticsearch JSON API that powers portal.
+ * Uses the public terrenos search surface and embedded listing data.
  */
 import * as cheerio from 'cheerio'
 import type { RawProperty, ScrapeResult } from './base-scraper'
@@ -11,7 +11,6 @@ import {
 } from './base-scraper'
 
 const BASE_URL = 'https://www.portalinmobiliario.com'
-const API_URL = `${BASE_URL}/noindex/ct1/listing/_search`
 
 const HEADERS = {
   'User-Agent':
@@ -36,48 +35,17 @@ const REGION_SLUGS: Record<string, string> = {
   'Región de Los Lagos': 'los-lagos',
 }
 
-const OPERATION_MAP: Record<string, string> = {
-  venta: 'sale',
-  arriendo: 'rent',
-}
-
-function buildQuery(
-  regionSlug: string,
-  operation: string,
-  propertyType: string,
-  from: number,
-  size: number
-) {
-  return {
-    query: {
-      bool: {
-        filter: [
-          { term: { 'site_id': 'MLC' } },
-          { term: { 'listing_type_id': operation === 'venta' ? 'gold_special' : 'gold_special' } },
-          {
-            match: {
-              'g_address.state_name': regionSlug,
-            },
-          },
-        ],
-      },
-    },
-    from,
-    size,
-    sort: [{ _score: 'desc' }, { 'date_created': 'desc' }],
-  }
-}
-
-/** Alternative: use the public search endpoint */
+/** Fetch only the land category. The old /propiedades route mixed apartments,
+ * houses and developments into the market inventory and polluted geocoding. */
 async function fetchViaSearch(
   regionSlug: string,
   operation: string,
-  propertyType: string,
+  _propertyType: string,
   offset: number,
   limit: number
 ): Promise<RawProperty[]> {
   const opPath = operation === 'venta' ? 'venta' : 'arriendo'
-  const url = new URL(`${BASE_URL}/${opPath}/propiedades/${regionSlug}/_Desde_${offset + 1}_NoIndex_True`)
+  const url = new URL(`${BASE_URL}/${opPath}/terrenos/${regionSlug}/_Desde_${offset + 1}_NoIndex_True`)
   url.searchParams.set('limit', String(limit))
 
   const res = await fetch(url.toString(), {
@@ -98,7 +66,6 @@ function parsePortalHTML(
 ): RawProperty[] {
   const results: RawProperty[] = []
 
-  // Extract JSON-LD / embedded listing data
   const scriptRegex = /<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi
   let match
   while ((match = scriptRegex.exec(html)) !== null) {
@@ -111,7 +78,6 @@ function parsePortalHTML(
     } catch { /* skip malformed */ }
   }
 
-  // Fallback: parse __PRELOADED_STATE__ from Next.js hydration
   if (results.length === 0) {
     const stateMatch = html.match(/window\.__PRELOADED_STATE__\s*=\s*(\{.+?\});?\s*<\/script>/s)
     if (stateMatch) {
@@ -142,7 +108,7 @@ function parsePortalHTML(
       const title = titleLink.text().replace(/\s+/g, ' ').trim()
         || card.find('.poly-component__title').first().text().replace(/\s+/g, ' ').trim()
         || card.find('img').first().attr('alt')
-        || 'Propiedad Portal Inmobiliario'
+        || 'Terreno Portal Inmobiliario'
       const price = text.match(/(?:UF\s*[\d.,]+|\$\s*[\d.,]+)/i)?.[0] ?? null
       const area = text.match(/[\d.,]+\s*(?:m²|m2|ha(?:s)?)/i)?.[0] ?? null
       const image = card.find('img.poly-component__picture, img').first().attr('src')
@@ -153,11 +119,12 @@ function parsePortalHTML(
         title,
         priceRaw: price,
         areaRaw: area,
+        propertyType: 'terreno',
         operation,
         region: regionSlug,
         address: location || null,
         images: image ? [image] : [],
-        sourceUrl: sourceUrl || `${BASE_URL}/${operation}`,
+        sourceUrl: sourceUrl || `${BASE_URL}/${operation}/terrenos/${regionSlug}`,
       })
     })
   }
@@ -177,9 +144,10 @@ function mapJsonLdToRaw(
   return {
     externalId: id,
     source: 'portal_inmobiliario',
-    title: String(data['name'] || 'Propiedad Portal'),
+    title: String(data['name'] || 'Terreno Portal'),
     priceRaw: String(offer['price'] || ''),
     currencyRaw: String(offer['priceCurrency'] || 'CLP'),
+    propertyType: 'terreno',
     region: String(addr['addressRegion'] || regionSlug),
     commune: String(addr['addressLocality'] || ''),
     address: String(addr['streetAddress'] || ''),
@@ -217,14 +185,14 @@ function mapPreloadedToRaw(
   return {
     externalId: id,
     source: 'portal_inmobiliario',
-    title: String(item['title'] || 'Propiedad'),
-    priceRaw: typeof priceAmount === "number" || typeof priceAmount === "string" ? priceAmount : null,
-    currencyRaw: typeof priceCurrency === "string" ? priceCurrency : "CLP",
+    title: String(item['title'] || 'Terreno'),
+    priceRaw: typeof priceAmount === 'number' || typeof priceAmount === 'string' ? priceAmount : null,
+    currencyRaw: typeof priceCurrency === 'string' ? priceCurrency : 'CLP',
     areaRaw: attrs['TOTAL_AREA'] || attrs['COVERED_AREA'] || null,
     bedrooms: parseInt(attrs['BEDROOMS'] || '0') || null,
     bathrooms: parseInt(attrs['FULL_BATHROOMS'] || '0') || null,
     parking: parseInt(attrs['PARKING_LOTS'] || '0') || null,
-    propertyType: attrs['PROPERTY_TYPE'] || String(item['category_id'] || ''),
+    propertyType: 'terreno',
     operation,
     region: location?.state?.name ?? null,
     commune: location?.city?.name ?? location?.neighborhood?.name ?? null,
@@ -237,8 +205,6 @@ function mapPreloadedToRaw(
     daysActive: item['days_active'] as number ?? null,
   }
 }
-
-// ─── Main export ──────────────────────────────────────────────────────────────
 
 export async function scrapePortalInmobiliario(
   opts: PortalScraperOptions = {}
@@ -256,7 +222,7 @@ export async function scrapePortalInmobiliario(
   for (const region of regions) {
     const slug = REGION_SLUGS[region] ?? region.toLowerCase().replace(/[^a-z]+/g, '-')
     try {
-      const props = await fetchViaSearch(slug, operation, 'all', 0, maxPerQuery)
+      const props = await fetchViaSearch(slug, operation, 'terreno', 0, maxPerQuery)
       allRaw.push(...props)
     } catch (err) {
       errors.push(`portal/${region}: ${(err as Error).message}`)
