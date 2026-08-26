@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { BarChart3, BriefcaseBusiness, Building, Globe, MapPinned, PlusCircle, Store } from "lucide-react"
+import { AlertTriangle, BarChart3, BriefcaseBusiness, Building, Globe, MapPinned, PlusCircle, Store } from "lucide-react"
 import { AppHeader } from "@/components/layout/app-header"
 import { MarketGeocodeHealth } from "@/components/admin/market-geocode-health"
 import { ScrapersPanel } from "@/components/admin/scrapers-panel"
@@ -22,25 +22,27 @@ function AdminDashboardContent() {
   useEffect(() => { const requestedTab = searchParams.get("tab"); if (requestedTab && VALID_TABS.includes(requestedTab)) setActiveTab(requestedTab) }, [searchParams])
 
   return <><AppHeader/><main className="container mx-auto space-y-8 px-4 py-8 md:py-10">
-    <WorkspaceHeading eyebrow="Operaciones internas" title="Panel de datos e inventario" description="Centraliza el control del inventario inmobiliario, las propiedades provenientes de fuentes externas y los procesos de sincronización que mantienen la información vigente." outcome="Obtienes una visión única del estado de los datos, puedes revisar propiedades activas y administrar las fuentes que alimentan el sistema." actions={<>
+    <WorkspaceHeading eyebrow="Operación interna" title="Centro operativo" description="Una portada para revisar excepciones, salud del mercado y acciones que requieren intervención. Los procesos sanos siguen trabajando en segundo plano." outcome="Si no hay errores ni excepciones críticas, no necesitas intervenir." actions={<>
       <Button asChild className="gap-2"><Link href="/admin/operaciones-comerciales"><BriefcaseBusiness className="h-4 w-4"/>Operaciones comerciales</Link></Button>
       <Button asChild variant="outline" className="gap-2"><Link href="/admin/propiedades/nueva"><PlusCircle className="h-4 w-4"/>Nueva propiedad</Link></Button>
-      <Button asChild variant="outline" className="gap-2"><Link href="/admin/surealista"><Store className="h-4 w-4"/>Inventario Sur Realista</Link></Button>
-      <Button asChild variant="outline" className="gap-2"><Link href="/admin/inciti-market"><Globe className="h-4 w-4"/>Mercado Inciti</Link></Button>
-      <Button asChild variant="outline" className="gap-2"><Link href="/admin/inteligencia-territorial"><MapPinned className="h-4 w-4"/>Inteligencia territorial</Link></Button>
-      <Button asChild variant="outline" className="gap-2"><Link href="/propiedades"><Building className="h-4 w-4"/>Ver propiedades</Link></Button>
+      <Button asChild variant="outline" className="gap-2"><Link href="/admin/surealista"><Store className="h-4 w-4"/>Inventario propio</Link></Button>
+      <Button asChild variant="outline" className="gap-2"><Link href="/admin/inteligencia-territorial"><MapPinned className="h-4 w-4"/>Territorio</Link></Button>
     </>}/>
     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
       <TabsList className="mb-6 grid h-auto grid-cols-1 gap-1 bg-muted/50 p-1 md:grid-cols-3">
-        <TabsTrigger value="overview" className="flex min-h-11 items-center gap-2"><BarChart3 className="h-4 w-4"/><span>Resumen operativo</span></TabsTrigger>
-        <TabsTrigger value="properties" className="flex min-h-11 items-center gap-2"><Building className="h-4 w-4"/><span>Inventario consolidado</span></TabsTrigger>
-        <TabsTrigger value="scrapers" className="flex min-h-11 items-center gap-2"><Globe className="h-4 w-4"/><span>Fuentes y sincronización</span></TabsTrigger>
+        <TabsTrigger value="overview" className="flex min-h-11 items-center gap-2"><AlertTriangle className="h-4 w-4"/><span>Atención</span></TabsTrigger>
+        <TabsTrigger value="properties" className="flex min-h-11 items-center gap-2"><Building className="h-4 w-4"/><span>Inventario</span></TabsTrigger>
+        <TabsTrigger value="scrapers" className="flex min-h-11 items-center gap-2"><Globe className="h-4 w-4"/><span>Fuentes</span></TabsTrigger>
       </TabsList>
-      <TabsContent value="overview" className="mt-0"><div className="mb-4 max-w-3xl"><h2 className="font-serif text-xl font-semibold">Estado general</h2><p className="mt-1 text-sm leading-6 text-muted-foreground">Revisa los principales indicadores del inventario y detecta rápidamente qué áreas requieren actualización o seguimiento.</p></div><ScrapedPropertiesDashboard mode="summary" initialShowFavorites={showFavorites}/></TabsContent>
-      <TabsContent value="properties" className="mt-0"><div className="mb-4 max-w-3xl"><h2 className="font-serif text-xl font-semibold">Propiedades disponibles</h2><p className="mt-1 text-sm leading-6 text-muted-foreground">Consulta y filtra el inventario consolidado para comparar propiedades, revisar favoritos y verificar la fuente de cada registro.</p></div><ScrapedPropertiesDashboard mode="full" initialShowFavorites={showFavorites}/></TabsContent>
-      <TabsContent value="scrapers" className="mt-0 space-y-6"><div className="max-w-3xl"><h2 className="font-serif text-xl font-semibold">Fuentes de información</h2><p className="mt-1 text-sm leading-6 text-muted-foreground">Supervisa las conexiones que incorporan información externa, la calidad geográfica del mercado y las sincronizaciones que mantienen la inteligencia vigente.</p></div><MarketGeocodeHealth/><ScrapersPanel/></TabsContent>
+      <TabsContent value="overview" className="mt-0 space-y-6">
+        <div className="max-w-3xl"><h2 className="font-serif text-xl font-semibold">Qué requiere atención</h2><p className="mt-1 text-sm leading-6 text-muted-foreground">Primero se muestran calidad geográfica y deuda operativa. El inventario general queda debajo como contexto, no como tarea.</p></div>
+        <MarketGeocodeHealth/>
+        <ScrapedPropertiesDashboard mode="summary" initialShowFavorites={showFavorites}/>
+      </TabsContent>
+      <TabsContent value="properties" className="mt-0"><div className="mb-4 max-w-3xl"><h2 className="font-serif text-xl font-semibold">Inventario consolidado</h2><p className="mt-1 text-sm leading-6 text-muted-foreground">Consulta y filtra propiedades, favoritos y procedencia de cada registro.</p></div><ScrapedPropertiesDashboard mode="full" initialShowFavorites={showFavorites}/></TabsContent>
+      <TabsContent value="scrapers" className="mt-0 space-y-6"><div className="max-w-3xl"><h2 className="font-serif text-xl font-semibold">Fuentes y sincronización</h2><p className="mt-1 text-sm leading-6 text-muted-foreground">Ejecuta una fuente solo cuando sea necesario. El estado de Portal distingue terrenos válidos del legado excluido.</p></div><ScrapersPanel/><div className="flex flex-wrap gap-2"><Button asChild variant="outline" size="sm"><Link href="/admin/inciti-market"><BarChart3 className="mr-2 h-4 w-4"/>Mercado Inciti</Link></Button><Button asChild variant="outline" size="sm"><Link href="/propiedades"><Building className="mr-2 h-4 w-4"/>Vista pública</Link></Button></div></TabsContent>
     </Tabs>
   </main></>
 }
 
-export default function AdminDashboard(){return <Suspense fallback={<div className="container mx-auto px-4 py-10 text-sm text-muted-foreground">Cargando panel operativo…</div>}><AdminDashboardContent/></Suspense>}
+export default function AdminDashboard(){return <Suspense fallback={<div className="container mx-auto px-4 py-10 text-sm text-muted-foreground">Cargando centro operativo…</div>}><AdminDashboardContent/></Suspense>}
