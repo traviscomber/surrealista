@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { geocodeChileAddress, type ForwardGeocodeResult } from '@/lib/geocoding/forward-geocode'
 
 type GeocodeInput = { commune?: string | null; region?: string | null; limit?: number; requireSpecificLocation?: boolean }
-type GeocodeMethod = 'address_commune' | 'location_commune' | 'title_commune' | 'address_only' | 'location_only' | 'title_only' | 'locality_only' | 'kmz_hint'
+type GeocodeMethod = 'address_commune' | 'address_simplified' | 'location_commune' | 'title_commune' | 'address_only' | 'location_only' | 'title_only' | 'locality_only' | 'kmz_hint'
 type GeocodeAttempt = { query: string; method: GeocodeMethod }
 type KmzHint = { name?: string | null; city?: string | null; address?: string | null; region?: string | null }
 
@@ -23,7 +23,15 @@ type Candidate = {
 
 function sleep(ms: number) { return new Promise((resolve) => setTimeout(resolve, ms)) }
 function normalize(value: unknown) { return String(value ?? '').trim() }
-function normalizedKey(value: unknown) { return normalize(value).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') }
+function normalizedKey(value: unknown) {
+  return normalize(value)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
 
 function cleanLocality(value: unknown) {
   return normalize(value)
@@ -31,6 +39,26 @@ function cleanLocality(value: unknown) {
     .replace(/\b(regi[oó]n|provincia|comuna)\s+(de|del|la)?\s*/gi, '')
     .replace(/\s+/g, ' ')
     .trim()
+}
+
+function simplifyAddress(value: unknown) {
+  const parts = normalize(value)
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean)
+  if (parts.length < 2) return normalize(value)
+  const deduped: string[] = []
+  const seen = new Set<string>()
+  for (const part of parts) {
+    const key = normalizedKey(part.replace(/^centro\s+de\s+/i, ''))
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    deduped.push(part.replace(/^centro\s+de\s+/i, '').trim())
+  }
+  if (deduped.length < 2) return deduped[0] || normalize(value)
+  const first = deduped[0]
+  const last = deduped[deduped.length - 1]
+  return normalizedKey(first) === normalizedKey(last) ? first : `${first}, ${last}`
 }
 
 function sameRegion(expected: string | null | undefined, actual: string | null | undefined) {
@@ -104,9 +132,6 @@ function selectFairCandidates(rows: Candidate[], limit: number, requireSpecificL
 
   const sourceBuckets = [...buckets.entries()].sort((a, b) => candidateScore(b[1][0]) - candidateScore(a[1][0]))
   const selected: Candidate[] = []
-
-  // Round-robin across sources so a fresh batch from one portal cannot monopolize
-  // every cron execution. High-quality candidates still go first within each source.
   while (selected.length < limit) {
     let progressed = false
     for (const [, bucket] of sourceBuckets) {
@@ -118,12 +143,12 @@ function selectFairCandidates(rows: Candidate[], limit: number, requireSpecificL
     }
     if (!progressed) break
   }
-
   return selected
 }
 
 function buildAttempts(row: Candidate, kmzHints: KmzHint[] = []) {
   const address = normalize(row.address)
+  const simplifiedAddress = simplifyAddress(row.address)
   const location = normalize(row.location)
   const titleHint = titleLocation(row.title)
   const locality = localityOf(row)
@@ -136,9 +161,11 @@ function buildAttempts(row: Candidate, kmzHints: KmzHint[] = []) {
   }
 
   if (address) add([address, locality, 'Chile'].filter(Boolean).join(', '), 'address_commune')
+  if (simplifiedAddress && normalizedKey(simplifiedAddress) !== normalizedKey(address)) add([simplifiedAddress, locality, 'Chile'].filter(Boolean).join(', '), 'address_simplified')
   if (location && normalizedKey(location) !== normalizedKey(address)) add([location, locality, 'Chile'].filter(Boolean).join(', '), 'location_commune')
   if (titleHint && ![address, location].some((v) => normalizedKey(v) === normalizedKey(titleHint))) add([titleHint, locality, 'Chile'].filter(Boolean).join(', '), 'title_commune')
   if (address) add(`${address}, Chile`, 'address_only')
+  if (simplifiedAddress && normalizedKey(simplifiedAddress) !== normalizedKey(address)) add(`${simplifiedAddress}, Chile`, 'address_simplified')
   if (location && normalizedKey(location) !== normalizedKey(address)) add(`${location}, Chile`, 'location_only')
   if (titleHint) add(`${titleHint}, Chile`, 'title_only')
   if (locality) add(`${locality}, Chile`, 'locality_only')
@@ -153,11 +180,11 @@ function buildAttempts(row: Candidate, kmzHints: KmzHint[] = []) {
 
 function pickMatch(row: { source?: string | null; region?: string | null }, results: Array<{ result: ForwardGeocodeResult; method: GeocodeMethod }>) {
   const strict = results.find(({ result, method }) => {
-    const threshold = method === 'locality_only' ? 0.72 : 0.55
+    const threshold = method === 'locality_only' ? 0.55 : 0.55
     return result.confidence >= threshold && sameRegion(row.region, result.region)
   })
   if (strict) return strict
-  if (row.source === 'portal_inmobiliario') return results.find(({ result, method }) => result.confidence >= 0.65 && Boolean(result.region) && (method === 'address_commune' || method === 'address_only'))
+  if (row.source === 'portal_inmobiliario') return results.find(({ result, method }) => result.confidence >= 0.65 && Boolean(result.region) && (method === 'address_commune' || method === 'address_simplified' || method === 'address_only'))
   return undefined
 }
 
@@ -174,7 +201,7 @@ async function findKmzHints(db: any, row: Candidate) {
 
 export async function progressivelyGeocodeMarket(input: GeocodeInput = {}) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL, key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) return { attempted: 0, updated: 0, repairedRegions: 0, fallbackHits: 0, kmzHintHits: 0, titleHits: 0, localityHits: 0, skipped: 0, failed: 0 }
+  if (!url || !key) return { attempted: 0, updated: 0, repairedRegions: 0, fallbackHits: 0, kmzHintHits: 0, titleHits: 0, localityHits: 0, territorialHits: 0, skipped: 0, failed: 0 }
   const db = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
   const limit = Math.min(Math.max(input.limit ?? 5, 1), 30)
   const nowIso = new Date().toISOString()
@@ -188,11 +215,11 @@ export async function progressivelyGeocodeMarket(input: GeocodeInput = {}) {
   if (input.commune) query = query.ilike('commune', `%${input.commune}%`)
   else if (input.region) query = query.ilike('region', `%${input.region}%`)
   const { data, error } = await query
-  if (error) return { attempted: 0, updated: 0, repairedRegions: 0, fallbackHits: 0, kmzHintHits: 0, titleHits: 0, localityHits: 0, skipped: 0, failed: 1 }
+  if (error) return { attempted: 0, updated: 0, repairedRegions: 0, fallbackHits: 0, kmzHintHits: 0, titleHits: 0, localityHits: 0, territorialHits: 0, skipped: 0, failed: 1 }
 
   const candidates = selectFairCandidates((data ?? []) as Candidate[], limit, input.requireSpecificLocation ?? false)
 
-  let updated = 0, repairedRegions = 0, fallbackHits = 0, kmzHintHits = 0, titleHits = 0, localityHits = 0, skipped = 0, failed = 0
+  let updated = 0, repairedRegions = 0, fallbackHits = 0, kmzHintHits = 0, titleHits = 0, localityHits = 0, territorialHits = 0, skipped = 0, failed = 0
   for (const row of candidates) {
     const commune = localityOf(row), region = normalize(row.region)
     const attemptCount = Number(row.geocode_attempt_count ?? 0) + 1
@@ -215,12 +242,23 @@ export async function progressivelyGeocodeMarket(input: GeocodeInput = {}) {
         continue
       }
       const match = chosen.result, regionMismatch = Boolean(region && match.region && !sameRegion(region, match.region))
-      const patch: Record<string, unknown> = { lat: match.lat, lng: match.lng, coordinates: { lat: match.lat, lng: match.lng }, geocode_status: 'success', geocode_confidence: match.confidence, geocode_next_retry_at: null, geocode_last_error: null, updated_at: new Date().toISOString() }
+      const territorial = chosen.method === 'locality_only'
+      const patch: Record<string, unknown> = {
+        lat: match.lat,
+        lng: match.lng,
+        coordinates: { lat: match.lat, lng: match.lng },
+        geocode_status: 'success',
+        geocode_confidence: match.confidence,
+        geocode_precision: territorial ? 'territorial' : 'point',
+        geocode_next_retry_at: null,
+        geocode_last_error: null,
+        updated_at: new Date().toISOString(),
+      }
       if (chosen.method !== 'address_commune') fallbackHits++
       if (chosen.method === 'kmz_hint') kmzHintHits++
       if (chosen.method === 'title_commune' || chosen.method === 'title_only') titleHits++
-      if (chosen.method === 'locality_only') localityHits++
-      if (regionMismatch && row.source === 'portal_inmobiliario' && match.confidence >= 0.65 && chosen.method.startsWith('address')) {
+      if (chosen.method === 'locality_only') { localityHits++; territorialHits++ }
+      if (regionMismatch && row.source === 'portal_inmobiliario' && match.confidence >= 0.65 && (chosen.method === 'address_commune' || chosen.method === 'address_simplified' || chosen.method === 'address_only')) {
         patch.region = match.region
         if (!commune && match.commune) patch.commune = match.commune
       }
@@ -236,5 +274,5 @@ export async function progressivelyGeocodeMarket(input: GeocodeInput = {}) {
     }
     await sleep(1050)
   }
-  return { attempted: candidates.length, updated, repairedRegions, fallbackHits, kmzHintHits, titleHits, localityHits, skipped, failed }
+  return { attempted: candidates.length, updated, repairedRegions, fallbackHits, kmzHintHits, titleHits, localityHits, territorialHits, skipped, failed }
 }

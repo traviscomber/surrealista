@@ -58,7 +58,7 @@ export async function getNearbyIntelligence(input: NearbyInput) {
   const hasPoint = input.lat !== null && input.lng !== null
   const latSpan = 0.18
   const lngSpan = 0.22
-  const marketSelect = 'title,commune,region,property_type,price_clp,area_m2,price_per_m2_clp,source,source_url,scraped_at,lat,lng'
+  const marketSelect = 'title,commune,region,property_type,price_clp,area_m2,price_per_m2_clp,source,source_url,scraped_at,lat,lng,geocode_precision'
 
   const marketBase = () => supabase
     .from('properties_external')
@@ -71,6 +71,7 @@ export async function getNearbyIntelligence(input: NearbyInput) {
 
   const marketSpatialQuery = hasPoint
     ? marketBase()
+        .or('geocode_precision.is.null,geocode_precision.neq.territorial')
         .gte('lat', input.lat! - latSpan)
         .lte('lat', input.lat! + latSpan)
         .gte('lng', input.lng! - lngSpan)
@@ -111,7 +112,7 @@ export async function getNearbyIntelligence(input: NearbyInput) {
   for (const row of marketSpatialResult.data ?? []) mergedMarket.set(marketKey(row), { ...row, neighbor_basis: 'spatial' })
 
   const marketRows = Array.from(mergedMarket.values())
-    .map((row: any) => ({ ...row, distance_km: pointDistance(input, row) }))
+    .map((row: any) => ({ ...row, distance_km: row.geocode_precision === 'territorial' ? null : pointDistance(input, row) }))
     .filter((row: any) => row.neighbor_basis === 'commune' || row.distance_km === null || row.distance_km <= 25)
 
   const kmzRows = (kmzResult.data ?? [])
@@ -141,6 +142,7 @@ export async function getNearbyIntelligence(input: NearbyInput) {
         commune: row.commune,
         property_type: row.property_type,
         neighbor_basis: row.neighbor_basis,
+        geocode_precision: row.geocode_precision ?? 'point',
         distance_km: row.distance_km === null ? null : Number(row.distance_km.toFixed(2)),
         area_m2: row.area_m2,
         price_clp: row.price_clp,
@@ -187,7 +189,7 @@ export async function getNearbyIntelligence(input: NearbyInput) {
   const highSimilarity = marketNeighbors.filter((row: any) => (row.area_similarity ?? 0) >= 0.8)
 
   if (veryCloseMarket.length) recommendations.push(`Revisar primero ${veryCloseMarket.length} avisos activos a menos de 5 km: son la mejor evidencia comercial vecina.`)
-  else if (localMarket.length) recommendations.push(`Hay ${localMarket.length} avisos de la misma comuna sin georreferencia confiable; usarlos como contexto local y no asumir que son colindantes.`)
+  else if (localMarket.length) recommendations.push(`Hay ${localMarket.length} avisos de la misma comuna sin georreferencia puntual confiable; usarlos como contexto local y no asumir que son colindantes.`)
   if (highSimilarity.length) recommendations.push(`${highSimilarity.length} vecinos de mercado tienen superficie muy similar al predio consultado; priorizarlos en la revisión humana.`)
   if (closeKmz.length) recommendations.push(`Cruzar los ${closeKmz.length} puntos/predios SR a menos de 5 km con los comparables de mercado antes de cerrar el rango.`)
   if (!marketNeighbors.length) recommendations.push('No hay vecinos de mercado cercanos ni suficientes avisos comunales; ejecutar refresh de mercado dirigido al sector.')

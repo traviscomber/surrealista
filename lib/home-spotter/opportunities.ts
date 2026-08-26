@@ -20,6 +20,7 @@ type ExternalProperty = {
   address: string | null
   lat: number | null
   lng: number | null
+  geocode_precision?: string | null
   source: string | null
   source_url: string | null
   scraped_at: string | null
@@ -62,6 +63,10 @@ function comparableArea(subjectArea: number, candidateArea: number) {
   return candidateArea > subjectArea * 0.4 && candidateArea < subjectArea * 2.5
 }
 
+function hasPointPrecision(row: ExternalProperty) {
+  return row.lat != null && row.lng != null && row.geocode_precision !== 'territorial'
+}
+
 function scoreRow(row: ExternalProperty, peers: ExternalProperty[]) {
   const ppm2 = Number(row.price_per_m2_clp)
   const subjectArea = Number(row.area_m2)
@@ -88,9 +93,11 @@ function scoreRow(row: ExternalProperty, peers: ExternalProperty[]) {
   const evidenceScore = clamp(benchmarkPeers.length * 8 + sourceCount * 6)
   const days = ageDays(row.scraped_at)
   const freshness = freshnessScore(days)
-  const dataQuality = clamp((row.lat != null && row.lng != null ? 45 : 0) + (row.address ? 20 : 0) + (row.source_url ? 20 : 0) + (row.images?.length ? 15 : 0))
+  const exactPoint = hasPointPrecision(row)
+  const territorialPoint = row.lat != null && row.lng != null && row.geocode_precision === 'territorial'
+  const dataQuality = clamp((exactPoint ? 45 : territorialPoint ? 15 : 0) + (row.address ? 20 : 0) + (row.source_url ? 20 : 0) + (row.images?.length ? 15 : 0))
   const opportunityScore = Math.round(discountScore * .55 + evidenceScore * .25 + freshness * .10 + dataQuality * .10)
-  const confidence = Math.round(clamp(35 + Math.min(benchmarkPeers.length, 10) * 4 + Math.min(sourceCount, 5) * 4 + (row.lat != null && row.lng != null ? 8 : 0), 0, 95))
+  const confidence = Math.round(clamp(35 + Math.min(benchmarkPeers.length, 10) * 4 + Math.min(sourceCount, 5) * 4 + (exactPoint ? 8 : territorialPoint ? 2 : 0), 0, 95))
   const benchmarkValue = Math.round(benchmarkPpm2 * subjectArea)
 
   return {
@@ -102,6 +109,7 @@ function scoreRow(row: ExternalProperty, peers: ExternalProperty[]) {
     address: row.address,
     lat: row.lat,
     lng: row.lng,
+    geocode_precision: row.geocode_precision ?? (row.lat != null && row.lng != null ? 'point' : null),
     source: row.source,
     source_url: row.source_url,
     image: row.images?.[0] || null,
@@ -126,16 +134,19 @@ function scoreRow(row: ExternalProperty, peers: ExternalProperty[]) {
       `${discountPct.toFixed(1)}% bajo benchmark ${benchmarkBasis === 'commune' ? 'comunal' : 'regional'}`,
       `${benchmarkPeers.length} comparables de superficie compatible`,
       `${sourceCount} fuentes`,
+      territorialPoint ? 'Ubicación territorial aproximada' : exactPoint ? 'Ubicación puntual' : 'Sin punto confiable',
       days <= 14 ? 'Aviso reciente' : `Aviso de ${days} días`,
     ],
   }
 }
 
+const SELECT = 'id,title,price_clp,price_uf,area_m2,price_per_m2_clp,property_type,region,commune,city,address,lat,lng,geocode_precision,source,source_url,scraped_at,days_active,images,description'
+
 export async function listRealOpportunities(limit = 50) {
   const db = admin()
   if (!db) return []
   const { data, error } = await db.from('properties_external')
-    .select('id,title,price_clp,price_uf,area_m2,price_per_m2_clp,property_type,region,commune,city,address,lat,lng,source,source_url,scraped_at,days_active,images,description')
+    .select(SELECT)
     .eq('is_active', true)
     .eq('operation', 'venta')
     .in('property_type', LAND_TYPES)
@@ -153,12 +164,12 @@ export async function getRealOpportunity(id: string) {
   const db = admin()
   if (!db) return null
   const { data: row } = await db.from('properties_external')
-    .select('id,title,price_clp,price_uf,area_m2,price_per_m2_clp,property_type,region,commune,city,address,lat,lng,source,source_url,scraped_at,days_active,images,description')
+    .select(SELECT)
     .eq('id', id).eq('is_active', true).single()
   if (!row) return null
   const subjectArea = Number(row.area_m2 || 0)
   const { data: peers } = await db.from('properties_external')
-    .select('id,title,price_clp,price_uf,area_m2,price_per_m2_clp,property_type,region,commune,city,address,lat,lng,source,source_url,scraped_at,days_active,images,description')
+    .select(SELECT)
     .eq('is_active', true)
     .eq('operation','venta')
     .ilike('region', `%${row.region || ''}%`)
@@ -169,6 +180,13 @@ export async function getRealOpportunity(id: string) {
     .limit(300)
   const scored:any = scoreRow(row as ExternalProperty, (peers ?? []) as ExternalProperty[])
   if (!scored) return null
-  const nearby = await getNearbyIntelligence({ lat: row.lat, lng: row.lng, commune: row.commune || row.city, region: row.region, area_m2: row.area_m2 })
+  const exactPoint = row.geocode_precision !== 'territorial'
+  const nearby = await getNearbyIntelligence({
+    lat: exactPoint ? row.lat : null,
+    lng: exactPoint ? row.lng : null,
+    commune: row.commune || row.city,
+    region: row.region,
+    area_m2: row.area_m2,
+  })
   return { ...scored, description: row.description, images: row.images ?? [], nearby_intelligence: nearby }
 }
