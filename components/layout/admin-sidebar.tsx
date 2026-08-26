@@ -1,221 +1,108 @@
 "use client"
 
-import type React from "react"
-import { useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
-  AlertCircle,
+  BarChart3,
   Building2,
-  ChevronDown,
+  Calculator,
   ChevronRight,
+  CircleHelp,
+  Compass,
   Database,
-  FileText,
-  HelpCircle,
+  FolderOpen,
   LayoutDashboard,
-  Mail,
-  MapPin,
+  MapPinned,
+  Radar,
   Search,
+  Settings,
   Users,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { Input } from "@/components/ui/input"
 
-interface MenuItem {
-  title: string
-  href?: string
-  icon: React.ComponentType<{ className?: string }>
-  badge?: string
-  badgeVariant?: "default" | "secondary" | "destructive" | "outline"
-  children?: MenuItem[]
-}
-
-const menuItems: MenuItem[] = [
-  {
-    title: "Panel principal",
-    href: "/admin",
-    icon: LayoutDashboard,
-  },
-  {
-    title: "Explorador de Campos",
-    href: "/",
-    icon: Search,
-  },
-  {
-    title: "Datos geográficos KMZ",
-    icon: MapPin,
-    children: [
-      {
-        title: "Estado de indexación",
-        href: "/admin/kmz-status",
-        icon: AlertCircle,
-      },
-      {
-        title: "Guía de uso",
-        href: "/kmz-guide",
-        icon: HelpCircle,
-      },
-      {
-        title: "Administrar archivos KMZ",
-        href: "/admin/kmz-collection",
-        icon: Database,
-      },
-      {
-        title: "Indexar ubicaciones",
-        href: "/admin/kmz",
-        icon: MapPin,
-      },
-      {
-        title: "Buscar por ubicación",
-        href: "/kmz-search",
-        icon: Search,
-      },
-    ],
-  },
-  {
-    title: "Comunicaciones",
-    icon: Mail,
-    children: [
-      {
-        title: "Enviar correos",
-        href: "/comunicaciones/email",
-        icon: Mail,
-      },
-      {
-        title: "Historial de envíos",
-        href: "/comunicaciones/email",
-        icon: FileText,
-      },
-    ],
-  },
-  {
-    title: "Explorador de roles SII",
-    href: "/admin/sii-rol-explorer",
-    icon: Database,
-  },
-  {
-    title: "Descubrimiento de propietarios",
-    href: "/admin/owner-discovery",
-    icon: Users,
-    badge: "285",
-    badgeVariant: "default",
-  },
+const domains = [
+  { label: "Inicio", href: "/admin/dashboard", icon: LayoutDashboard },
+  { label: "Campos", href: "/campos", icon: FolderOpen },
+  { label: "Mercado", href: "/busqueda", icon: Search },
+  { label: "Inteligencia", href: "/admin/inteligencia-territorial", icon: MapPinned },
+  { label: "Oportunidades", href: "/home-spotter", icon: Radar },
+  { label: "Comercial", href: "/admin/operaciones-comerciales", icon: Users },
+  { label: "Valorización", href: "/cotizador", icon: Calculator },
 ]
 
-const PAGE_TITLES: Record<string, string> = {
-  "/": "Explorador de Campos",
-  "/admin": "Panel principal",
-  "/busqueda": "Explorador de Campos",
-  "/campos": "Mapa de campos",
-  "/admin/kmz-status": "Estado de indexación KMZ",
-  "/admin/kmz-collection": "Administrar archivos KMZ",
-  "/admin/kmz": "Indexar ubicaciones KMZ",
-  "/kmz-search": "Buscar por ubicación KMZ",
-  "/kmz-guide": "Guía de datos KMZ",
-  "/admin/sii-rol-explorer": "Explorador de roles SII",
-  "/admin/owner-discovery": "Descubrimiento de propietarios",
-  "/comunicaciones/email": "Comunicaciones por correo",
-}
+const secondary = [
+  { label: "Inventario Sur Realista", href: "/admin/surealista", icon: Building2 },
+  { label: "Fuentes y datos", href: "/admin/dashboard?tab=scrapers", icon: Database },
+  { label: "Mercado Inciti", href: "/admin/inciti-market", icon: BarChart3 },
+]
 
 export function AdminSidebar() {
   const pathname = usePathname()
-  const [expandedItems, setExpandedItems] = useState<string[]>([])
-  const pageTitle = PAGE_TITLES[pathname] || "Panel de Administración"
-  const isKMZCollection = pathname === "/admin/kmz-collection"
-
-  const toggleItem = (title: string) => {
-    setExpandedItems((current) => current.includes(title)
-      ? current.filter((item) => item !== title)
-      : [...current, title])
-  }
-
   const isActive = (href: string) => {
-    if (href === "/") return pathname === "/" || pathname === "/busqueda"
-    if (href === "/admin") return pathname === href
-    return pathname === href || pathname.startsWith(`${href}/`)
-  }
-
-  const renderMenuItem = (item: MenuItem, level = 0) => {
-    const hasChildren = Boolean(item.children?.length)
-    const isOpen = expandedItems.includes(item.title)
-
-    if (hasChildren) {
-      return (
-        <Collapsible key={item.title} open={isOpen} onOpenChange={() => toggleItem(item.title)}>
-          <CollapsibleTrigger asChild>
-            <Button
-              variant="ghost"
-              className={cn(
-                "h-10 w-full justify-start gap-3 px-3 text-sm font-medium",
-                level > 0 && "ml-4 w-[calc(100%-1rem)]",
-              )}
-            >
-              <item.icon className="h-4 w-4 shrink-0" />
-              <span className="flex-1 truncate text-left">{item.title}</span>
-              {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="mt-1 space-y-1">
-            {item.children?.map((child) => renderMenuItem(child, level + 1))}
-          </CollapsibleContent>
-        </Collapsible>
-      )
-    }
-
-    return (
-      <Button
-        key={item.title}
-        asChild
-        variant="ghost"
-        className={cn(
-          "h-10 w-full justify-start gap-3 px-3 text-sm font-medium",
-          level > 0 && "ml-4 w-[calc(100%-1rem)]",
-          item.href && isActive(item.href) && "bg-primary/10 text-primary",
-        )}
-      >
-        <Link href={item.href || "#"}>
-          <item.icon className="h-4 w-4 shrink-0" />
-          <span className="flex-1 truncate text-left">{item.title}</span>
-          {item.badge && <Badge variant={item.badgeVariant || "secondary"}>{item.badge}</Badge>}
-        </Link>
-      </Button>
-    )
+    const cleanHref = href.split("?")[0]
+    if (cleanHref === "/admin/dashboard") return pathname === "/admin/dashboard"
+    return pathname === cleanHref || pathname.startsWith(`${cleanHref}/`)
   }
 
   return (
-    <aside className="flex h-full w-80 flex-col border-r border-border bg-card">
-      <div className="border-b border-border p-6">
-        <div className="mb-4 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-            <Building2 className="h-5 w-5 text-primary-foreground" />
+    <aside className="hidden min-h-screen w-[244px] shrink-0 border-r border-border bg-card lg:flex lg:flex-col">
+      <div className="border-b border-border px-5 py-6">
+        <Link href="/admin/dashboard" className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-md border border-border bg-background">
+            <Compass className="h-4 w-4 text-primary" aria-hidden="true" />
           </div>
-          <div>
-            <h2 className="text-lg font-semibold">Panel de Administración</h2>
-            <p className="text-sm text-muted-foreground">Sur-Realista</p>
+          <div className="leading-tight">
+            <div className="text-sm font-semibold tracking-tight">Sur Realista</div>
+            <div className="mt-0.5 text-xs text-muted-foreground">Intelligence</div>
           </div>
-        </div>
-
-        <h1 className="mb-4 text-xl font-semibold">{pageTitle}</h1>
-
-        <label className="relative block">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input type="search" placeholder="Buscar sección..." className="h-9 pl-10" />
-        </label>
+        </Link>
       </div>
 
-      {!isKMZCollection ? (
-        <nav className="flex-1 space-y-1 overflow-y-auto p-4">
-          {menuItems.map((item) => renderMenuItem(item))}
-        </nav>
-      ) : (
-        <div className="flex-1" />
-      )}
+      <nav className="flex-1 overflow-y-auto px-3 py-5" aria-label="Áreas del producto">
+        <p className="px-3 pb-2 text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">Producto</p>
+        <div className="space-y-1">
+          {domains.map((item) => {
+            const Icon = item.icon
+            const active = isActive(item.href)
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "group flex min-h-10 items-center gap-3 rounded-md px-3 text-sm transition-colors",
+                  active ? "bg-primary/8 font-medium text-foreground" : "text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                )}
+              >
+                <Icon className={cn("h-4 w-4", active ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} aria-hidden="true" />
+                <span className="flex-1">{item.label}</span>
+                {active ? <ChevronRight className="h-3.5 w-3.5 text-primary" aria-hidden="true" /> : null}
+              </Link>
+            )
+          })}
+        </div>
 
-      <div className="border-t border-border p-4 text-sm text-muted-foreground">
-        Panel interno Sur-Realista
+        <div className="my-5 border-t border-border" />
+        <p className="px-3 pb-2 text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">Herramientas</p>
+        <div className="space-y-1">
+          {secondary.map((item) => {
+            const Icon = item.icon
+            return (
+              <Link key={item.href} href={item.href} className="flex min-h-9 items-center gap-3 rounded-md px-3 text-sm text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground">
+                <Icon className="h-4 w-4" aria-hidden="true" />
+                <span>{item.label}</span>
+              </Link>
+            )
+          })}
+        </div>
+      </nav>
+
+      <div className="border-t border-border p-3">
+        <Link href="/admin" className="flex min-h-9 items-center gap-3 rounded-md px-3 text-sm text-muted-foreground hover:bg-muted/60 hover:text-foreground">
+          <Settings className="h-4 w-4" aria-hidden="true" />Administración
+        </Link>
+        <Link href="/ayuda" className="flex min-h-9 items-center gap-3 rounded-md px-3 text-sm text-muted-foreground hover:bg-muted/60 hover:text-foreground">
+          <CircleHelp className="h-4 w-4" aria-hidden="true" />Ayuda
+        </Link>
       </div>
     </aside>
   )
