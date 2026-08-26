@@ -26,6 +26,19 @@ function sameRegion(expected: string | null | undefined, actual: string | null |
   return ta ? ta === tb : a === b
 }
 
+function nextRetryAt(attemptCount: number, outcome: 'no_match' | 'error') {
+  const hours = outcome === 'error'
+    ? 1
+    : attemptCount <= 1
+      ? 6
+      : attemptCount === 2
+        ? 24
+        : attemptCount === 3
+          ? 72
+          : 168
+  return new Date(Date.now() + hours * 60 * 60 * 1000).toISOString()
+}
+
 export async function progressivelyGeocodeMarket(input: GeocodeInput = {}) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -34,14 +47,17 @@ export async function progressivelyGeocodeMarket(input: GeocodeInput = {}) {
   const db = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
   const limit = Math.min(Math.max(input.limit ?? 3, 1), 15)
   const requireSpecificLocation = input.requireSpecificLocation ?? false
+  const nowIso = new Date().toISOString()
 
   let query = db
     .from('properties_external')
-    .select('id,source,address,location,commune,city,region,scraped_at')
+    .select('id,source,address,location,commune,city,region,scraped_at,geocode_attempted_at,geocode_attempt_count,geocode_next_retry_at')
     .eq('is_active', true)
     .is('lat', null)
+    .or(`geocode_attempted_at.is.null,geocode_next_retry_at.lte.${nowIso}`)
+    .order('geocode_attempted_at', { ascending: true, nullsFirst: true })
     .order('scraped_at', { ascending: false })
-    .limit(limit * 4)
+    .limit(limit * 8)
 
   if (input.commune) query = query.ilike('commune', `%${input.commune}%`)
   else if (input.region) query = query.ilike('region', `%${input.region}%`)
@@ -71,6 +87,19 @@ export async function progressivelyGeocodeMarket(input: GeocodeInput = {}) {
     const commune = normalize(row.commune || row.city)
     const region = normalize(row.region)
     const search = [specific, commune, 'Chile'].filter(Boolean).join(', ')
+    const attemptCount = Number(row.geocode_attempt_count ?? 0) + 1
+    const attemptedAt = new Date().toISOString()
+
+    await db
+      .from('properties_external')
+      .update({
+        geocode_attempted_at: attemptedAt,
+        geocode_attempt_count: attemptCount,
+        geocode_status: 'processing',
+        geocode_last_error: null,
+      })
+      .eq('id', row.id)
+      .is('lat', null)
 
     try {
       const matches = await geocodeChileAddress(search)
@@ -82,12 +111,26 @@ export async function progressivelyGeocodeMarket(input: GeocodeInput = {}) {
 
       if (!match) {
         skipped += 1
+        await db
+          .from('properties_external')
+          .update({
+            geocode_status: 'no_match',
+            geocode_confidence: matches[0]?.confidence ?? null,
+            geocode_next_retry_at: nextRetryAt(attemptCount, 'no_match'),
+            geocode_last_error: null,
+          })
+          .eq('id', row.id)
+          .is('lat', null)
       } else {
         const regionMismatch = Boolean(region && match.region && !sameRegion(region, match.region))
         const patch: Record<string, unknown> = {
           lat: match.lat,
           lng: match.lng,
           coordinates: { lat: match.lat, lng: match.lng },
+          geocode_status: 'success',
+          geocode_confidence: match.confidence,
+          geocode_next_retry_at: null,
+          geocode_last_error: null,
           updated_at: new Date().toISOString(),
         }
 
@@ -105,15 +148,35 @@ export async function progressivelyGeocodeMarket(input: GeocodeInput = {}) {
           .eq('id', row.id)
           .is('lat', null)
 
-        if (updateError) failed += 1
-        else {
+        if (updateError) {
+          failed += 1
+          await db
+            .from('properties_external')
+            .update({
+              geocode_status: 'error',
+              geocode_next_retry_at: nextRetryAt(attemptCount, 'error'),
+              geocode_last_error: updateError.message,
+            })
+            .eq('id', row.id)
+            .is('lat', null)
+        } else {
           updated += 1
           if (regionMismatch && patch.region) repairedRegions += 1
         }
       }
     } catch (err) {
       failed += 1
+      const message = err instanceof Error ? err.message : String(err)
       console.error('[Geocoding] Falló candidato', row.id, err)
+      await db
+        .from('properties_external')
+        .update({
+          geocode_status: 'error',
+          geocode_next_retry_at: nextRetryAt(attemptCount, 'error'),
+          geocode_last_error: message.slice(0, 500),
+        })
+        .eq('id', row.id)
+        .is('lat', null)
     }
 
     // Nominatim public usage policy: keep requests serialized and conservative.
