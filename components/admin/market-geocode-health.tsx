@@ -16,6 +16,7 @@ type Health = {
   errors: number
   attemptedLastHour: number
   retryReady: number
+  legacyExcluded: number
 }
 
 const EMPTY: Health = {
@@ -28,6 +29,7 @@ const EMPTY: Health = {
   errors: 0,
   attemptedLastHour: 0,
   retryReady: 0,
+  legacyExcluded: 0,
 }
 
 function Metric({ label, value, detail }: { label: string; value: string; detail?: string }) {
@@ -52,21 +54,23 @@ export function MarketGeocodeHealth() {
     setError(null)
     const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
     const now = new Date().toISOString()
+    const operationalScope = "source.neq.portal_inmobiliario,property_type.eq.terreno"
 
     try {
-      const [active, geocoded, point, territorial, neverAttempted, noMatch, errors, recent, retryReady] = await Promise.all([
-        supabase.from("properties_external").select("id", { count: "exact", head: true }).eq("is_active", true),
-        supabase.from("properties_external").select("id", { count: "exact", head: true }).eq("is_active", true).not("lat", "is", null).not("lng", "is", null),
-        supabase.from("properties_external").select("id", { count: "exact", head: true }).eq("is_active", true).eq("geocode_precision", "point"),
-        supabase.from("properties_external").select("id", { count: "exact", head: true }).eq("is_active", true).eq("geocode_precision", "territorial"),
-        supabase.from("properties_external").select("id", { count: "exact", head: true }).eq("is_active", true).is("lat", null).or("geocode_attempt_count.is.null,geocode_attempt_count.eq.0"),
-        supabase.from("properties_external").select("id", { count: "exact", head: true }).eq("is_active", true).eq("geocode_status", "no_match"),
-        supabase.from("properties_external").select("id", { count: "exact", head: true }).eq("is_active", true).eq("geocode_status", "error"),
-        supabase.from("properties_external").select("id", { count: "exact", head: true }).eq("is_active", true).gte("geocode_attempted_at", hourAgo),
-        supabase.from("properties_external").select("id", { count: "exact", head: true }).eq("is_active", true).is("lat", null).lte("geocode_next_retry_at", now),
+      const [active, geocoded, point, territorial, neverAttempted, noMatch, errors, recent, retryReady, legacyExcluded] = await Promise.all([
+        supabase.from("properties_external").select("id", { count: "exact", head: true }).eq("is_active", true).or(operationalScope),
+        supabase.from("properties_external").select("id", { count: "exact", head: true }).eq("is_active", true).or(operationalScope).not("lat", "is", null).not("lng", "is", null),
+        supabase.from("properties_external").select("id", { count: "exact", head: true }).eq("is_active", true).or(operationalScope).eq("geocode_precision", "point"),
+        supabase.from("properties_external").select("id", { count: "exact", head: true }).eq("is_active", true).or(operationalScope).eq("geocode_precision", "territorial"),
+        supabase.from("properties_external").select("id", { count: "exact", head: true }).eq("is_active", true).or(operationalScope).is("lat", null).or("geocode_attempt_count.is.null,geocode_attempt_count.eq.0"),
+        supabase.from("properties_external").select("id", { count: "exact", head: true }).eq("is_active", true).or(operationalScope).eq("geocode_status", "no_match"),
+        supabase.from("properties_external").select("id", { count: "exact", head: true }).eq("is_active", true).or(operationalScope).eq("geocode_status", "error"),
+        supabase.from("properties_external").select("id", { count: "exact", head: true }).eq("is_active", true).or(operationalScope).gte("geocode_attempted_at", hourAgo),
+        supabase.from("properties_external").select("id", { count: "exact", head: true }).eq("is_active", true).or(operationalScope).is("lat", null).lte("geocode_next_retry_at", now),
+        supabase.from("properties_external").select("id", { count: "exact", head: true }).eq("is_active", true).eq("source", "portal_inmobiliario").is("property_type", null),
       ])
 
-      const firstError = [active, geocoded, point, territorial, neverAttempted, noMatch, errors, recent, retryReady].find((result) => result.error)?.error
+      const firstError = [active, geocoded, point, territorial, neverAttempted, noMatch, errors, recent, retryReady, legacyExcluded].find((result) => result.error)?.error
       if (firstError) throw firstError
 
       setHealth({
@@ -79,6 +83,7 @@ export function MarketGeocodeHealth() {
         errors: errors.count ?? 0,
         attemptedLastHour: recent.count ?? 0,
         retryReady: retryReady.count ?? 0,
+        legacyExcluded: legacyExcluded.count ?? 0,
       })
       setRefreshedAt(new Date())
     } catch (err) {
@@ -121,17 +126,18 @@ export function MarketGeocodeHealth() {
         ) : null}
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Metric label="Avisos activos" value={loading ? "…" : health.active.toLocaleString("es-CL")} detail="Inventario externo vigente" />
-          <Metric label="Con ubicación" value={loading ? "…" : health.geocoded.toLocaleString("es-CL")} detail={`${coverage.toFixed(1)}% de cobertura total`} />
+          <Metric label="Avisos operativos" value={loading ? "…" : health.active.toLocaleString("es-CL")} detail="Solo inventario externo válido" />
+          <Metric label="Con ubicación" value={loading ? "…" : health.geocoded.toLocaleString("es-CL")} detail={`${coverage.toFixed(1)}% de cobertura operativa`} />
           <Metric label="Punto confiable" value={loading ? "…" : health.point.toLocaleString("es-CL")} detail="Apto para distancias y vecinos" />
           <Metric label="Ubicación territorial" value={loading ? "…" : health.territorial.toLocaleString("es-CL")} detail="Aproximada: comuna/sector" />
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <Metric label="Sin intentar" value={loading ? "…" : health.neverAttempted.toLocaleString("es-CL")} detail="Prioridad de próximas corridas" />
           <Metric label="Intentos última hora" value={loading ? "…" : health.attemptedLastHour.toLocaleString("es-CL")} detail="Ritmo observado" />
           <Metric label="Sin coincidencia" value={loading ? "…" : health.noMatch.toLocaleString("es-CL")} detail="Reintento con backoff" />
           <Metric label="Listos para retry" value={loading ? "…" : health.retryReady.toLocaleString("es-CL")} detail="Ya cumplieron su espera" />
+          <Metric label="Legado excluido" value={loading ? "…" : health.legacyExcluded.toLocaleString("es-CL")} detail="Portal fuera del universo operativo" />
         </div>
 
         <div className="grid gap-3 sm:grid-cols-3">
