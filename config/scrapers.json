@@ -33,7 +33,8 @@
       "url": "terrachiloe.cl",
       "focus": "Terrenos en Chiloé",
       "group": "south",
-      "enabled": true,
+      "enabled": false,
+      "disabledReason": "Fuente en cuarentena: endpoint actual no responde de forma confiable",
       "defaultPages": 2
     },
     {
@@ -51,7 +52,8 @@
       "url": "icasas.cl",
       "focus": "Terrenos desde Biobío a Magallanes",
       "group": "south",
-      "enabled": true,
+      "enabled": false,
+      "disabledReason": "Fuente en cuarentena para validación de estabilidad",
       "defaultPages": 2
     },
     {
@@ -96,8 +98,7 @@
       "url": "rura.cl",
       "focus": "Parcelas y terrenos especializados",
       "group": "south",
-      "enabled": false,
-      "disabledReason": "Endpoint pendiente de validación",
+      "enabled": true,
       "defaultPages": 1
     },
     {
@@ -107,7 +108,7 @@
       "focus": "Terrenos desde Biobío a Magallanes",
       "group": "south",
       "enabled": false,
-      "disabledReason": "Endpoint pendiente de validación",
+      "disabledReason": "Fuente en cuarentena para validación de estabilidad",
       "defaultPages": 1
     }
   ]

@@ -1,23 +1,104 @@
 import { createClient } from '@supabase/supabase-js'
 import { geocodeChileAddress } from '@/lib/geocoding/forward-geocode'
 
-export async function progressivelyGeocodeMarket(input: { commune?: string | null; region?: string | null; limit?: number }) {
+type GeocodeInput = {
+  commune?: string | null
+  region?: string | null
+  limit?: number
+  requireSpecificLocation?: boolean
+}
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+function normalize(value: unknown) {
+  return String(value ?? '').trim()
+}
+
+function sameRegion(expected: string | null | undefined, actual: string | null | undefined) {
+  if (!expected || !actual) return true
+  const a = normalize(expected).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  const b = normalize(actual).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  const tokens = ['los lagos','los rios','araucania','biobio','nuble','maule','ohiggins','metropolitana','valparaiso','coquimbo','atacama','antofagasta','tarapaca','arica','aysen','magallanes']
+  const ta = tokens.find((token) => a.includes(token))
+  const tb = tokens.find((token) => b.includes(token))
+  return ta ? ta === tb : a === b
+}
+
+export async function progressivelyGeocodeMarket(input: GeocodeInput = {}) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) return { attempted: 0, updated: 0 }
+  if (!url || !key) return { attempted: 0, updated: 0, skipped: 0, failed: 0 }
+
   const db = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
-  let query = db.from('properties_external').select('id,address,location,commune,region').eq('is_active',true).is('lat',null).limit(Math.min(input.limit ?? 3, 5))
+  const limit = Math.min(Math.max(input.limit ?? 3, 1), 12)
+  const requireSpecificLocation = input.requireSpecificLocation ?? false
+
+  let query = db
+    .from('properties_external')
+    .select('id,address,location,commune,city,region,scraped_at')
+    .eq('is_active', true)
+    .is('lat', null)
+    .order('scraped_at', { ascending: false })
+    .limit(limit * 3)
+
   if (input.commune) query = query.ilike('commune', `%${input.commune}%`)
   else if (input.region) query = query.ilike('region', `%${input.region}%`)
-  const { data } = await query
-  let updated = 0
-  for (const row of data ?? []) {
-    const search = [row.address || row.location, row.commune, row.region].filter(Boolean).join(', ')
-    if (search.length < 3) continue
-    const match = (await geocodeChileAddress(search))[0]
-    if (!match || match.confidence < 0.45) continue
-    const { error } = await db.from('properties_external').update({ lat: match.lat, lng: match.lng, coordinates: { lat: match.lat, lng: match.lng }, updated_at: new Date().toISOString() }).eq('id', row.id)
-    if (!error) updated += 1
+
+  const { data, error } = await query
+  if (error) {
+    console.error('[Geocoding] No se pudieron cargar candidatos:', error.message)
+    return { attempted: 0, updated: 0, skipped: 0, failed: 1 }
   }
-  return { attempted: data?.length ?? 0, updated }
+
+  const candidates = (data ?? [])
+    .filter((row) => {
+      const specific = normalize(row.address || row.location)
+      const commune = normalize(row.commune || row.city)
+      if (requireSpecificLocation && !specific) return false
+      return Boolean(specific || commune)
+    })
+    .slice(0, limit)
+
+  let updated = 0
+  let skipped = 0
+  let failed = 0
+
+  for (const row of candidates) {
+    const specific = normalize(row.address || row.location)
+    const commune = normalize(row.commune || row.city)
+    const region = normalize(row.region)
+    const search = [specific, commune, region, 'Chile'].filter(Boolean).join(', ')
+
+    try {
+      const matches = await geocodeChileAddress(search)
+      const match = matches.find((item) => item.confidence >= 0.55 && sameRegion(region, item.region))
+      if (!match) {
+        skipped += 1
+      } else {
+        const { error: updateError } = await db
+          .from('properties_external')
+          .update({
+            lat: match.lat,
+            lng: match.lng,
+            coordinates: { lat: match.lat, lng: match.lng },
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', row.id)
+          .is('lat', null)
+
+        if (updateError) failed += 1
+        else updated += 1
+      }
+    } catch (err) {
+      failed += 1
+      console.error('[Geocoding] Falló candidato', row.id, err)
+    }
+
+    // Nominatim public usage policy: keep requests serialized and conservative.
+    await sleep(1100)
+  }
+
+  return { attempted: candidates.length, updated, skipped, failed }
 }
