@@ -22,11 +22,11 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   title: {
-    default: "Sur Realista Intelligence",
+    default: "Campos | Sur Realista Intelligence",
     template: "%s | Sur Realista Intelligence",
   },
   description:
-    "Plataforma interna de inteligencia territorial y comercial de Sur Realista para analizar campos, mercado, KMZ, valorizaciones y oportunidades.",
+    "Plataforma interna de inteligencia territorial de Sur Realista. Campos es la vista principal para explorar inventario, mapa, regiones, vecinos y propietarios, con mercado, valorización y operación comercial como capas de apoyo.",
   robots: {
     index: false,
     follow: false,
