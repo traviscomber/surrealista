@@ -118,7 +118,7 @@ export default function TagsAdminPage() {
         .from("tags")
         .insert({ name: newTagName.toLowerCase().trim() })
         .select("id, name")
-        .single()
+.single()
       if (error) throw error
 
       const createdTag: unknown = data
