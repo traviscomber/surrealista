@@ -52,16 +52,29 @@ type MenuItem = {
 
 const operationItems: MenuItem[] = [
   {
-    title: "Búsqueda",
-    href: "/busqueda",
-    icon: Search,
-    description: "Centro operativo para campos, clientes y tareas.",
-  },
-  {
     title: "Campos",
     href: "/campos",
     icon: FolderOpen,
-    description: "Revisión y navegación de colecciones KMZ.",
+    description: "Vista principal: mapa, inventario, regiones, tags, vecinos y propietarios.",
+    badge: "Principal",
+  },
+  {
+    title: "Búsqueda de mercado",
+    href: "/busqueda",
+    icon: Search,
+    description: "Inventario externo, búsqueda comercial y comparables.",
+  },
+  {
+    title: "Análisis territorial",
+    href: "/kmz-analisis",
+    icon: MapPin,
+    description: "KMZ, vecindario, roles y lectura territorial.",
+  },
+  {
+    title: "Cotizador",
+    href: "/cotizador",
+    icon: Calculator,
+    description: "Valorización basada en comparables y contexto activo.",
   },
   {
     title: "Clientes",
@@ -70,22 +83,16 @@ const operationItems: MenuItem[] = [
     description: "Ficha y seguimiento de contactos.",
   },
   {
-    title: "Comunicaciones",
-    href: "/comunicaciones",
-    icon: MessageSquare,
-    description: "Mensajes, email y trazabilidad.",
-  },
-  {
     title: "Tareas",
     href: "/gestion-tareas",
     icon: CheckSquare,
     description: "Trabajo operativo y seguimiento diario.",
   },
   {
-    title: "Cotizador",
-    href: "/cotizador",
-    icon: Calculator,
-    description: "Referencia de valor basada en comparables activos.",
+    title: "Comunicaciones",
+    href: "/comunicaciones",
+    icon: MessageSquare,
+    description: "Mensajes, email y trazabilidad.",
   },
   {
     title: "Asistente IA",
@@ -94,12 +101,6 @@ const operationItems: MenuItem[] = [
     description: "Consulta interna asistida por IA.",
     badge: "IA",
   },
-  {
-    title: "Análisis KMZ",
-    href: "/kmz-analisis",
-    icon: MapPin,
-    description: "Vecindario, roles y lectura territorial.",
-  },
 ]
 
 const adminItems: MenuItem[] = [
@@ -107,7 +108,7 @@ const adminItems: MenuItem[] = [
     title: "Dashboard",
     href: "/admin/dashboard",
     icon: Activity,
-    description: "Resumen del sistema y accesos críticos.",
+    description: "Excepciones, estado del sistema y accesos críticos.",
   },
   {
     title: "Colección KMZ",
@@ -198,27 +199,30 @@ export function Header() {
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="container flex h-16 items-center justify-between gap-3">
         <Link href="/" className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-forest">
-            <Building2 className="h-4 w-4 text-white" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary">
+            <Building2 className="h-4 w-4 text-primary-foreground" />
           </div>
           <div className="leading-tight">
             <div className="text-sm font-semibold">Sur-Realista</div>
-            <div className="text-xs text-muted-foreground">Uso interno</div>
+            <div className="text-xs text-muted-foreground">Inteligencia interna</div>
           </div>
         </Link>
 
         <div className="hidden xl:flex items-center gap-2">
+          <Button asChild variant={pathname.startsWith("/campos") ? "secondary" : "ghost"} className="h-10 gap-2 px-3">
+            <Link href="/campos"><FolderOpen className="h-4 w-4" />Campos</Link>
+          </Button>
           <GlobalCommandPalette />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="h-10 gap-2 px-3">
                 <Search className="h-4 w-4" />
-                Operación
+                Más funciones
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-80">
-              <DropdownMenuLabel>Flujos de trabajo</DropdownMenuLabel>
+              <DropdownMenuLabel>Operación desde Campos</DropdownMenuLabel>
               <DropdownMenuSeparator />
               {operationItems.map(renderMenuItem)}
             </DropdownMenuContent>
@@ -261,8 +265,8 @@ export function Header() {
           <ThemeToggle />
 
           <Sheet open={isOpen} onOpenChange={setIsOpen}>
-            <SheetTrigger asChild>
-              <Button variant="ghost" size="sm" className="xl:hidden">
+            <SheetTrigger asChild className="xl:hidden">
+              <Button variant="ghost" size="sm">
                 <Menu className="h-5 w-5" />
                 <span className="sr-only">Abrir menú</span>
               </Button>
@@ -270,12 +274,12 @@ export function Header() {
             <SheetContent side="right" className="w-80">
               <div className="mt-4 space-y-6">
                 <div className="flex items-center gap-2 border-b pb-4">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-forest">
-                    <Building2 className="h-4 w-4 text-white" />
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary">
+                    <Building2 className="h-4 w-4 text-primary-foreground" />
                   </div>
                   <div>
                     <div className="text-sm font-semibold">Sur-Realista</div>
-                    <div className="text-xs text-muted-foreground">Uso interno</div>
+                    <div className="text-xs text-muted-foreground">Inteligencia interna</div>
                   </div>
                 </div>
 
