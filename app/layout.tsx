@@ -8,17 +8,8 @@ import { VisitReminders } from "@/components/visits/visit-reminders"
 import { Toaster } from "sonner"
 import { SentryInit } from "@/components/sentry-init"
 
-const lora = Lora({
-  subsets: ["latin"],
-  variable: "--font-lora",
-  display: "swap",
-})
-
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
-  display: "swap",
-})
+const lora = Lora({ subsets: ["latin"], variable: "--font-lora", display: "swap" })
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" })
 
 export const metadata: Metadata = {
   title: {
@@ -26,35 +17,21 @@ export const metadata: Metadata = {
     template: "%s | Sur Realista Intelligence",
   },
   description:
-    "Plataforma interna de inteligencia territorial y comercial de Sur Realista para analizar campos, mercado, KMZ, valorizaciones y oportunidades.",
+    "Plataforma interna de inteligencia territorial de Sur Realista. Campos es la vista principal para explorar inventario, mapa, regiones, vecinos y propietarios, con mercado, valorización y operación comercial como capas de apoyo.",
   robots: {
     index: false,
     follow: false,
     nocache: true,
-    googleBot: {
-      index: false,
-      follow: false,
-      noimageindex: true,
-    },
+    googleBot: { index: false, follow: false, noimageindex: true },
   },
 }
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es" suppressHydrationWarning className="scroll-smooth">
       <body className={`${inter.variable} ${lora.variable} font-sans bg-background text-foreground`}>
         <SentryInit />
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-          storageKey="sur-realista-theme"
-        >
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange storageKey="sur-realista-theme">
           <PasswordGate>{children}</PasswordGate>
         </ThemeProvider>
         <Toaster />

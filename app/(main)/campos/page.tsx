@@ -8,8 +8,8 @@ import { CAMPOSDetailPanelSafeRedesign } from "@/components/campos/campos-detail
 import { LeafletPopupBehavior } from "@/components/kmz/leaflet-popup-behavior"
 
 export const metadata: Metadata = {
-  title: "CAMPOS internos | Sur-Realista",
-  description: "Vista interna de carpetas CAMPOS con mapa, filtros y detalle operativo.",
+  title: "Campos",
+  description: "Vista principal de Sur Realista Intelligence para explorar el inventario territorial en mapa, filtrar por región y tags, y revisar vecinos, propietarios y detalle operativo.",
 }
 
 export default function CAMPOSPage() {
