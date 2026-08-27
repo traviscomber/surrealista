@@ -2,7 +2,6 @@ import Link from "next/link"
 import {
   ArrowRight,
   BarChart3,
-  BriefcaseBusiness,
   Building2,
   Calculator,
   MapPinned,
@@ -16,53 +15,54 @@ import { Header } from "@/components/layout/header"
 
 const domains = [
   {
-    title: "Inicio",
-    description: "Excepciones, actividad y próximas decisiones.",
-    href: "/admin/dashboard",
-    icon: BarChart3,
-    links: ["Atención", "Estado de datos", "Herramientas"],
-  },
-  {
     title: "Campos",
-    description: "Inventario propio, mapa, vecinos y propietarios.",
+    description: "La vista principal: inventario propio, mapa, regiones, tags, vecinos, propietarios y detalle operativo.",
     href: "/campos",
     icon: Building2,
-    links: ["Explorador", "Inventario SR", "Propietarios"],
-  },
-  {
-    title: "Mercado",
-    description: "Inventario externo, búsqueda, fuentes y comparables.",
-    href: "/busqueda",
-    icon: Search,
-    links: ["Buscar", "Comparables", "Fuentes"],
+    links: ["Mapa", "Inventario SR", "Regiones", "Tags", "Vecinos", "Propietarios"],
+    primary: true,
   },
   {
     title: "Inteligencia",
-    description: "KMZ, capas, geocoding y lectura territorial.",
+    description: "Profundiza un campo con KMZ, capas, roles, geocoding y lectura territorial.",
     href: "/kmz-analisis",
     icon: MapPinned,
-    links: ["KMZ", "Territorio", "Geocoding"],
+    links: ["KMZ", "Territorio", "Roles", "Geocoding"],
+  },
+  {
+    title: "Mercado",
+    description: "Contrasta el campo con inventario externo, búsqueda, fuentes y comparables.",
+    href: "/busqueda",
+    icon: Search,
+    links: ["Buscar", "Inventario externo", "Comparables", "Fuentes"],
   },
   {
     title: "Oportunidades",
-    description: "Spotter, pipeline, guardados y seguimiento.",
+    description: "Convierte información territorial en oportunidades, guardados y seguimiento.",
     href: "/home-spotter",
     icon: Radar,
     links: ["Spotter", "Pipeline", "Guardados"],
   },
   {
+    title: "Valorización",
+    description: "Valoriza un terreno con mercado, comparables, contexto y análisis.",
+    href: "/cotizador",
+    icon: Calculator,
+    links: ["Cotizar", "Analizar", "Informe"],
+  },
+  {
     title: "Comercial",
-    description: "Clientes, tareas, comunicaciones y operación diaria.",
+    description: "Clientes, tareas, comunicaciones y decisiones que nacen desde los campos.",
     href: "/admin/operaciones-comerciales",
     icon: Users,
     links: ["Clientes", "Tareas", "Comunicaciones"],
   },
   {
-    title: "Valorización",
-    description: "Cotizador, análisis de terreno e informes.",
-    href: "/cotizador",
-    icon: Calculator,
-    links: ["Cotizar", "Analizar", "Informe"],
+    title: "Centro operativo",
+    description: "Excepciones, actividad, calidad de datos y herramientas administrativas.",
+    href: "/admin/dashboard",
+    icon: BarChart3,
+    links: ["Atención", "Estado de datos", "Herramientas"],
   },
 ]
 
@@ -73,40 +73,40 @@ export default function HomePage() {
 
       <main>
         <section className="border-b bg-card">
-          <div className="mx-auto grid w-full max-w-[1280px] gap-8 px-6 py-10 lg:grid-cols-[1fr_auto] lg:items-end lg:px-12 lg:py-14">
+          <div className="mx-auto grid w-full max-w-[1280px] gap-8 px-6 py-9 lg:grid-cols-[1fr_auto] lg:items-end lg:px-12 lg:py-12">
             <div className="max-w-3xl">
               <div className="mb-4 flex items-center gap-3">
                 <Badge variant="secondary">Uso interno</Badge>
                 <span className="text-sm text-muted-foreground">Sur Realista Intelligence</span>
               </div>
-              <p className="sr-meta mb-3">Centro de operación</p>
+              <p className="sr-meta mb-3">Vista principal</p>
               <h1 className="max-w-3xl text-3xl font-medium leading-tight tracking-[-0.025em] sm:text-4xl lg:text-5xl">
-                Todo Sur Realista, organizado por función.
+                Parte por Campos. Desde ahí se conecta el resto de la inteligencia.
               </h1>
               <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-                Accede a campos, mercado, inteligencia territorial, oportunidades, operación comercial y valorización desde una sola portada.
+                El mapa e inventario de campos concentran la mayor cantidad de información. Mercado, territorio, oportunidades, valorización y operación comercial funcionan como capas alrededor de esa vista.
               </p>
             </div>
 
             <div className="flex flex-wrap gap-2 lg:justify-end">
-              <Button asChild>
-                <Link href="/admin/dashboard">Ver qué requiere atención <ArrowRight className="h-4 w-4" /></Link>
+              <Button asChild size="lg">
+                <Link href="/campos">Abrir Campos <ArrowRight className="h-4 w-4" /></Link>
               </Button>
-              <Button asChild variant="outline">
-                <Link href="/cotizador">Valorizar terreno</Link>
+              <Button asChild size="lg" variant="outline">
+                <Link href="/admin/dashboard">Ver atención</Link>
               </Button>
             </div>
           </div>
         </section>
 
-        <section className="mx-auto w-full max-w-[1280px] px-6 py-10 lg:px-12 lg:py-12">
-          <div className="mb-7 flex flex-col gap-2 border-b border-border pb-6 md:flex-row md:items-end md:justify-between">
+        <section className="mx-auto w-full max-w-[1280px] px-6 py-8 lg:px-12 lg:py-10">
+          <div className="mb-6 flex flex-col gap-2 border-b border-border pb-5 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="sr-meta">Módulos del producto</p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-tight">Qué puedes hacer</h2>
+              <p className="sr-meta">Flujo de trabajo</p>
+              <h2 className="mt-2 text-2xl font-semibold tracking-tight">Campos primero, módulos alrededor</h2>
             </div>
             <p className="max-w-xl text-sm leading-6 text-muted-foreground md:text-right">
-              Siete áreas principales. Las funciones específicas viven dentro de cada una para evitar un menú interminable.
+              La primera decisión es territorial. Después eliges la capa que necesitas para ese campo.
             </p>
           </div>
 
@@ -115,15 +115,18 @@ export default function HomePage() {
               <Link
                 key={item.title}
                 href={item.href}
-                className="group border-t border-border py-6 transition-colors hover:bg-card/60 md:px-3"
+                className={`group border-t border-border py-6 transition-colors md:px-3 ${item.primary ? "bg-primary/[0.045]" : "hover:bg-card/60"}`}
               >
                 <div className="flex items-start gap-4">
-                  <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-card text-primary">
+                  <div className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-md border ${item.primary ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-primary"}`}>
                     <item.icon className="h-5 w-5" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-3">
-                      <h3 className="text-base font-semibold tracking-tight">{item.title}</h3>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-base font-semibold tracking-tight">{item.title}</h3>
+                        {item.primary ? <Badge variant="outline">Principal</Badge> : null}
+                      </div>
                       <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1 group-hover:text-primary" />
                     </div>
                     <p className="mt-1 text-sm leading-6 text-muted-foreground">{item.description}</p>
@@ -134,16 +137,6 @@ export default function HomePage() {
                 </div>
               </Link>
             ))}
-          </div>
-        </section>
-
-        <section className="border-t bg-secondary/35">
-          <div className="mx-auto grid w-full max-w-[1280px] gap-5 px-6 py-8 md:grid-cols-[1fr_auto] md:items-center lg:px-12">
-            <div>
-              <div className="flex items-center gap-2 text-sm font-medium"><BriefcaseBusiness className="h-4 w-4" /> Operación diaria</div>
-              <p className="mt-1 text-sm text-muted-foreground">Si solo quieres saber qué hacer ahora, entra al Centro Operativo.</p>
-            </div>
-            <Button asChild variant="outline"><Link href="/admin/dashboard">Abrir Centro Operativo</Link></Button>
           </div>
         </section>
       </main>
