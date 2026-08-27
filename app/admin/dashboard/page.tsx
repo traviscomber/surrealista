@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { AlertTriangle, BarChart3, BriefcaseBusiness, Building, Globe, MapPinned, PlusCircle, Store } from "lucide-react"
+import { AlertTriangle, BarChart3, BriefcaseBusiness, Building, Globe, MapPinned, PlusCircle } from "lucide-react"
 import { MarketGeocodeHealth } from "@/components/admin/market-geocode-health"
 import { ScrapersPanel } from "@/components/admin/scrapers-panel"
 import { ScrapedPropertiesDashboard } from "@/components/admin/scraped-properties-dashboard"
@@ -25,7 +25,6 @@ function AdminDashboardContent() {
       <Button asChild className="gap-2"><Link href="/campos"><MapPinned className="h-4 w-4"/>Volver a Campos</Link></Button>
       <Button asChild variant="outline" className="gap-2"><Link href="/admin/operaciones-comerciales"><BriefcaseBusiness className="h-4 w-4"/>Operaciones comerciales</Link></Button>
       <Button asChild variant="outline" className="gap-2"><Link href="/admin/propiedades/nueva"><PlusCircle className="h-4 w-4"/>Nueva propiedad</Link></Button>
-      <Button asChild variant="outline" className="gap-2"><Link href="/admin/surealista"><Store className="h-4 w-4"/>Inventario propio</Link></Button>
     </>}/>
     <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
       <TabsList className="mb-6 grid h-auto grid-cols-1 gap-1 bg-muted/50 p-1 md:grid-cols-3">
