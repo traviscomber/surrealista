@@ -19,7 +19,6 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import {
   Activity,
   BookOpen,
-  Building2,
   Calculator,
   CheckSquare,
   Database,
@@ -45,73 +44,20 @@ type MenuItem = {
   badge?: string
 }
 
-// Only surfaces backed by real production data and a working route belong here.
-// Experimental/empty modules remain in code but are intentionally not advertised.
 const operationItems: MenuItem[] = [
-  {
-    title: "Campos",
-    href: "/campos",
-    icon: FolderOpen,
-    description: "Mapa, inventario KMZ, regiones, vecinos y propietarios.",
-    badge: "Principal",
-  },
-  {
-    title: "Inteligencia territorial",
-    href: "/kmz-analisis",
-    icon: MapPin,
-    description: "KMZ, vecindario, roles, capas y lectura territorial.",
-  },
-  {
-    title: "Mercado y comparables",
-    href: "/busqueda",
-    icon: Search,
-    description: "Inventario externo real, búsqueda comercial y comparables.",
-  },
-  {
-    title: "Valorización",
-    href: "/cotizador",
-    icon: Calculator,
-    description: "Estimación basada en comparables y contexto disponible.",
-  },
-  {
-    title: "Clientes",
-    href: "/clientes",
-    icon: Users,
-    description: "Ficha y seguimiento de clientes con datos reales.",
-  },
-  {
-    title: "Tareas",
-    href: "/gestion-tareas",
-    icon: CheckSquare,
-    description: "Trabajo operativo y seguimientos registrados.",
-  },
-  {
-    title: "Comunicaciones",
-    href: "/comunicaciones",
-    icon: MessageSquare,
-    description: "Historial y trazabilidad de comunicaciones.",
-  },
+  { title: "Campos", href: "/campos", icon: FolderOpen, description: "Mapa, inventario KMZ, regiones, vecinos y propietarios.", badge: "Principal" },
+  { title: "Inteligencia territorial", href: "/kmz-analisis", icon: MapPin, description: "KMZ, vecindario, roles, capas y lectura territorial." },
+  { title: "Mercado y comparables", href: "/busqueda", icon: Search, description: "Inventario externo real, búsqueda comercial y comparables." },
+  { title: "Valorización", href: "/cotizador", icon: Calculator, description: "Estimación basada en comparables y contexto disponible." },
+  { title: "Clientes", href: "/clientes", icon: Users, description: "Ficha y seguimiento de clientes con datos reales." },
+  { title: "Tareas", href: "/gestion-tareas", icon: CheckSquare, description: "Trabajo operativo y seguimientos registrados." },
+  { title: "Comunicaciones", href: "/comunicaciones", icon: MessageSquare, description: "Historial y trazabilidad de comunicaciones." },
 ]
 
 const adminItems: MenuItem[] = [
-  {
-    title: "Centro operativo",
-    href: "/admin/dashboard",
-    icon: Activity,
-    description: "Excepciones, estado de datos y procesos activos.",
-  },
-  {
-    title: "Colección KMZ",
-    href: "/admin/kmz-collection",
-    icon: Database,
-    description: "Inventario y estado de archivos territoriales.",
-  },
-  {
-    title: "Configuración",
-    href: "/admin",
-    icon: Settings,
-    description: "Accesos y mantenimiento del panel.",
-  },
+  { title: "Centro operativo", href: "/admin/dashboard", icon: Activity, description: "Excepciones, estado de datos y procesos activos." },
+  { title: "Colección KMZ", href: "/admin/kmz-collection", icon: Database, description: "Inventario y estado de archivos territoriales." },
+  { title: "Configuración", href: "/admin", icon: Settings, description: "Accesos y mantenimiento del panel." },
 ]
 
 const docsItems: MenuItem[] = [
@@ -128,7 +74,7 @@ export function Header() {
   const renderMenuItem = (item: MenuItem) => (
     <DropdownMenuItem key={item.title} asChild>
       <Link href={item.href} className={cn("flex items-start gap-3 rounded-md px-3 py-2", isActive(item.href) && "bg-accent text-accent-foreground")}>
-        <item.icon className="mt-0.5 h-4 w-4 shrink-0" />
+        <item.icon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
         <span className="flex-1">
           <span className="flex items-center gap-2 font-medium">
             {item.title}
@@ -141,27 +87,22 @@ export function Header() {
   )
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+    <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
       <div className="container flex h-16 items-center justify-between gap-3">
-        <Link href="/campos" className="flex items-center gap-2.5" aria-label="Ir a Campos">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
-            <Building2 className="h-4 w-4 text-primary-foreground" />
-          </div>
-          <div className="leading-tight">
-            <div className="text-sm font-semibold">Sur Realista</div>
-            <div className="text-xs text-muted-foreground">Inteligencia territorial</div>
-          </div>
+        <Link href="/campos" className="min-w-0 leading-tight" aria-label="Ir a Campos">
+          <div className="truncate text-sm font-semibold tracking-tight">Sur Realista</div>
+          <div className="mt-0.5 truncate text-xs text-muted-foreground">Inteligencia territorial</div>
         </Link>
 
-        <div className="hidden xl:flex items-center gap-2">
+        <div className="hidden items-center gap-2 xl:flex">
           <Button asChild variant={pathname.startsWith("/campos") ? "secondary" : "ghost"} className="h-10 gap-2 px-3">
-            <Link href="/campos"><FolderOpen className="h-4 w-4" />Campos</Link>
+            <Link href="/campos"><FolderOpen className="h-4 w-4" aria-hidden="true" />Campos</Link>
           </Button>
           <GlobalCommandPalette />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-10 gap-2 px-3"><Search className="h-4 w-4" />Más funciones</Button>
+              <Button variant="ghost" className="h-10 gap-2 px-3"><Search className="h-4 w-4" aria-hidden="true" />Más funciones</Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-80">
               <DropdownMenuLabel>Funciones operativas</DropdownMenuLabel>
@@ -172,7 +113,7 @@ export function Header() {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-10 gap-2 px-3"><Shield className="h-4 w-4" />Admin</Button>
+              <Button variant="ghost" className="h-10 gap-2 px-3"><Shield className="h-4 w-4" aria-hidden="true" />Admin</Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-80">
               <DropdownMenuLabel>Operación y calidad de datos</DropdownMenuLabel>
@@ -183,7 +124,7 @@ export function Header() {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-10 gap-2 px-3"><BookOpen className="h-4 w-4" />Docs</Button>
+              <Button variant="ghost" className="h-10 gap-2 px-3"><BookOpen className="h-4 w-4" aria-hidden="true" />Docs</Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-72">
               <DropdownMenuLabel>Documentación interna</DropdownMenuLabel>
@@ -198,29 +139,31 @@ export function Header() {
           <ThemeToggle />
           <Sheet open={isOpen} onOpenChange={setIsOpen}>
             <SheetTrigger asChild className="xl:hidden">
-              <Button variant="ghost" size="sm"><Menu className="h-5 w-5" /><span className="sr-only">Abrir menú</span></Button>
+              <Button variant="ghost" size="sm"><Menu className="h-5 w-5" aria-hidden="true" /><span className="sr-only">Abrir menú</span></Button>
             </SheetTrigger>
             <SheetContent side="right" className="w-80">
               <div className="mt-4 space-y-6">
-                <Link href="/campos" onClick={() => setIsOpen(false)} className="flex items-center gap-2 border-b pb-4">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary"><Building2 className="h-4 w-4 text-primary-foreground" /></div>
-                  <div><div className="text-sm font-semibold">Sur Realista</div><div className="text-xs text-muted-foreground">Inteligencia territorial</div></div>
+                <Link href="/campos" onClick={() => setIsOpen(false)} className="block border-b pb-4 leading-tight">
+                  <div className="text-sm font-semibold tracking-tight">Sur Realista</div>
+                  <div className="mt-0.5 text-xs text-muted-foreground">Inteligencia territorial</div>
                 </Link>
 
                 <div className="space-y-2">
-                  <p className="px-1 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Operación</p>
+                  <p className="px-1 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Operación</p>
                   {operationItems.map((item) => (
-                    <Link key={item.title} href={item.href} onClick={() => setIsOpen(false)} className={cn("flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent", isActive(item.href) && "bg-accent text-accent-foreground")}>
-                      <item.icon className="h-4 w-4" /><span className="flex-1">{item.title}</span>{item.badge ? <Badge variant="secondary">{item.badge}</Badge> : null}
+                    <Link key={item.title} href={item.href} onClick={() => setIsOpen(false)} className={cn("flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent", isActive(item.href) && "bg-accent text-accent-foreground")}>
+                      <item.icon className="h-4 w-4" aria-hidden="true" />
+                      <span className="flex-1">{item.title}</span>
+                      {item.badge ? <Badge variant="secondary" className="rounded-full">{item.badge}</Badge> : null}
                     </Link>
                   ))}
                 </div>
 
                 <div className="space-y-2">
-                  <p className="px-1 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Admin</p>
+                  <p className="px-1 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">Admin</p>
                   {adminItems.map((item) => (
-                    <Link key={item.title} href={item.href} onClick={() => setIsOpen(false)} className={cn("flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent", isActive(item.href) && "bg-accent text-accent-foreground")}>
-                      <item.icon className="h-4 w-4" /><span className="flex-1">{item.title}</span>
+                    <Link key={item.title} href={item.href} onClick={() => setIsOpen(false)} className={cn("flex min-h-10 items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-accent", isActive(item.href) && "bg-accent text-accent-foreground")}>
+                      <item.icon className="h-4 w-4" aria-hidden="true" /><span className="flex-1">{item.title}</span>
                     </Link>
                   ))}
                 </div>
