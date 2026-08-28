@@ -2,6 +2,24 @@ import { NextRequest, NextResponse } from "next/server"
 import { INTERNAL_ACCESS_COOKIE, verifyInternalAccessToken } from "@/lib/auth/internal-access"
 import { updateSession } from "@/lib/supabase/middleware"
 
+const RETIRED_PRODUCT_PREFIXES = [
+  "/clientes",
+  "/gestion-clientes",
+  "/gestion-tareas",
+  "/tareas",
+  "/comunicaciones",
+  "/asistente-ia",
+  "/ai",
+  "/admin/agentes",
+  "/admin/tags",
+  "/admin/google-drive",
+  "/admin/operaciones-comerciales",
+]
+
+function isRetiredProductPath(pathname: string) {
+  return RETIRED_PRODUCT_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
+}
+
 function isPublicApiPath(pathname: string) {
   return (
     pathname === "/api/internal-access" ||
@@ -44,6 +62,16 @@ export async function middleware(request: NextRequest) {
       url.searchParams.set("redirect", request.nextUrl.pathname)
       return NextResponse.redirect(url)
     }
+  }
+
+  // Keep unfinished/empty modules out of the sellable product surface.
+  // Their code remains available for future completion, but authenticated users
+  // are sent back to the proven operational workspace instead of seeing smoke.
+  if (isRetiredProductPath(request.nextUrl.pathname)) {
+    const url = request.nextUrl.clone()
+    url.pathname = "/campos"
+    url.search = ""
+    return NextResponse.redirect(url)
   }
 
   if (request.nextUrl.pathname === "/api/cotizador/valuar") {
