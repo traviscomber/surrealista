@@ -15,6 +15,10 @@ type Candidate = {
   commune?: string | null
   city?: string | null
   region?: string | null
+  price_uf?: number | string | null
+  price_clp?: number | string | null
+  area_m2?: number | string | null
+  area?: number | string | null
   scraped_at?: string | null
   geocode_attempted_at?: string | null
   geocode_attempt_count?: number | null
@@ -95,18 +99,30 @@ function localityOf(row: Pick<Candidate, 'commune' | 'city'>) {
   return cleanLocality(row.commune) || cleanLocality(row.city)
 }
 
+function positiveNumber(value: unknown) {
+  const parsed = Number(value ?? 0)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+}
+
 function candidateScore(row: Candidate) {
   const address = normalize(row.address)
   const location = normalize(row.location)
   const titleHint = titleLocation(row.title)
   const locality = localityOf(row)
+  const hasPrice = positiveNumber(row.price_uf) > 0 || positiveNumber(row.price_clp) > 0
+  const hasArea = positiveNumber(row.area_m2) > 0 || positiveNumber(row.area) > 0
+  const attemptCount = Number(row.geocode_attempt_count ?? 0)
   let score = 0
   if (address.length >= 6) score += 100
   if (location.length >= 6) score += 80
   if (titleHint.length >= 8) score += 50
   if (/\b(ruta|calle|camino|avenida|av\.?|sector|lago|laguna|isla|condominio|parque|puerto|mall[ií]n|faja|pasaje)\b/i.test(titleHint)) score += 30
   if (locality.length >= 4) score += 20
-  if (!row.geocode_attempted_at) score += 15
+  if (hasPrice) score += 35
+  if (hasArea) score += 35
+  if (hasPrice && hasArea) score += 30
+  if (!row.geocode_attempted_at) score += 20
+  score -= Math.min(attemptCount, 4) * 12
   return score
 }
 
@@ -117,33 +133,17 @@ function isEligibleCandidate(row: Candidate, requireSpecificLocation: boolean) {
   return Boolean(specific || locality)
 }
 
-function selectFairCandidates(rows: Candidate[], limit: number, requireSpecificLocation: boolean) {
-  const eligible = rows
+function selectPriorityCandidates(rows: Candidate[], limit: number, requireSpecificLocation: boolean) {
+  return rows
     .filter((row) => isEligibleCandidate(row, requireSpecificLocation))
-    .sort((a, b) => candidateScore(b) - candidateScore(a))
-
-  const buckets = new Map<string, Candidate[]>()
-  for (const row of eligible) {
-    const source = normalize(row.source) || 'unknown'
-    const bucket = buckets.get(source) ?? []
-    bucket.push(row)
-    buckets.set(source, bucket)
-  }
-
-  const sourceBuckets = [...buckets.entries()].sort((a, b) => candidateScore(b[1][0]) - candidateScore(a[1][0]))
-  const selected: Candidate[] = []
-  while (selected.length < limit) {
-    let progressed = false
-    for (const [, bucket] of sourceBuckets) {
-      const next = bucket.shift()
-      if (!next) continue
-      selected.push(next)
-      progressed = true
-      if (selected.length >= limit) break
-    }
-    if (!progressed) break
-  }
-  return selected
+    .sort((a, b) => {
+      const scoreDelta = candidateScore(b) - candidateScore(a)
+      if (scoreDelta !== 0) return scoreDelta
+      const aScraped = Date.parse(a.scraped_at ?? '') || 0
+      const bScraped = Date.parse(b.scraped_at ?? '') || 0
+      return bScraped - aScraped
+    })
+    .slice(0, limit)
 }
 
 function buildAttempts(row: Candidate, kmzHints: KmzHint[] = []) {
@@ -206,7 +206,7 @@ export async function progressivelyGeocodeMarket(input: GeocodeInput = {}) {
   const limit = Math.min(Math.max(input.limit ?? 5, 1), 30)
   const nowIso = new Date().toISOString()
   let query = db.from('properties_external')
-    .select('id,source,title,address,location,commune,city,region,scraped_at,geocode_attempted_at,geocode_attempt_count,geocode_next_retry_at')
+    .select('id,source,title,address,location,commune,city,region,price_uf,price_clp,area_m2,area,scraped_at,geocode_attempted_at,geocode_attempt_count,geocode_next_retry_at')
     .eq('is_active', true).is('lat', null)
     .or(`geocode_attempted_at.is.null,geocode_next_retry_at.lte.${nowIso}`)
     .order('geocode_attempted_at', { ascending: true, nullsFirst: true })
@@ -217,7 +217,7 @@ export async function progressivelyGeocodeMarket(input: GeocodeInput = {}) {
   const { data, error } = await query
   if (error) return { attempted: 0, updated: 0, repairedRegions: 0, fallbackHits: 0, kmzHintHits: 0, titleHits: 0, localityHits: 0, territorialHits: 0, skipped: 0, failed: 1 }
 
-  const candidates = selectFairCandidates((data ?? []) as Candidate[], limit, input.requireSpecificLocation ?? false)
+  const candidates = selectPriorityCandidates((data ?? []) as Candidate[], limit, input.requireSpecificLocation ?? false)
 
   let updated = 0, repairedRegions = 0, fallbackHits = 0, kmzHintHits = 0, titleHits = 0, localityHits = 0, territorialHits = 0, skipped = 0, failed = 0
   for (const row of candidates) {
