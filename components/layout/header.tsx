@@ -21,15 +21,18 @@ import {
   BookOpen,
   Building2,
   Calculator,
+  CheckSquare,
   Database,
   FileText,
   FolderOpen,
   HelpCircle,
   MapPin,
   Menu,
+  MessageSquare,
   Search,
   Settings,
   Shield,
+  Users,
 } from "lucide-react"
 import { GlobalCommandPalette } from "@/components/search/global-command-palette"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
@@ -69,6 +72,24 @@ const operationItems: MenuItem[] = [
     href: "/cotizador",
     icon: Calculator,
     description: "Estimación basada en comparables y contexto disponible.",
+  },
+  {
+    title: "Clientes",
+    href: "/clientes",
+    icon: Users,
+    description: "Ficha y seguimiento de clientes con datos reales.",
+  },
+  {
+    title: "Tareas",
+    href: "/gestion-tareas",
+    icon: CheckSquare,
+    description: "Trabajo operativo y seguimientos registrados.",
+  },
+  {
+    title: "Comunicaciones",
+    href: "/comunicaciones",
+    icon: MessageSquare,
+    description: "Historial y trazabilidad de comunicaciones.",
   },
 ]
 
