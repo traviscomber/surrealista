@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Calculator, FolderOpen, MapPin, Search } from "lucide-react"
+import { Calculator, CheckSquare, FolderOpen, MapPin, MessageSquare, Search, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   CommandDialog,
@@ -28,6 +28,9 @@ const quickActions = [
   { label: "Buscar mercado", href: "/busqueda", icon: Search },
   { label: "Inteligencia territorial", href: "/kmz-analisis", icon: MapPin },
   { label: "Valorización", href: "/cotizador", icon: Calculator },
+  { label: "Clientes", href: "/clientes", icon: Users },
+  { label: "Tareas", href: "/gestion-tareas", icon: CheckSquare },
+  { label: "Comunicaciones", href: "/comunicaciones", icon: MessageSquare },
 ]
 
 export function GlobalCommandPalette() {
@@ -83,7 +86,7 @@ export function GlobalCommandPalette() {
 
   return (
     <>
-      <Button variant="ghost" className="h-10 gap-2 px-3" onClick={() => setOpen(true)} aria-label="Buscar campos">
+      <Button variant="ghost" className="h-10 gap-2 px-3" onClick={() => setOpen(true)} aria-label="Buscar campos y abrir funciones">
         <Search className="h-4 w-4" />
         <span className="hidden 2xl:inline">Buscar</span>
         <span className="hidden rounded border px-1.5 py-0.5 text-[10px] text-muted-foreground 2xl:inline">⌘K</span>
