@@ -81,6 +81,32 @@ function coordinatesFromObject(value: unknown, depth = 0): { lat: number; lng: n
   return null
 }
 
+function coordinatesForListingId(value: unknown, expectedId: string, depth = 0): { lat: number; lng: number } | null {
+  if (depth > 10 || value == null) return null
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const point = coordinatesForListingId(item, expectedId, depth + 1)
+      if (point) return point
+    }
+    return null
+  }
+  if (typeof value !== 'object') return null
+
+  const obj = value as Record<string, unknown>
+  const identityFields = [obj.id, obj.item_id, obj.productID, obj.sku, obj['@id'], obj.url, obj.permalink]
+    .map((item) => String(item ?? ''))
+  if (identityFields.some((item) => item.includes(expectedId))) {
+    const point = coordinatesFromObject(obj)
+    if (point) return point
+  }
+
+  for (const child of Object.values(obj)) {
+    const point = coordinatesForListingId(child, expectedId, depth + 1)
+    if (point) return point
+  }
+  return null
+}
+
 function coordinatesFromText(text: string): { lat: number; lng: number } | null {
   const patterns = [
     /["']?(?:latitude|lat)["']?\s*[:=]\s*["']?(-?\d{1,3}(?:\.\d+)?)["']?[\s\S]{0,160}?["']?(?:longitude|lng|lon)["']?\s*[:=]\s*["']?(-?\d{1,3}(?:\.\d+)?)/i,
@@ -97,15 +123,34 @@ function coordinatesFromText(text: string): { lat: number; lng: number } | null 
   return null
 }
 
-export function extractPortalCoordinatesFromHTML(html: string): { lat: number; lng: number } | null {
+export function extractPortalCoordinatesFromHTML(html: string, expectedId?: string): { lat: number; lng: number } | null {
   const scriptRegex = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
   let match
+  const jsonLd: unknown[] = []
   while ((match = scriptRegex.exec(html)) !== null) {
     try {
-      const data = JSON.parse(match[1])
-      const point = coordinatesFromObject(data)
-      if (point) return point
+      jsonLd.push(JSON.parse(match[1]))
     } catch { /* malformed JSON-LD */ }
+  }
+
+  if (expectedId) {
+    for (const data of jsonLd) {
+      const point = coordinatesForListingId(data, expectedId)
+      if (point) return point
+    }
+  }
+
+  for (const data of jsonLd) {
+    const nodes = Array.isArray(data) ? data : [data]
+    for (const node of nodes) {
+      if (!node || typeof node !== 'object') continue
+      const record = node as Record<string, unknown>
+      const type = record['@type']
+      const types = Array.isArray(type) ? type.map(String) : [String(type ?? '')]
+      if (!types.some((item) => item === 'Product' || item === 'RealEstateListing' || item === 'Place')) continue
+      const point = coordinatesFromObject(record)
+      if (point) return point
+    }
   }
 
   const statePatterns = [
@@ -116,11 +161,14 @@ export function extractPortalCoordinatesFromHTML(html: string): { lat: number; l
     const stateMatch = html.match(pattern)
     if (!stateMatch) continue
     try {
-      const point = coordinatesFromObject(JSON.parse(stateMatch[1]))
+      const state = JSON.parse(stateMatch[1])
+      const point = expectedId ? coordinatesForListingId(state, expectedId) : null
       if (point) return point
     } catch { /* malformed state */ }
   }
 
+  // Detail pages normally contain one primary map. Keep raw text matching as a
+  // final fallback only after ID-bound structured data has been exhausted.
   return coordinatesFromText(html)
 }
 
@@ -255,7 +303,7 @@ function mapJsonLdToRaw(
   if (!id) return null
   const offer = (data['offers'] as Record<string, unknown>) ?? {}
   const addr = (data['address'] as Record<string, unknown>) ?? {}
-  const point = coordinatesFromObject(data)
+  const point = coordinatesForListingId(data, id) ?? coordinatesFromObject(data)
   return {
     externalId: id,
     source: 'portal_inmobiliario',
@@ -298,7 +346,7 @@ function mapPreloadedToRaw(
     latitude?: number | string
     longitude?: number | string
   } | undefined
-  const point = coordinatesFromObject(location) ?? coordinatesFromObject(item)
+  const point = coordinatesForListingId(item, id) ?? coordinatesFromObject(location)
 
   return {
     externalId: id,
