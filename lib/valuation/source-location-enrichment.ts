@@ -39,7 +39,9 @@ function cleanSourceUrl(value: string) {
 }
 
 async function fetchPortalPoint(sourceUrl: string) {
-  const response = await fetch(cleanSourceUrl(sourceUrl), {
+  const cleanUrl = cleanSourceUrl(sourceUrl)
+  const expectedId = cleanUrl.match(/MLC-?(\d+)/i)?.[1]
+  const response = await fetch(cleanUrl, {
     redirect: 'follow',
     headers: {
       'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
@@ -51,7 +53,7 @@ async function fetchPortalPoint(sourceUrl: string) {
   })
   if (!response.ok) throw new Error(`source returned HTTP ${response.status}`)
   const html = await response.text()
-  return extractPortalCoordinatesFromHTML(html)
+  return extractPortalCoordinatesFromHTML(html, expectedId)
 }
 
 async function sourcePointFor(row: SourceCandidate) {
