@@ -17,26 +17,19 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import {
+  Activity,
+  BookOpen,
   Building2,
+  Calculator,
+  Database,
+  FileText,
+  FolderOpen,
+  HelpCircle,
+  MapPin,
   Menu,
   Search,
-  Shield,
-  BookOpen,
-  Activity,
-  FolderOpen,
-  Users,
-  MessageSquare,
-  CheckSquare,
-  MapPin,
-  Calculator,
-  Bot,
-  Database,
-  Brain,
-  Tag,
   Settings,
-  HelpCircle,
-  FileText,
-  Cloud,
+  Shield,
 } from "lucide-react"
 import { GlobalCommandPalette } from "@/components/search/global-command-palette"
 import { ThemeToggle } from "@/components/ui/theme-toggle"
@@ -49,12 +42,14 @@ type MenuItem = {
   badge?: string
 }
 
+// Only surfaces backed by real production data and a working route belong here.
+// Experimental/empty modules remain in code but are intentionally not advertised.
 const operationItems: MenuItem[] = [
   {
     title: "Campos",
     href: "/campos",
     icon: FolderOpen,
-    description: "Vista principal: mapa, inventario, regiones, tags, vecinos y propietarios.",
+    description: "Mapa, inventario KMZ, regiones, vecinos y propietarios.",
     badge: "Principal",
   },
   {
@@ -67,38 +62,13 @@ const operationItems: MenuItem[] = [
     title: "Mercado y comparables",
     href: "/busqueda",
     icon: Search,
-    description: "Inventario externo, búsqueda comercial, fuentes y comparables.",
+    description: "Inventario externo real, búsqueda comercial y comparables.",
   },
   {
     title: "Valorización",
     href: "/cotizador",
     icon: Calculator,
-    description: "Valorización basada en comparables y contexto activo.",
-  },
-  {
-    title: "Clientes",
-    href: "/clientes",
-    icon: Users,
-    description: "Ficha y seguimiento de contactos asociados a la operación.",
-  },
-  {
-    title: "Tareas",
-    href: "/gestion-tareas",
-    icon: CheckSquare,
-    description: "Trabajo operativo y seguimiento diario.",
-  },
-  {
-    title: "Comunicaciones",
-    href: "/comunicaciones",
-    icon: MessageSquare,
-    description: "Mensajes, email y trazabilidad.",
-  },
-  {
-    title: "Asistente IA",
-    href: "/asistente-ia",
-    icon: Bot,
-    description: "Consulta interna asistida por IA.",
-    badge: "IA",
+    description: "Estimación basada en comparables y contexto disponible.",
   },
 ]
 
@@ -107,32 +77,13 @@ const adminItems: MenuItem[] = [
     title: "Centro operativo",
     href: "/admin/dashboard",
     icon: Activity,
-    description: "Excepciones, estado de datos y accesos críticos.",
+    description: "Excepciones, estado de datos y procesos activos.",
   },
   {
     title: "Colección KMZ",
     href: "/admin/kmz-collection",
     icon: Database,
     description: "Inventario y estado de archivos territoriales.",
-  },
-  {
-    title: "Google Drive",
-    href: "/admin/google-drive",
-    icon: Cloud,
-    description: "Conexión documental opcional.",
-    badge: "Opcional",
-  },
-  {
-    title: "Agentes",
-    href: "/admin/agentes",
-    icon: Brain,
-    description: "Automatización y flujos documentales.",
-  },
-  {
-    title: "Tags",
-    href: "/admin/tags",
-    icon: Tag,
-    description: "Clasificación y organización interna.",
   },
   {
     title: "Configuración",
@@ -192,7 +143,7 @@ export function Header() {
               <Button variant="ghost" className="h-10 gap-2 px-3"><Search className="h-4 w-4" />Más funciones</Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-80">
-              <DropdownMenuLabel>Capas alrededor de Campos</DropdownMenuLabel>
+              <DropdownMenuLabel>Funciones operativas</DropdownMenuLabel>
               <DropdownMenuSeparator />
               {operationItems.map(renderMenuItem)}
             </DropdownMenuContent>
@@ -248,7 +199,7 @@ export function Header() {
                   <p className="px-1 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Admin</p>
                   {adminItems.map((item) => (
                     <Link key={item.title} href={item.href} onClick={() => setIsOpen(false)} className={cn("flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-accent", isActive(item.href) && "bg-accent text-accent-foreground")}>
-                      <item.icon className="h-4 w-4" /><span className="flex-1">{item.title}</span>{item.badge ? <Badge variant="secondary">{item.badge}</Badge> : null}
+                      <item.icon className="h-4 w-4" /><span className="flex-1">{item.title}</span>
                     </Link>
                   ))}
                 </div>
