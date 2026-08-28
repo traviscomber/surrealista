@@ -358,7 +358,7 @@ export async function upsertProperties(
     const safeChunk = chunk.map((property) => {
       const existing = existingById.get(property.external_id)
       const existingPoint = existing ? validCoordinatePair(existing.lat, existing.lng) : null
-      if (!existingPoint) return property
+      if (!existing || !existingPoint) return property
 
       // Scrapers refresh commercial data frequently. Missing or newly surfaced source
       // coordinates must never erase/replace an already accepted point.
