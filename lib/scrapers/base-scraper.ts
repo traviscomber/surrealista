@@ -67,6 +67,14 @@ export interface NormalisedProperty {
   address: string | null
   lat: number | null
   lng: number | null
+  coordinates?: { lat: number; lng: number } | null
+  geocode_status?: string | null
+  geocode_confidence?: number | null
+  geocode_precision?: string | null
+  geocode_attempted_at?: string | null
+  geocode_attempt_count?: number | null
+  geocode_next_retry_at?: string | null
+  geocode_last_error?: string | null
   description: string | null
   features: string[]
   images: string[]
@@ -100,6 +108,15 @@ const MAX_PRICE_PER_M2_UF = 100_000_000 // numeric(12,4)
 
 function numericWithin(value: number | null, exclusiveMax: number): number | null {
   return value !== null && Number.isFinite(value) && Math.abs(value) < exclusiveMax ? value : null
+}
+
+function validCoordinatePair(lat: unknown, lng: unknown): { lat: number; lng: number } | null {
+  const parsedLat = Number(lat)
+  const parsedLng = Number(lng)
+  if (!Number.isFinite(parsedLat) || !Number.isFinite(parsedLng)) return null
+  if (parsedLat < -90 || parsedLat > 90 || parsedLng < -180 || parsedLng > 180) return null
+  if (parsedLat === 0 && parsedLng === 0) return null
+  return { lat: parsedLat, lng: parsedLng }
 }
 
 export async function getUFValue(): Promise<number> {
@@ -221,6 +238,7 @@ export async function normaliseProperty(raw: RawProperty): Promise<NormalisedPro
     price_uf && area_m2 ? parseFloat((price_uf / area_m2).toFixed(4)) : null,
     MAX_PRICE_PER_M2_UF,
   )
+  const sourcePoint = validCoordinatePair(raw.lat, raw.lng)
 
   return {
     external_id: raw.externalId,
@@ -239,8 +257,16 @@ export async function normaliseProperty(raw: RawProperty): Promise<NormalisedPro
     city: raw.city?.trim() ?? null,
     commune: raw.commune?.trim() ?? null,
     address: raw.address?.trim() ?? null,
-    lat: raw.lat ?? null,
-    lng: raw.lng ?? null,
+    lat: sourcePoint?.lat ?? null,
+    lng: sourcePoint?.lng ?? null,
+    ...(sourcePoint ? {
+      coordinates: sourcePoint,
+      geocode_status: 'success',
+      geocode_confidence: 1,
+      geocode_precision: 'point',
+      geocode_next_retry_at: null,
+      geocode_last_error: null,
+    } : {}),
     description: raw.description?.trim().slice(0, 2000) ?? null,
     features: raw.features ?? [],
     images: (raw.images ?? []).slice(0, 10),
@@ -318,7 +344,7 @@ export async function upsertProperties(
     const externalIds = chunk.map((property) => property.external_id)
     const { data: existingRows, error: lookupError } = await supabase
       .from('properties_external')
-      .select('external_id')
+      .select('external_id,lat,lng,coordinates,geocode_status,geocode_confidence,geocode_precision,geocode_attempted_at,geocode_attempt_count,geocode_next_retry_at,geocode_last_error')
       .in('external_id', externalIds)
 
     if (lookupError) {
@@ -328,7 +354,29 @@ export async function upsertProperties(
     }
 
     const existingIds = new Set((existingRows ?? []).map((row) => row.external_id))
-    await persistChunk(chunk, existingIds)
+    const existingById = new Map((existingRows ?? []).map((row) => [row.external_id, row]))
+    const safeChunk = chunk.map((property) => {
+      const existing = existingById.get(property.external_id)
+      const existingPoint = existing ? validCoordinatePair(existing.lat, existing.lng) : null
+      if (!existing || !existingPoint) return property
+
+      // Scrapers refresh commercial data frequently. Missing or newly surfaced source
+      // coordinates must never erase/replace an already accepted point.
+      return {
+        ...property,
+        lat: existingPoint.lat,
+        lng: existingPoint.lng,
+        coordinates: existing.coordinates ?? existingPoint,
+        geocode_status: existing.geocode_status ?? 'success',
+        geocode_confidence: existing.geocode_confidence ?? property.geocode_confidence ?? null,
+        geocode_precision: existing.geocode_precision ?? 'point',
+        geocode_attempted_at: existing.geocode_attempted_at ?? null,
+        geocode_attempt_count: existing.geocode_attempt_count ?? null,
+        geocode_next_retry_at: existing.geocode_next_retry_at ?? null,
+        geocode_last_error: existing.geocode_last_error ?? null,
+      }
+    })
+    await persistChunk(safeChunk, existingIds)
   }
 
   return { inserted, updated, skipped, errors }

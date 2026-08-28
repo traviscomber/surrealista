@@ -35,6 +35,152 @@ const REGION_SLUGS: Record<string, string> = {
   'Región de Los Lagos': 'los-lagos',
 }
 
+function asFiniteNumber(value: unknown): number | null {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function validChilePoint(latValue: unknown, lngValue: unknown): { lat: number; lng: number } | null {
+  const lat = asFiniteNumber(latValue)
+  const lng = asFiniteNumber(lngValue)
+  if (lat === null || lng === null) return null
+  const broadChile = lat >= -57 && lat <= -17 && lng >= -111 && lng <= -65
+  if (!broadChile) return null
+  return { lat, lng }
+}
+
+function coordinatesFromObject(value: unknown, depth = 0): { lat: number; lng: number } | null {
+  if (depth > 5 || value == null) return null
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const point = coordinatesFromObject(item, depth + 1)
+      if (point) return point
+    }
+    return null
+  }
+  if (typeof value !== 'object') return null
+
+  const obj = value as Record<string, unknown>
+  const direct = validChilePoint(
+    obj.latitude ?? obj.lat ?? obj['geo:latitude'],
+    obj.longitude ?? obj.lng ?? obj.lon ?? obj['geo:longitude'],
+  )
+  if (direct) return direct
+
+  const preferredKeys = ['geo', 'location', 'coordinates', 'map', 'itemOffered', 'additionalProperty']
+  for (const key of preferredKeys) {
+    if (!(key in obj)) continue
+    const point = coordinatesFromObject(obj[key], depth + 1)
+    if (point) return point
+  }
+
+  for (const child of Object.values(obj)) {
+    const point = coordinatesFromObject(child, depth + 1)
+    if (point) return point
+  }
+  return null
+}
+
+function coordinatesForListingId(value: unknown, expectedId: string, depth = 0): { lat: number; lng: number } | null {
+  if (depth > 10 || value == null) return null
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const point = coordinatesForListingId(item, expectedId, depth + 1)
+      if (point) return point
+    }
+    return null
+  }
+  if (typeof value !== 'object') return null
+
+  const obj = value as Record<string, unknown>
+  const identityFields = [obj.id, obj.item_id, obj.productID, obj.sku, obj['@id'], obj.url, obj.permalink]
+    .map((item) => String(item ?? ''))
+  if (identityFields.some((item) => item.includes(expectedId))) {
+    const point = coordinatesFromObject(obj)
+    if (point) return point
+  }
+
+  for (const child of Object.values(obj)) {
+    const point = coordinatesForListingId(child, expectedId, depth + 1)
+    if (point) return point
+  }
+  return null
+}
+
+function coordinatesFromText(text: string): { lat: number; lng: number } | null {
+  const patterns = [
+    /["']?(?:latitude|lat)["']?\s*[:=]\s*["']?(-?\d{1,3}(?:\.\d+)?)["']?[\s\S]{0,160}?["']?(?:longitude|lng|lon)["']?\s*[:=]\s*["']?(-?\d{1,3}(?:\.\d+)?)/i,
+    /["']?(?:longitude|lng|lon)["']?\s*[:=]\s*["']?(-?\d{1,3}(?:\.\d+)?)["']?[\s\S]{0,160}?["']?(?:latitude|lat)["']?\s*[:=]\s*["']?(-?\d{1,3}(?:\.\d+)?)/i,
+    /data-(?:latitude|lat)=["'](-?\d{1,3}(?:\.\d+)?)["'][^>]{0,300}?data-(?:longitude|lng|lon)=["'](-?\d{1,3}(?:\.\d+)?)["']/i,
+  ]
+
+  for (let index = 0; index < patterns.length; index++) {
+    const match = text.match(patterns[index])
+    if (!match) continue
+    const point = index === 1 ? validChilePoint(match[2], match[1]) : validChilePoint(match[1], match[2])
+    if (point) return point
+  }
+  return null
+}
+
+export function extractPortalCoordinatesFromHTML(html: string, expectedId?: string): { lat: number; lng: number } | null {
+  const scriptRegex = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
+  let match
+  const jsonLd: unknown[] = []
+  while ((match = scriptRegex.exec(html)) !== null) {
+    try {
+      jsonLd.push(JSON.parse(match[1]))
+    } catch { /* malformed JSON-LD */ }
+  }
+
+  if (expectedId) {
+    for (const data of jsonLd) {
+      const point = coordinatesForListingId(data, expectedId)
+      if (point) return point
+    }
+  }
+
+  for (const data of jsonLd) {
+    const nodes = Array.isArray(data) ? data : [data]
+    for (const node of nodes) {
+      if (!node || typeof node !== 'object') continue
+      const record = node as Record<string, unknown>
+      const type = record['@type']
+      const types = Array.isArray(type) ? type.map(String) : [String(type ?? '')]
+      if (!types.some((item) => item === 'Product' || item === 'RealEstateListing' || item === 'Place')) continue
+      const point = coordinatesFromObject(record)
+      if (point) return point
+    }
+  }
+
+  const statePatterns = [
+    /window\.__PRELOADED_STATE__\s*=\s*(\{.+?\});?\s*<\/script>/s,
+    /<script[^>]*id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i,
+  ]
+  for (const pattern of statePatterns) {
+    const stateMatch = html.match(pattern)
+    if (!stateMatch) continue
+    try {
+      const state = JSON.parse(stateMatch[1])
+      const point = expectedId ? coordinatesForListingId(state, expectedId) : null
+      if (point) return point
+    } catch { /* malformed state */ }
+  }
+
+  // Detail pages normally contain one primary map. Keep raw text matching as a
+  // final fallback only after ID-bound structured data has been exhausted.
+  return coordinatesFromText(html)
+}
+
+function absolutePortalUrl(value: string): string {
+  if (!value) return ''
+  try {
+    return new URL(value, BASE_URL).toString()
+  } catch {
+    return value
+  }
+}
+
 /** Fetch only the land category. The old /propiedades route mixed apartments,
  * houses and developments into the market inventory and polluted geocoding. */
 async function fetchViaSearch(
@@ -66,14 +212,26 @@ function parsePortalHTML(
 ): RawProperty[] {
   const results: RawProperty[] = []
 
-  const scriptRegex = /<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi
+  const scriptRegex = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
   let match
   while ((match = scriptRegex.exec(html)) !== null) {
     try {
-      const data = JSON.parse(match[1])
-      if (data['@type'] === 'Product' || data['@type'] === 'RealEstateListing') {
-        const prop = mapJsonLdToRaw(data, operation, regionSlug)
-        if (prop) results.push(prop)
+      const parsed = JSON.parse(match[1])
+      const nodes = Array.isArray(parsed) ? parsed : [parsed]
+      const expanded = nodes.flatMap((node) => {
+        if (!node || typeof node !== 'object') return []
+        const graph = (node as Record<string, unknown>)['@graph']
+        return Array.isArray(graph) ? [node, ...graph] : [node]
+      })
+      for (const data of expanded) {
+        if (!data || typeof data !== 'object') continue
+        const record = data as Record<string, unknown>
+        const type = record['@type']
+        const types = Array.isArray(type) ? type.map(String) : [String(type ?? '')]
+        if (types.some((item) => item === 'Product' || item === 'RealEstateListing')) {
+          const prop = mapJsonLdToRaw(record, operation, regionSlug)
+          if (prop) results.push(prop)
+        }
       }
     } catch { /* skip malformed */ }
   }
@@ -100,7 +258,8 @@ function parsePortalHTML(
     $('.poly-card').each((index, element) => {
       const card = $(element)
       const titleLink = card.find('a.poly-component__title, a[href*="MLC-"]').first()
-      const sourceUrl = titleLink.attr('href') || card.find('a').filter((_, link) => /MLC-\d+/.test($(link).attr('href') || '')).first().attr('href') || ''
+      const rawSourceUrl = titleLink.attr('href') || card.find('a').filter((_, link) => /MLC-\d+/.test($(link).attr('href') || '')).first().attr('href') || ''
+      const sourceUrl = absolutePortalUrl(rawSourceUrl)
       const id = sourceUrl.match(/MLC-?(\d+)/i)?.[1]
         ?? card.find('[data-id]').first().attr('data-id')?.replace(/\D/g, '')
         ?? `${regionSlug}-${index}`
@@ -113,6 +272,7 @@ function parsePortalHTML(
       const area = text.match(/[\d.,]+\s*(?:m²|m2|ha(?:s)?)/i)?.[0] ?? null
       const image = card.find('img.poly-component__picture, img').first().attr('src')
       const location = card.find('.poly-component__location').first().text().replace(/\s+/g, ' ').trim()
+      const point = coordinatesFromText($.html(element))
       results.push({
         externalId: `portal-${id}`,
         source: 'portal_inmobiliario',
@@ -123,6 +283,8 @@ function parsePortalHTML(
         operation,
         region: regionSlug,
         address: location || null,
+        lat: point?.lat ?? null,
+        lng: point?.lng ?? null,
         images: image ? [image] : [],
         sourceUrl: sourceUrl || `${BASE_URL}/${operation}/terrenos/${regionSlug}`,
       })
@@ -137,10 +299,11 @@ function mapJsonLdToRaw(
   operation: 'venta' | 'arriendo',
   regionSlug: string
 ): RawProperty | null {
-  const id = String(data['productID'] || data['@id'] || '').replace(/\D/g, '')
+  const id = String(data['productID'] || data['sku'] || data['@id'] || '').replace(/\D/g, '')
   if (!id) return null
   const offer = (data['offers'] as Record<string, unknown>) ?? {}
   const addr = (data['address'] as Record<string, unknown>) ?? {}
+  const point = coordinatesForListingId(data, id) ?? coordinatesFromObject(data)
   return {
     externalId: id,
     source: 'portal_inmobiliario',
@@ -151,8 +314,10 @@ function mapJsonLdToRaw(
     region: String(addr['addressRegion'] || regionSlug),
     commune: String(addr['addressLocality'] || ''),
     address: String(addr['streetAddress'] || ''),
+    lat: point?.lat ?? null,
+    lng: point?.lng ?? null,
     operation,
-    sourceUrl: String(data['url'] || ''),
+    sourceUrl: absolutePortalUrl(String(data['url'] || data['@id'] || '')),
     description: String(data['description'] || ''),
   }
 }
@@ -178,9 +343,10 @@ function mapPreloadedToRaw(
     state?: { name: string }
     city?: { name: string }
     neighborhood?: { name: string }
-    latitude?: number
-    longitude?: number
+    latitude?: number | string
+    longitude?: number | string
   } | undefined
+  const point = coordinatesForListingId(item, id) ?? coordinatesFromObject(location)
 
   return {
     externalId: id,
@@ -197,9 +363,9 @@ function mapPreloadedToRaw(
     region: location?.state?.name ?? null,
     commune: location?.city?.name ?? location?.neighborhood?.name ?? null,
     address: String(item['address'] || ''),
-    lat: location?.latitude ?? null,
-    lng: location?.longitude ?? null,
-    sourceUrl: `${BASE_URL}/MLC-${id}`,
+    lat: point?.lat ?? null,
+    lng: point?.lng ?? null,
+    sourceUrl: absolutePortalUrl(String(item['permalink'] || item['url'] || `${BASE_URL}/MLC-${id}`)),
     images: ((item['pictures'] as { url: string }[]) ?? []).map((p) => p.url),
     description: String(item['description'] || ''),
     daysActive: item['days_active'] as number ?? null,

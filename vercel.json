@@ -9,6 +9,7 @@
     "app/api/cron/verify-kmz-sii/route.ts": { "maxDuration": 300 },
     "app/api/cron/valuation-watchlist/route.ts": { "maxDuration": 300 },
     "app/api/cron/geocode-market/route.ts": { "maxDuration": 300 },
+    "app/api/cron/enrich-market-source-location/route.ts": { "maxDuration": 300 },
     "app/api/admin/kmz/resolve-unresolved-communes/route.ts": { "maxDuration": 300 },
     "app/api/**/*.ts": { "maxDuration": 60 }
   },
@@ -19,6 +20,7 @@
     { "path": "/api/cron/inciti-public-market", "schedule": "15 11 * * *" },
     { "path": "/api/cron/resolve-kmz-communes", "schedule": "*/10 * * * *" },
     { "path": "/api/cron/geocode-market", "schedule": "*/10 * * * *" },
+    { "path": "/api/cron/enrich-market-source-location", "schedule": "5,15,25,35,45,55 * * * *" },
     { "path": "/api/cron/verify-kmz-sii", "schedule": "45 12 * * *" },
     { "path": "/api/cron/valuation-watchlist", "schedule": "20 13 * * *" }
   ]
