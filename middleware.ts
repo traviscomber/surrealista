@@ -3,11 +3,6 @@ import { INTERNAL_ACCESS_COOKIE, verifyInternalAccessToken } from "@/lib/auth/in
 import { updateSession } from "@/lib/supabase/middleware"
 
 const RETIRED_PRODUCT_PREFIXES = [
-  "/clientes",
-  "/gestion-clientes",
-  "/gestion-tareas",
-  "/tareas",
-  "/comunicaciones",
   "/asistente-ia",
   "/ai",
   "/admin/agentes",
@@ -64,9 +59,6 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Keep unfinished/empty modules out of the sellable product surface.
-  // Their code remains available for future completion, but authenticated users
-  // are sent back to the proven operational workspace instead of seeing smoke.
   if (isRetiredProductPath(request.nextUrl.pathname)) {
     const url = request.nextUrl.clone()
     url.pathname = "/campos"
