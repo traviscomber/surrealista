@@ -16,7 +16,6 @@ import {
   Radar,
   Search,
   Settings,
-  Users,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -26,7 +25,6 @@ const domains = [
   { label: "Mercado", href: "/busqueda", icon: Search },
   { label: "Inteligencia", href: "/admin/inteligencia-territorial", icon: MapPinned },
   { label: "Oportunidades", href: "/home-spotter", icon: Radar },
-  { label: "Comercial", href: "/admin/operaciones-comerciales", icon: Users },
   { label: "Valorización", href: "/cotizador", icon: Calculator },
 ]
 
@@ -59,7 +57,7 @@ export function AdminSidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-5" aria-label="Áreas del producto">
-        <p className="px-3 pb-2 text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">Producto</p>
+        <p className="px-3 pb-2 text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">Producto operativo</p>
         <div className="space-y-1">
           {domains.map((item) => {
             const Icon = item.icon
@@ -82,7 +80,7 @@ export function AdminSidebar() {
         </div>
 
         <div className="my-5 border-t border-border" />
-        <p className="px-3 pb-2 text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">Herramientas</p>
+        <p className="px-3 pb-2 text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">Datos</p>
         <div className="space-y-1">
           {secondary.map((item) => {
             const Icon = item.icon
