@@ -38,10 +38,10 @@ function createSmokeToken(secret) {
   return `v4.${issuedAt}.${expiresAt}.${nonce}.${signature}`
 }
 
-async function inspectRoute(context, route, expectedPath) {
-  const page = await context.newPage()
+async function inspectRoute(page, route, expectedPath) {
   const pageErrors = []
-  page.on("pageerror", (error) => pageErrors.push(error.message))
+  const capturePageError = (error) => pageErrors.push(error.message)
+  page.on("pageerror", capturePageError)
 
   try {
     const response = await page.goto(`${authenticatedBaseURL}${route}`, { waitUntil: "domcontentloaded", timeout: 30_000 })
@@ -66,7 +66,7 @@ async function inspectRoute(context, route, expectedPath) {
     failures.push({ route, error: error instanceof Error ? error.message : String(error) })
     console.error(`FAIL ${route}: ${error instanceof Error ? error.message : String(error)}`)
   } finally {
-    await page.close()
+    page.off("pageerror", capturePageError)
   }
 }
 
@@ -98,6 +98,7 @@ try {
     failures.push({ check: "configuration", error: "SMOKE_SIGNING_SECRET or SMOKE_PASSWORD is required" })
   } else {
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+    let authenticatedPage
 
     if (smokePassword) {
       const loginPage = await context.newPage()
@@ -107,7 +108,7 @@ try {
       await loginPage.getByRole("button", { name: "Ingresar" }).click()
       await loginPage.waitForURL("**/campos", { timeout: 30_000 })
       authenticatedBaseURL = new URL(loginPage.url()).origin
-      await loginPage.close()
+      authenticatedPage = loginPage
     }
 
     if (signingSecret) {
@@ -127,9 +128,11 @@ try {
       })))
     }
 
-    for (const route of operationalRoutes) await inspectRoute(context, route, route)
-    for (const [route, expectedPath] of canonicalRoutes) await inspectRoute(context, route, expectedPath)
-    for (const route of retiredRoutes) await inspectRoute(context, route, "/campos")
+    authenticatedPage ??= await context.newPage()
+    for (const route of operationalRoutes) await inspectRoute(authenticatedPage, route, route)
+    for (const [route, expectedPath] of canonicalRoutes) await inspectRoute(authenticatedPage, route, expectedPath)
+    for (const route of retiredRoutes) await inspectRoute(authenticatedPage, route, "/campos")
+    await authenticatedPage.close()
     await context.close()
   }
 } finally {
