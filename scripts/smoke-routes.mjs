@@ -57,6 +57,7 @@ async function inspectRoute(page, route, expectedPath) {
       const regionButton = page.locator("aside button").filter({ hasText: /\d/ }).first()
       if (await regionButton.isVisible().catch(() => false)) {
         await regionButton.click()
+        await page.locator("aside .animate-spin").waitFor({ state: "hidden", timeout: 60_000 }).catch(() => {})
         await page.locator("main .animate-spin").waitFor({ state: "hidden", timeout: 60_000 }).catch(() => {})
       }
       await page.screenshot({ path: `${evidenceDir}/campos-region-map.png`, fullPage: false })
@@ -64,11 +65,14 @@ async function inspectRoute(page, route, expectedPath) {
       const firstRegionToggle = page.locator("aside button").filter({ has: page.locator("svg.lucide-chevron-right") }).first()
       if (await firstRegionToggle.isVisible().catch(() => false)) {
         await firstRegionToggle.click()
-        const firstKmz = page.locator("aside button").filter({ has: page.locator("svg.lucide-file") }).first()
+        const kmzButtons = page.locator("aside button").filter({ has: page.locator("svg.lucide-file") })
+        const geometryKmz = kmzButtons.filter({ hasText: "Geometría KMZ" }).first()
+        const firstKmz = await geometryKmz.isVisible().catch(() => false) ? geometryKmz : kmzButtons.first()
         await firstKmz.waitFor({ state: "visible", timeout: 30_000 }).catch(() => {})
         if (await firstKmz.isVisible().catch(() => false)) {
           await firstKmz.click()
           await page.locator("main .animate-spin").waitFor({ state: "hidden", timeout: 60_000 }).catch(() => {})
+          await page.waitForTimeout(2_000)
           await page.screenshot({ path: `${evidenceDir}/campos-kmz-selected.png`, fullPage: false })
         }
       }
