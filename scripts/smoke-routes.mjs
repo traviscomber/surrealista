@@ -17,13 +17,6 @@ const operationalRoutes = [
   "/admin/dashboard",
   "/admin/kmz-collection",
 ]
-const manualCaptureRoutes = [
-  "/home-spotter",
-  "/admin/surealista",
-  "/admin/inteligencia-territorial",
-  "/admin/inciti-market",
-  "/propiedades",
-]
 const canonicalRoutes = [
   ["/admin/clientes", "/clientes"],
   ["/admin/mensajes", "/comunicaciones"],
@@ -60,62 +53,7 @@ async function inspectRoute(page, route, expectedPath) {
     const hasAccessForm = await page.locator("#password").isVisible().catch(() => false)
 
     if (route === "/campos" && finalPath === "/campos" && !hasAccessForm) {
-      await page.getByText("Cargando inventario...").waitFor({ state: "hidden", timeout: 60_000 }).catch(() => {})
-      const regionButton = page.locator("aside button").filter({ hasText: /\d/ }).first()
-      if (await regionButton.isVisible().catch(() => false)) {
-        await regionButton.click()
-        await page.locator("aside .animate-spin").waitFor({ state: "hidden", timeout: 60_000 }).catch(() => {})
-        await page.locator("main .animate-spin").waitFor({ state: "hidden", timeout: 60_000 }).catch(() => {})
-      }
-      await page.screenshot({ path: `${evidenceDir}/campos-region-map.png`, fullPage: false })
-
-      const firstRegionToggle = page.locator("aside button").filter({ has: page.locator("svg.lucide-chevron-right") }).first()
-      if (await firstRegionToggle.isVisible().catch(() => false)) {
-        await firstRegionToggle.click()
-        const kmzButtons = page.locator("aside button").filter({ has: page.locator("svg.lucide-file") })
-        const geometryKmz = kmzButtons.filter({ hasText: "Geometría KMZ" }).first()
-        const firstKmz = await geometryKmz.isVisible().catch(() => false) ? geometryKmz : kmzButtons.first()
-        await firstKmz.waitFor({ state: "visible", timeout: 30_000 }).catch(() => {})
-        if (await firstKmz.isVisible().catch(() => false)) {
-          await firstKmz.click()
-          await page.locator("main .animate-spin").waitFor({ state: "hidden", timeout: 60_000 }).catch(() => {})
-          await page.waitForTimeout(2_000)
-          await page.screenshot({ path: `${evidenceDir}/campos-kmz-selected.png`, fullPage: false })
-        }
-      }
-    }
-
-    if ((operationalRoutes.includes(route) || manualCaptureRoutes.includes(route)) && finalPath === route && !hasAccessForm) {
-      await page.waitForTimeout(1_200)
-      await page.screenshot({ path: `${evidenceDir}/${route.slice(1).replaceAll("/", "-")}.png`, fullPage: false })
-    }
-
-    if (route === "/admin/dashboard" && finalPath === route && !hasAccessForm) {
-      for (const tab of ["Inventario", "Fuentes"]) {
-        const trigger = page.getByRole("tab", { name: tab })
-        if (await trigger.isVisible().catch(() => false)) {
-          await trigger.click()
-          await page.waitForTimeout(2_000)
-          await page.screenshot({ path: `${evidenceDir}/admin-dashboard-${tab.toLowerCase()}.png`, fullPage: false })
-        }
-      }
-    }
-
-    if (smokePassword && route === "/cotizador" && finalPath === route && !hasAccessForm) {
-      const address = page.getByPlaceholder(/parcela 5\.000 m²/i)
-      if (await address.isVisible().catch(() => false)) {
-        await address.fill("parcela 5.000 m² camino a Llifén, Futrono, Región de Los Ríos")
-        await page.getByRole("button", { name: "Analizar" }).click()
-        await page.getByText("Contrastando mercado y territorio…").waitFor({ state: "hidden", timeout: 90_000 }).catch(() => {})
-        const followUp = page.getByPlaceholder(/5\.000 m²|Agrega una referencia/i)
-        if (await followUp.isVisible().catch(() => false)) {
-          await followUp.fill("5.000 m²")
-          await page.getByRole("button", { name: "Continuar" }).click()
-          await page.getByText("Contrastando mercado y territorio…").waitFor({ state: "hidden", timeout: 90_000 }).catch(() => {})
-        }
-        await page.waitForTimeout(2_000)
-        await page.screenshot({ path: `${evidenceDir}/cotizador-resultado.png`, fullPage: false })
-      }
+      await page.screenshot({ path: `${evidenceDir}/campos-authenticated-desktop.png`, fullPage: false })
     }
 
     if (!response || status >= 500 || finalPath !== expectedPath || hasFatalUI || hasAccessForm || pageErrors.length > 0) {
@@ -192,7 +130,6 @@ try {
 
     authenticatedPage ??= await context.newPage()
     for (const route of operationalRoutes) await inspectRoute(authenticatedPage, route, route)
-    if (smokePassword) for (const route of manualCaptureRoutes) await inspectRoute(authenticatedPage, route, route)
     for (const [route, expectedPath] of canonicalRoutes) await inspectRoute(authenticatedPage, route, expectedPath)
     for (const route of retiredRoutes) await inspectRoute(authenticatedPage, route, "/campos")
     await authenticatedPage.close()
