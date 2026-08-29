@@ -101,7 +101,7 @@ async function inspectRoute(page, route, expectedPath) {
       }
     }
 
-    if (route === "/cotizador" && finalPath === route && !hasAccessForm) {
+    if (smokePassword && route === "/cotizador" && finalPath === route && !hasAccessForm) {
       const address = page.getByPlaceholder(/parcela 5\.000 m²/i)
       if (await address.isVisible().catch(() => false)) {
         await address.fill("parcela 5.000 m² camino a Llifén, Futrono, Región de Los Ríos")
