@@ -4,6 +4,7 @@ import { mkdir } from "node:fs/promises"
 
 const baseURL = (process.env.SMOKE_BASE_URL || "http://127.0.0.1:3000").replace(/\/$/, "")
 const signingSecret = process.env.SMOKE_SIGNING_SECRET
+const smokePassword = process.env.SMOKE_PASSWORD
 const operationalRoutes = [
   "/campos",
   "/kmz-analisis",
@@ -91,24 +92,37 @@ try {
   await mobilePage.screenshot({ path: `${evidenceDir}/access-mobile.png`, fullPage: false })
   await mobileContext.close()
 
-  if (!signingSecret) {
-    failures.push({ check: "configuration", error: "SMOKE_SIGNING_SECRET is required" })
+  if (!signingSecret && !smokePassword) {
+    failures.push({ check: "configuration", error: "SMOKE_SIGNING_SECRET or SMOKE_PASSWORD is required" })
   } else {
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
-    await context.addInitScript(() => window.sessionStorage.setItem("site_access_token", "granted"))
-    const smokeToken = createSmokeToken(signingSecret)
-    const cookieOrigins = new Set([baseURL])
-    const parsedBaseURL = new URL(baseURL)
-    if (parsedBaseURL.hostname === "127.0.0.1") cookieOrigins.add(`${parsedBaseURL.protocol}//localhost${parsedBaseURL.port ? `:${parsedBaseURL.port}` : ""}`)
 
-    await context.addCookies(Array.from(cookieOrigins, (url) => ({
-      name: "sur_realista_internal_access",
-      value: smokeToken,
-      url,
-      httpOnly: true,
-      secure: url.startsWith("https://"),
-      sameSite: "Strict",
-    })))
+    if (smokePassword) {
+      const loginPage = await context.newPage()
+      await loginPage.goto(`${baseURL}/`, { waitUntil: "domcontentloaded", timeout: 30_000 })
+      await loginPage.locator("#password").waitFor({ state: "visible", timeout: 15_000 })
+      await loginPage.locator("#password").fill(smokePassword)
+      await loginPage.getByRole("button", { name: "Ingresar" }).click()
+      await loginPage.waitForURL("**/campos", { timeout: 30_000 })
+      await loginPage.close()
+    }
+
+    if (signingSecret) {
+    await context.addInitScript(() => window.sessionStorage.setItem("site_access_token", "granted"))
+      const smokeToken = createSmokeToken(signingSecret)
+      const cookieOrigins = new Set([baseURL])
+      const parsedBaseURL = new URL(baseURL)
+      if (parsedBaseURL.hostname === "127.0.0.1") cookieOrigins.add(`${parsedBaseURL.protocol}//localhost${parsedBaseURL.port ? `:${parsedBaseURL.port}` : ""}`)
+
+      await context.addCookies(Array.from(cookieOrigins, (url) => ({
+        name: "sur_realista_internal_access",
+        value: smokeToken,
+        url,
+        httpOnly: true,
+        secure: url.startsWith("https://"),
+        sameSite: "Strict",
+      })))
+    }
 
     for (const route of operationalRoutes) await inspectRoute(context, route, route)
     for (const [route, expectedPath] of canonicalRoutes) await inspectRoute(context, route, expectedPath)

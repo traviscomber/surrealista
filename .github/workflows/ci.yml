@@ -56,6 +56,12 @@ jobs:
           done
           pnpm test:smoke
 
+      - name: Production cloud browser
+        env:
+          SMOKE_BASE_URL: https://sur-realista.vercel.app
+          SMOKE_PASSWORD: ${{ secrets.SURREALISTA_E2E_PASSWORD }}
+        run: pnpm test:smoke
+
       - name: Upload cloud browser evidence
         if: always()
         uses: actions/upload-artifact@v4
