@@ -76,6 +76,7 @@ try {
   await guestPage.goto(`${baseURL}/campos`, { waitUntil: "domcontentloaded", timeout: 30_000 })
   await guestPage.locator("#password").waitFor({ state: "visible", timeout: 15_000 })
   const guestURL = new URL(guestPage.url())
+  authenticatedBaseURL = guestURL.origin
   const hasAccessForm = await guestPage.locator("#password").isVisible().catch(() => false)
   await guestPage.screenshot({ path: `${evidenceDir}/access-desktop.png`, fullPage: false })
   if (guestURL.pathname !== "/" || guestURL.searchParams.get("redirect") !== "/campos" || !hasAccessForm) {
@@ -100,7 +101,7 @@ try {
 
     if (smokePassword) {
       const loginPage = await context.newPage()
-      await loginPage.goto(`${baseURL}/`, { waitUntil: "domcontentloaded", timeout: 30_000 })
+      await loginPage.goto(`${authenticatedBaseURL}/`, { waitUntil: "domcontentloaded", timeout: 30_000 })
       await loginPage.locator("#password").waitFor({ state: "visible", timeout: 15_000 })
       await loginPage.locator("#password").fill(smokePassword)
       await loginPage.getByRole("button", { name: "Ingresar" }).click()
