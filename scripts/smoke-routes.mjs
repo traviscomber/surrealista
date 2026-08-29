@@ -3,6 +3,7 @@ import { createHmac, randomBytes } from "node:crypto"
 import { mkdir } from "node:fs/promises"
 
 const baseURL = (process.env.SMOKE_BASE_URL || "http://127.0.0.1:3000").replace(/\/$/, "")
+let authenticatedBaseURL = baseURL
 const signingSecret = process.env.SMOKE_SIGNING_SECRET
 const smokePassword = process.env.SMOKE_PASSWORD
 const operationalRoutes = [
@@ -43,7 +44,7 @@ async function inspectRoute(context, route, expectedPath) {
   page.on("pageerror", (error) => pageErrors.push(error.message))
 
   try {
-    const response = await page.goto(`${baseURL}${route}`, { waitUntil: "domcontentloaded", timeout: 30_000 })
+    const response = await page.goto(`${authenticatedBaseURL}${route}`, { waitUntil: "domcontentloaded", timeout: 30_000 })
     await page.waitForFunction(() => document.body.innerText.trim().length > 10, null, { timeout: 15_000 })
     const status = response?.status() ?? 0
     const body = await page.locator("body").innerText().catch(() => "")
@@ -104,6 +105,7 @@ try {
       await loginPage.locator("#password").fill(smokePassword)
       await loginPage.getByRole("button", { name: "Ingresar" }).click()
       await loginPage.waitForURL("**/campos", { timeout: 30_000 })
+      authenticatedBaseURL = new URL(loginPage.url()).origin
       await loginPage.close()
     }
 
