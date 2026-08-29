@@ -15,11 +15,13 @@ const operationalRoutes = [
   "/gestion-tareas",
   "/comunicaciones",
   "/admin/dashboard",
+  "/admin/kmz-collection",
+]
+const manualCaptureRoutes = [
   "/admin/surealista",
   "/admin/inteligencia-territorial",
   "/admin/inciti-market",
   "/propiedades",
-  "/admin/kmz-collection",
 ]
 const canonicalRoutes = [
   ["/admin/clientes", "/clientes"],
@@ -172,6 +174,7 @@ try {
 
     authenticatedPage ??= await context.newPage()
     for (const route of operationalRoutes) await inspectRoute(authenticatedPage, route, route)
+    if (smokePassword) for (const route of manualCaptureRoutes) await inspectRoute(authenticatedPage, route, route)
     for (const [route, expectedPath] of canonicalRoutes) await inspectRoute(authenticatedPage, route, expectedPath)
     for (const route of retiredRoutes) await inspectRoute(authenticatedPage, route, "/campos")
     await authenticatedPage.close()
