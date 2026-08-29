@@ -53,7 +53,30 @@ async function inspectRoute(page, route, expectedPath) {
     const hasAccessForm = await page.locator("#password").isVisible().catch(() => false)
 
     if (route === "/campos" && finalPath === "/campos" && !hasAccessForm) {
-      await page.screenshot({ path: `${evidenceDir}/campos-authenticated-desktop.png`, fullPage: false })
+      await page.getByText("Cargando inventario...").waitFor({ state: "hidden", timeout: 60_000 }).catch(() => {})
+      const regionButton = page.locator("aside button").filter({ hasText: /\d/ }).first()
+      if (await regionButton.isVisible().catch(() => false)) {
+        await regionButton.click()
+        await page.locator("main .animate-spin").waitFor({ state: "hidden", timeout: 60_000 }).catch(() => {})
+      }
+      await page.screenshot({ path: `${evidenceDir}/campos-region-map.png`, fullPage: false })
+
+      const firstRegionToggle = page.locator("aside button").filter({ has: page.locator("svg.lucide-chevron-right") }).first()
+      if (await firstRegionToggle.isVisible().catch(() => false)) {
+        await firstRegionToggle.click()
+        const firstKmz = page.locator("aside button").filter({ has: page.locator("svg.lucide-file") }).first()
+        await firstKmz.waitFor({ state: "visible", timeout: 30_000 }).catch(() => {})
+        if (await firstKmz.isVisible().catch(() => false)) {
+          await firstKmz.click()
+          await page.locator("main .animate-spin").waitFor({ state: "hidden", timeout: 60_000 }).catch(() => {})
+          await page.screenshot({ path: `${evidenceDir}/campos-kmz-selected.png`, fullPage: false })
+        }
+      }
+    }
+
+    if (operationalRoutes.includes(route) && finalPath === route && !hasAccessForm) {
+      await page.waitForTimeout(1_200)
+      await page.screenshot({ path: `${evidenceDir}/${route.slice(1).replaceAll("/", "-")}.png`, fullPage: false })
     }
 
     if (!response || status >= 500 || finalPath !== expectedPath || hasFatalUI || hasAccessForm || pageErrors.length > 0) {
