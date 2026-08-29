@@ -55,3 +55,12 @@ jobs:
             sleep 1
           done
           pnpm test:smoke
+
+      - name: Upload cloud browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloud-browser-evidence
+          path: test-results/cloud-browser/
+          if-no-files-found: warn
+          retention-days: 14

@@ -1,5 +1,6 @@
 import { chromium } from "playwright"
 import { createHmac, randomBytes } from "node:crypto"
+import { mkdir } from "node:fs/promises"
 
 const baseURL = (process.env.SMOKE_BASE_URL || "http://127.0.0.1:3000").replace(/\/$/, "")
 const signingSecret = process.env.SMOKE_SIGNING_SECRET
@@ -23,6 +24,8 @@ const retiredRoutes = ["/asistente-ia", "/admin/ia-workspace", "/admin/tags"]
 
 const browser = await chromium.launch({ headless: true })
 const failures = []
+const evidenceDir = "test-results/cloud-browser"
+await mkdir(evidenceDir, { recursive: true })
 
 function createSmokeToken(secret) {
   const issuedAt = Math.floor(Date.now() / 1000)
@@ -47,6 +50,10 @@ async function inspectRoute(context, route, expectedPath) {
     const hasFatalUI = /Application error|Internal Server Error|Unhandled Runtime Error|This page could not be found/i.test(body)
     const hasAccessForm = await page.locator("#password").isVisible().catch(() => false)
 
+    if (route === "/campos" && finalPath === "/campos" && !hasAccessForm) {
+      await page.screenshot({ path: `${evidenceDir}/campos-authenticated-desktop.png`, fullPage: false })
+    }
+
     if (!response || status >= 500 || finalPath !== expectedPath || hasFatalUI || hasAccessForm || pageErrors.length > 0) {
       failures.push({ route, expectedPath, finalPath, status, pageErrors, hasFatalUI, hasAccessForm })
       console.error(`FAIL ${route} status=${status} expected=${expectedPath} final=${finalPath} gate=${hasAccessForm} pageErrors=${pageErrors.length}`)
@@ -62,12 +69,13 @@ async function inspectRoute(context, route, expectedPath) {
 }
 
 try {
-  const guestContext = await browser.newContext()
+  const guestContext = await browser.newContext({ viewport: { width: 1440, height: 900 } })
   const guestPage = await guestContext.newPage()
   await guestPage.goto(`${baseURL}/campos`, { waitUntil: "domcontentloaded", timeout: 30_000 })
   await guestPage.locator("#password").waitFor({ state: "visible", timeout: 15_000 })
   const guestURL = new URL(guestPage.url())
   const hasAccessForm = await guestPage.locator("#password").isVisible().catch(() => false)
+  await guestPage.screenshot({ path: `${evidenceDir}/access-desktop.png`, fullPage: false })
   if (guestURL.pathname !== "/" || guestURL.searchParams.get("redirect") !== "/campos" || !hasAccessForm) {
     failures.push({ route: "/campos", check: "guest access boundary", final: guestPage.url(), hasAccessForm })
     console.error(`FAIL guest access boundary final=${guestPage.url()} form=${hasAccessForm}`)
@@ -76,10 +84,17 @@ try {
   }
   await guestContext.close()
 
+  const mobileContext = await browser.newContext({ viewport: { width: 390, height: 844 } })
+  const mobilePage = await mobileContext.newPage()
+  await mobilePage.goto(`${baseURL}/campos`, { waitUntil: "domcontentloaded", timeout: 30_000 })
+  await mobilePage.locator("#password").waitFor({ state: "visible", timeout: 15_000 })
+  await mobilePage.screenshot({ path: `${evidenceDir}/access-mobile.png`, fullPage: false })
+  await mobileContext.close()
+
   if (!signingSecret) {
     failures.push({ check: "configuration", error: "SMOKE_SIGNING_SECRET is required" })
   } else {
-    const context = await browser.newContext()
+    const context = await browser.newContext({ viewport: { width: 1440, height: 900 } })
     await context.addInitScript(() => window.sessionStorage.setItem("site_access_token", "granted"))
     const smokeToken = createSmokeToken(signingSecret)
     const cookieOrigins = new Set([baseURL])
