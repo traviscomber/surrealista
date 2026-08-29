@@ -2,6 +2,32 @@ import { NextRequest, NextResponse } from "next/server"
 import { INTERNAL_ACCESS_COOKIE, verifyInternalAccessToken } from "@/lib/auth/internal-access"
 import { updateSession } from "@/lib/supabase/middleware"
 
+const RETIRED_PRODUCT_PREFIXES = [
+  "/asistente-ia",
+  "/ai",
+  "/admin/agentes",
+  "/admin/ia-workspace",
+  "/admin/tags",
+  "/admin/google-drive",
+  "/admin/operaciones-comerciales",
+]
+
+const CANONICAL_PRODUCT_ROUTES = [
+  { prefix: "/admin/clientes", destination: "/clientes" },
+  { prefix: "/admin/mensajes", destination: "/comunicaciones" },
+  { prefix: "/nueva-tarea", destination: "/gestion-tareas" },
+]
+
+function isRetiredProductPath(pathname: string) {
+  return RETIRED_PRODUCT_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
+}
+
+function getCanonicalProductPath(pathname: string) {
+  return CANONICAL_PRODUCT_ROUTES.find(
+    ({ prefix }) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  )?.destination
+}
+
 function isPublicApiPath(pathname: string) {
   return (
     pathname === "/api/internal-access" ||
@@ -44,6 +70,21 @@ export async function middleware(request: NextRequest) {
       url.searchParams.set("redirect", request.nextUrl.pathname)
       return NextResponse.redirect(url)
     }
+  }
+
+  const canonicalProductPath = getCanonicalProductPath(request.nextUrl.pathname)
+  if (canonicalProductPath) {
+    const url = request.nextUrl.clone()
+    url.pathname = canonicalProductPath
+    url.search = ""
+    return NextResponse.redirect(url)
+  }
+
+  if (isRetiredProductPath(request.nextUrl.pathname)) {
+    const url = request.nextUrl.clone()
+    url.pathname = "/campos"
+    url.search = ""
+    return NextResponse.redirect(url)
   }
 
   if (request.nextUrl.pathname === "/api/cotizador/valuar") {
