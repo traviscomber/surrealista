@@ -65,6 +65,7 @@ try {
   const guestContext = await browser.newContext()
   const guestPage = await guestContext.newPage()
   await guestPage.goto(`${baseURL}/campos`, { waitUntil: "domcontentloaded", timeout: 30_000 })
+  await guestPage.locator("#password").waitFor({ state: "visible", timeout: 15_000 })
   const guestURL = new URL(guestPage.url())
   const hasAccessForm = await guestPage.locator("#password").isVisible().catch(() => false)
   if (guestURL.pathname !== "/" || guestURL.searchParams.get("redirect") !== "/campos" || !hasAccessForm) {
@@ -80,14 +81,19 @@ try {
   } else {
     const context = await browser.newContext()
     await context.addInitScript(() => window.sessionStorage.setItem("site_access_token", "granted"))
-    await context.addCookies([{
+    const smokeToken = createSmokeToken(signingSecret)
+    const cookieOrigins = new Set([baseURL])
+    const parsedBaseURL = new URL(baseURL)
+    if (parsedBaseURL.hostname === "127.0.0.1") cookieOrigins.add(`${parsedBaseURL.protocol}//localhost${parsedBaseURL.port ? `:${parsedBaseURL.port}` : ""}`)
+
+    await context.addCookies(Array.from(cookieOrigins, (url) => ({
       name: "sur_realista_internal_access",
-      value: createSmokeToken(signingSecret),
-      url: baseURL,
+      value: smokeToken,
+      url,
       httpOnly: true,
-      secure: baseURL.startsWith("https://"),
+      secure: url.startsWith("https://"),
       sameSite: "Strict",
-    }])
+    })))
 
     for (const route of operationalRoutes) await inspectRoute(context, route, route)
     for (const [route, expectedPath] of canonicalRoutes) await inspectRoute(context, route, expectedPath)
