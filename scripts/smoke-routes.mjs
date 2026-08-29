@@ -15,6 +15,10 @@ const operationalRoutes = [
   "/gestion-tareas",
   "/comunicaciones",
   "/admin/dashboard",
+  "/admin/surealista",
+  "/admin/inteligencia-territorial",
+  "/admin/inciti-market",
+  "/propiedades",
   "/admin/kmz-collection",
 ]
 const canonicalRoutes = [
@@ -53,7 +57,45 @@ async function inspectRoute(page, route, expectedPath) {
     const hasAccessForm = await page.locator("#password").isVisible().catch(() => false)
 
     if (route === "/campos" && finalPath === "/campos" && !hasAccessForm) {
-      await page.screenshot({ path: `${evidenceDir}/campos-authenticated-desktop.png`, fullPage: false })
+      await page.getByText("Cargando inventario...").waitFor({ state: "hidden", timeout: 60_000 }).catch(() => {})
+      const regionButton = page.locator("aside button").filter({ hasText: /\d/ }).first()
+      if (await regionButton.isVisible().catch(() => false)) {
+        await regionButton.click()
+        await page.locator("aside .animate-spin").waitFor({ state: "hidden", timeout: 60_000 }).catch(() => {})
+        await page.locator("main .animate-spin").waitFor({ state: "hidden", timeout: 60_000 }).catch(() => {})
+      }
+      await page.screenshot({ path: `${evidenceDir}/campos-region-map.png`, fullPage: false })
+
+      const firstRegionToggle = page.locator("aside button").filter({ has: page.locator("svg.lucide-chevron-right") }).first()
+      if (await firstRegionToggle.isVisible().catch(() => false)) {
+        await firstRegionToggle.click()
+        const kmzButtons = page.locator("aside button").filter({ has: page.locator("svg.lucide-file") })
+        const geometryKmz = kmzButtons.filter({ hasText: "Geometría KMZ" }).first()
+        const firstKmz = await geometryKmz.isVisible().catch(() => false) ? geometryKmz : kmzButtons.first()
+        await firstKmz.waitFor({ state: "visible", timeout: 30_000 }).catch(() => {})
+        if (await firstKmz.isVisible().catch(() => false)) {
+          await firstKmz.click()
+          await page.locator("main .animate-spin").waitFor({ state: "hidden", timeout: 60_000 }).catch(() => {})
+          await page.waitForTimeout(2_000)
+          await page.screenshot({ path: `${evidenceDir}/campos-kmz-selected.png`, fullPage: false })
+        }
+      }
+    }
+
+    if (operationalRoutes.includes(route) && finalPath === route && !hasAccessForm) {
+      await page.waitForTimeout(1_200)
+      await page.screenshot({ path: `${evidenceDir}/${route.slice(1).replaceAll("/", "-")}.png`, fullPage: false })
+    }
+
+    if (route === "/admin/dashboard" && finalPath === route && !hasAccessForm) {
+      for (const tab of ["Inventario", "Fuentes"]) {
+        const trigger = page.getByRole("tab", { name: tab })
+        if (await trigger.isVisible().catch(() => false)) {
+          await trigger.click()
+          await page.waitForTimeout(2_000)
+          await page.screenshot({ path: `${evidenceDir}/admin-dashboard-${tab.toLowerCase()}.png`, fullPage: false })
+        }
+      }
     }
 
     if (!response || status >= 500 || finalPath !== expectedPath || hasFatalUI || hasAccessForm || pageErrors.length > 0) {
