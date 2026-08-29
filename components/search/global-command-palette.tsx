@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Calculator, CheckSquare, FolderOpen, MapPin, MessageSquare, Search, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -51,31 +51,45 @@ export function GlobalCommandPalette() {
     return () => document.removeEventListener("keydown", down)
   }, [])
 
-  const performSearch = useCallback(async (value: string) => {
-    setQuery(value)
-    const searchQuery = value.trim()
+  const latestSearchRef = useRef(0)
+
+  useEffect(() => {
+    const searchQuery = query.trim()
+    const searchId = ++latestSearchRef.current
+
     if (searchQuery.length < 2) {
       setResults([])
+      setIsSearching(false)
       return
     }
 
-    setIsSearching(true)
-    try {
-      const escaped = searchQuery.replace(/[%_,]/g, " ").trim()
-      const { data, error } = await supabase
-        .from("kmz_collection")
-        .select("id,file_name,region,description,placemarks_count")
-        .or(`file_name.ilike.%${escaped}%,description.ilike.%${escaped}%,region.ilike.%${escaped}%`)
-        .limit(20)
+    const timer = window.setTimeout(async () => {
+      setIsSearching(true)
+      try {
+        const escaped = searchQuery.replace(/[%_,]/g, " ").trim()
+        const { data, error } = await supabase
+          .from("kmz_collection")
+          .select("id,file_name,region,description,placemarks_count")
+          .or(`file_name.ilike.%${escaped}%,description.ilike.%${escaped}%,region.ilike.%${escaped}%`)
+          .limit(20)
 
-      if (error) throw error
-      setResults((data ?? []) as CampoResult[])
-    } catch {
-      setResults([])
-    } finally {
-      setIsSearching(false)
-    }
-  }, [])
+        if (error) throw error
+        if (latestSearchRef.current === searchId) {
+          setResults((data ?? []) as CampoResult[])
+        }
+      } catch {
+        if (latestSearchRef.current === searchId) {
+          setResults([])
+        }
+      } finally {
+        if (latestSearchRef.current === searchId) {
+          setIsSearching(false)
+        }
+      }
+    }, 300)
+
+    return () => window.clearTimeout(timer)
+  }, [query])
 
   const navigate = (href: string) => {
     setOpen(false)
@@ -93,7 +107,7 @@ export function GlobalCommandPalette() {
       </Button>
 
       <CommandDialog open={open} onOpenChange={setOpen}>
-        <CommandInput placeholder="Buscar un campo por nombre, región o descripción…" value={query} onValueChange={(value) => void performSearch(value)} />
+        <CommandInput placeholder="Buscar un campo por nombre, región o descripción…" value={query} onValueChange={setQuery} />
         <CommandList>
           <CommandGroup heading="Funciones operativas">
             {quickActions.map(({ label, href, icon: Icon }) => (
@@ -106,7 +120,11 @@ export function GlobalCommandPalette() {
           <CommandSeparator />
           <CommandGroup heading="Campos">
             {results.map((campo) => (
-              <CommandItem key={campo.id} value={`${campo.file_name} ${campo.region ?? ""}`} onSelect={() => navigate(`/campos?file=${campo.id}`)}>
+              <CommandItem
+                key={campo.id}
+                value={`${campo.file_name} ${campo.region ?? ""} ${campo.description ?? ""}`}
+                onSelect={() => navigate(`/campos?kmz=${encodeURIComponent(campo.id)}`)}
+              >
                 <MapPin className="mr-2 h-4 w-4" />
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium">{campo.file_name}</div>
