@@ -3,7 +3,7 @@
 import type React from "react"
 import { useEffect, useState } from "react"
 import { usePathname, useRouter } from "next/navigation"
-import { AlertCircle, Lock } from "lucide-react"
+import { AlertCircle, CheckCircle2, Lock, MapPin } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -212,16 +212,45 @@ export function PasswordGate({ children }: { children: React.ReactNode }) {
 
   if (!isAuthenticated) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,_rgba(16,185,129,0.18),_transparent_40%),linear-gradient(180deg,_rgba(2,6,23,0.03),_transparent)] p-4">
-        <Card className="w-full max-w-md shadow-xl">
-          <CardHeader className="space-y-3 text-center">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
-              <Lock className="h-8 w-8 text-emerald-600" aria-hidden="true" />
+      <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_20%_0%,hsl(var(--sr-green-soft)/0.75),transparent_38%),linear-gradient(180deg,hsl(var(--sr-canvas)),hsl(var(--sr-surface-subtle)))] p-4 md:p-8">
+        <Card className="grid w-full max-w-4xl overflow-hidden border-border/80 shadow-[var(--shadow-overlay)] md:grid-cols-[1.05fr_0.95fr]">
+          <aside className="hidden flex-col justify-between bg-primary p-10 text-primary-foreground md:flex">
+            <div>
+              <div className="mb-10 flex h-11 w-11 items-center justify-center rounded-xl border border-primary-foreground/20 bg-primary-foreground/10">
+                <MapPin className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary-foreground/70">Sur Realista Intelligence</p>
+              <h1 className="mt-4 font-serif text-4xl leading-tight">El territorio, convertido en decisiones.</h1>
+              <p className="mt-5 max-w-sm text-sm leading-6 text-primary-foreground/75">
+                Inventario de campos, contexto territorial, mercado y operación comercial en un solo espacio de trabajo.
+              </p>
             </div>
-            <CardTitle className="text-2xl font-bold">Sur-Realista interno</CardTitle>
-            <CardDescription className="text-base">Acceso seguro a la plataforma interna</CardDescription>
-          </CardHeader>
-          <CardContent>
+            <div className="space-y-3 text-sm text-primary-foreground/80">
+              {["Datos territoriales centralizados", "Acceso restringido y trazable", "Operación preparada para decisiones"].map((item) => (
+                <div key={item} className="flex items-center gap-3">
+                  <CheckCircle2 className="h-4 w-4 text-primary-foreground/70" aria-hidden="true" />
+                  <span>{item}</span>
+                </div>
+              ))}
+            </div>
+          </aside>
+
+          <div className="flex flex-col justify-center bg-card px-6 py-10 sm:px-10 md:min-h-[560px]">
+            <CardHeader className="space-y-4 px-0 pt-0 text-left">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-accent text-accent-foreground md:hidden">
+                <MapPin className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl border bg-muted/50">
+                <Lock className="h-5 w-5 text-primary" aria-hidden="true" />
+              </div>
+              <div>
+                <CardTitle className="font-serif text-3xl font-semibold tracking-tight">Acceso interno</CardTitle>
+                <CardDescription className="mt-2 text-sm leading-6">
+                  Ingresa tu contraseña para continuar a la plataforma de inteligencia territorial.
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent className="px-0 pb-0">
             <form onSubmit={handleSubmit} className="space-y-4">
               {error ? (
                 <div
@@ -246,7 +275,7 @@ export function PasswordGate({ children }: { children: React.ReactNode }) {
                   onChange={(event) => setPassword(event.target.value)}
                   placeholder="Ingresa la contraseña interna"
                   disabled={isLockedOut || isSubmitting}
-                  className={error ? "border-red-500" : ""}
+                  className={error ? "border-destructive" : ""}
                   autoComplete="current-password"
                   autoFocus
                 />
@@ -254,17 +283,18 @@ export function PasswordGate({ children }: { children: React.ReactNode }) {
 
               <Button
                 type="submit"
-                className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
+                className="w-full"
                 disabled={isLockedOut || isSubmitting || password.trim().length === 0}
               >
                 {isLockedOut ? "Bloqueado" : isSubmitting ? "Validando..." : "Ingresar"}
               </Button>
 
               <p className="text-center text-xs text-muted-foreground">
-                Acceso restringido al equipo interno de Sur-Realista.
+                Acceso restringido al equipo interno de Sur Realista.
               </p>
             </form>
           </CardContent>
+          </div>
         </Card>
       </div>
     )
