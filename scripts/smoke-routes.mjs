@@ -84,7 +84,7 @@ async function inspectRoute(page, route, expectedPath) {
       }
     }
 
-    if (operationalRoutes.includes(route) && finalPath === route && !hasAccessForm) {
+    if ((operationalRoutes.includes(route) || manualCaptureRoutes.includes(route)) && finalPath === route && !hasAccessForm) {
       await page.waitForTimeout(1_200)
       await page.screenshot({ path: `${evidenceDir}/${route.slice(1).replaceAll("/", "-")}.png`, fullPage: false })
     }
