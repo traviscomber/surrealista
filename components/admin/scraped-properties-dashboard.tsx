@@ -117,9 +117,7 @@ export function ScrapedPropertiesDashboard({
   useEffect(() => {
     const loadFavorites = async () => {
       try {
-        const response = await fetch("/api/admin/favorites", {
-          headers: { "X-Site-Access-Token": "srmagica" },
-        })
+        const response = await fetch("/api/admin/favorites")
         if (!response.ok) return
         const result = await response.json()
         setFavorites(new Set(result.favorites || []))
@@ -138,7 +136,6 @@ export function ScrapedPropertiesDashboard({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Site-Access-Token": "srmagica",
         },
         body: JSON.stringify({ property_id: propertyId, action: "toggle" }),
       })
