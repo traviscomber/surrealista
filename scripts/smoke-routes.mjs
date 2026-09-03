@@ -7,18 +7,22 @@ let authenticatedBaseURL = baseURL
 const signingSecret = process.env.SMOKE_SIGNING_SECRET
 const smokePassword = process.env.SMOKE_PASSWORD
 const operationalRoutes = [
-  "/campos",
-  "/kmz-analisis",
-  "/busqueda",
-  "/cotizador",
-  "/clientes",
-  "/gestion-tareas",
-  "/comunicaciones",
-  "/admin/dashboard",
-  "/admin/kmz-collection",
+  { route: "/campos", expectedText: /CAMPOS|Colección de campos/i },
+  { route: "/kmz-analisis", expectedText: /KMZ|Inteligencia territorial/i },
+  { route: "/mercado", expectedText: /Mercado y comparables/i },
+  { route: "/busqueda", expectedText: /Explorador de campos|Centro operativo/i },
+  { route: "/cotizador", expectedText: /Valorizador interno SR|Decisión de terreno/i },
+  { route: "/clientes", expectedText: /Relaciones comerciales|Clientes/i },
+  { route: "/clientes/importar", expectedText: /Importar Clientes desde Excel/i },
+  { route: "/gestion-tareas", expectedText: /Gestión operativa|Tareas/i },
+  { route: "/comunicaciones", expectedText: /Comunicaciones/i },
+  { route: "/admin/dashboard", expectedText: /Centro operativo/i },
+  { route: "/admin/kmz-collection", expectedText: /KMZ|Colección/i },
 ]
 const canonicalRoutes = [
   ["/admin/clientes", "/clientes"],
+  ["/admin/clientes/smoke-nonexistent", "/clientes/smoke-nonexistent"],
+  ["/gestion-clientes", "/clientes"],
   ["/admin/mensajes", "/comunicaciones"],
   ["/nueva-tarea", "/gestion-tareas"],
 ]
@@ -38,7 +42,7 @@ function createSmokeToken(secret) {
   return `v4.${issuedAt}.${expiresAt}.${nonce}.${signature}`
 }
 
-async function inspectRoute(page, route, expectedPath) {
+async function inspectRoute(page, route, expectedPath, expectedText) {
   const pageErrors = []
   const capturePageError = (error) => pageErrors.push(error.message)
   page.on("pageerror", capturePageError)
@@ -51,14 +55,21 @@ async function inspectRoute(page, route, expectedPath) {
     const finalPath = new URL(page.url()).pathname
     const hasFatalUI = /Application error|Internal Server Error|Unhandled Runtime Error|This page could not be found/i.test(body)
     const hasAccessForm = await page.locator("#password").isVisible().catch(() => false)
+    const hasExpectedText = expectedText ? expectedText.test(body) : true
 
     if (route === "/campos" && finalPath === "/campos" && !hasAccessForm) {
       await page.screenshot({ path: `${evidenceDir}/campos-authenticated-desktop.png`, fullPage: false })
     }
+    if (route === "/mercado" && finalPath === "/mercado" && !hasAccessForm) {
+      await page.screenshot({ path: `${evidenceDir}/mercado-authenticated-desktop.png`, fullPage: false })
+    }
+    if (route === "/gestion-tareas" && finalPath === "/gestion-tareas" && !hasAccessForm) {
+      await page.screenshot({ path: `${evidenceDir}/tareas-authenticated-desktop.png`, fullPage: false })
+    }
 
-    if (!response || status >= 500 || finalPath !== expectedPath || hasFatalUI || hasAccessForm || pageErrors.length > 0) {
-      failures.push({ route, expectedPath, finalPath, status, pageErrors, hasFatalUI, hasAccessForm })
-      console.error(`FAIL ${route} status=${status} expected=${expectedPath} final=${finalPath} gate=${hasAccessForm} pageErrors=${pageErrors.length}`)
+    if (!response || status >= 500 || finalPath !== expectedPath || hasFatalUI || hasAccessForm || pageErrors.length > 0 || !hasExpectedText) {
+      failures.push({ route, expectedPath, finalPath, status, pageErrors, hasFatalUI, hasAccessForm, hasExpectedText })
+      console.error(`FAIL ${route} status=${status} expected=${expectedPath} final=${finalPath} gate=${hasAccessForm} text=${hasExpectedText} pageErrors=${pageErrors.length}`)
     } else {
       console.log(`PASS ${route} status=${status} final=${finalPath}`)
     }
@@ -112,7 +123,7 @@ try {
     }
 
     if (signingSecret) {
-    await context.addInitScript(() => window.sessionStorage.setItem("site_access_token", "granted"))
+      await context.addInitScript(() => window.sessionStorage.setItem("site_access_token", "granted"))
       const smokeToken = createSmokeToken(signingSecret)
       const cookieOrigins = new Set([baseURL])
       const parsedBaseURL = new URL(baseURL)
@@ -129,7 +140,9 @@ try {
     }
 
     authenticatedPage ??= await context.newPage()
-    for (const route of operationalRoutes) await inspectRoute(authenticatedPage, route, route)
+    for (const { route, expectedText } of operationalRoutes) {
+      await inspectRoute(authenticatedPage, route, route, expectedText)
+    }
     for (const [route, expectedPath] of canonicalRoutes) await inspectRoute(authenticatedPage, route, expectedPath)
     for (const route of retiredRoutes) await inspectRoute(authenticatedPage, route, "/campos")
     await authenticatedPage.close()
