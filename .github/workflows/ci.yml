@@ -36,3 +36,37 @@ jobs:
 
       - name: Production build
         run: pnpm build
+
+      - name: Install smoke browser
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Authenticated route smoke
+        env:
+          INTERNAL_ACCESS_SECRET: ci-smoke-signing-secret
+          SMOKE_SIGNING_SECRET: ci-smoke-signing-secret
+        run: |
+          pnpm start -H 127.0.0.1 > /tmp/sur-realista.log 2>&1 &
+          APP_PID=$!
+          trap 'kill "$APP_PID"' EXIT
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:3000/ > /dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          pnpm test:smoke
+
+      - name: Production cloud browser
+        env:
+          SMOKE_BASE_URL: https://sur-realista.vercel.app
+          SMOKE_PASSWORD: ${{ secrets.SURREALISTA_E2E_PASSWORD }}
+        run: pnpm test:smoke
+
+      - name: Upload cloud browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cloud-browser-evidence
+          path: test-results/cloud-browser/
+          if-no-files-found: warn
+          retention-days: 14

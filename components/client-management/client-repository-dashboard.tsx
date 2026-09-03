@@ -166,7 +166,7 @@ export function ClientRepositoryDashboard() {
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
             Actualizar
           </Button>
-          <Button variant="outline" size="sm" onClick={() => router.push("/admin/clientes")}>
+          <Button variant="outline" size="sm" onClick={() => router.push("/clientes/importar")}>
             <Upload className="h-4 w-4" />
             Importar
           </Button>
@@ -213,7 +213,7 @@ export function ClientRepositoryDashboard() {
             {clients.length === 0 ? (
               <TableRow><TableCell colSpan={6} className="h-40 text-center text-muted-foreground">No hay clientes para los filtros seleccionados.</TableCell></TableRow>
             ) : clients.map((client) => (
-              <TableRow key={client.id} className="cursor-pointer" onClick={() => router.push(`/admin/clientes/${client.id}`)}>
+              <TableRow key={client.id} className="cursor-pointer" onClick={() => router.push(`/clientes/${client.id}`)}>
                 <TableCell><div className="font-medium">{fullName(client)}</div><div className="text-xs text-muted-foreground">{client.company_name || client.industry || "Sin empresa"}</div></TableCell>
                 <TableCell><div className="text-sm">{client.email || "Sin email"}</div><div className="text-xs text-muted-foreground">{client.mobile || client.phone || "Sin teléfono"}</div></TableCell>
                 <TableCell>{[client.city, client.region].filter(Boolean).join(", ") || "Sin ubicación"}</TableCell>
@@ -223,7 +223,7 @@ export function ClientRepositoryDashboard() {
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => router.push(`/admin/clientes/${client.id}`)}>Abrir ficha</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => router.push(`/clientes/${client.id}`)}>Abrir ficha</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setEmailClient(client)}><Mail className="h-4 w-4" />Enviar correo</DropdownMenuItem>
                       <DropdownMenuItem className="text-destructive" onClick={() => void handleDelete(client)}><Trash2 className="h-4 w-4" />Eliminar</DropdownMenuItem>
                     </DropdownMenuContent>
