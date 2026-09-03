@@ -47,7 +47,7 @@ type MenuItem = {
 const operationItems: MenuItem[] = [
   { title: "Campos", href: "/campos", icon: FolderOpen, description: "Mapa, inventario KMZ, regiones, vecinos y propietarios.", badge: "Principal" },
   { title: "Inteligencia territorial", href: "/kmz-analisis", icon: MapPin, description: "KMZ, vecindario, roles, capas y lectura territorial." },
-  { title: "Mercado y comparables", href: "/busqueda", icon: Search, description: "Inventario externo real, búsqueda comercial y comparables." },
+  { title: "Mercado y comparables", href: "/mercado", icon: Search, description: "Inventario externo real, búsqueda comercial y comparables." },
   { title: "Valorización", href: "/cotizador", icon: Calculator, description: "Estimación basada en comparables y contexto disponible." },
   { title: "Clientes", href: "/clientes", icon: Users, description: "Ficha y seguimiento de clientes con datos reales." },
   { title: "Tareas", href: "/gestion-tareas", icon: CheckSquare, description: "Trabajo operativo y seguimientos registrados." },
