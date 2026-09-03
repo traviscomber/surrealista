@@ -14,6 +14,7 @@ const RETIRED_PRODUCT_PREFIXES = [
 
 const CANONICAL_PRODUCT_ROUTES = [
   { prefix: "/admin/clientes", destination: "/clientes", preserveSuffix: true },
+  { prefix: "/gestion-clientes", destination: "/clientes", preserveSuffix: true },
   { prefix: "/admin/mensajes", destination: "/comunicaciones", preserveSuffix: false },
   { prefix: "/nueva-tarea", destination: "/gestion-tareas", preserveSuffix: false },
 ]
