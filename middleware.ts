@@ -13,9 +13,9 @@ const RETIRED_PRODUCT_PREFIXES = [
 ]
 
 const CANONICAL_PRODUCT_ROUTES = [
-  { prefix: "/admin/clientes", destination: "/clientes" },
-  { prefix: "/admin/mensajes", destination: "/comunicaciones" },
-  { prefix: "/nueva-tarea", destination: "/gestion-tareas" },
+  { prefix: "/admin/clientes", destination: "/clientes", preserveSuffix: true },
+  { prefix: "/admin/mensajes", destination: "/comunicaciones", preserveSuffix: false },
+  { prefix: "/nueva-tarea", destination: "/gestion-tareas", preserveSuffix: false },
 ]
 
 function isRetiredProductPath(pathname: string) {
@@ -23,9 +23,14 @@ function isRetiredProductPath(pathname: string) {
 }
 
 function getCanonicalProductPath(pathname: string) {
-  return CANONICAL_PRODUCT_ROUTES.find(
+  const route = CANONICAL_PRODUCT_ROUTES.find(
     ({ prefix }) => pathname === prefix || pathname.startsWith(`${prefix}/`),
-  )?.destination
+  )
+
+  if (!route) return null
+
+  const suffix = route.preserveSuffix ? pathname.slice(route.prefix.length) : ""
+  return `${route.destination}${suffix}`
 }
 
 function isPublicApiPath(pathname: string) {
