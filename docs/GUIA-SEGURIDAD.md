@@ -1,250 +1,146 @@
-# Guía de Seguridad - Sur-Realista
+# Security Guide — Sur-Realista
 
-## MEJORAS DE SEGURIDAD IMPLEMENTADAS (Jun 5, 2026)
+**Status:** current security model, September 2026.
 
-### 1. Monitoreo de Errores con Sentry ✅
-- **Qué es**: Sistema de monitoreo que captura errores en producción
-- **Cómo funciona**: Todos los errores se envían automáticamente a Sentry
-- **Beneficio**: Sabemos qué se está rompiendo EN TIEMPO REAL
-- **Ubicación**: `sentry.config.ts`, `lib/sentry-init.ts`, `components/error-boundary.tsx`
+This document replaces older project notes that described a plaintext shared password. That credential was compromised by being committed to the public repository and was rotated on 2 September 2026.
 
-**Setup Requerido:**
-```bash
-# 1. Ir a https://sentry.io y crear una cuenta
-# 2. Crear un nuevo proyecto para Next.js
-# 3. Copiar el DSN
-# 4. Agregar a variables de entorno:
-NEXT_PUBLIC_SENTRY_DSN=your_sentry_dsn
-```
-
-**Cómo funciona:**
-- Error Boundary captura componentes que fallan
-- Excepciones se envían a Sentry automáticamente
-- Panel de Sentry muestra todas las alertas
+No current credential is documented in this repository.
 
 ---
 
-### 2. Autenticación Mejorada con Better Auth ✅
-- **Qué fue**: Contraseña hardcodeada ("srmagica")
-- **Qué es ahora**: Better Auth con email + contraseña segura
-- **Mejora**: Contraseñas hasheadas, sesiones seguras, trazabilidad
+## Current internal-access model
 
-**Características:**
-- ✅ Password hashing con bcrypt (nunca se almacenan en plaintext)
-- ✅ Sesiones con token (no localStorage inseguro)
-- ✅ Validación de input (email, contraseña fuerte)
-- ✅ Protección CSRF
-- ✅ Rate limiting (próximamente)
-- ✅ Trazabilidad de intentos de login (en Sentry)
+Sur-Realista currently protects privileged application and API surfaces with a server-issued internal session.
 
-**Setup Requerido:**
-```bash
-# 1. Generar BETTER_AUTH_SECRET
-openssl rand -base64 32
-
-# 2. Crear tablas en Supabase (Better Auth las crea automáticamente)
-# 3. Agregar variable de entorno:
-BETTER_AUTH_SECRET=your_generated_secret
+```text
+Password entered over HTTPS
+        ↓
+POST /api/internal-access
+        ↓
+Server-side PBKDF2 verification
+        ↓
+Rate-limit / lockout policy
+        ↓
+Signed short-lived session token
+        ↓
+httpOnly + SameSite=Strict cookie
+        ↓
+Middleware / API authorization
 ```
 
-**Cómo usar:**
-- Reemplazar SecureLogin en lugar del PasswordGate simple
-- Login component está en: `components/auth/secure-login.tsx`
-- API route en: `app/api/auth/[...all]/route.ts`
+Important properties:
+
+- the plaintext password is not stored in source code;
+- the browser does not retain the password as an authorization token;
+- successful login creates a signed `httpOnly` cookie;
+- previous cookies are invalidated when the token version changes;
+- privileged APIs validate the signed cookie server-side;
+- scraper/admin APIs do not accept plaintext site passwords or alternate public headers;
+- repeated failed authentication attempts are rate-limited;
+- responses from the access endpoint use `private, no-store` caching.
+
+Canonical implementation:
+
+- `components/auth/password-gate.tsx`
+- `app/api/internal-access/route.ts`
+- `lib/auth/internal-access.ts`
+- `lib/auth/internal-access-rate-limit.ts`
+- `middleware.ts`
+- `lib/scrapers/route-auth.ts`
 
 ---
 
-### 3. Error Boundary con Manejo Graceful ✅
-- **Qué es**: Componente que atrapa errores de React y muestra UI amigable
-- **Beneficio**: Usuarios no ven pantalla blanca, se notifica al equipo
+## September 2026 credential incident
 
-**Ubicación:** `components/error-boundary.tsx`
+A legacy shared credential appeared in old public documentation and one obsolete client header.
 
-**Cómo funciona:**
-```jsx
-// Uso en layout o página
-<ErrorBoundary>
-  <YourComponent />
-</ErrorBoundary>
-```
+Remediation completed:
 
----
+1. the credential verifier was rotated;
+2. the internal token version was incremented, invalidating old sessions;
+3. the obsolete client authorization header was removed;
+4. old quick-reference/final-documentation files exposing the credential were removed from the current branch;
+5. privileged scraper/admin routes remain cookie-authenticated server-side;
+6. repository search is part of the verification gate.
 
-## PASOS PARA PRODUCCIÓN
-
-### Paso 1: Configurar Sentry (1 hora)
-```bash
-# 1. Ir a sentry.io
-# 2. Crear proyecto Next.js
-# 3. Copiar DSN
-# 4. Agregar a Vercel environment variables:
-#    NEXT_PUBLIC_SENTRY_DSN=your_dsn
-#    SENTRY_ORG=your_org
-#    SENTRY_PROJECT=your_project
-#    SENTRY_AUTH_TOKEN=your_token
-```
-
-### Paso 2: Configurar Better Auth (1-2 horas)
-```bash
-# 1. Generar secret
-openssl rand -base64 32
-
-# 2. Agregar a Vercel environment:
-#    BETTER_AUTH_SECRET=your_secret
-#    NEXT_PUBLIC_APP_URL=https://sur-realista.vercel.app
-
-# 3. Test en staging:
-npm run dev
-# Ir a http://localhost:3000/auth/signin (nuevo endpoint)
-```
-
-### Paso 3: Reemplazar PasswordGate en Producción (30 min)
-```tsx
-// En app/layout.tsx
-// ANTES:
-<PasswordGate>{children}</PasswordGate>
-
-// DESPUÉS:
-<SessionProvider>
-  <AuthGate>{children}</AuthGate>
-</SessionProvider>
-```
-
-### Paso 4: Testing (1 hora)
-- [ ] Test login con email válido
-- [ ] Test login con contraseña incorrecta
-- [ ] Test contraseña débil (< 8 chars)
-- [ ] Test email inválido
-- [ ] Verificar error en Sentry
-- [ ] Verificar sesión persiste en reload
+Git history is intentionally not rewritten as part of normal project curation. Because the old credential is no longer valid, its historical presence does not grant current access.
 
 ---
 
-## CHECKLISTS DE SEGURIDAD
+## Current authorization boundary
 
-### Antes de cualquier usuario externo:
-- [ ] Sentry DSN configurado
-- [ ] Better Auth secret generado
-- [ ] HTTPS habilitado (Vercel por defecto)
-- [ ] Rate limiting en API (próxima fase)
-- [ ] Input validation en todos los formularios
+### Public pages
 
-### Antes de Beta Limitada:
-- [ ] 2FA (factor de autenticación) - próxima fase
-- [ ] Logs de auditoría configurados
-- [ ] Backup automático de base de datos
-- [ ] Monitoreo de uptime
+Public documentation/help pages may be reachable without the internal session according to `middleware.ts`.
 
-### Antes de Producción Pública:
-- [ ] Penetration testing
-- [ ] Security headers (CSP, X-Frame-Options, etc)
-- [ ] Rate limiting completado
-- [ ] DDoS protection (Cloudflare)
+### Privileged pages and APIs
+
+Privileged routes require a valid internal access cookie. The authorization decision happens in middleware or the server route, not in client UI state.
+
+A `sessionStorage` marker may be used only as a UX hint that a browser previously completed login. It is not an authorization credential and cannot substitute for the server cookie.
+
+### Supabase authentication
+
+The repository also contains Supabase Auth flows. These are separate from the current global internal-access boundary. Do not assume that any authenticated Supabase user is an internal operator.
+
+A future migration from the shared internal gate to named operator accounts should use a server-controlled role/allowlist model, not user-editable profile metadata.
 
 ---
 
-## VARIABLES DE ENTORNO REQUERIDAS
+## Secret-management rules
+
+Never commit:
+
+- plaintext passwords;
+- API keys or bearer tokens;
+- Supabase service-role keys;
+- OpenAI/provider secrets;
+- internal-access signing secrets;
+- production cookies/session tokens;
+- customer or owner private evidence.
+
+Use deployment environment variables or an approved secret store for secrets.
+
+Public examples must use obvious placeholders such as:
 
 ```env
-# Sentry
-NEXT_PUBLIC_SENTRY_DSN=https://xxx@sentry.io/yyyy
-SENTRY_ORG=your-org
-SENTRY_PROJECT=your-project
-SENTRY_AUTH_TOKEN=sntrys_xxx
-
-# Better Auth
-BETTER_AUTH_SECRET=your-secret-from-openssl
-NEXT_PUBLIC_APP_URL=https://sur-realista.vercel.app
-
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=xxx
-SUPABASE_SERVICE_ROLE_KEY=xxx
-
-# OpenAI
-OPENAI_API_KEY=sk-xxx
-
-# Node
-NODE_ENV=production
+OPENAI_API_KEY=your-provider-key
+SUPABASE_SERVICE_ROLE_KEY=your-server-only-key
+INTERNAL_ACCESS_SECRET=your-random-server-secret
 ```
 
----
-
-## MONITOREO EN PRODUCCIÓN
-
-### Qué monitorear:
-1. **Sentry Dashboard**: https://sentry.io
-   - Errores en tiempo real
-   - Stack traces automáticos
-   - Performance metrics
-
-2. **Vercel Analytics**: https://vercel.com
-   - Uptime
-   - Performance
-   - Build status
-
-3. **Supabase Console**: https://supabase.com
-   - Database health
-   - API usage
-   - Logs
-
-### Alertas a configurar:
-- [ ] Error rate > 5% en Sentry
-- [ ] API latency > 1s
-- [ ] Database connections > 80%
-- [ ] Failed deployments
+Never use a realistic live credential as documentation.
 
 ---
 
-## INCIDENT RESPONSE
+## Security invariants
 
-Si algo sale mal en producción:
-
-1. **Paso 1 - Alertar** (1 min)
-   - Revisar Sentry para detalles
-   - Notificar al equipo en Slack
-
-2. **Paso 2 - Investigar** (5-10 min)
-   - ¿Cuántos usuarios afectados?
-   - ¿Desde cuándo?
-   - ¿Patrón común?
-
-3. **Paso 3 - Mitigar** (10-30 min)
-   - Rollback si es necesario
-   - Fix rápido y deploy
-   - Comunicar a usuarios
-
-4. **Paso 4 - Post-mortem** (después)
-   - Revisar logs
-   - Implementar prevención
-   - Documentar lección
+1. Authorization is enforced on the server, not by hiding UI controls.
+2. Client-supplied headers are never accepted as a substitute for a signed server session unless a dedicated authenticated protocol explicitly requires them.
+3. Service-role credentials remain server-only.
+4. Missing authentication fails closed.
+5. Rate limiting and lockout apply to the internal login endpoint.
+6. Sensitive responses use `no-store`.
+7. Source evidence and operator actions remain auditable where the workflow requires it.
+8. A credential found in source control is considered compromised and must be rotated, not merely deleted from the latest file.
 
 ---
 
-## PREGUNTAS FRECUENTES
+## Release security check
 
-**P: ¿Qué pasa si alguien adivina la contraseña?**
-A: Con Better Auth y bcrypt, adivinar es prácticamente imposible. Además, hay rate limiting en desarrollo.
+Before release or public-repository cleanup:
 
-**P: ¿Cómo reseteo mi contraseña?**
-A: Próxima fase: agregar "forgot password" con email de reset.
-
-**P: ¿Qué datos ve Sentry?**
-A: Solo errores, stack traces y contexto. NO ve datos sensibles (mejor-auth los encripta).
-
-**P: ¿Es seguro usar Supabase?**
-A: Sí, Supabase usa PostgreSQL con Row Level Security. Datos encriptados en tránsito (HTTPS).
+- search the current branch for known credential values and suspicious key patterns;
+- confirm privileged routes reject requests without a valid server session;
+- confirm previous session versions are rejected after credential rotation;
+- verify no admin component relies on a hardcoded access header;
+- verify secrets exist only in deployment/server configuration;
+- inspect security/runtime logs for new 401/403/5xx anomalies after auth changes.
 
 ---
 
-## RECURSOS
+## Next hardening step
 
-- [Sentry Docs](https://docs.sentry.io/)
-- [Better Auth Docs](https://www.better-auth.com/)
-- [OWASP Security Guidelines](https://owasp.org/)
-- [Next.js Security](https://nextjs.org/docs/app/building-your-application/deploying#security)
+The preferred long-term direction is **named internal operator identities** with server-controlled authorization and per-user auditability. The existing internal password gate is now materially safer than the legacy implementation, but a named-account model provides stronger revocation, attribution and least-privilege controls.
 
----
-
-**Última actualización:** 5 de Junio de 2026
-**Status:** Mejoras de seguridad implementadas ✅ Listo para beta
+That migration should be implemented only after a canonical operator-role source is defined and tested. It must not grant privileged access based solely on self-editable user metadata.

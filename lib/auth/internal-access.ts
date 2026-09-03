@@ -9,10 +9,12 @@ export const INTERNAL_OPERATOR = {
   role: "operator-admin",
 } as const
 
-const TOKEN_VERSION = "v4"
-const PASSWORD_SALT_HEX = "12ed3f3c052a8c532a5178dca1dd607f"
-const PASSWORD_ITERATIONS = 210_000
-const PASSWORD_VERIFIER_HEX = "b7729c9a2b627ac1d07123b44aac4346378d88e4fc4d137853491a5d58bfa438"
+// v5 invalidates all previously issued internal-access cookies after the
+// September 2026 credential rotation.
+const TOKEN_VERSION = "v5"
+const PASSWORD_SALT_HEX = "cc4e803359b54ce9d9bc8b6dc4dbb3e3"
+const PASSWORD_ITERATIONS = 310_000
+const PASSWORD_VERIFIER_HEX = "f0c0303702d08ac6e42d87e4adb4c3d60ba88c80ec26dccfa83e924a355fb32d"
 
 function getSigningSecret() {
   return process.env.INTERNAL_ACCESS_SECRET?.trim() || process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || null

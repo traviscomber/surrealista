@@ -1,9 +1,10 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { FileText, ListChecks, MessageSquare, Sparkles } from "lucide-react"
+import { FileText, ListChecks, MessageSquare, Presentation, Sparkles } from "lucide-react"
 
 import { CommunicationsTracking } from "./communications-tracking"
+import { CommercialPresentations } from "./commercial-presentations"
 import DocumentsManager from "./documents-manager"
 import { TemplateLibrary } from "./template-library"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -12,6 +13,7 @@ const sections = [
   { value: "documents", label: "Documentación", icon: FileText },
   { value: "tracking", label: "Seguimiento", icon: ListChecks },
   { value: "templates", label: "Plantillas", icon: Sparkles },
+  { value: "presentations", label: "Presentaciones comerciales", icon: Presentation },
 ] as const
 
 export function CommunicationsManager() {
@@ -33,7 +35,7 @@ export function CommunicationsManager() {
             <h2 className="sr-section-title">Comunicaciones</h2>
           </div>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-            Organiza documentación real, seguimiento y plantillas desde un único flujo operativo.
+            Organiza documentos, seguimiento, plantillas y presentaciones comerciales desde un único flujo operativo.
           </p>
         </div>
       </div>
@@ -68,6 +70,10 @@ export function CommunicationsManager() {
 
         <TabsContent value="templates" className="mt-5">
           <TemplateLibrary onCommunicationCreated={() => setRefreshTrigger((value) => value + 1)} />
+        </TabsContent>
+
+        <TabsContent value="presentations" className="mt-5">
+          <CommercialPresentations />
         </TabsContent>
       </Tabs>
     </section>
