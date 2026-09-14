@@ -41,11 +41,26 @@ function scoreCandidate(item: Opportunity, criteria: ProspectingCriteria) {
   }
 }
 
-export async function findProspectingCandidates(criteria: ProspectingCriteria, limit = 60) {
-  const opportunities = await listRealOpportunities(100)
+function rankCandidates(opportunities: Opportunity[], criteria: ProspectingCriteria, limit: number) {
   return opportunities
     .map((item) => scoreCandidate(item, criteria))
     .filter(Boolean)
     .sort((a, b) => Number(b?.prospecting_fit_score || 0) - Number(a?.prospecting_fit_score || 0))
     .slice(0, Math.min(Math.max(limit, 1), 100))
+}
+
+export async function findProspectingCandidates(criteria: ProspectingCriteria, limit = 60) {
+  const opportunities = await listRealOpportunities(100)
+  return rankCandidates(opportunities, criteria, limit)
+}
+
+export async function findProspectingCandidatesBatch(
+  criteriaList: Array<{ id: string; criteria: ProspectingCriteria }>,
+  limit = 100,
+) {
+  const opportunities = await listRealOpportunities(100)
+  return criteriaList.map((entry) => ({
+    id: entry.id,
+    candidates: rankCandidates(opportunities, entry.criteria, limit),
+  }))
 }
