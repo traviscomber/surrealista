@@ -12,7 +12,21 @@ export type ProspectingCriteria = {
 }
 
 function normalize(value: string | null | undefined) {
-  return String(value || "").trim().toLocaleLowerCase("es-CL")
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLocaleLowerCase("es-CL")
+    .replace(/\s+/g, " ")
+}
+
+function canonicalRegion(value: string | null | undefined) {
+  return normalize(value)
+    .replace(/^region de /, "")
+    .replace(/^region del /, "")
+    .replace(/^region /, "")
+    .replace(/^del /, "")
+    .replace(/^de /, "")
 }
 
 function hectares(areaM2: number) {
@@ -27,7 +41,9 @@ function scoreCandidate(item: Opportunity, criteria: ProspectingCriteria) {
   const areaHa = hectares(Number(item.area_m2 || 0))
   const region = String(criteria.region || "").trim()
   const commune = String(criteria.commune || "").trim()
-  const regionMatch = !region || normalize(item.region) === normalize(region)
+  const itemRegion = canonicalRegion(item.region)
+  const wantedRegion = canonicalRegion(region)
+  const regionMatch = !region || itemRegion === wantedRegion || itemRegion.includes(wantedRegion) || wantedRegion.includes(itemRegion)
   const communeMatch = !commune || normalize(item.commune).includes(normalize(commune))
   const minMatch = criteria.minHa == null || areaHa >= criteria.minHa
   const maxMatch = criteria.maxHa == null || areaHa <= criteria.maxHa
@@ -62,7 +78,7 @@ function rankCandidates(opportunities: RawOpportunity[], criteria: ProspectingCr
 }
 
 export async function findProspectingCandidates(criteria: ProspectingCriteria, limit = 60) {
-  const opportunities = await listRealOpportunities(100)
+  const opportunities = await listRealOpportunities(500)
   return rankCandidates(opportunities, criteria, limit)
 }
 
@@ -70,7 +86,7 @@ export async function findProspectingCandidatesBatch(
   criteriaList: Array<{ id: string; criteria: ProspectingCriteria }>,
   limit = 100,
 ) {
-  const opportunities = await listRealOpportunities(100)
+  const opportunities = await listRealOpportunities(500)
   return criteriaList.map((entry) => ({
     id: entry.id,
     candidates: rankCandidates(opportunities, entry.criteria, limit),
