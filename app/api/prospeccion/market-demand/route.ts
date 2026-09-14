@@ -13,6 +13,8 @@ function db() {
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
 }
 
+type AdminSupabaseClient = NonNullable<ReturnType<typeof db>>
+
 type KmzEvidenceRow = {
   id: string
   owner?: string | null
@@ -78,7 +80,7 @@ function summarizeCoverage(rows: KmzEvidenceRow[], scope: TerritorialCoverage["s
 }
 
 async function loadTerritorialCoverage(
-  supabase: ReturnType<typeof createClient>,
+  supabase: AdminSupabaseClient,
   region: string | null,
   commune: string | null,
 ): Promise<TerritorialCoverage> {
