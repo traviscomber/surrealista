@@ -9,6 +9,16 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { WorkspaceHeading } from "@/components/ui/workspace-heading"
 
+type TerritorialCoverage = {
+  scope: "commune" | "region" | "unresolved"
+  label: string | null
+  kmz_count: number | null
+  owner_identified_count: number | null
+  owner_evidence_count: number | null
+  contact_ready_count: number | null
+  sampled: boolean
+}
+
 type DemandSignal = {
   id: string
   source: string
@@ -26,6 +36,12 @@ type DemandSignal = {
   last_seen_at: string
   candidate_count: number
   top_candidate_score: number | null
+  territorial_coverage: TerritorialCoverage
+}
+
+function metric(value: number | null, sampled = false) {
+  if (value == null) return "—"
+  return `${sampled ? "≥" : ""}${value}`
 }
 
 export default function MarketDemandPage() {
@@ -86,14 +102,15 @@ export default function MarketDemandPage() {
         <WorkspaceHeading
           eyebrow="Inteligencia competitiva"
           title="Demanda detectada en mercado"
-          description="Requerimientos públicos observados en brokers agrícolas y cruzados contra las oportunidades reales de Sur Realista."
+          description="Requerimientos públicos observados en brokers agrícolas y cruzados contra oportunidades, cobertura KMZ y evidencia de propietarios de Sur Realista."
           outcome="Convertir demanda externa observable en mandatos accionables sin confundirla con demanda propia de clientes."
         />
       </div>
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid gap-4 md:grid-cols-4">
         <Card className="p-4"><p className="text-xs text-muted-foreground">Señales activas</p><p className="mt-1 text-2xl font-medium">{loading ? "—" : signals.length}</p></Card>
         <Card className="p-4"><p className="text-xs text-muted-foreground">Con candidatos SR</p><p className="mt-1 text-2xl font-medium">{loading ? "—" : signals.filter((signal) => signal.candidate_count > 0).length}</p></Card>
+        <Card className="p-4"><p className="text-xs text-muted-foreground">Con cobertura KMZ</p><p className="mt-1 text-2xl font-medium">{loading ? "—" : signals.filter((signal) => (signal.territorial_coverage?.kmz_count || 0) > 0).length}</p></Card>
         <Card className="p-4"><p className="text-xs text-muted-foreground">Fuente inicial</p><p className="mt-1 text-sm font-medium">EVilas Agro · pública</p></Card>
       </section>
 
@@ -107,9 +124,10 @@ export default function MarketDemandPage() {
         <div className="space-y-3">
           {signals.map((signal) => {
             const saved = savedIds.has(signal.id)
+            const coverage = signal.territorial_coverage
             return (
               <Card key={signal.id} className="p-5">
-                <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge variant="outline">{signal.source}</Badge>
@@ -124,9 +142,37 @@ export default function MarketDemandPage() {
                       <span>{signal.min_ha != null ? `${signal.min_ha} ha mín.` : "Sin mínimo estructurado"}</span>
                       <span>{signal.max_ha != null ? `${signal.max_ha} ha máx.` : "Sin máximo estructurado"}</span>
                     </div>
+
+                    <div className="mt-5 grid gap-2 sm:grid-cols-4">
+                      <div className="border-t border-border pt-3">
+                        <p className="text-xs text-muted-foreground">1 · Oportunidades</p>
+                        <p className="mt-1 text-xl font-medium">{signal.candidate_count}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">mercado SR</p>
+                      </div>
+                      <div className="border-t border-border pt-3">
+                        <p className="text-xs text-muted-foreground">2 · KMZ en zona</p>
+                        <p className="mt-1 text-xl font-medium">{metric(coverage?.kmz_count ?? null, coverage?.sampled)}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{coverage?.scope === "unresolved" ? "sin ubicación suficiente" : coverage?.label || "territorio"}</p>
+                      </div>
+                      <div className="border-t border-border pt-3">
+                        <p className="text-xs text-muted-foreground">3 · Propietario</p>
+                        <p className="mt-1 text-xl font-medium">{metric(coverage?.owner_evidence_count ?? null, coverage?.sampled)}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">identidad con evidencia</p>
+                      </div>
+                      <div className="border-t border-border pt-3">
+                        <p className="text-xs text-muted-foreground">4 · Contactables</p>
+                        <p className="mt-1 text-xl font-medium">{metric(coverage?.contact_ready_count ?? null, coverage?.sampled)}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">propietario + teléfono/email</p>
+                      </div>
+                    </div>
+
+                    <p className="mt-4 max-w-4xl text-xs leading-5 text-muted-foreground">
+                      La cobertura KMZ es territorial por comuna o región; todavía no representa una vinculación 1:1 entre cada oportunidad publicada y un KMZ específico. El sistema no infiere propietario ni contacto cuando falta evidencia.
+                    </p>
                   </div>
-                  <div className="flex shrink-0 flex-col gap-2 sm:min-w-52">
-                    <div className="rounded-md border border-border p-3">
+
+                  <div className="flex shrink-0 flex-col gap-2 sm:min-w-56">
+                    <div className="border border-border p-3">
                       <p className="text-xs text-muted-foreground">Cruce Sur Realista</p>
                       <p className="mt-1 text-xl font-medium">{signal.candidate_count} candidatos</p>
                       <p className="mt-1 text-xs text-muted-foreground">{signal.top_candidate_score != null ? `Mejor ajuste ${signal.top_candidate_score}/100` : "Sin coincidencias actuales"}</p>
