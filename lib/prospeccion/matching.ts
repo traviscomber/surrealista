@@ -1,6 +1,7 @@
 import { listRealOpportunities } from "@/lib/home-spotter/opportunities"
 
-type Opportunity = Awaited<ReturnType<typeof listRealOpportunities>>[number]
+type RawOpportunity = Awaited<ReturnType<typeof listRealOpportunities>>[number]
+type Opportunity = NonNullable<RawOpportunity>
 
 export type ProspectingCriteria = {
   region?: string | null
@@ -16,6 +17,10 @@ function normalize(value: string | null | undefined) {
 
 function hectares(areaM2: number) {
   return areaM2 / 10_000
+}
+
+function isOpportunity(item: RawOpportunity): item is Opportunity {
+  return item !== null
 }
 
 function scoreCandidate(item: Opportunity, criteria: ProspectingCriteria) {
@@ -47,8 +52,9 @@ function isScoredCandidate(candidate: ReturnType<typeof scoreCandidate>): candid
   return candidate !== null
 }
 
-function rankCandidates(opportunities: Opportunity[], criteria: ProspectingCriteria, limit: number) {
+function rankCandidates(opportunities: RawOpportunity[], criteria: ProspectingCriteria, limit: number) {
   return opportunities
+    .filter(isOpportunity)
     .map((item) => scoreCandidate(item, criteria))
     .filter(isScoredCandidate)
     .sort((a, b) => b.prospecting_fit_score - a.prospecting_fit_score)
