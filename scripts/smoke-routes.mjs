@@ -9,6 +9,7 @@ const smokePassword = process.env.SMOKE_PASSWORD
 const operationalRoutes = [
   { route: "/campos", expectedText: /CAMPOS|Colección de campos/i },
   { route: "/prospeccion", expectedText: /Prospección inteligente|Buscar predios antes de que lleguen al mercado/i },
+  { route: "/prospeccion/demanda-mercado", expectedText: /Demanda detectada en mercado|Inteligencia competitiva/i },
   { route: "/kmz-analisis", expectedText: /KMZ|Inteligencia territorial/i },
   { route: "/mercado", expectedText: /Mercado y comparables/i },
   { route: "/busqueda", expectedText: /Explorador de campos|Centro operativo/i },
@@ -63,6 +64,9 @@ async function inspectRoute(page, route, expectedPath, expectedText) {
     }
     if (route === "/prospeccion" && finalPath === "/prospeccion" && !hasAccessForm) {
       await page.screenshot({ path: `${evidenceDir}/prospeccion-authenticated-desktop.png`, fullPage: false })
+    }
+    if (route === "/prospeccion/demanda-mercado" && finalPath === "/prospeccion/demanda-mercado" && !hasAccessForm) {
+      await page.screenshot({ path: `${evidenceDir}/demanda-mercado-authenticated-desktop.png`, fullPage: false })
     }
     if (route === "/mercado" && finalPath === "/mercado" && !hasAccessForm) {
       await page.screenshot({ path: `${evidenceDir}/mercado-authenticated-desktop.png`, fullPage: false })
