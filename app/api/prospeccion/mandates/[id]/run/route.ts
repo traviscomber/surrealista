@@ -19,7 +19,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
   const { id } = await params
   const { data: mandate, error: mandateError } = await supabase
     .from("prospecting_mandates")
-    .select("id,name,region,commune,species,min_ha,max_ha,status,last_candidate_ids,last_candidate_count,last_run_at")
+    .select("id,name,client_id,region,commune,species,min_ha,max_ha,status,last_candidate_ids,last_candidate_count,last_run_at")
     .eq("id", id)
     .single()
 
