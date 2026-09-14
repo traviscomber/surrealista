@@ -15,12 +15,14 @@ import {
   Radar,
   Search,
   Settings,
+  Sprout,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 const domains = [
   { label: "Inicio", href: "/admin/dashboard", icon: LayoutDashboard },
   { label: "Campos", href: "/campos", icon: FolderOpen },
+  { label: "Prospección", href: "/prospeccion", icon: Sprout },
   { label: "Mercado", href: "/busqueda", icon: Search },
   { label: "Inteligencia", href: "/admin/inteligencia-territorial", icon: MapPinned },
   { label: "Oportunidades", href: "/home-spotter", icon: Radar },
