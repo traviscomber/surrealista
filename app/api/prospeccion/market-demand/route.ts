@@ -84,7 +84,9 @@ async function loadTerritorialCoverage(
 ): Promise<TerritorialCoverage> {
   try {
     if (commune) {
-      const { data: baseRows, error: rpcError } = await supabase.rpc("get_internal_kmz_by_commune", {
+      // This RPC predates the generated Supabase function typing used by the app.
+      // Runtime support is verified by the existing migration; keep the cast local.
+      const { data: baseRows, error: rpcError } = await (supabase as any).rpc("get_internal_kmz_by_commune", {
         p_commune: commune,
         p_limit: 200,
       })
