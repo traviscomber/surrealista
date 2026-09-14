@@ -39,9 +39,9 @@ function createSmokeToken(secret) {
   const issuedAt = Math.floor(Date.now() / 1000)
   const expiresAt = issuedAt + 12 * 60 * 60
   const nonce = randomBytes(16).toString("hex")
-  const payload = `v4:juan-navarro:${issuedAt}:${expiresAt}:${nonce}`
+  const payload = `v5:juan-navarro:${issuedAt}:${expiresAt}:${nonce}`
   const signature = createHmac("sha256", secret).update(payload).digest("hex")
-  return `v4.${issuedAt}.${expiresAt}.${nonce}.${signature}`
+  return `v5.${issuedAt}.${expiresAt}.${nonce}.${signature}`
 }
 
 async function inspectRoute(page, route, expectedPath, expectedText) {
