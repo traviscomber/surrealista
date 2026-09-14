@@ -19,6 +19,27 @@ type TerritorialCoverage = {
   sampled: boolean
 }
 
+type CandidateLevelEvidence = {
+  candidate_count: number
+  reliable_point_count: number
+  spatial_link_count: number
+  owner_evidence_count: number
+  contactable_count: number
+}
+
+type SpatialLink = {
+  candidate_id: string
+  kmz_id: string | null
+  kmz_name: string | null
+  kmz_address: string | null
+  distance_km: number
+  spatial_confidence: "high" | "medium" | "nearby"
+  rol_numbers: string[]
+  owner: { name: string; confidence: number; basis: string } | null
+  contactable: boolean
+  identity_status: "spatial_candidate"
+}
+
 type DemandSignal = {
   id: string
   source: string
@@ -37,6 +58,9 @@ type DemandSignal = {
   candidate_count: number
   top_candidate_score: number | null
   territorial_coverage: TerritorialCoverage
+  candidate_level_evidence: CandidateLevelEvidence
+  top_spatial_links: SpatialLink[]
+  spatial_note: string
 }
 
 function metric(value: number | null, sampled = false) {
@@ -110,7 +134,7 @@ export default function MarketDemandPage() {
       <section className="grid gap-4 md:grid-cols-4">
         <Card className="p-4"><p className="text-xs text-muted-foreground">Señales activas</p><p className="mt-1 text-2xl font-medium">{loading ? "—" : signals.length}</p></Card>
         <Card className="p-4"><p className="text-xs text-muted-foreground">Con candidatos SR</p><p className="mt-1 text-2xl font-medium">{loading ? "—" : signals.filter((signal) => signal.candidate_count > 0).length}</p></Card>
-        <Card className="p-4"><p className="text-xs text-muted-foreground">Con cobertura KMZ</p><p className="mt-1 text-2xl font-medium">{loading ? "—" : signals.filter((signal) => (signal.territorial_coverage?.kmz_count || 0) > 0).length}</p></Card>
+        <Card className="p-4"><p className="text-xs text-muted-foreground">Con vínculo KMZ puntual</p><p className="mt-1 text-2xl font-medium">{loading ? "—" : signals.filter((signal) => (signal.candidate_level_evidence?.spatial_link_count || 0) > 0).length}</p></Card>
         <Card className="p-4"><p className="text-xs text-muted-foreground">Fuente inicial</p><p className="mt-1 text-sm font-medium">EVilas Agro · pública</p></Card>
       </section>
 
@@ -125,6 +149,7 @@ export default function MarketDemandPage() {
           {signals.map((signal) => {
             const saved = savedIds.has(signal.id)
             const coverage = signal.territorial_coverage
+            const point = signal.candidate_level_evidence
             return (
               <Card key={signal.id} className="p-5">
                 <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
@@ -143,31 +168,32 @@ export default function MarketDemandPage() {
                       <span>{signal.max_ha != null ? `${signal.max_ha} ha máx.` : "Sin máximo estructurado"}</span>
                     </div>
 
-                    <div className="mt-5 grid gap-2 sm:grid-cols-4">
-                      <div className="border-t border-border pt-3">
-                        <p className="text-xs text-muted-foreground">1 · Oportunidades</p>
-                        <p className="mt-1 text-xl font-medium">{signal.candidate_count}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">mercado SR</p>
-                      </div>
-                      <div className="border-t border-border pt-3">
-                        <p className="text-xs text-muted-foreground">2 · KMZ en zona</p>
-                        <p className="mt-1 text-xl font-medium">{metric(coverage?.kmz_count ?? null, coverage?.sampled)}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">{coverage?.scope === "unresolved" ? "sin ubicación suficiente" : coverage?.label || "territorio"}</p>
-                      </div>
-                      <div className="border-t border-border pt-3">
-                        <p className="text-xs text-muted-foreground">3 · Propietario</p>
-                        <p className="mt-1 text-xl font-medium">{metric(coverage?.owner_evidence_count ?? null, coverage?.sampled)}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">identidad con evidencia</p>
-                      </div>
-                      <div className="border-t border-border pt-3">
-                        <p className="text-xs text-muted-foreground">4 · Contactables</p>
-                        <p className="mt-1 text-xl font-medium">{metric(coverage?.contact_ready_count ?? null, coverage?.sampled)}</p>
-                        <p className="mt-1 text-xs text-muted-foreground">propietario + teléfono/email</p>
-                      </div>
+                    <div className="mt-5 grid gap-2 sm:grid-cols-5">
+                      <div className="border-t border-border pt-3"><p className="text-xs text-muted-foreground">1 · Oportunidades</p><p className="mt-1 text-xl font-medium">{signal.candidate_count}</p><p className="mt-1 text-xs text-muted-foreground">mercado SR</p></div>
+                      <div className="border-t border-border pt-3"><p className="text-xs text-muted-foreground">2 · Punto confiable</p><p className="mt-1 text-xl font-medium">{point?.reliable_point_count ?? 0}</p><p className="mt-1 text-xs text-muted-foreground">georreferencia utilizable</p></div>
+                      <div className="border-t border-border pt-3"><p className="text-xs text-muted-foreground">3 · KMZ candidato</p><p className="mt-1 text-xl font-medium">{point?.spatial_link_count ?? 0}</p><p className="mt-1 text-xs text-muted-foreground">≤ 3 km del listing</p></div>
+                      <div className="border-t border-border pt-3"><p className="text-xs text-muted-foreground">4 · Propietario</p><p className="mt-1 text-xl font-medium">{point?.owner_evidence_count ?? 0}</p><p className="mt-1 text-xs text-muted-foreground">con evidencia</p></div>
+                      <div className="border-t border-border pt-3"><p className="text-xs text-muted-foreground">5 · Contactable</p><p className="mt-1 text-xl font-medium">{point?.contactable_count ?? 0}</p><p className="mt-1 text-xs text-muted-foreground">teléfono/email</p></div>
                     </div>
 
+                    {signal.top_spatial_links?.length ? (
+                      <div className="mt-4 space-y-2 border-t border-border pt-4">
+                        <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">Vínculos candidato → KMZ</p>
+                        {signal.top_spatial_links.map((link) => (
+                          <div key={`${link.candidate_id}-${link.kmz_id || link.kmz_name}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                            <span className="font-medium">{link.kmz_name || "KMZ sin nombre"}</span>
+                            <span className="text-muted-foreground">{link.distance_km} km</span>
+                            <Badge variant="outline">{link.spatial_confidence}</Badge>
+                            {link.rol_numbers?.length ? <span className="text-muted-foreground">ROL {link.rol_numbers.slice(0, 2).join(", ")}</span> : null}
+                            {link.owner ? <span>{link.owner.name}</span> : <span className="text-muted-foreground">propietario pendiente</span>}
+                            {link.contactable ? <Badge>contactable</Badge> : null}
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+
                     <p className="mt-4 max-w-4xl text-xs leading-5 text-muted-foreground">
-                      La cobertura KMZ es territorial por comuna o región; todavía no representa una vinculación 1:1 entre cada oportunidad publicada y un KMZ específico. El sistema no infiere propietario ni contacto cuando falta evidencia.
+                      Esta segunda capa ya vincula cada oportunidad georreferenciada con KMZ cercanos. Sigue siendo evidencia espacial, no identidad catastral. La identidad exacta exige ROL coincidente o intersección de polígonos. Como contexto, la zona contiene {metric(coverage?.kmz_count ?? null, coverage?.sampled)} KMZ y {metric(coverage?.owner_evidence_count ?? null, coverage?.sampled)} propietarios con evidencia.
                     </p>
                   </div>
 
