@@ -8,6 +8,7 @@ create table if not exists public.prospecting_mandates (
   max_ha numeric,
   status text not null default 'active' check (status in ('active','paused','closed')),
   last_candidate_count integer not null default 0,
+  last_new_candidate_count integer not null default 0,
   last_candidate_ids uuid[] not null default '{}',
   last_run_at timestamptz,
   created_by text,
