@@ -31,6 +31,7 @@ const domains = [
 
 const secondary = [
   { label: "Inventario Sur Realista", href: "/admin/surealista", icon: Building2 },
+  { label: "Demanda de mercado", href: "/prospeccion/demanda-mercado", icon: Radar },
   { label: "Fuentes y datos", href: "/admin/dashboard?tab=scrapers", icon: Database },
   { label: "Mercado Inciti", href: "/admin/inciti-market", icon: BarChart3 },
 ]
@@ -80,8 +81,9 @@ export function AdminSidebar() {
         <div className="space-y-1">
           {secondary.map((item) => {
             const Icon = item.icon
+            const active = isActive(item.href)
             return (
-              <Link key={item.href} href={item.href} className="flex min-h-10 items-center gap-3 rounded-md px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+              <Link key={item.href} href={item.href} className={cn("flex min-h-10 items-center gap-3 rounded-md px-3 text-sm transition-colors", active ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground")}>
                 <Icon className="h-4 w-4" aria-hidden="true" />
                 <span>{item.label}</span>
               </Link>
