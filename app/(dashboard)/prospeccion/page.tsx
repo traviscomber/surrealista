@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { ArrowRight, Clock3, Loader2, MapPin, Play, Radar, RefreshCw, Save, Sprout } from "lucide-react"
+import { ArrowRight, Check, Clock3, Loader2, MapPin, Play, Radar, RefreshCw, Save, Sprout, UserRound } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -40,9 +40,28 @@ type ProspectingResponse = {
   }
 }
 
+type ClientIntent = {
+  id: string
+  name: string
+  email: string | null
+  clientType: string
+  status: string
+  mainInterest: string | null
+  criteria: {
+    region: string | null
+    commune: string | null
+    minHa: number | null
+    maxHa: number | null
+    budgetMin: number | null
+    budgetMax: number | null
+    locations: string[]
+  }
+}
+
 type Mandate = {
   id: string
   name: string
+  client_id: string | null
   region: string | null
   commune: string | null
   species: string | null
@@ -72,14 +91,24 @@ export default function ProspeccionPage() {
   const [minHa, setMinHa] = useState("")
   const [maxHa, setMaxHa] = useState("")
   const [mandateName, setMandateName] = useState("")
+  const [selectedClientId, setSelectedClientId] = useState("")
+  const [activeMandateId, setActiveMandateId] = useState<string | null>(null)
   const [data, setData] = useState<ProspectingResponse | null>(null)
   const [mandates, setMandates] = useState<Mandate[]>([])
+  const [clients, setClients] = useState<ClientIntent[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [loadingMandates, setLoadingMandates] = useState(true)
   const [runningMandateId, setRunningMandateId] = useState<string | null>(null)
+  const [creatingTaskFor, setCreatingTaskFor] = useState<string | null>(null)
+  const [taskCreatedCandidateIds, setTaskCreatedCandidateIds] = useState<Set<string>>(new Set())
   const [error, setError] = useState<string | null>(null)
   const [mandatesError, setMandatesError] = useState<string | null>(null)
+
+  const selectedClient = useMemo(
+    () => clients.find((client) => client.id === selectedClientId) || null,
+    [clients, selectedClientId],
+  )
 
   const criteriaSummary = useMemo(() => {
     const parts = [region, commune, species, minHa ? `${minHa}+ ha` : "", maxHa ? `hasta ${maxHa} ha` : ""].filter(Boolean)
@@ -101,14 +130,38 @@ export default function ProspeccionPage() {
     }
   }
 
+  async function loadClients() {
+    try {
+      const response = await fetch("/api/prospeccion/clients", { cache: "no-store" })
+      const body = await response.json()
+      if (!response.ok) throw new Error(body.error || "No se pudieron cargar clientes.")
+      setClients(body.clients ?? [])
+    } catch (cause) {
+      console.error("[Prospeccion] clients", cause)
+    }
+  }
+
   useEffect(() => {
-    void loadMandates()
+    void Promise.all([loadMandates(), loadClients()])
   }, [])
+
+  function applyClient(clientId: string) {
+    setSelectedClientId(clientId)
+    setActiveMandateId(null)
+    const client = clients.find((item) => item.id === clientId)
+    if (!client) return
+    if (client.criteria.region) setRegion(client.criteria.region)
+    if (client.criteria.commune) setCommune(client.criteria.commune)
+    if (client.criteria.minHa != null) setMinHa(String(client.criteria.minHa))
+    if (client.criteria.maxHa != null) setMaxHa(String(client.criteria.maxHa))
+    if (!mandateName.trim()) setMandateName(`Búsqueda · ${client.name}`)
+  }
 
   async function runSearch(event?: FormEvent) {
     event?.preventDefault()
     setLoading(true)
     setError(null)
+    setActiveMandateId(null)
 
     const params = new URLSearchParams()
     if (region) params.set("region", region)
@@ -137,11 +190,20 @@ export default function ProspeccionPage() {
       const response = await fetch("/api/prospeccion/mandates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: mandateName, region, commune, species, minHa, maxHa }),
+        body: JSON.stringify({
+          name: mandateName,
+          clientId: selectedClientId || null,
+          region,
+          commune,
+          species,
+          minHa,
+          maxHa,
+        }),
       })
       const body = await response.json()
       if (!response.ok) throw new Error(body.error || "No se pudo guardar el mandato.")
       setMandateName("")
+      if (body.mandate?.id) setActiveMandateId(body.mandate.id)
       await loadMandates()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo guardar el mandato.")
@@ -157,6 +219,8 @@ export default function ProspeccionPage() {
       const response = await fetch(`/api/prospeccion/mandates/${mandate.id}/run`, { method: "POST" })
       const body = await response.json()
       if (!response.ok) throw new Error(body.error || "No se pudo ejecutar el mandato.")
+      setActiveMandateId(mandate.id)
+      setSelectedClientId(mandate.client_id || "")
       setRegion(mandate.region || "")
       setCommune(mandate.commune || "")
       setSpecies(mandate.species || "")
@@ -185,6 +249,30 @@ export default function ProspeccionPage() {
     }
   }
 
+  async function createFollowUpTask(candidate: Candidate) {
+    if (!activeMandateId || !selectedClientId) return
+    setCreatingTaskFor(candidate.id)
+    setError(null)
+    try {
+      const response = await fetch("/api/prospeccion/tasks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId: selectedClientId,
+          mandateId: activeMandateId,
+          candidateId: candidate.id,
+        }),
+      })
+      const body = await response.json()
+      if (!response.ok) throw new Error(body.error || "No se pudo crear la tarea comercial.")
+      setTaskCreatedCandidateIds((previous) => new Set(previous).add(candidate.id))
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No se pudo crear la tarea comercial.")
+    } finally {
+      setCreatingTaskFor(null)
+    }
+  }
+
   return (
     <main className="mx-auto w-full max-w-[1800px] space-y-6">
       <WorkspaceHeading
@@ -193,6 +281,29 @@ export default function ProspeccionPage() {
         description="Define un mandato de búsqueda y prioriza candidatos usando ubicación, superficie y señal de mercado real. La clasificación satelital por especie se incorpora como siguiente capa, sin inventar resultados mientras no exista evidencia."
         outcome="Convertir un requerimiento comercial en una lista corta, explicable y trazable de predios para investigar."
       />
+
+      <Card className="p-5">
+        <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
+          <div>
+            <label className="mb-2 block text-xs font-medium text-muted-foreground">Cliente comprador / inversionista</label>
+            <select
+              value={selectedClientId}
+              onChange={(event) => applyClient(event.target.value)}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">Sin cliente vinculado</option>
+              {clients.map((client) => (
+                <option key={client.id} value={client.id}>{client.name}{client.mainInterest ? ` · ${client.mainInterest}` : ""}</option>
+              ))}
+            </select>
+          </div>
+          <div className="text-sm text-muted-foreground">
+            {selectedClient ? (
+              <span className="flex items-center gap-2"><UserRound className="h-4 w-4" aria-hidden="true" />{selectedClient.name} · {selectedClient.clientType}</span>
+            ) : "Opcional. Vincular un cliente habilita seguimiento comercial por candidato."}
+          </div>
+        </div>
+      </Card>
 
       <form onSubmit={runSearch} className="grid gap-4 border-y border-border bg-card px-4 py-5 md:grid-cols-2 xl:grid-cols-5 sm:px-6">
         <div>
@@ -232,7 +343,7 @@ export default function ProspeccionPage() {
 
       <section className="grid gap-4 md:grid-cols-4">
         <Card className="p-4"><p className="text-xs text-muted-foreground">Mandato</p><p className="mt-1 text-sm font-medium">{criteriaSummary}</p></Card>
-        <Card className="p-4"><p className="text-xs text-muted-foreground">Mercado</p><p className="mt-1 text-sm font-medium">{data?.coverage.market === "active" ? "Activo" : "Pendiente de ejecutar"}</p></Card>
+        <Card className="p-4"><p className="text-xs text-muted-foreground">Cliente</p><p className="mt-1 text-sm font-medium">{selectedClient?.name || "No vinculado"}</p></Card>
         <Card className="p-4"><p className="text-xs text-muted-foreground">Especie satelital</p><p className="mt-1 text-sm font-medium">Pendiente · no participa del score</p></Card>
         <Card className="p-4"><p className="text-xs text-muted-foreground">Candidatos</p><p className="mt-1 text-2xl font-medium">{data?.count ?? "—"}</p></Card>
       </section>
@@ -261,28 +372,32 @@ export default function ProspeccionPage() {
           <Card className="p-5 text-sm text-muted-foreground">Todavía no hay mandatos guardados. Define criterios arriba, nómbralo y guárdalo.</Card>
         ) : (
           <div className="grid gap-3 xl:grid-cols-2">
-            {mandates.map((mandate) => (
-              <Card key={mandate.id} className="p-5">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="font-medium">{mandate.name}</h3>
-                      <Badge variant={mandate.status === "active" ? "default" : "secondary"}>{mandate.status}</Badge>
-                      {mandate.last_new_candidate_count > 0 ? <Badge variant="outline">{mandate.last_new_candidate_count} nuevos</Badge> : null}
+            {mandates.map((mandate) => {
+              const linkedClient = clients.find((client) => client.id === mandate.client_id)
+              return (
+                <Card key={mandate.id} className="p-5">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-medium">{mandate.name}</h3>
+                        <Badge variant={mandate.status === "active" ? "default" : "secondary"}>{mandate.status}</Badge>
+                        {mandate.last_new_candidate_count > 0 ? <Badge variant="outline">{mandate.last_new_candidate_count} nuevos</Badge> : null}
+                      </div>
+                      <p className="mt-2 text-sm text-muted-foreground">{mandateSummary(mandate)}</p>
+                      {linkedClient ? <p className="mt-2 text-sm"><span className="text-muted-foreground">Cliente:</span> {linkedClient.name}</p> : null}
+                      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                        <span>{mandate.last_candidate_count} candidatos</span>
+                        <span className="flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" aria-hidden="true" />{mandate.last_run_at ? new Date(mandate.last_run_at).toLocaleString("es-CL") : "Nunca ejecutado"}</span>
+                      </div>
                     </div>
-                    <p className="mt-2 text-sm text-muted-foreground">{mandateSummary(mandate)}</p>
-                    <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                      <span>{mandate.last_candidate_count} candidatos</span>
-                      <span className="flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" aria-hidden="true" />{mandate.last_run_at ? new Date(mandate.last_run_at).toLocaleString("es-CL") : "Nunca ejecutado"}</span>
-                    </div>
+                    <Button type="button" variant="outline" onClick={() => void runMandate(mandate)} disabled={runningMandateId === mandate.id || mandate.status !== "active"}>
+                      {runningMandateId === mandate.id ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Play className="h-4 w-4" aria-hidden="true" />}
+                      Ejecutar
+                    </Button>
                   </div>
-                  <Button type="button" variant="outline" onClick={() => void runMandate(mandate)} disabled={runningMandateId === mandate.id || mandate.status !== "active"}>
-                    {runningMandateId === mandate.id ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Play className="h-4 w-4" aria-hidden="true" />}
-                    Ejecutar
-                  </Button>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              )
+            })}
           </div>
         )}
       </section>
@@ -312,31 +427,40 @@ export default function ProspeccionPage() {
             <Card className="p-8 text-center text-sm text-muted-foreground">No hay candidatos actuales que cumplan simultáneamente los criterios y tengan evidencia de mercado suficiente.</Card>
           ) : (
             <div className="space-y-3">
-              {data.candidates.map((candidate) => (
-                <Card key={candidate.id} className="p-5">
-                  <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge>{candidate.prospecting_fit_score}/100 ajuste</Badge>
-                        <Badge variant="outline">{candidate.opportunity_score}/100 mercado</Badge>
-                        <span className="text-xs text-muted-foreground">confianza {candidate.confidence}%</span>
+              {data.candidates.map((candidate) => {
+                const taskCreated = taskCreatedCandidateIds.has(candidate.id)
+                return (
+                  <Card key={candidate.id} className="p-5">
+                    <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge>{candidate.prospecting_fit_score}/100 ajuste</Badge>
+                          <Badge variant="outline">{candidate.opportunity_score}/100 mercado</Badge>
+                          <span className="text-xs text-muted-foreground">confianza {candidate.confidence}%</span>
+                        </div>
+                        <h3 className="mt-3 text-lg font-medium">{candidate.title}</h3>
+                        <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground"><MapPin className="h-4 w-4" aria-hidden="true" />{[candidate.commune, candidate.region].filter(Boolean).join(" · ") || "Ubicación pendiente"}</p>
+                        <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm">
+                          <span><b>{candidate.area_ha.toLocaleString("es-CL")} ha</b></span>
+                          <span>{candidate.discount_pct}% bajo benchmark</span>
+                          <span>{candidate.benchmark.sample_count} comparables</span>
+                          <span>{candidate.benchmark.source_count} fuentes</span>
+                          <span>{candidate.source || "Fuente pendiente"}</span>
+                        </div>
                       </div>
-                      <h3 className="mt-3 text-lg font-medium">{candidate.title}</h3>
-                      <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground"><MapPin className="h-4 w-4" aria-hidden="true" />{[candidate.commune, candidate.region].filter(Boolean).join(" · ") || "Ubicación pendiente"}</p>
-                      <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm">
-                        <span><b>{candidate.area_ha.toLocaleString("es-CL")} ha</b></span>
-                        <span>{candidate.discount_pct}% bajo benchmark</span>
-                        <span>{candidate.benchmark.sample_count} comparables</span>
-                        <span>{candidate.benchmark.source_count} fuentes</span>
-                        <span>{candidate.source || "Fuente pendiente"}</span>
+                      <div className="flex shrink-0 flex-wrap gap-2">
+                        {activeMandateId && selectedClientId ? (
+                          <Button type="button" onClick={() => void createFollowUpTask(candidate)} disabled={creatingTaskFor === candidate.id || taskCreated}>
+                            {creatingTaskFor === candidate.id ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : taskCreated ? <Check className="h-4 w-4" aria-hidden="true" /> : null}
+                            {taskCreated ? "Tarea creada" : "Crear seguimiento"}
+                          </Button>
+                        ) : null}
+                        <Button asChild variant="outline"><Link href={`/home-spotter/opportunities/${candidate.id}`}>Ver evidencia<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link></Button>
                       </div>
                     </div>
-                    <div className="flex shrink-0 flex-wrap gap-2">
-                      <Button asChild variant="outline"><Link href={`/home-spotter/opportunities/${candidate.id}`}>Ver evidencia<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link></Button>
-                    </div>
-                  </div>
-                </Card>
-              ))}
+                  </Card>
+                )
+              })}
             </div>
           )}
         </div>
