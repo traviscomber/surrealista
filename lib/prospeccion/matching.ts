@@ -41,11 +41,17 @@ function scoreCandidate(item: Opportunity, criteria: ProspectingCriteria) {
   }
 }
 
+type ScoredCandidate = NonNullable<ReturnType<typeof scoreCandidate>>
+
+function isScoredCandidate(candidate: ReturnType<typeof scoreCandidate>): candidate is ScoredCandidate {
+  return candidate !== null
+}
+
 function rankCandidates(opportunities: Opportunity[], criteria: ProspectingCriteria, limit: number) {
   return opportunities
     .map((item) => scoreCandidate(item, criteria))
-    .filter(Boolean)
-    .sort((a, b) => Number(b?.prospecting_fit_score || 0) - Number(a?.prospecting_fit_score || 0))
+    .filter(isScoredCandidate)
+    .sort((a, b) => b.prospecting_fit_score - a.prospecting_fit_score)
     .slice(0, Math.min(Math.max(limit, 1), 100))
 }
 
