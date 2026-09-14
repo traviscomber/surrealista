@@ -157,7 +157,7 @@ export async function listRealOpportunities(limit = 50) {
     .limit(1000)
   if (error) { console.error('[Oportunidades]', error.message); return [] }
   const rows = (data ?? []) as ExternalProperty[]
-  return rows.map(row => scoreRow(row, rows)).filter(Boolean).sort((a:any,b:any)=>b.opportunity_score-a.opportunity_score).slice(0, Math.min(limit, 100))
+  return rows.map(row => scoreRow(row, rows)).filter(Boolean).sort((a:any,b:any)=>b.opportunity_score-a.opportunity_score).slice(0, Math.min(limit, 500))
 }
 
 export async function getRealOpportunity(id: string) {
