@@ -16,7 +16,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from("prospecting_mandates")
-    .select("id,name,region,commune,species,min_ha,max_ha,status,last_candidate_count,last_run_at,created_at")
+    .select("id,name,region,commune,species,min_ha,max_ha,status,last_candidate_count,last_new_candidate_count,last_run_at,created_at")
     .order("created_at", { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
   const { data, error } = await supabase
     .from("prospecting_mandates")
     .insert({ name, region, commune, species, min_ha: minHa, max_ha: maxHa, created_by: "internal-operator" })
-    .select("id,name,region,commune,species,min_ha,max_ha,status,created_at")
+    .select("id,name,region,commune,species,min_ha,max_ha,status,last_candidate_count,last_new_candidate_count,last_run_at,created_at")
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
