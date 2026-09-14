@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { findProspectingCandidatesBatch } from "@/lib/prospeccion/matching"
+import { linkCandidatesToKmz } from "@/lib/prospeccion/kmz-linking"
 
 export const runtime = "nodejs"
 export const maxDuration = 30
@@ -44,10 +45,7 @@ function ownerEvidence(row: KmzEvidenceRow) {
   const metadata = (row.metadata || {}) as Record<string, any>
   const confirmedOwner = text(metadata.confirmed_owner)
   const candidateName = text(metadata.public_owner_candidate?.name)
-  const confidence = Math.max(
-    number(metadata.owner_confidence),
-    number(metadata.public_owner_candidate?.confidence),
-  )
+  const confidence = Math.max(number(metadata.owner_confidence), number(metadata.public_owner_candidate?.confidence))
   const manualOwner = text(row.owner)
 
   return {
@@ -168,7 +166,11 @@ export async function GET() {
 
   const enrichedSignals = await Promise.all(signals.map(async (signal) => {
     const candidates = matchesBySignal.get(signal.id) ?? []
-    const territorialCoverage = await coverageFor(signal.region, signal.commune)
+    const [territorialCoverage, spatialEvidence] = await Promise.all([
+      coverageFor(signal.region, signal.commune),
+      linkCandidatesToKmz(candidates, 20),
+    ])
+
     return {
       ...signal,
       min_ha: signal.min_ha == null ? null : Number(signal.min_ha),
@@ -177,12 +179,16 @@ export async function GET() {
       top_candidate_score: candidates.length ? Number(candidates[0]?.prospecting_fit_score || 0) : null,
       top_candidate_ids: candidates.slice(0, 5).map((candidate) => candidate?.id).filter(Boolean),
       territorial_coverage: territorialCoverage,
+      candidate_level_evidence: spatialEvidence.summary,
+      top_spatial_links: spatialEvidence.links.slice(0, 5),
+      spatial_methodology: spatialEvidence.methodology,
+      spatial_note: spatialEvidence.note,
     }
   }))
 
   return NextResponse.json({
     signals: enrichedSignals,
-    methodology: "public-competitor-demand-crossed-with-sur-realista-opportunities-and-territorial-owner-evidence",
-    note: "Las señales son requerimientos publicados por terceros. Los candidatos se calculan con ubicación, superficie y señal de mercado. La cobertura KMZ corresponde al territorio de la comuna o región y no implica una vinculación 1:1 entre cada listing y cada KMZ. La especie aún no se valida por satélite.",
+    methodology: "public-competitor-demand-crossed-with-sur-realista-opportunities-territorial-and-candidate-level-kmz-evidence",
+    note: "La cobertura territorial cuenta evidencia disponible en la comuna o región. La capa candidato-a-candidato usa sólo listings con georreferencia puntual confiable y busca KMZ dentro de 3 km. No se considera identidad catastral exacta hasta contar con ROL coincidente o intersección de polígonos. La especie aún no se valida por satélite.",
   })
 }
