@@ -1,8 +1,8 @@
 "use client"
 
-import { FormEvent, useMemo, useState } from "react"
+import { FormEvent, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
-import { ArrowRight, Loader2, MapPin, Radar, RefreshCw, Sprout } from "lucide-react"
+import { ArrowRight, Clock3, Loader2, MapPin, Play, Radar, RefreshCw, Save, Sprout } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -40,20 +40,70 @@ type ProspectingResponse = {
   }
 }
 
+type Mandate = {
+  id: string
+  name: string
+  region: string | null
+  commune: string | null
+  species: string | null
+  min_ha: number | null
+  max_ha: number | null
+  status: "active" | "paused" | "closed"
+  last_candidate_count: number
+  last_new_candidate_count: number
+  last_run_at: string | null
+  created_at: string
+}
+
+function mandateSummary(mandate: Mandate) {
+  return [
+    mandate.region,
+    mandate.commune,
+    mandate.species,
+    mandate.min_ha != null ? `${mandate.min_ha}+ ha` : null,
+    mandate.max_ha != null ? `hasta ${mandate.max_ha} ha` : null,
+  ].filter(Boolean).join(" · ") || "Sin filtros"
+}
+
 export default function ProspeccionPage() {
   const [region, setRegion] = useState("")
   const [commune, setCommune] = useState("")
   const [species, setSpecies] = useState("")
   const [minHa, setMinHa] = useState("")
   const [maxHa, setMaxHa] = useState("")
+  const [mandateName, setMandateName] = useState("")
   const [data, setData] = useState<ProspectingResponse | null>(null)
+  const [mandates, setMandates] = useState<Mandate[]>([])
   const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [loadingMandates, setLoadingMandates] = useState(true)
+  const [runningMandateId, setRunningMandateId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [mandatesError, setMandatesError] = useState<string | null>(null)
 
   const criteriaSummary = useMemo(() => {
     const parts = [region, commune, species, minHa ? `${minHa}+ ha` : "", maxHa ? `hasta ${maxHa} ha` : ""].filter(Boolean)
     return parts.length ? parts.join(" · ") : "Sin criterios aplicados"
   }, [region, commune, species, minHa, maxHa])
+
+  async function loadMandates() {
+    setLoadingMandates(true)
+    setMandatesError(null)
+    try {
+      const response = await fetch("/api/prospeccion/mandates", { cache: "no-store" })
+      const body = await response.json()
+      if (!response.ok) throw new Error(body.error || "No se pudieron cargar los mandatos.")
+      setMandates(body.mandates ?? [])
+    } catch (cause) {
+      setMandatesError(cause instanceof Error ? cause.message : "No se pudieron cargar los mandatos.")
+    } finally {
+      setLoadingMandates(false)
+    }
+  }
+
+  useEffect(() => {
+    void loadMandates()
+  }, [])
 
   async function runSearch(event?: FormEvent) {
     event?.preventDefault()
@@ -77,6 +127,61 @@ export default function ProspeccionPage() {
       setError(cause instanceof Error ? cause.message : "No se pudo ejecutar la prospección.")
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function saveMandate() {
+    setSaving(true)
+    setError(null)
+    try {
+      const response = await fetch("/api/prospeccion/mandates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: mandateName, region, commune, species, minHa, maxHa }),
+      })
+      const body = await response.json()
+      if (!response.ok) throw new Error(body.error || "No se pudo guardar el mandato.")
+      setMandateName("")
+      await loadMandates()
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No se pudo guardar el mandato.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function runMandate(mandate: Mandate) {
+    setRunningMandateId(mandate.id)
+    setError(null)
+    try {
+      const response = await fetch(`/api/prospeccion/mandates/${mandate.id}/run`, { method: "POST" })
+      const body = await response.json()
+      if (!response.ok) throw new Error(body.error || "No se pudo ejecutar el mandato.")
+      setRegion(mandate.region || "")
+      setCommune(mandate.commune || "")
+      setSpecies(mandate.species || "")
+      setMinHa(mandate.min_ha == null ? "" : String(mandate.min_ha))
+      setMaxHa(mandate.max_ha == null ? "" : String(mandate.max_ha))
+      setData({
+        candidates: body.candidates ?? [],
+        count: body.count ?? 0,
+        note: body.firstRun
+          ? "Primera ejecución registrada. Los siguientes cambios podrán identificar candidatos nuevos."
+          : body.newCount > 0
+            ? `${body.newCount} candidato${body.newCount === 1 ? " nuevo" : "s nuevos"} desde la ejecución anterior.`
+            : "Sin candidatos nuevos desde la ejecución anterior.",
+        coverage: {
+          market: "active",
+          kmz: "available-in-detail-flow",
+          speciesClassification: "pending-satellite-pipeline",
+          autonomousDiscovery: "not-yet-active",
+        },
+      })
+      await loadMandates()
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "No se pudo ejecutar el mandato.")
+    } finally {
+      setRunningMandateId(null)
     }
   }
 
@@ -132,10 +237,60 @@ export default function ProspeccionPage() {
         <Card className="p-4"><p className="text-xs text-muted-foreground">Candidatos</p><p className="mt-1 text-2xl font-medium">{data?.count ?? "—"}</p></Card>
       </section>
 
+      <section className="space-y-3">
+        <div className="flex flex-col gap-3 border-b border-border pb-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Búsquedas vivas</p>
+            <h2 className="mt-1 text-xl font-medium">Mandatos guardados</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Cada ejecución conserva el conjunto anterior y marca sólo los candidatos que aparecieron después.</p>
+          </div>
+          <div className="flex w-full gap-2 lg:w-auto">
+            <Input className="lg:w-72" value={mandateName} onChange={(e) => setMandateName(e.target.value)} placeholder="Nombre del mandato" />
+            <Button type="button" variant="outline" onClick={() => void saveMandate()} disabled={saving || !mandateName.trim()}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Save className="h-4 w-4" aria-hidden="true" />}
+              Guardar
+            </Button>
+          </div>
+        </div>
+
+        {mandatesError ? (
+          <Card className="p-4 text-sm text-muted-foreground">Mandatos persistentes aún no disponibles en este entorno: {mandatesError}</Card>
+        ) : loadingMandates ? (
+          <Card className="p-5 text-sm text-muted-foreground">Cargando mandatos…</Card>
+        ) : !mandates.length ? (
+          <Card className="p-5 text-sm text-muted-foreground">Todavía no hay mandatos guardados. Define criterios arriba, nómbralo y guárdalo.</Card>
+        ) : (
+          <div className="grid gap-3 xl:grid-cols-2">
+            {mandates.map((mandate) => (
+              <Card key={mandate.id} className="p-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-medium">{mandate.name}</h3>
+                      <Badge variant={mandate.status === "active" ? "default" : "secondary"}>{mandate.status}</Badge>
+                      {mandate.last_new_candidate_count > 0 ? <Badge variant="outline">{mandate.last_new_candidate_count} nuevos</Badge> : null}
+                    </div>
+                    <p className="mt-2 text-sm text-muted-foreground">{mandateSummary(mandate)}</p>
+                    <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                      <span>{mandate.last_candidate_count} candidatos</span>
+                      <span className="flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" aria-hidden="true" />{mandate.last_run_at ? new Date(mandate.last_run_at).toLocaleString("es-CL") : "Nunca ejecutado"}</span>
+                    </div>
+                  </div>
+                  <Button type="button" variant="outline" onClick={() => void runMandate(mandate)} disabled={runningMandateId === mandate.id || mandate.status !== "active"}>
+                    {runningMandateId === mandate.id ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Play className="h-4 w-4" aria-hidden="true" />}
+                    Ejecutar
+                  </Button>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+      </section>
+
       {error ? <Card className="border-destructive/30 bg-destructive/5 p-5 text-sm text-destructive">{error}</Card> : null}
 
       {!data && !loading ? (
-        <Card className="flex min-h-[300px] flex-col items-center justify-center gap-3 p-8 text-center">
+        <Card className="flex min-h-[260px] flex-col items-center justify-center gap-3 p-8 text-center">
           <Sprout className="h-8 w-8 text-primary" aria-hidden="true" />
           <h2 className="text-lg font-medium">Define el primer mandato</h2>
           <p className="max-w-2xl text-sm leading-6 text-muted-foreground">Prospección v1 trabaja sólo con evidencia disponible hoy. No afirmará detectar cerezos, kiwis u otra especie hasta que exista el pipeline satelital correspondiente.</p>
