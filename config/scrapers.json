@@ -28,6 +28,15 @@
       "defaultPages": 2
     },
     {
+      "key": "evilas-agro",
+      "label": "EVilas Agro",
+      "url": "evilasagro.cl",
+      "focus": "Oferta agrícola y requerimientos públicos de compradores",
+      "group": "general",
+      "enabled": true,
+      "defaultPages": 1
+    },
+    {
       "key": "terrachiloe",
       "label": "TerraChiloe",
       "url": "terrachiloe.cl",
