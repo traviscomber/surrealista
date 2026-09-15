@@ -22,6 +22,14 @@ test("normalizes accents, punctuation, case and whitespace for matching", () => 
   assert.equal(sameNormalizedLocation("La Araucanía", "la araucania"), true)
 })
 
+test("catalog covers all Chilean regions and communes", () => {
+  assert.equal(CHILEAN_REGIONS.length, 16)
+  assert.equal(
+    CHILEAN_REGIONS.flatMap((region) => region.provincias.flatMap((province) => province.comunas)).length,
+    346,
+  )
+})
+
 test("canonicalizes representative Chilean regions", () => {
   assert.equal(canonicalRegionName("Region del Maule"), "Maule")
   assert.equal(canonicalRegionName("Región del Maule"), "Maule")
