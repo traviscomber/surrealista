@@ -2,10 +2,17 @@ type ProspectingPublicCriteria = {
   region?: string | null
   commune?: string | null
   species?: string | null
+  minHa?: number | null
+  maxHa?: number | null
+}
+
+type CirenGeometry = {
+  rings?: number[][][]
 }
 
 type CirenFeature = {
   attributes?: Record<string, unknown>
+  geometry?: CirenGeometry
 }
 
 type CirenResponse = {
@@ -30,7 +37,11 @@ export type OffMarketProspect = {
   declaredSpecies: string[]
   targetSpeciesMatch: boolean
   source: "CIREN IDE MINAGRI"
+  sourceUrl: string
   surveyYear: number
+  areaHa: number | null
+  areaMatch: boolean | null
+  centroid: { lat: number; lng: number } | null
   stage: "detected"
   ownerStatus: "pending"
   contactStatus: "pending"
@@ -69,6 +80,7 @@ const ODEPA_RESOURCE_ID = "1bbc9838-6032-4b89-96e5-8c2ed5d91e3f"
 const ODEPA_API = "https://datos.odepa.gob.cl/api/action/datastore_search"
 const ODEPA_SOURCE_URL = "https://datos.odepa.gob.cl/dataset/catastro-fruticola"
 const CIREN_BASE = "https://esri.ciren.cl/server/rest/services/IDEMINAGRI/CATASTRO_FRUTICOLA/MapServer"
+const EARTH_RADIUS_M = 6_378_137
 
 const CIREN_PRODUCER_LAYERS: Array<{ aliases: string[]; layerId: number; year: number }> = [
   { aliases: ["arica y parinacota"], layerId: 55, year: 2022 },
@@ -138,7 +150,7 @@ function escapeSqlLiteral(value: string) {
   return value.replace(/'/g, "''")
 }
 
-async function fetchJsonWithTimeout(url: string, init?: RequestInit, timeoutMs = 6500) {
+async function fetchJsonWithTimeout(url: string, init?: RequestInit, timeoutMs = 8000) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
@@ -164,7 +176,58 @@ function aggregateBySurface(records: Array<Record<string, unknown>>, field: stri
     .slice(0, 5)
 }
 
-function buildOffMarketProspects(features: CirenFeature[], speciesTarget: string, surveyYear: number) {
+function ringSignedAreaSqM(ring: number[][]) {
+  if (!Array.isArray(ring) || ring.length < 3) return 0
+  let total = 0
+  for (let i = 0; i < ring.length; i += 1) {
+    const current = ring[i]
+    const next = ring[(i + 1) % ring.length]
+    const lon1 = Number(current?.[0]) * Math.PI / 180
+    const lat1 = Number(current?.[1]) * Math.PI / 180
+    const lon2 = Number(next?.[0]) * Math.PI / 180
+    const lat2 = Number(next?.[1]) * Math.PI / 180
+    if (![lon1, lat1, lon2, lat2].every(Number.isFinite)) continue
+    total += (lon2 - lon1) * (2 + Math.sin(lat1) + Math.sin(lat2))
+  }
+  return total * EARTH_RADIUS_M * EARTH_RADIUS_M / 2
+}
+
+function polygonAreaHa(geometry?: CirenGeometry) {
+  const rings = geometry?.rings
+  if (!Array.isArray(rings) || !rings.length) return null
+  const areaSqM = Math.abs(rings.reduce((sum, ring) => sum + ringSignedAreaSqM(ring), 0))
+  if (!Number.isFinite(areaSqM) || areaSqM <= 0) return null
+  return Number((areaSqM / 10_000).toFixed(2))
+}
+
+function polygonCentroid(geometry?: CirenGeometry) {
+  const ring = geometry?.rings?.[0]
+  if (!Array.isArray(ring) || !ring.length) return null
+  const valid = ring
+    .map((point) => ({ lng: Number(point?.[0]), lat: Number(point?.[1]) }))
+    .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lng))
+  if (!valid.length) return null
+  const total = valid.reduce((acc, point) => ({ lat: acc.lat + point.lat, lng: acc.lng + point.lng }), { lat: 0, lng: 0 })
+  return {
+    lat: Number((total.lat / valid.length).toFixed(6)),
+    lng: Number((total.lng / valid.length).toFixed(6)),
+  }
+}
+
+function areaMatches(areaHa: number | null, minHa?: number | null, maxHa?: number | null) {
+  if (areaHa == null) return minHa == null && maxHa == null ? true : null
+  if (minHa != null && areaHa < minHa) return false
+  if (maxHa != null && areaHa > maxHa) return false
+  return true
+}
+
+function buildOffMarketProspects(
+  features: CirenFeature[],
+  criteria: ProspectingPublicCriteria,
+  speciesTarget: string,
+  surveyYear: number,
+  sourceUrl: string,
+) {
   const seen = new Set<string>()
   const prospects: OffMarketProspect[] = []
 
@@ -176,8 +239,12 @@ function buildOffMarketProspects(features: CirenFeature[], speciesTarget: string
       .map((value) => String(value ?? "").trim())
       .filter(Boolean)
     const targetSpeciesMatch = speciesTarget ? declaredSpecies.some((name) => matchesSpecies(name, speciesTarget)) : true
+    const areaHa = polygonAreaHa(feature.geometry)
+    const areaMatch = areaMatches(areaHa, criteria.minHa, criteria.maxHa)
 
-    if (!rol || !targetSpeciesMatch || seen.has(rol)) continue
+    if (!rol || !targetSpeciesMatch || areaMatch === false || seen.has(rol)) continue
+    if ((criteria.minHa != null || criteria.maxHa != null) && areaMatch !== true) continue
+
     seen.add(rol)
     prospects.push({
       id: `ciren:${surveyYear}:${rol}`,
@@ -186,15 +253,21 @@ function buildOffMarketProspects(features: CirenFeature[], speciesTarget: string
       declaredSpecies,
       targetSpeciesMatch,
       source: "CIREN IDE MINAGRI",
+      sourceUrl,
       surveyYear,
+      areaHa,
+      areaMatch,
+      centroid: polygonCentroid(feature.geometry),
       stage: "detected",
       ownerStatus: "pending",
       contactStatus: "pending",
-      evidenceLabel: speciesTarget
-        ? `ROL oficial con especie objetivo declarada en catastro ${surveyYear}`
-        : `ROL oficial presente en catastro frutícola ${surveyYear}`,
+      evidenceLabel: [
+        `ROL oficial en catastro ${surveyYear}`,
+        areaHa != null ? `${areaHa.toLocaleString("es-CL")} ha estimadas desde polígono oficial` : null,
+        speciesTarget ? "especie objetivo declarada" : null,
+      ].filter(Boolean).join(" · "),
     })
-    if (prospects.length >= 20) break
+    if (prospects.length >= 30) break
   }
 
   return prospects
@@ -224,14 +297,16 @@ async function getCirenEvidence(criteria: ProspectingPublicCriteria): Promise<Pu
   }
 
   const where = commune ? `UPPER(desccomu)=UPPER('${escapeSqlLiteral(commune)}')` : "1=1"
+  const sourceUrl = `${CIREN_BASE}/${layer.layerId}`
   const params = new URLSearchParams({
     f: "json",
     where,
     outFields: "desccomu,rolpredi,especie_01,especie_02,especie_03,especie_04",
-    returnGeometry: "false",
-    resultRecordCount: "1000",
+    returnGeometry: "true",
+    outSR: "4326",
+    geometryPrecision: "6",
+    resultRecordCount: "1200",
   })
-  const sourceUrl = `${CIREN_BASE}/${layer.layerId}`
 
   try {
     const payload = await fetchJsonWithTimeout(`${sourceUrl}/query?${params.toString()}`) as CirenResponse
@@ -252,6 +327,8 @@ async function getCirenEvidence(criteria: ProspectingPublicCriteria): Promise<Pu
       if (role) roles.add(role)
     }
 
+    const offMarketProspects = buildOffMarketProspects(features, criteria, speciesTarget, layer.year, sourceUrl)
+
     return {
       status: "available",
       source: "CIREN IDE MINAGRI",
@@ -262,10 +339,10 @@ async function getCirenEvidence(criteria: ProspectingPublicCriteria): Promise<Pu
       speciesMatchedCount: speciesTarget ? speciesMatchedCount : 0,
       sampleRoles: [...roles].slice(0, 5),
       species: [...speciesCounts.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 5),
-      offMarketProspects: buildOffMarketProspects(features, speciesTarget, layer.year),
+      offMarketProspects,
       note: payload.exceededTransferLimit
-        ? "La consulta alcanzó el límite de transferencia de CIREN; los conteos son un mínimo observable."
-        : "Polígonos oficiales de productores frutícolas; el ROL y las especies declaradas sirven como evidencia territorial, no como detección satelital nueva.",
+        ? "La consulta alcanzó el límite de transferencia de CIREN; los conteos son un mínimo observable. Los prospectos retornados sí fueron filtrados con la geometría recibida."
+        : "Prospectos construidos desde polígonos oficiales CIREN. Superficie estimada desde geometría oficial; especie declarada no equivale a detección satelital ni disponibilidad comercial.",
     }
   } catch (error) {
     console.warn("[Prospeccion] CIREN unavailable", error instanceof Error ? error.message : "unknown error")
@@ -319,7 +396,7 @@ async function getOdepaEvidence(criteria: ProspectingPublicCriteria): Promise<Pu
       speciesMatchedSurfaceHa: Number(speciesMatchedSurfaceHa.toFixed(2)),
       topSpecies: aggregateBySurface(records, "Especie"),
       irrigationMethods: aggregateBySurface(records, "Metodo de riego"),
-      note: "Catastro estadístico oficial. Sirve para contexto productivo y validación de especie/superficie a escala de catastro; no prueba por sí solo que un aviso inmobiliario corresponda al mismo predio.",
+      note: "Catastro estadístico oficial. Sirve para contexto productivo y validación territorial; no prueba que un aviso inmobiliario corresponda al mismo predio.",
     }
   } catch (error) {
     console.warn("[Prospeccion] ODEPA unavailable", error instanceof Error ? error.message : "unknown error")

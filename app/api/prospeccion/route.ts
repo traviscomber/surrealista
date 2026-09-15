@@ -1,175 +1,98 @@
 import { NextResponse } from "next/server"
 import { createOpenAIChatCompletion } from "@/lib/ai/openai-chat"
-import { findProspectingCandidates } from "@/lib/prospeccion/matching"
-import { getPublicAgriEvidence, type PublicAgriEvidence } from "@/lib/prospeccion/public-agri-intelligence"
-import { getTerritorialInfrastructureEvidence, type TerritorialInfrastructureEvidence } from "@/lib/prospeccion/territorial-infrastructure"
+import { runProspectingIntelligenceCore, type ProspectingCase } from "@/lib/prospeccion/intelligence-core"
 
 export const runtime = "nodejs"
 export const maxDuration = 30
 
-type Candidate = Awaited<ReturnType<typeof findProspectingCandidates>>[number]
-
 type Outcome = {
-  status: "qualified_candidates" | "regional_expansion" | "official_off_market_signal" | "no_match"
+  status: "actionable_cases" | "qualified_candidates" | "regional_expansion" | "official_off_market_signal" | "no_match"
   summary: string
   recommendation: string
   generatedBy: "evidence" | "ai"
   speciesVerified: false
 }
 
-function officialSignalSummary(evidence: PublicAgriEvidence, infrastructure: TerritorialInfrastructureEvidence, species: string) {
-  const parts: string[] = []
-  if (evidence.ciren.status === "available" && evidence.ciren.polygonCount > 0) {
-    parts.push(`${evidence.ciren.polygonCount} polígonos de productores frutícolas CIREN`)
-    if (species && evidence.ciren.speciesMatchedCount > 0) {
-      parts.push(`${evidence.ciren.speciesMatchedCount} con ${species} declarado en el catastro`)
-    }
-    if (evidence.ciren.offMarketProspects.length > 0) {
-      parts.push(`${evidence.ciren.offMarketProspects.length} ROL concretos listos para investigación fuera de portal`)
-    }
-  }
-  if (evidence.odepa.status === "available" && evidence.odepa.recordCount > 0) {
-    parts.push(`${evidence.odepa.totalSurfaceHa.toLocaleString("es-CL")} ha frutícolas registradas por ODEPA/CIREN`)
-    if (species && evidence.odepa.speciesMatchedCount > 0) {
-      parts.push(`${evidence.odepa.speciesMatchedSurfaceHa.toLocaleString("es-CL")} ha asociadas a ${species}`)
-    }
-  }
-  if (infrastructure.irrigation.status === "available") {
-    parts.push(`${infrastructure.irrigation.canalFeatures.toLocaleString("es-CL")} elementos de canal y ${infrastructure.irrigation.intakeFeatures.toLocaleString("es-CL")} bocatomas en cobertura regional`)
-  }
-  if (infrastructure.soils.status === "available" && infrastructure.soils.featureCount > 0) {
-    parts.push(`cobertura oficial de suelos agrológicos disponible (${infrastructure.soils.featureCount.toLocaleString("es-CL")} entidades)`)
-  }
-  return parts.join("; ")
-}
+function deterministicOutcome(core: Awaited<ReturnType<typeof runProspectingIntelligenceCore>>): Outcome {
+  const total = core.cases.length
+  const ready = core.cases.filter((item) => item.status === "ready_to_contact").length
+  const ownerKnown = core.cases.filter((item) => item.status === "owner_identified").length
+  const target = [core.criteria.commune || core.criteria.region, core.criteria.minHa != null ? `${core.criteria.minHa}+ ha` : null, core.criteria.maxHa != null ? `hasta ${core.criteria.maxHa} ha` : null, core.criteria.species || null].filter(Boolean).join(" · ")
 
-function deterministicOutcome({
-  candidates,
-  region,
-  commune,
-  species,
-  minHa,
-  maxHa,
-  scopeFallback,
-  publicEvidence,
-  infrastructure,
-}: {
-  candidates: Candidate[]
-  region: string
-  commune: string
-  species: string
-  minHa: number | null
-  maxHa: number | null
-  scopeFallback: "region" | null
-  publicEvidence: PublicAgriEvidence
-  infrastructure: TerritorialInfrastructureEvidence
-}): Outcome {
-  const area = [minHa != null ? `${minHa} ha mín.` : null, maxHa != null ? `${maxHa} ha máx.` : null].filter(Boolean).join(" · ")
-  const target = [commune || region, area].filter(Boolean).join(" · ") || "los criterios definidos"
-  const officialSignal = officialSignalSummary(publicEvidence, infrastructure, species)
-  const offMarket = publicEvidence.ciren.offMarketProspects
-  const hasOfficialSignal = Boolean(officialSignal)
-
-  if (!candidates.length) {
-    if (offMarket.length > 0) {
-      const top = offMarket[0]
-      return {
-        status: "official_off_market_signal",
-        summary: `No hay avisos publicados que calcen con ${target}, pero Sur Realista encontró ${offMarket.length} prospecto${offMarket.length === 1 ? "" : "s"} fuera de portal con ROL identificable. El primero es ROL ${top.rol} en ${top.commune || commune || region}${top.declaredSpecies.length ? `, con ${top.declaredSpecies.join(", ")} declarado en el catastro` : ""}.`,
-        recommendation: `Investigar propietario del ROL ${top.rol}, validar la evidencia y, sólo después, decidir contacto o descarte.`,
-        generatedBy: "evidence",
-        speciesVerified: false,
-      }
-    }
-
-    if (hasOfficialSignal) {
-      return {
-        status: "official_off_market_signal",
-        summary: `No hay avisos calificados para ${target}, pero sí existe evidencia territorial oficial en la zona: ${officialSignal}.`,
-        recommendation: "Mantener la búsqueda activa y convertir los próximos ROL oficiales compatibles en prospectos verificables antes de contacto.",
-        generatedBy: "evidence",
-        speciesVerified: false,
-      }
-    }
-
+  if (!total) {
     return {
       status: "no_match",
-      summary: `No encontramos candidatos con evidencia de mercado suficiente para ${target}, ni una señal oficial concluyente en las fuentes consultadas en esta ejecución.`,
-      recommendation: "Amplía ubicación o superficie, o guarda el mandato para volver a ejecutarlo cuando entren nuevas propiedades y fuentes territoriales.",
+      summary: `No encontramos opciones verificables para ${target || "los criterios definidos"} en esta ejecución.`,
+      recommendation: "Mantener el mandato activo o ampliar ubicación/superficie. No se generó un candidato artificial.",
       generatedBy: "evidence",
       speciesVerified: false,
     }
   }
 
-  const top = candidates[0]
-  const location = [top.commune, top.region].filter(Boolean).join(", ") || "ubicación disponible"
-  const speciesCaveat = species ? ` La especie ${species} sigue siendo un objetivo declarado, no una detección satelital verificada.` : ""
-  const offMarketContext = offMarket.length ? ` Además hay ${offMarket.length} ROL fuera de portal para investigar.` : ""
+  const top = core.priorityCases[0]
+  const topDetail = top
+    ? `${top.title} · ${top.location}${top.areaHa != null ? ` · ${top.areaHa.toLocaleString("es-CL")} ha` : ""} · score ${top.score}/100`
+    : ""
 
-  if (scopeFallback === "region") {
+  if (ready > 0) {
     return {
-      status: "regional_expansion",
-      summary: `No hay coincidencias publicadas hoy en ${commune}, pero encontramos ${candidates.length} candidato${candidates.length === 1 ? "" : "s"} en ${region}. El mejor está en ${location}, con ${top.area_ha} ha y ajuste ${top.prospecting_fit_score}/100.${offMarketContext}${speciesCaveat}`,
-      recommendation: offMarket.length
-        ? `Comparar el mejor aviso con los ${offMarket.length} prospectos fuera de portal y priorizar investigación de propietario de los ROL con mejor evidencia.`
-        : "Revisar la evidencia del mejor candidato y mantener el mandato activo para nuevas entradas.",
+      status: "actionable_cases",
+      summary: `La búsqueda produjo ${total} opciones: ${core.marketCount} publicadas y ${core.offMarketCount} fuera de portal. ${ready} ya tienen contacto verificable y ${ownerKnown} adicional${ownerKnown === 1 ? "" : "es"} tienen propietario identificado. Prioridad: ${topDetail}.`,
+      recommendation: top?.nextAction || "Revalidar evidencia y preparar contacto humano.",
+      generatedBy: "evidence",
+      speciesVerified: false,
+    }
+  }
+
+  if (core.offMarketCount > 0) {
+    return {
+      status: "official_off_market_signal",
+      summary: `La búsqueda produjo ${total} opciones: ${core.marketCount} publicadas y ${core.offMarketCount} ROL fuera de portal filtrados por los criterios disponibles. ${ownerKnown ? `${ownerKnown} ya tienen propietario identificado. ` : ""}Prioridad: ${topDetail}.`,
+      recommendation: top?.nextAction || "Investigar propietario por ROL y descartar si la evidencia no alcanza.",
       generatedBy: "evidence",
       speciesVerified: false,
     }
   }
 
   return {
-    status: "qualified_candidates",
-    summary: `Encontramos ${candidates.length} candidato${candidates.length === 1 ? "" : "s"} publicados para ${target}. El mejor está en ${location}, con ${top.area_ha} ha, ajuste ${top.prospecting_fit_score}/100 y señal de mercado ${top.opportunity_score}/100.${offMarketContext}${speciesCaveat}`,
-    recommendation: offMarket.length
-      ? "No quedarse sólo con el portal: comparar publicados versus ROL fuera de mercado, investigar propietarios y descartar los que no calcen."
-      : "Partir por el candidato con mayor ajuste, validar evidencia y luego investigar propietario si corresponde.",
+    status: core.scopeFallback === "region" ? "regional_expansion" : "qualified_candidates",
+    summary: `Encontramos ${core.marketCount} candidato${core.marketCount === 1 ? "" : "s"} publicado${core.marketCount === 1 ? "" : "s"}. Prioridad: ${topDetail}.`,
+    recommendation: top?.nextAction || "Revisar evidencia del mejor candidato antes de contacto.",
     generatedBy: "evidence",
     speciesVerified: false,
   }
 }
 
-async function synthesizeOutcomeWithAI(
-  base: Outcome,
-  criteria: { region: string; commune: string; species: string; minHa: number | null; maxHa: number | null },
-  candidates: Candidate[],
-  publicEvidence: PublicAgriEvidence,
-  infrastructure: TerritorialInfrastructureEvidence,
-): Promise<Outcome> {
-  if (!process.env.OPENAI_API_KEY) return base
-
-  const evidence = candidates.slice(0, 5).map((candidate) => ({
-    title: candidate.title,
-    region: candidate.region,
-    commune: candidate.commune,
-    area_ha: candidate.area_ha,
-    fit_score: candidate.prospecting_fit_score,
-    market_score: candidate.opportunity_score,
-    confidence: candidate.confidence,
-    discount_pct: candidate.discount_pct,
-    comparable_count: candidate.benchmark.sample_count,
-    source_count: candidate.benchmark.source_count,
+async function synthesizeOutcomeWithAI(base: Outcome, core: Awaited<ReturnType<typeof runProspectingIntelligenceCore>>) {
+  if (!process.env.OPENAI_API_KEY || !core.priorityCases.length) return base
+  const safeCases = core.priorityCases.map((item: ProspectingCase) => ({
+    id: item.id,
+    kind: item.kind,
+    status: item.status,
+    score: item.score,
+    title: item.title,
+    location: item.location,
+    rol: item.rol,
+    areaHa: item.areaHa,
+    speciesEvidence: item.speciesEvidence,
+    owner: item.owner,
+    contactAvailable: Boolean(item.contact?.phone || item.contact?.email),
+    market: item.market,
+    evidence: item.evidence,
+    nextAction: item.nextAction,
   }))
 
   try {
     const text = await createOpenAIChatCompletion({
       model: "gpt-4o-mini",
-      temperature: 0.1,
-      maxTokens: 240,
-      system: "Eres el analista de prospección territorial de Sur Realista. El objetivo es entregar más opciones concretas sobre la mesa, no un reporte abstracto. Redacta máximo 4 frases usando sólo la evidencia entregada. Prioriza cuántos avisos publicados existen y cuántos ROL fuera de portal están listos para investigar. CIREN y ODEPA son evidencia territorial oficial, no prueba de disponibilidad ni de identidad con un aviso. No inventes propietarios, contacto, derechos de agua, superficie predial ni detección satelital. Si hay especie objetivo, diferencia especie declarada en catastro de especie detectada por satélite. Termina con la siguiente acción operativa.",
-      prompt: JSON.stringify({
-        criteria,
-        deterministic_outcome: base,
-        top_market_candidates: evidence,
-        off_market_prospects: publicEvidence.ciren.offMarketProspects.slice(0, 10),
-        official_agri_evidence: publicEvidence,
-        official_territorial_infrastructure: infrastructure,
-      }),
+      temperature: 0.05,
+      maxTokens: 220,
+      system: "Eres el Prospección Intelligence Core de Sur Realista. Tu función es convertir evidencia autorizada en máximo 3 opciones y una siguiente acción humana. Usa sólo los casos entregados. No inventes disponibilidad, propietario, teléfono, derechos de agua, precio, superficie, especie detectada por satélite ni causalidad. Una especie declarada en CIREN no es detección satelital. Un contacto sólo existe cuando contactAvailable=true. Un ROL fuera de portal no significa que esté a la venta. Responde en español de Chile, máximo 4 frases, orientado a outcome, no a metodología.",
+      prompt: JSON.stringify({ criteria: core.criteria, priorityCases: safeCases, deterministicOutcome: base }),
     })
-
-    return { ...base, summary: text.trim(), recommendation: base.recommendation, generatedBy: "ai" }
+    return { ...base, summary: text.trim(), generatedBy: "ai" as const }
   } catch (error) {
-    console.warn("[Prospeccion] AI outcome fallback", error instanceof Error ? error.message : "unknown error")
+    console.warn("[Prospeccion Core] AI synthesis fallback", error instanceof Error ? error.message : "unknown error")
     return base
   }
 }
@@ -183,48 +106,50 @@ export async function GET(request: Request) {
   const maxHaRaw = Number(searchParams.get("maxHa"))
   const minHa = Number.isFinite(minHaRaw) && minHaRaw > 0 ? minHaRaw : null
   const maxHa = Number.isFinite(maxHaRaw) && maxHaRaw > 0 ? maxHaRaw : null
-  const limit = Math.min(Math.max(Number(searchParams.get("limit") || 40), 1), 100)
+  const limit = Math.min(Math.max(Number(searchParams.get("limit") || 60), 1), 100)
   const criteria = { region, commune, minHa, maxHa, species }
 
-  const [initialCandidates, publicEvidence, infrastructure] = await Promise.all([
-    findProspectingCandidates(criteria, limit),
-    getPublicAgriEvidence(criteria),
-    getTerritorialInfrastructureEvidence(criteria),
-  ])
+  try {
+    const core = await runProspectingIntelligenceCore(criteria, limit)
+    const baseOutcome = deterministicOutcome(core)
+    const outcome = await synthesizeOutcomeWithAI(baseOutcome, core)
 
-  let candidates = initialCandidates
-  let scopeFallback: "region" | null = null
-
-  if (candidates.length === 0 && commune && region) {
-    candidates = await findProspectingCandidates({ region, commune: null, species, minHa, maxHa }, limit)
-    if (candidates.length > 0) scopeFallback = "region"
+    return NextResponse.json({
+      criteria,
+      candidates: core.marketCandidates,
+      count: core.marketCount,
+      offMarketProspects: core.offMarketProspects,
+      offMarketCount: core.offMarketCount,
+      cases: core.cases,
+      priorityCases: core.priorityCases,
+      outcome,
+      publicEvidence: core.publicEvidence,
+      infrastructure: core.infrastructure,
+      kmz: {
+        market: core.marketKmz.summary,
+        offMarket: core.offMarketKmz.summary,
+      },
+      specialistTrace: core.observedSpecialists,
+      sourceRefs: core.sourceRefs,
+      groundedEvaluation: core.groundedEvaluation,
+      scopeFallback: core.scopeFallback,
+      methodology: "prospecting-intelligence-core-v2",
+      operationalMutationExecuted: core.operationalMutationExecuted,
+      coverage: {
+        market: "active",
+        officialAgriSources: "CIREN+ODEPA",
+        irrigationInfrastructure: "CIREN+CNR-regional",
+        soils: "CIREN-regional",
+        kmz: "market-spatial-plus-offmarket-exact-rol",
+        ownerResearch: "exact-rol-auto-plus-on-demand",
+        speciesClassification: "declared-catalogue-only-satellite-pending",
+        waterRights: "pending-DGA-connector",
+        autonomousDiscovery: "official-polygon-discovery-active",
+      },
+      note: `${outcome.summary} ${outcome.recommendation}`,
+    })
+  } catch (error) {
+    console.error("[Prospeccion Core] run failed", error)
+    return NextResponse.json({ error: "No fue posible ejecutar la prospección con evidencia suficiente." }, { status: 500 })
   }
-
-  const baseOutcome = deterministicOutcome({ candidates, region, commune, species, minHa, maxHa, scopeFallback, publicEvidence, infrastructure })
-  const outcome = await synthesizeOutcomeWithAI(baseOutcome, criteria, candidates, publicEvidence, infrastructure)
-
-  return NextResponse.json({
-    criteria,
-    candidates,
-    count: candidates.length,
-    offMarketProspects: publicEvidence.ciren.offMarketProspects,
-    offMarketCount: publicEvidence.ciren.offMarketProspects.length,
-    methodology: "market-plus-off-market-prospecting-v1.5",
-    scopeFallback,
-    outcome,
-    publicEvidence,
-    infrastructure,
-    coverage: {
-      market: "active",
-      officialAgriSources: "CIREN+ODEPA",
-      irrigationInfrastructure: "CIREN+CNR-regional",
-      soils: "CIREN-regional",
-      kmz: "available-in-detail-flow",
-      ownerResearch: "on-demand-by-ROL",
-      speciesClassification: "pending-satellite-pipeline",
-      waterRights: "pending-DGA-connector",
-      autonomousDiscovery: "official-ROL-shortlist-active-satellite-pending",
-    },
-    note: `${outcome.summary} ${outcome.recommendation}`,
-  })
 }

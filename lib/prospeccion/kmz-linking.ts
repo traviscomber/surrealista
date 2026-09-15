@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js"
+import type { OffMarketProspect } from "@/lib/prospeccion/public-agri-intelligence"
 
 type CandidateLike = {
   id?: string | null
@@ -36,6 +37,27 @@ function normalize(value: string | null | undefined) {
     .toLocaleLowerCase("es-CL")
 }
 
+function normalizeRol(value: unknown) {
+  return String(value ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/\./g, "")
+    .replace(/\s+/g, "")
+    .replace(/[^0-9K-]/g, "")
+}
+
+function extractRoles(row: any) {
+  const values: string[] = []
+  const direct = Array.isArray(row?.rol_numbers) ? row.rol_numbers : []
+  values.push(...direct.map((value: unknown) => String(value ?? "")))
+  const metadata = row?.metadata && typeof row.metadata === "object" ? row.metadata : {}
+  for (const key of ["rol", "rol_predio", "rolpredi", "property_rol"]) {
+    if (metadata?.[key]) values.push(String(metadata[key]))
+  }
+  if (Array.isArray(metadata?.rol_numbers)) values.push(...metadata.rol_numbers.map((value: unknown) => String(value ?? "")))
+  return Array.from(new Set(values.map(normalizeRol).filter(Boolean)))
+}
+
 function haversineKm(aLat: number, aLng: number, bLat: number, bLng: number) {
   const toRad = (value: number) => (value * Math.PI) / 180
   const dLat = toRad(bLat - aLat)
@@ -54,15 +76,17 @@ function ownerEvidence(row: any) {
   const metadata = row?.metadata && typeof row.metadata === "object" ? row.metadata : {}
   const confirmed = String(metadata.confirmed_owner || "").trim()
   const direct = String(row?.owner || "").trim()
-  const publicCandidate = metadata.public_owner_candidate && typeof metadata.public_owner_candidate === "object"
-    ? metadata.public_owner_candidate
-    : null
-  const publicName = String(publicCandidate?.name || "").trim()
-  const publicConfidence = Number(publicCandidate?.confidence || metadata.owner_confidence || 0)
+  const publicCandidate = metadata.public_owner_candidate
+  const publicName = typeof publicCandidate === "string"
+    ? publicCandidate.trim()
+    : String(publicCandidate?.name || "").trim()
+  const publicConfidence = Number(
+    typeof publicCandidate === "object" ? publicCandidate?.confidence : metadata.owner_confidence || 0,
+  )
 
-  if (confirmed) return { name: confirmed, confidence: 1, basis: "confirmed_owner" }
-  if (direct) return { name: direct, confidence: 0.9, basis: "kmz_owner" }
-  if (publicName && publicConfidence >= 0.75) return { name: publicName, confidence: publicConfidence, basis: "public_evidence" }
+  if (confirmed) return { name: confirmed, confidence: 1, basis: "confirmed_owner" as const }
+  if (direct) return { name: direct, confidence: 0.9, basis: "kmz_owner" as const }
+  if (publicName && publicConfidence >= 0.75) return { name: publicName, confidence: publicConfidence, basis: "public_evidence" as const }
   return null
 }
 
@@ -153,7 +177,7 @@ export async function linkCandidatesToKmz(candidates: CandidateLike[], maxCandid
       pic_phone: row?.pic_phone || null,
       pic_email: row?.pic_email || null,
       contactable,
-      identity_status: "spatial_candidate",
+      identity_status: "spatial_candidate" as const,
     }
   })
 
@@ -171,6 +195,83 @@ export async function linkCandidatesToKmz(candidates: CandidateLike[], maxCandid
       contactable_count: contactableCandidateIds.size,
     },
     methodology: "candidate-point-to-kmz-index-within-3km",
-    note: "El vínculo es espacial y candidato-a-candidato. No se considera identidad catastral exacta hasta contar con ROL coincidente o intersección de polígonos.",
+    note: "El vínculo espacial no se considera identidad catastral exacta hasta contar con ROL coincidente o intersección de polígonos.",
+  }
+}
+
+export async function linkOffMarketProspectsToKmz(prospects: OffMarketProspect[], maxProspects = 30) {
+  const supabase = db()
+  const scoped = prospects.slice(0, Math.max(1, Math.min(maxProspects, 40)))
+  if (!supabase || !scoped.length) {
+    return {
+      links: [],
+      summary: { prospect_count: scoped.length, exact_rol_match_count: 0, owner_evidence_count: 0, contactable_count: 0 },
+      methodology: supabase ? "exact-rol-kmz-v1" : "unavailable",
+    }
+  }
+
+  const wanted = new Set(scoped.map((prospect) => normalizeRol(prospect.rol)).filter(Boolean))
+  const { data, error } = await supabase
+    .from("kmz_collection")
+    .select("id,file_name,owner,pic,pic_phone,pic_email,rol_numbers,metadata,is_active")
+    .eq("is_active", true)
+    .not("rol_numbers", "is", null)
+    .limit(5000)
+
+  if (error) {
+    console.warn("[Prospeccion] exact ROL KMZ lookup unavailable", error.message)
+    return {
+      links: [],
+      summary: { prospect_count: scoped.length, exact_rol_match_count: 0, owner_evidence_count: 0, contactable_count: 0 },
+      methodology: "exact-rol-kmz-error",
+    }
+  }
+
+  const rowsByRol = new Map<string, any[]>()
+  for (const row of data ?? []) {
+    for (const rol of extractRoles(row)) {
+      if (!wanted.has(rol)) continue
+      const bucket = rowsByRol.get(rol) ?? []
+      bucket.push(row)
+      rowsByRol.set(rol, bucket)
+    }
+  }
+
+  const links = scoped.flatMap((prospect) => {
+    const normalizedRol = normalizeRol(prospect.rol)
+    const rows = rowsByRol.get(normalizedRol) ?? []
+    return rows.slice(0, 3).map((row) => {
+      const owner = ownerEvidence(row)
+      const contactable = Boolean(row?.pic_phone || row?.pic_email)
+      return {
+        prospect_id: prospect.id,
+        rol: prospect.rol,
+        normalized_rol: normalizedRol,
+        kmz_id: String(row.id),
+        kmz_file_name: row.file_name || null,
+        owner,
+        pic: row.pic || null,
+        pic_phone: row.pic_phone || null,
+        pic_email: row.pic_email || null,
+        contactable,
+        identity_status: "exact_rol" as const,
+      }
+    })
+  })
+
+  const matched = new Set(links.map((link) => link.prospect_id))
+  const withOwner = new Set(links.filter((link) => link.owner).map((link) => link.prospect_id))
+  const contactable = new Set(links.filter((link) => link.contactable).map((link) => link.prospect_id))
+
+  return {
+    links,
+    summary: {
+      prospect_count: scoped.length,
+      exact_rol_match_count: matched.size,
+      owner_evidence_count: withOwner.size,
+      contactable_count: contactable.size,
+    },
+    methodology: "exact-canonical-rol-to-active-kmz-collection-v1",
+    note: "La coincidencia por ROL es identidad catastral exacta dentro del inventario KMZ. Propietario y contacto siguen sujetos a la calidad de la evidencia almacenada.",
   }
 }
