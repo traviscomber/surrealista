@@ -34,12 +34,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Prospección normalization regression tests
+      - name: Prospección regression tests
         run: |
-          rm -rf .tmp-prospeccion-tests
-          pnpm exec tsc -p tsconfig.prospeccion-tests.json
-          node --test .tmp-prospeccion-tests/tests/prospeccion-normalization.test.js
-          rm -rf .tmp-prospeccion-tests
+          TEST_OUT="/tmp/prospeccion-tests-${GITHUB_SHA}"
+          rm -rf "$TEST_OUT"
+          pnpm exec tsc -p tsconfig.prospeccion-tests.json --outDir "$TEST_OUT"
+          node --test "$TEST_OUT/tests/prospeccion-normalization.test.js"
+          node --test "$TEST_OUT/tests/prospeccion-owner-web.test.js"
+          rm -rf "$TEST_OUT"
 
       - name: Production build
         run: pnpm build
@@ -64,6 +66,7 @@ jobs:
           pnpm test:smoke
 
       - name: Production cloud browser
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           SMOKE_BASE_URL: https://sur-realista.vercel.app
           SMOKE_PASSWORD: ${{ secrets.SURREALISTA_E2E_PASSWORD }}

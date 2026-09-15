@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { publicSourcesSearch } from "@/lib/public-sources/owner-search"
+import { researchOwnerByRol } from "@/lib/prospeccion/owner-intelligence"
 
 export const runtime = "nodejs"
 export const maxDuration = 30
@@ -13,37 +13,30 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "ROL obligatorio." }, { status: 400 })
   }
 
-  const results = await publicSourcesSearch.searchOwner(
-    { rol, commune, keywords: [rol, commune].filter(Boolean) },
-    { maxResults: 8 },
-  )
+  try {
+    const result = await researchOwnerByRol({ rol, commune })
+    const nextAction = result.owner
+      ? result.nextAction
+      : result.producer
+        ? `Productor/operador asociado: ${result.producer.name} (${Math.round(result.producer.confidence * 100)}% de confianza). No equivale a propietario legal; continuar a CIREN/CBR antes de tratarlo como dueño.`
+        : result.historicalOwner
+          ? `Propietario histórico identificado: ${result.historicalOwner.name} (${Math.round(result.historicalOwner.confidence * 100)}% de confianza). No asumir vigencia actual; verificar dominio en CBR.`
+          : result.nextAction
 
-  const best = results
-    .filter((result) => result.ownerName)
-    .sort((a, b) => b.confidence - a.confidence)[0] ?? null
-
-  return NextResponse.json({
-    rol,
-    commune: commune || null,
-    owner: best ? {
-      name: best.ownerName,
-      confidence: best.confidence,
-      source: best.source,
-      evidenceUrl: best.url,
-      documentType: best.documentType ?? null,
-    } : null,
-    evidence: results.map((result) => ({
-      source: result.source,
-      title: result.title,
-      excerpt: result.excerpt,
-      url: result.url,
-      confidence: result.confidence,
-      ownerName: result.ownerName ?? null,
-      documentType: result.documentType ?? null,
-    })),
-    status: best ? "owner_candidate_found" : "owner_pending",
-    nextAction: best
-      ? "Validar la evidencia antes de iniciar contacto directo."
-      : "Mantener el ROL en investigación y ampliar fuentes públicas antes de contacto.",
-  })
+    return NextResponse.json({
+      ...result,
+      owner: result.owner ? {
+        name: result.owner.ownerName,
+        confidence: result.owner.confidence,
+        source: result.owner.source,
+        evidenceUrl: result.owner.url,
+        documentType: result.owner.documentType,
+        relation: result.owner.relation,
+      } : null,
+      nextAction,
+    })
+  } catch (error) {
+    console.error("[Owner Intelligence] research failed", error)
+    return NextResponse.json({ error: "No fue posible completar la investigación de propietario con evidencia suficiente." }, { status: 500 })
+  }
 }
