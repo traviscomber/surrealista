@@ -4,6 +4,7 @@ import { createOpenAIChatCompletion } from "@/lib/ai/openai-chat"
 import { runProspectingIntelligenceCore, type ProspectingCase } from "@/lib/prospeccion/intelligence-core"
 import { loadGovernedProspectingMemory } from "@/lib/prospeccion/case-persistence"
 import { normalizeProspectingCriteria } from "@/lib/prospeccion/normalization"
+import { ownerResearchCacheKey, readOwnerResearchCaches } from "@/lib/prospeccion/owner-research-cache"
 
 export const runtime = "nodejs"
 export const maxDuration = 30
@@ -16,6 +17,16 @@ type Outcome = {
   speciesVerified: false
 }
 
+type ProspectingCore = Awaited<ReturnType<typeof runProspectingIntelligenceCore>>
+
+type HydratedCase = ProspectingCase & {
+  ownerResearch?: {
+    decision: "contactar" | "validar_propietario" | "descartar"
+    researchedAt: string
+    nextRefreshAt: string
+  }
+}
+
 function db() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -23,7 +34,83 @@ function db() {
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
 }
 
-function deterministicOutcome(core: Awaited<ReturnType<typeof runProspectingIntelligenceCore>>): Outcome {
+async function hydrateOwnerResearch(core: ProspectingCore): Promise<ProspectingCore> {
+  const inputs = core.cases
+    .filter((item) => item.kind === "off_market" && item.rol)
+    .map((item) => ({ rol: String(item.rol), commune: core.criteria.commune }))
+  if (!inputs.length) return core
+
+  const cached = await readOwnerResearchCaches(inputs)
+  if (!cached.size) return core
+
+  const hydrated = core.cases.map((item): HydratedCase => {
+    if (item.kind !== "off_market" || !item.rol) return item
+    const entry = cached.get(ownerResearchCacheKey({ rol: item.rol, commune: core.criteria.commune }))
+    if (!entry) return item
+
+    const resultOwner = entry.result.owner && typeof entry.result.owner === "object"
+      ? entry.result.owner as Record<string, unknown>
+      : null
+    const ownerName = typeof resultOwner?.name === "string" ? resultOwner.name.trim() : ""
+    const confidenceRaw = Number(resultOwner?.confidence)
+    const owner = ownerName
+      ? {
+          name: ownerName,
+          confidence: Number.isFinite(confidenceRaw) ? Math.max(0, Math.min(1, confidenceRaw)) : 0.5,
+          basis: `owner-research-cache:${String(resultOwner?.source || "verified-evidence")}`,
+        }
+      : item.owner
+
+    const status: ProspectingCase["status"] = entry.decision === "contactar"
+      ? "owner_identified"
+      : entry.decision === "validar_propietario"
+        ? owner ? "owner_identified" : "verify_owner"
+        : "review_market"
+
+    const nextAction = entry.decision === "contactar"
+      ? "Propietario confirmado por evidencia interna fuerte. Preparar contacto humano y registrar resultado."
+      : entry.decision === "descartar"
+        ? "Descartar de la cola activa; la investigación no produjo una vía accionable con las fuentes disponibles."
+        : typeof entry.result.nextAction === "string" && entry.result.nextAction.trim()
+          ? entry.result.nextAction.trim()
+          : "Validar propietario antes de iniciar contacto."
+
+    return {
+      ...item,
+      status,
+      owner,
+      nextAction,
+      ownerResearch: {
+        decision: entry.decision,
+        researchedAt: entry.researchedAt,
+        nextRefreshAt: entry.nextRefreshAt,
+      },
+    }
+  })
+
+  const byId = new Map(hydrated.map((item) => [item.id, item]))
+  const rank = (item: HydratedCase) => {
+    const decisionBoost = item.ownerResearch?.decision === "contactar"
+      ? 35
+      : item.ownerResearch?.decision === "validar_propietario"
+        ? 12
+        : item.ownerResearch?.decision === "descartar"
+          ? -100
+          : 0
+    return item.score + decisionBoost
+  }
+  const priorityCases = [...hydrated]
+    .sort((a, b) => rank(b) - rank(a) || b.score - a.score)
+    .slice(0, 3)
+
+  return {
+    ...core,
+    cases: hydrated,
+    priorityCases: priorityCases.map((item) => byId.get(item.id) ?? item),
+  }
+}
+
+function deterministicOutcome(core: ProspectingCore): Outcome {
   const total = core.cases.length
   const ready = core.cases.filter((item) => item.status === "ready_to_contact").length
   const ownerKnown = core.cases.filter((item) => item.status === "owner_identified").length
@@ -75,7 +162,7 @@ function deterministicOutcome(core: Awaited<ReturnType<typeof runProspectingInte
 
 async function synthesizeOutcomeWithAI(
   base: Outcome,
-  core: Awaited<ReturnType<typeof runProspectingIntelligenceCore>>,
+  core: ProspectingCore,
   governedMemory: Awaited<ReturnType<typeof loadGovernedProspectingMemory>>,
 ) {
   if (!process.env.OPENAI_API_KEY || !core.priorityCases.length) return base
@@ -133,10 +220,11 @@ export async function GET(request: Request) {
 
   try {
     const supabase = db()
-    const [core, governedMemory] = await Promise.all([
+    const [rawCore, governedMemory] = await Promise.all([
       runProspectingIntelligenceCore(criteria, limit),
       supabase ? loadGovernedProspectingMemory(supabase) : Promise.resolve({ available: false, memories: [], authority: "non_canonical" as const }),
     ])
+    const core = await hydrateOwnerResearch(rawCore)
     const baseOutcome = deterministicOutcome(core)
     const outcome = await synthesizeOutcomeWithAI(baseOutcome, core, governedMemory)
 
@@ -172,7 +260,7 @@ export async function GET(request: Request) {
         irrigationInfrastructure: "CIREN+CNR-regional",
         soils: "CIREN-regional",
         kmz: "market-spatial-plus-offmarket-exact-rol",
-        ownerResearch: "exact-rol-auto-plus-on-demand",
+        ownerResearch: "persistent-rol-cache-plus-on-demand",
         governedMemory: governedMemory.available ? "active-non-canonical" : "pending-migration-or-unavailable",
         persistentDecisionCases: "mandate-run-persistence",
         speciesClassification: "declared-catalogue-only-satellite-pending",
