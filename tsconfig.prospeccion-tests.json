@@ -14,6 +14,8 @@
   "include": [
     "lib/chile-locations.ts",
     "lib/prospeccion/normalization.ts",
-    "tests/prospeccion-normalization.test.ts"
+    "lib/prospeccion/owner-intelligence.ts",
+    "tests/prospeccion-normalization.test.ts",
+    "tests/prospeccion-owner-intelligence.test.ts"
   ]
 }
