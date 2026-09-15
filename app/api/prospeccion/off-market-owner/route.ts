@@ -15,6 +15,14 @@ export async function POST(request: Request) {
 
   try {
     const result = await researchOwnerByRol({ rol, commune })
+    const nextAction = result.owner
+      ? result.nextAction
+      : result.producer
+        ? `Productor/operador asociado: ${result.producer.name} (${Math.round(result.producer.confidence * 100)}% de confianza). No equivale a propietario legal; continuar a CIREN/CBR antes de tratarlo como dueño.`
+        : result.historicalOwner
+          ? `Propietario histórico identificado: ${result.historicalOwner.name} (${Math.round(result.historicalOwner.confidence * 100)}% de confianza). No asumir vigencia actual; verificar dominio en CBR.`
+          : result.nextAction
+
     return NextResponse.json({
       ...result,
       owner: result.owner ? {
@@ -25,6 +33,7 @@ export async function POST(request: Request) {
         documentType: result.owner.documentType,
         relation: result.owner.relation,
       } : null,
+      nextAction,
     })
   } catch (error) {
     console.error("[Owner Intelligence] research failed", error)
