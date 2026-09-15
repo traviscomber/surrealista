@@ -66,6 +66,7 @@ jobs:
           pnpm test:smoke
 
       - name: Production cloud browser
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           SMOKE_BASE_URL: https://sur-realista.vercel.app
           SMOKE_PASSWORD: ${{ secrets.SURREALISTA_E2E_PASSWORD }}
