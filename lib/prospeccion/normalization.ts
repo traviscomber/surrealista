@@ -16,10 +16,12 @@ function compactKey(value: unknown) {
 
 function normalizeRegionKey(value: unknown) {
   return normalizeSearchText(value)
-    .replace(/^region de /, "")
     .replace(/^region del /, "")
+    .replace(/^region de la /, "")
+    .replace(/^region de /, "")
     .replace(/^region /, "")
     .replace(/^del /, "")
+    .replace(/^de la /, "")
     .replace(/^de /, "")
     .trim()
 }
