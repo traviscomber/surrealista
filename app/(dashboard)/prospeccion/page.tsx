@@ -33,14 +33,34 @@ type OffMarketProspect = {
   targetSpeciesMatch: boolean
   source: string
   surveyYear: number
+  areaHa: number | null
   stage: "detected"
   ownerStatus: "pending"
   contactStatus: "pending"
   evidenceLabel: string
 }
 
+type ProspectingCase = {
+  id: string
+  kind: "market" | "off_market"
+  status: "ready_to_contact" | "owner_identified" | "verify_owner" | "review_market"
+  score: number
+  title: string
+  location: string
+  rol: string | null
+  areaHa: number | null
+  speciesEvidence: { target: string | null; declared: string[]; satelliteVerified: false }
+  owner: { name: string; confidence: number; basis: string } | null
+  contact: { name: string | null; phone: string | null; email: string | null } | null
+  nextAction: string
+}
+
+type OwnerLead = { name: string; confidence: number; source?: string }
+
 type OwnerLookupResult = {
   owner: { name: string; confidence: number; source: string; evidenceUrl: string; documentType: string | null } | null
+  producer?: OwnerLead | null
+  historicalOwner?: OwnerLead | null
   status: "owner_candidate_found" | "owner_pending"
   nextAction: string
 }
@@ -50,9 +70,11 @@ type ProspectingResponse = {
   count: number
   offMarketProspects?: OffMarketProspect[]
   offMarketCount?: number
+  cases?: ProspectingCase[]
+  priorityCases?: ProspectingCase[]
   note: string
   outcome?: {
-    status: "qualified_candidates" | "regional_expansion" | "official_off_market_signal" | "no_match"
+    status: "actionable_cases" | "qualified_candidates" | "regional_expansion" | "official_off_market_signal" | "no_match"
     summary: string
     recommendation: string
     generatedBy: "evidence" | "ai"
@@ -117,6 +139,13 @@ function mandateSummary(mandate: Mandate) {
   return [mandate.region, mandate.commune, mandate.species, mandate.min_ha != null ? `${mandate.min_ha}+ ha` : null, mandate.max_ha != null ? `hasta ${mandate.max_ha} ha` : null].filter(Boolean).join(" · ") || "Sin filtros"
 }
 
+function caseStatusLabel(status: ProspectingCase["status"]) {
+  if (status === "ready_to_contact") return "Contacto verificable"
+  if (status === "owner_identified") return "Propietario identificado"
+  if (status === "verify_owner") return "Verificar propietario"
+  return "Revisar mercado"
+}
+
 export default function ProspeccionPage() {
   const [region, setRegion] = useState("")
   const [commune, setCommune] = useState("")
@@ -137,6 +166,7 @@ export default function ProspeccionPage() {
   const [taskCreatedCandidateIds, setTaskCreatedCandidateIds] = useState<Set<string>>(new Set())
   const [ownerLookupRol, setOwnerLookupRol] = useState<string | null>(null)
   const [ownerLookupResults, setOwnerLookupResults] = useState<Record<string, OwnerLookupResult>>({})
+  const [researchingPriority, setResearchingPriority] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [mandatesError, setMandatesError] = useState<string | null>(null)
 
@@ -145,6 +175,12 @@ export default function ProspeccionPage() {
     const parts = [region, commune, species, minHa ? `${minHa}+ ha` : "", maxHa ? `hasta ${maxHa} ha` : ""].filter(Boolean)
     return parts.length ? parts.join(" · ") : "Sin criterios aplicados"
   }, [region, commune, species, minHa, maxHa])
+  const queueSummary = useMemo(() => {
+    const prospects = data?.offMarketProspects ?? []
+    const investigated = prospects.filter((item) => Boolean(ownerLookupResults[item.rol])).length
+    const ownerIdentified = prospects.filter((item) => Boolean(ownerLookupResults[item.rol]?.owner)).length
+    return { total: prospects.length, investigated, ownerIdentified, pending: Math.max(0, prospects.length - investigated) }
+  }, [data?.offMarketProspects, ownerLookupResults])
 
   async function loadMandates() {
     setLoadingMandates(true)
@@ -238,7 +274,20 @@ export default function ProspeccionPage() {
       setSpecies(mandate.species || "")
       setMinHa(mandate.min_ha == null ? "" : String(mandate.min_ha))
       setMaxHa(mandate.max_ha == null ? "" : String(mandate.max_ha))
-      setData({ candidates: body.candidates ?? [], count: body.count ?? 0, note: body.firstRun ? "Primera ejecución registrada." : body.newCount > 0 ? `${body.newCount} candidato${body.newCount === 1 ? " nuevo" : "s nuevos"}.` : "Sin candidatos nuevos.", coverage: { market: "active", kmz: "available-in-detail-flow", speciesClassification: "pending-satellite-pipeline", autonomousDiscovery: "not-yet-active" } })
+      setOwnerLookupResults({})
+      setData({
+        candidates: body.candidates ?? [],
+        count: body.count ?? 0,
+        offMarketProspects: body.offMarketProspects ?? [],
+        offMarketCount: body.offMarketCount ?? body.offMarketProspects?.length ?? 0,
+        cases: body.cases ?? [],
+        priorityCases: body.priorityCases ?? [],
+        outcome: body.outcome,
+        publicEvidence: body.publicEvidence,
+        infrastructure: body.infrastructure,
+        note: body.firstRun ? "Primera ejecución registrada." : body.newCount > 0 ? `${body.newCount} candidato${body.newCount === 1 ? " nuevo" : "s nuevos"}.` : "Sin candidatos nuevos.",
+        coverage: body.coverage ?? { market: "active", kmz: "available-in-detail-flow", speciesClassification: "pending-satellite-pipeline", autonomousDiscovery: "official-polygon-discovery-active" },
+      })
       await loadMandates()
     } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo ejecutar el mandato.") } finally { setRunningMandateId(null) }
   }
@@ -255,17 +304,22 @@ export default function ProspeccionPage() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo crear la tarea comercial.") } finally { setCreatingTaskFor(null) }
   }
 
+  async function ownerResearch(prospect: OffMarketProspect) {
+    const response = await fetch("/api/prospeccion/off-market-owner", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rol: prospect.rol, commune: prospect.commune }),
+    })
+    const body = await response.json()
+    if (!response.ok) throw new Error(body.error || "No se pudo investigar el propietario.")
+    return body as OwnerLookupResult
+  }
+
   async function investigateOwner(prospect: OffMarketProspect) {
     setOwnerLookupRol(prospect.rol)
     setError(null)
     try {
-      const response = await fetch("/api/prospeccion/off-market-owner", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rol: prospect.rol, commune: prospect.commune }),
-      })
-      const body = await response.json()
-      if (!response.ok) throw new Error(body.error || "No se pudo investigar el propietario.")
+      const body = await ownerResearch(prospect)
       setOwnerLookupResults((previous) => ({ ...previous, [prospect.rol]: body }))
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo investigar el propietario.")
@@ -274,9 +328,37 @@ export default function ProspeccionPage() {
     }
   }
 
+  async function investigatePriorityOwners() {
+    if (!data?.priorityCases?.length || !data.offMarketProspects?.length) return
+    const byRol = new Map(data.offMarketProspects.map((item) => [item.rol, item]))
+    const targets = data.priorityCases
+      .filter((item) => item.kind === "off_market" && item.rol && !ownerLookupResults[item.rol])
+      .map((item) => byRol.get(String(item.rol)))
+      .filter((item): item is OffMarketProspect => Boolean(item))
+      .slice(0, 3)
+    if (!targets.length) return
+
+    setResearchingPriority(true)
+    setError(null)
+    try {
+      for (const prospect of targets) {
+        setOwnerLookupRol(prospect.rol)
+        try {
+          const result = await ownerResearch(prospect)
+          setOwnerLookupResults((previous) => ({ ...previous, [prospect.rol]: result }))
+        } catch (cause) {
+          console.warn("[Prospeccion] priority owner research", prospect.rol, cause)
+        }
+      }
+    } finally {
+      setOwnerLookupRol(null)
+      setResearchingPriority(false)
+    }
+  }
+
   return (
     <main className="mx-auto w-full max-w-[1800px] space-y-6">
-      <WorkspaceHeading eyebrow="Prospección inteligente" title="Poner más campos sobre la mesa" description="Define comuna, sector, superficie y especie objetivo. Sur Realista rastrea mercado publicado y catastros oficiales para entregar opciones concretas, incluyendo ROL fuera de portales, y permite investigar propietario antes de contacto." outcome="Resultado útil: opciones publicadas + prospectos fuera de portal + siguiente acción verificable." />
+      <WorkspaceHeading eyebrow="Prospección inteligente" title="Poner más campos sobre la mesa" description="Define comuna, sector, superficie y especie objetivo. Sur Realista rastrea mercado publicado y catastros oficiales para entregar opciones concretas, incluyendo ROL fuera de portales, y prioriza qué investigar primero." outcome="Resultado útil: 3 prioridades claras + cola secundaria + siguiente acción verificable." />
 
       <form onSubmit={runSearch} className="grid gap-4 border-y border-border bg-card px-4 py-5 md:grid-cols-2 xl:grid-cols-5 sm:px-6">
         <div><label className="mb-2 block text-xs font-medium text-muted-foreground">Región</label><Input value={region} onChange={(e) => setRegion(e.target.value)} placeholder="Ej. Maule" /></div>
@@ -288,7 +370,9 @@ export default function ProspeccionPage() {
 
       {data?.outcome ? <Card className="p-6"><div className="flex flex-wrap items-center gap-2"><Badge>{data.outcome.status.replaceAll("_", " ")}</Badge><Badge variant="outline">{data.outcome.generatedBy === "ai" ? "Síntesis IA" : "Evidencia"}</Badge></div><h2 className="mt-4 text-xl font-medium">Resultado de la prospección</h2><p className="mt-2 max-w-5xl text-sm leading-6">{data.outcome.summary}</p><p className="mt-3 text-sm"><span className="text-muted-foreground">Siguiente acción:</span> {data.outcome.recommendation}</p><div className="mt-5 grid gap-3 md:grid-cols-4"><div><p className="text-xs text-muted-foreground">Publicados</p><p className="mt-1 text-2xl font-medium">{data.count}</p></div><div><p className="text-xs text-muted-foreground">Fuera de portal</p><p className="mt-1 text-2xl font-medium">{data.offMarketCount ?? data.offMarketProspects?.length ?? 0}</p></div><div><p className="text-xs text-muted-foreground">Riego regional</p><p className="mt-1 text-sm font-medium">{data.infrastructure?.irrigation.status === "available" ? `${data.infrastructure.irrigation.canalFeatures} canales · ${data.infrastructure.irrigation.intakeFeatures} bocatomas` : "Pendiente"}</p></div><div><p className="text-xs text-muted-foreground">Suelos</p><p className="mt-1 text-sm font-medium">{data.infrastructure?.soils.status === "available" ? "Cobertura disponible" : "Pendiente"}</p></div></div></Card> : null}
 
-      {data?.offMarketProspects?.length ? <section className="space-y-4"><div className="flex flex-col gap-2 border-b border-border pb-4 md:flex-row md:items-end md:justify-between"><div><p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Antes del portal</p><h2 className="mt-1 text-xl font-medium">Prospectos fuera de mercado</h2><p className="mt-1 max-w-3xl text-sm text-muted-foreground">Cada fila es un ROL real encontrado en catastro oficial. No significa que esté a la venta: es una opción concreta para verificar, investigar propietario y decidir si vale la pena contactar.</p></div><Badge variant="outline">{data.offMarketProspects.length} opciones</Badge></div><div className="grid gap-3 xl:grid-cols-2">{data.offMarketProspects.map((prospect) => { const lookup = ownerLookupResults[prospect.rol]; return <Card key={prospect.id} className="p-5"><div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><Badge>Fuera de portal</Badge><Badge variant="outline">Detectado</Badge>{prospect.targetSpeciesMatch ? <Badge variant="outline">Especie declarada</Badge> : null}</div><h3 className="mt-3 text-lg font-medium">ROL {prospect.rol}</h3><p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground"><MapPin className="h-4 w-4" aria-hidden="true" />{prospect.commune || "Comuna pendiente"} · Catastro {prospect.surveyYear}</p><p className="mt-3 text-sm">{prospect.declaredSpecies.length ? prospect.declaredSpecies.join(" · ") : "Sin especie declarada"}</p><p className="mt-2 text-xs text-muted-foreground">{prospect.evidenceLabel}</p>{lookup ? <div className="mt-4 border-l-2 border-border pl-3">{lookup.owner ? <><p className="text-sm font-medium">Propietario candidato: {lookup.owner.name}</p><p className="mt-1 text-xs text-muted-foreground">Confianza {Math.round(lookup.owner.confidence * 100)}% · fuente {lookup.owner.source}. Validar antes de contacto.</p></> : <><p className="text-sm font-medium">Propietario aún no resuelto</p><p className="mt-1 text-xs text-muted-foreground">{lookup.nextAction}</p></>}</div> : null}</div><div className="shrink-0"><Button type="button" variant={lookup?.owner ? "outline" : "default"} onClick={() => void investigateOwner(prospect)} disabled={ownerLookupRol === prospect.rol}>{ownerLookupRol === prospect.rol ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : lookup?.owner ? <Check className="h-4 w-4" aria-hidden="true" /> : <UserRound className="h-4 w-4" aria-hidden="true" />}{lookup?.owner ? "Revalidar propietario" : "Investigar propietario"}</Button></div></div></Card>})}</div></section> : null}
+      {data?.priorityCases?.length ? <section className="space-y-4"><div className="flex flex-col gap-3 border-b border-border pb-4 lg:flex-row lg:items-end lg:justify-between"><div><p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Qué importa ahora</p><h2 className="mt-1 text-xl font-medium">Prioridades de hoy</h2><p className="mt-1 max-w-3xl text-sm text-muted-foreground">El Core ordena la evidencia y deja sólo tres casos arriba. El resto permanece en la cola para no convertir la pantalla en una lista de trabajo manual.</p></div><Button type="button" onClick={() => void investigatePriorityOwners()} disabled={researchingPriority || !data.priorityCases.some((item) => item.kind === "off_market" && item.rol && !ownerLookupResults[item.rol])}>{researchingPriority ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <UserRound className="h-4 w-4" aria-hidden="true" />}Investigar top 3</Button></div><div className="grid gap-3 xl:grid-cols-3">{data.priorityCases.map((item, index) => { const lookup = item.rol ? ownerLookupResults[item.rol] : null; const ownerName = lookup?.owner?.name || item.owner?.name || null; return <Card key={item.id} className="p-5"><div className="flex items-center justify-between gap-3"><Badge>#{index + 1}</Badge><span className="text-xs text-muted-foreground">score {item.score}/100</span></div><h3 className="mt-4 text-lg font-medium">{item.title}</h3><p className="mt-1 text-sm text-muted-foreground">{item.location}{item.areaHa != null ? ` · ${item.areaHa.toLocaleString("es-CL")} ha` : ""}</p><div className="mt-4 flex flex-wrap gap-2"><Badge variant="outline">{caseStatusLabel(item.status)}</Badge>{item.speciesEvidence.declared.length ? <Badge variant="outline">{item.speciesEvidence.declared[0]}</Badge> : null}</div><div className="mt-4 border-l-2 border-border pl-3">{ownerName ? <><p className="text-sm font-medium">Propietario candidato: {ownerName}</p><p className="mt-1 text-xs text-muted-foreground">Requiere validación registral antes de contacto.</p></> : lookup?.producer ? <><p className="text-sm font-medium">Productor/operador: {lookup.producer.name}</p><p className="mt-1 text-xs text-muted-foreground">No equivale a propietario legal.</p></> : lookup?.historicalOwner ? <><p className="text-sm font-medium">Propietario histórico: {lookup.historicalOwner.name}</p><p className="mt-1 text-xs text-muted-foreground">No asumir vigencia actual.</p></> : <><p className="text-sm font-medium">Propietario por resolver</p><p className="mt-1 text-xs text-muted-foreground">{item.nextAction}</p></>}</div></Card>})}</div><div className="grid gap-3 md:grid-cols-4"><Card className="p-4"><p className="text-xs text-muted-foreground">Cola total</p><p className="mt-1 text-2xl font-medium">{queueSummary.total}</p></Card><Card className="p-4"><p className="text-xs text-muted-foreground">Investigados</p><p className="mt-1 text-2xl font-medium">{queueSummary.investigated}</p></Card><Card className="p-4"><p className="text-xs text-muted-foreground">Propietario identificado</p><p className="mt-1 text-2xl font-medium">{queueSummary.ownerIdentified}</p></Card><Card className="p-4"><p className="text-xs text-muted-foreground">Pendientes</p><p className="mt-1 text-2xl font-medium">{queueSummary.pending}</p></Card></div></section> : null}
+
+      {data?.offMarketProspects?.length ? <section className="space-y-4"><div className="flex flex-col gap-2 border-b border-border pb-4 md:flex-row md:items-end md:justify-between"><div><p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Cola secundaria</p><h2 className="mt-1 text-xl font-medium">Prospectos para seguir investigando</h2><p className="mt-1 max-w-3xl text-sm text-muted-foreground">Cada fila es un ROL real encontrado en catastro oficial. No significa que esté a la venta. Las prioridades de arriba son las que conviene trabajar primero.</p></div><Badge variant="outline">{data.offMarketProspects.length} opciones</Badge></div><div className="grid gap-3 xl:grid-cols-2">{data.offMarketProspects.map((prospect) => { const lookup = ownerLookupResults[prospect.rol]; return <Card key={prospect.id} className="p-5"><div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><Badge>Fuera de portal</Badge><Badge variant="outline">Detectado</Badge>{prospect.targetSpeciesMatch ? <Badge variant="outline">Especie declarada</Badge> : null}</div><h3 className="mt-3 text-lg font-medium">ROL {prospect.rol}</h3><p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground"><MapPin className="h-4 w-4" aria-hidden="true" />{prospect.commune || "Comuna pendiente"} · Catastro {prospect.surveyYear}</p><p className="mt-3 text-sm">{prospect.declaredSpecies.length ? prospect.declaredSpecies.join(" · ") : "Sin especie declarada"}</p><p className="mt-2 text-xs text-muted-foreground">{prospect.evidenceLabel}</p>{lookup ? <div className="mt-4 border-l-2 border-border pl-3">{lookup.owner ? <><p className="text-sm font-medium">Propietario candidato: {lookup.owner.name}</p><p className="mt-1 text-xs text-muted-foreground">Confianza {Math.round(lookup.owner.confidence * 100)}% · fuente {lookup.owner.source}. Validar antes de contacto.</p></> : lookup.producer ? <><p className="text-sm font-medium">Productor/operador asociado: {lookup.producer.name}</p><p className="mt-1 text-xs text-muted-foreground">No equivale a propietario legal. {lookup.nextAction}</p></> : lookup.historicalOwner ? <><p className="text-sm font-medium">Propietario histórico: {lookup.historicalOwner.name}</p><p className="mt-1 text-xs text-muted-foreground">No asumir vigencia actual. {lookup.nextAction}</p></> : <><p className="text-sm font-medium">Propietario aún no resuelto</p><p className="mt-1 text-xs text-muted-foreground">{lookup.nextAction}</p></>}</div> : null}</div><div className="shrink-0"><Button type="button" variant={lookup?.owner ? "outline" : "default"} onClick={() => void investigateOwner(prospect)} disabled={ownerLookupRol === prospect.rol}>{ownerLookupRol === prospect.rol ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : lookup?.owner ? <Check className="h-4 w-4" aria-hidden="true" /> : <UserRound className="h-4 w-4" aria-hidden="true" />}{lookup?.owner ? "Revalidar propietario" : "Investigar propietario"}</Button></div></div></Card>})}</div></section> : null}
 
       <section className="grid gap-4 md:grid-cols-4"><Card className="p-4"><p className="text-xs text-muted-foreground">Búsqueda</p><p className="mt-1 text-sm font-medium">{criteriaSummary}</p></Card><Card className="p-4"><p className="text-xs text-muted-foreground">Especie satelital</p><p className="mt-1 text-sm font-medium">No verificada todavía</p></Card><Card className="p-4"><p className="text-xs text-muted-foreground">Opciones totales</p><p className="mt-1 text-2xl font-medium">{data ? data.count + (data.offMarketCount ?? data.offMarketProspects?.length ?? 0) : "—"}</p></Card><Card className="p-4"><p className="text-xs text-muted-foreground">Cliente</p><p className="mt-1 text-sm font-medium">{selectedClient?.name || "Opcional"}</p></Card></section>
 
