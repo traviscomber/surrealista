@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { findProspectingCandidates } from "@/lib/prospeccion/matching"
+import { runProspectingIntelligenceCore } from "@/lib/prospeccion/intelligence-core"
+import { persistProspectingDecisionCases } from "@/lib/prospeccion/case-persistence"
 
 export const runtime = "nodejs"
 export const maxDuration = 30
@@ -26,26 +27,41 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
   if (mandateError || !mandate) return NextResponse.json({ error: "Mandato no encontrado." }, { status: 404 })
   if (mandate.status !== "active") return NextResponse.json({ error: "El mandato no está activo." }, { status: 409 })
 
-  const candidates = await findProspectingCandidates({
+  const criteria = {
     region: mandate.region,
     commune: mandate.commune,
     species: mandate.species,
     minHa: mandate.min_ha == null ? null : Number(mandate.min_ha),
     maxHa: mandate.max_ha == null ? null : Number(mandate.max_ha),
-  }, 100)
+  }
+  const core = await runProspectingIntelligenceCore(criteria, 100)
 
   const previousIds = new Set<string>((mandate.last_candidate_ids || []).map(String))
-  const currentIds = candidates.map((candidate) => String(candidate?.id || "")).filter(Boolean)
-  const newCandidateIds = currentIds.filter((candidateId) => !previousIds.has(candidateId))
+  const currentMarketIds = core.marketCandidates.map((candidate) => String(candidate?.id || "")).filter(Boolean)
+  const currentCaseIds = core.cases.map((item) => item.id)
+  const newCaseIds = currentCaseIds.filter((caseId) => !previousIds.has(caseId))
   const firstRun = !mandate.last_run_at
-  const newCount = firstRun ? 0 : newCandidateIds.length
+  const newCount = firstRun ? 0 : newCaseIds.length
   const now = new Date().toISOString()
+
+  let persistence: Awaited<ReturnType<typeof persistProspectingDecisionCases>> | null = null
+  try {
+    persistence = await persistProspectingDecisionCases({
+      supabase,
+      mandateId: id,
+      cases: core.cases,
+      sourceRefs: core.sourceRefs,
+    })
+  } catch (error) {
+    console.error("[Prospeccion] decision case persistence failed", error)
+    return NextResponse.json({ error: "El Core obtuvo resultados, pero no pudo persistir/revalidar los Decision Cases." }, { status: 500 })
+  }
 
   const { error: updateError } = await supabase
     .from("prospecting_mandates")
     .update({
-      last_candidate_ids: currentIds,
-      last_candidate_count: currentIds.length,
+      last_candidate_ids: currentCaseIds,
+      last_candidate_count: currentCaseIds.length,
       last_new_candidate_count: newCount,
       last_run_at: now,
       updated_at: now,
@@ -57,14 +73,24 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
   return NextResponse.json({
     mandate: {
       ...mandate,
-      last_candidate_count: currentIds.length,
+      last_candidate_count: currentCaseIds.length,
       last_new_candidate_count: newCount,
       last_run_at: now,
     },
-    candidates,
-    count: candidates.length,
-    newCandidateIds: firstRun ? [] : newCandidateIds,
+    candidates: core.marketCandidates,
+    count: core.marketCount,
+    cases: core.cases,
+    priorityCases: core.priorityCases,
+    offMarketProspects: core.offMarketProspects,
+    offMarketCount: core.offMarketCount,
+    newCandidateIds: firstRun ? [] : newCaseIds,
     newCount,
     firstRun,
+    persistence,
+    groundedEvaluation: core.groundedEvaluation,
+    sourceRefs: core.sourceRefs,
+    specialistTrace: core.observedSpecialists,
+    scopeFallback: core.scopeFallback,
+    marketCandidateIds: currentMarketIds,
   })
 }
