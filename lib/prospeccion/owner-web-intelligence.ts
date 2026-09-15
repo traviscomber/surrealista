@@ -173,12 +173,23 @@ export async function researchOwnerOnPublicWeb(input: { rol: string; commune?: s
   if (!rol || !commune || !process.env.SERPER_API_KEY || !process.env.OPENAI_API_KEY) {
     return { available: false, evidence: null as WebOwnerEvidence | null, attemptedQueries: 0 }
   }
-  const runs = await Promise.all(queries(rol, commune).map(async (query) => {
+  const queryList = queries(rol, commune)
+  const runs = await Promise.all(queryList.map(async (query) => {
     try { return await search(query) } catch { return [] as WebSearchResult[] }
   }))
   const candidates = unique(runs.flat())
     .filter((item) => webEvidenceMatchesTarget(`${item.title || ""} ${item.snippet || ""}`, rol, commune))
     .slice(0, 10)
-  const evidence = candidates.length ? await extract(rol, commune, candidates) : null
-  return { available: true, evidence, attemptedQueries: queries(rol, commune).length }
+
+  if (!candidates.length) {
+    return { available: true, evidence: null as WebOwnerEvidence | null, attemptedQueries: queryList.length }
+  }
+
+  try {
+    const evidence = await extract(rol, commune, candidates)
+    return { available: true, evidence, attemptedQueries: queryList.length }
+  } catch (error) {
+    console.warn("[Owner Intelligence] public web extractor unavailable", error instanceof Error ? error.message : "unknown error")
+    return { available: false, evidence: null as WebOwnerEvidence | null, attemptedQueries: queryList.length }
+  }
 }
