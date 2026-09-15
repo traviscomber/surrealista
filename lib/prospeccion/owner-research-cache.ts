@@ -31,6 +31,10 @@ function communeKey(value: unknown) {
   return normalizeSearchText(String(value ?? "").trim())
 }
 
+function cacheKey(rol: unknown, commune: unknown) {
+  return `${normalizeOwnerResearchRol(rol)}|${communeKey(commune)}`
+}
+
 export async function readOwnerResearchCache(input: { rol: string; commune?: string | null }) {
   const supabase = db()
   if (!supabase) return null
@@ -58,6 +62,46 @@ export async function readOwnerResearchCache(input: { rol: string; commune?: str
     researchedAt: String(data.researched_at),
     nextRefreshAt: String(data.next_refresh_at),
   } satisfies CachedOwnerResearch
+}
+
+export async function readOwnerResearchCaches(inputs: Array<{ rol: string; commune?: string | null }>) {
+  const supabase = db()
+  const unique = Array.from(new Map(
+    inputs
+      .map((input) => ({ ...input, rolKey: normalizeOwnerResearchRol(input.rol), communeKey: communeKey(input.commune) }))
+      .filter((input) => input.rolKey)
+      .map((input) => [cacheKey(input.rol, input.commune), input]),
+  ).values())
+  const output = new Map<string, CachedOwnerResearch>()
+  if (!supabase || !unique.length) return output
+
+  const { data, error } = await supabase
+    .from("prospecting_owner_research")
+    .select("rol_key,commune_key,result,decision,researched_at,next_refresh_at")
+    .in("rol_key", unique.map((input) => input.rolKey))
+    .gt("next_refresh_at", new Date().toISOString())
+
+  if (error) {
+    console.warn("[Owner Intelligence] batch cache read unavailable", error.message)
+    return output
+  }
+
+  const allowed = new Set(unique.map((input) => `${input.rolKey}|${input.communeKey}`))
+  for (const row of data ?? []) {
+    const key = `${String(row.rol_key)}|${String(row.commune_key ?? "")}`
+    if (!allowed.has(key)) continue
+    output.set(key, {
+      result: (row.result ?? {}) as Record<string, unknown>,
+      decision: row.decision as ProspectingLeadDecision,
+      researchedAt: String(row.researched_at),
+      nextRefreshAt: String(row.next_refresh_at),
+    })
+  }
+  return output
+}
+
+export function ownerResearchCacheKey(input: { rol: string; commune?: string | null }) {
+  return cacheKey(input.rol, input.commune)
 }
 
 export async function writeOwnerResearchCache(input: {
