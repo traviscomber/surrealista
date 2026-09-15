@@ -23,6 +23,20 @@ type OdepaResponse = {
   error?: { message?: string }
 }
 
+export type OffMarketProspect = {
+  id: string
+  rol: string
+  commune: string
+  declaredSpecies: string[]
+  targetSpeciesMatch: boolean
+  source: "CIREN IDE MINAGRI"
+  surveyYear: number
+  stage: "detected"
+  ownerStatus: "pending"
+  contactStatus: "pending"
+  evidenceLabel: string
+}
+
 export type PublicAgriEvidence = {
   ciren: {
     status: "available" | "unsupported_region" | "unavailable"
@@ -34,6 +48,7 @@ export type PublicAgriEvidence = {
     speciesMatchedCount: number
     sampleRoles: string[]
     species: Array<{ name: string; count: number }>
+    offMarketProspects: OffMarketProspect[]
     note: string
   }
   odepa: {
@@ -87,10 +102,7 @@ function normalize(value: unknown) {
 function normalizeSpecies(value: unknown) {
   const normalized = normalize(value)
   if (!normalized) return ""
-  return normalized
-    .replace(/es$/, "")
-    .replace(/s$/, "")
-    .trim()
+  return normalized.replace(/es$/, "").replace(/s$/, "").trim()
 }
 
 function matchesSpecies(value: unknown, target: string) {
@@ -152,6 +164,42 @@ function aggregateBySurface(records: Array<Record<string, unknown>>, field: stri
     .slice(0, 5)
 }
 
+function buildOffMarketProspects(features: CirenFeature[], speciesTarget: string, surveyYear: number) {
+  const seen = new Set<string>()
+  const prospects: OffMarketProspect[] = []
+
+  for (const feature of features) {
+    const attributes = feature.attributes ?? {}
+    const rol = String(attributes.rolpredi ?? "").trim()
+    const commune = String(attributes.desccomu ?? "").trim()
+    const declaredSpecies = [attributes.especie_01, attributes.especie_02, attributes.especie_03, attributes.especie_04]
+      .map((value) => String(value ?? "").trim())
+      .filter(Boolean)
+    const targetSpeciesMatch = speciesTarget ? declaredSpecies.some((name) => matchesSpecies(name, speciesTarget)) : true
+
+    if (!rol || !targetSpeciesMatch || seen.has(rol)) continue
+    seen.add(rol)
+    prospects.push({
+      id: `ciren:${surveyYear}:${rol}`,
+      rol,
+      commune,
+      declaredSpecies,
+      targetSpeciesMatch,
+      source: "CIREN IDE MINAGRI",
+      surveyYear,
+      stage: "detected",
+      ownerStatus: "pending",
+      contactStatus: "pending",
+      evidenceLabel: speciesTarget
+        ? `ROL oficial con especie objetivo declarada en catastro ${surveyYear}`
+        : `ROL oficial presente en catastro frutícola ${surveyYear}`,
+    })
+    if (prospects.length >= 20) break
+  }
+
+  return prospects
+}
+
 async function getCirenEvidence(criteria: ProspectingPublicCriteria): Promise<PublicAgriEvidence["ciren"]> {
   const region = String(criteria.region ?? "").trim()
   const commune = String(criteria.commune ?? "").trim()
@@ -170,6 +218,7 @@ async function getCirenEvidence(criteria: ProspectingPublicCriteria): Promise<Pu
       speciesMatchedCount: 0,
       sampleRoles: [],
       species: [],
+      offMarketProspects: [],
       note: region ? `CIREN no expone una capa de productores frutícolas mapeada para ${region} en este conector.` : "Define región para consultar la capa oficial de productores frutícolas.",
     }
   }
@@ -213,6 +262,7 @@ async function getCirenEvidence(criteria: ProspectingPublicCriteria): Promise<Pu
       speciesMatchedCount: speciesTarget ? speciesMatchedCount : 0,
       sampleRoles: [...roles].slice(0, 5),
       species: [...speciesCounts.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 5),
+      offMarketProspects: buildOffMarketProspects(features, speciesTarget, layer.year),
       note: payload.exceededTransferLimit
         ? "La consulta alcanzó el límite de transferencia de CIREN; los conteos son un mínimo observable."
         : "Polígonos oficiales de productores frutícolas; el ROL y las especies declaradas sirven como evidencia territorial, no como detección satelital nueva.",
@@ -229,6 +279,7 @@ async function getCirenEvidence(criteria: ProspectingPublicCriteria): Promise<Pu
       speciesMatchedCount: 0,
       sampleRoles: [],
       species: [],
+      offMarketProspects: [],
       note: "CIREN no respondió en esta ejecución; Prospección continuó con las demás fuentes.",
     }
   }
@@ -254,9 +305,7 @@ async function getOdepaEvidence(criteria: ProspectingPublicCriteria): Promise<Pu
     if (region) records = records.filter((record) => normalize(record.Region) === normalize(region))
     if (commune) records = records.filter((record) => normalize(record.Comuna) === normalize(commune))
 
-    const matched = speciesTarget
-      ? records.filter((record) => matchesSpecies(record.Especie, speciesTarget))
-      : []
+    const matched = speciesTarget ? records.filter((record) => matchesSpecies(record.Especie, speciesTarget)) : []
     const totalSurfaceHa = records.reduce((sum, record) => sum + (Number(record["Superficie (ha)"]) || 0), 0)
     const speciesMatchedSurfaceHa = matched.reduce((sum, record) => sum + (Number(record["Superficie (ha)"]) || 0), 0)
 
