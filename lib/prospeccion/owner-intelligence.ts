@@ -1,9 +1,13 @@
 import { createClient } from "@supabase/supabase-js"
 import { CHILEAN_REGIONS } from "@/lib/chile-locations"
 import { normalizeSearchText } from "@/lib/prospeccion/normalization"
+import { researchOwnerOnPublicWeb, type WebOwnerRelation } from "@/lib/prospeccion/owner-web-intelligence"
+
+export type OwnerRelation = Exclude<WebOwnerRelation, "unknown">
 
 export type OwnerEvidence = {
-  source: "internal_exact_rol" | "sii_tax_roll" | "ciren_directory" | "cbr_verification"
+  source: "internal_exact_rol" | "sii_tax_roll" | "public_web" | "ciren_directory" | "cbr_verification"
+  relation: OwnerRelation
   title: string
   ownerName: string | null
   confidence: number
@@ -18,13 +22,24 @@ export type OwnerResearchAttempt = {
   note: string
 }
 
+type ResolvedParty = {
+  name: string
+  confidence: number
+  source: OwnerEvidence["source"]
+  evidenceUrl: string
+  documentType: string
+  relation: OwnerRelation
+}
+
 export type OwnerResearchResult = {
   rol: string
   commune: string | null
   owner: OwnerEvidence | null
+  producer: ResolvedParty | null
+  historicalOwner: ResolvedParty | null
   evidence: OwnerEvidence[]
   attempts: OwnerResearchAttempt[]
-  status: "owner_candidate_found" | "owner_pending"
+  status: "owner_candidate_found" | "producer_candidate_found" | "historical_owner_found" | "owner_pending"
   nextAction: string
 }
 
@@ -44,8 +59,16 @@ function normalizeRol(value: unknown) {
     .trim()
     .toUpperCase()
     .replace(/\./g, "")
+    .replace(/\//g, "-")
     .replace(/\s+/g, "")
     .replace(/[^0-9K-]/g, "")
+    .replace(/-+/g, "-")
+}
+
+function rolVariants(value: unknown) {
+  const canonical = normalizeRol(value)
+  if (!canonical) return []
+  return Array.from(new Set([canonical, canonical.replace(/-/g, "/"), canonical.replace(/-/g, "")]))
 }
 
 function looksLikeRealOwner(value: unknown) {
@@ -91,40 +114,51 @@ async function lookupInternalExactRol(rol: string): Promise<OwnerEvidence[]> {
     supabase
       .from("kmz_collection")
       .select("id,file_name,owner,pic,pic_phone,pic_email,rol_numbers,metadata,is_active")
-      .contains("rol_numbers", [normalizedRol])
       .eq("is_active", true)
-      .limit(10),
+      .not("rol_numbers", "is", null)
+      .limit(5000),
     supabase
       .from("properties_enhanced")
       .select("id,title,property_rol,owner_name,contact_name,contact_phone,contact_email")
-      .eq("property_rol", normalizedRol)
-      .limit(10),
+      .in("property_rol", rolVariants(normalizedRol))
+      .limit(20),
     supabase
       .from("properties_summary")
       .select("id,title,property_rol,owner_name,contact_name,contact_phone,contact_email")
-      .eq("property_rol", normalizedRol)
-      .limit(10),
+      .in("property_rol", rolVariants(normalizedRol))
+      .limit(20),
   ])
 
   for (const row of kmzResult.data ?? []) {
+    const rowRoles = Array.isArray(row.rol_numbers) ? row.rol_numbers.map(normalizeRol) : []
     const metadata = row.metadata && typeof row.metadata === "object" ? row.metadata as Record<string, any> : {}
+    for (const key of ["rol", "rol_predio", "rolpredi", "property_rol"]) {
+      if (metadata[key]) rowRoles.push(normalizeRol(metadata[key]))
+    }
+    if (!rowRoles.includes(normalizedRol)) continue
+
+    const publicCandidate = typeof metadata.public_owner_candidate === "string"
+      ? metadata.public_owner_candidate
+      : metadata.public_owner_candidate?.name
     const candidates = [
-      { name: metadata.confirmed_owner, confidence: 0.99, type: "confirmed-owner" },
-      { name: row.owner, confidence: 0.97, type: "kmz-owner" },
-      { name: metadata.confirmed_company, confidence: 0.95, type: "confirmed-company" },
-      { name: typeof metadata.public_owner_candidate === "string" ? metadata.public_owner_candidate : metadata.public_owner_candidate?.name, confidence: Number(metadata.owner_confidence || metadata.public_owner_candidate?.confidence || 0), type: "public-owner-candidate" },
+      { name: metadata.confirmed_owner, confidence: 0.99, type: "confirmed-owner", url: metadata.cbr_document_url || metadata.web_owner_evidence_url },
+      { name: row.owner, confidence: 0.97, type: "kmz-owner", url: metadata.cbr_document_url || metadata.web_owner_evidence_url },
+      { name: metadata.confirmed_company, confidence: 0.95, type: "confirmed-company", url: metadata.cbr_document_url || metadata.web_owner_evidence_url },
+      { name: publicCandidate, confidence: Number(metadata.owner_confidence || metadata.public_owner_candidate?.confidence || 0), type: "public-owner-candidate", url: metadata.web_owner_evidence_url },
     ]
+
     for (const candidate of candidates) {
       if (!looksLikeRealOwner(candidate.name)) continue
-      const confidence = candidate.confidence > 0 ? candidate.confidence : 0.55
+      if (candidate.type === "public-owner-candidate" && (!candidate.url || candidate.confidence < 0.75)) continue
       evidence.push({
         source: "internal_exact_rol",
+        relation: "legal_owner",
         title: `Sur Realista · ROL exacto ${rol}`,
         ownerName: String(candidate.name).trim(),
-        confidence,
+        confidence: candidate.confidence > 0 ? candidate.confidence : 0.55,
         documentType: candidate.type,
-        url: `/admin/kmz-collection?id=${encodeURIComponent(String(row.id))}`,
-        note: "Coincidencia exacta de ROL en inventario interno. Debe revalidarse antes de contacto si no está marcado como confirmado.",
+        url: String(candidate.url || `/admin/kmz-collection?id=${encodeURIComponent(String(row.id))}`),
+        note: "Coincidencia exacta de ROL en inventario interno. Si no proviene de dominio vigente, se mantiene como candidato y debe revalidarse antes de contacto.",
       })
       break
     }
@@ -134,12 +168,13 @@ async function lookupInternalExactRol(rol: string): Promise<OwnerEvidence[]> {
     if (!looksLikeRealOwner(row.owner_name)) continue
     evidence.push({
       source: "internal_exact_rol",
+      relation: "legal_owner",
       title: `Sur Realista · propiedad enriquecida · ROL ${rol}`,
       ownerName: String(row.owner_name).trim(),
       confidence: 0.9,
       documentType: "enriched-property-owner",
       url: `/busqueda?rol=${encodeURIComponent(rol)}`,
-      note: "Propietario almacenado en una propiedad interna con el mismo ROL.",
+      note: "Propietario almacenado en una propiedad interna con el mismo ROL; requiere revalidación si no existe documento registral enlazado.",
     })
   }
 
@@ -209,10 +244,10 @@ async function lookupSiiTaxRoll(rol: string, commune: string): Promise<{ evidenc
       if (numericCandidates[1]) numericCandidates[1].value = predioValue
 
       const submit = Array.from(document.querySelectorAll('input[type="submit"], button')).find((node) => /buscar|consultar/i.test(node.textContent || (node as HTMLInputElement).value || "")) as HTMLElement | undefined
-      return { hasCommune: Boolean(communeSelect), communeValue, hasRolInputs: numericCandidates.length >= 2, submitTag: submit?.tagName || null, submitText: submit?.textContent || (submit as HTMLInputElement | undefined)?.value || null }
+      return { hasCommune: Boolean(communeSelect), hasRolInputs: numericCandidates.length >= 2, hasSubmit: Boolean(submit) }
     }, { communeCode: location.code, communeName: location.name, manzanaValue: manzana, predioValue: predio })
 
-    if (!formResult.hasCommune || !formResult.hasRolInputs) {
+    if (!formResult.hasCommune || !formResult.hasRolInputs || !formResult.hasSubmit) {
       return { evidence: [], attempt: { source: "sii_tax_roll", status: "unavailable", note: "SII respondió, pero el formulario cambió y no fue posible completar comuna/ROL de forma segura." } }
     }
 
@@ -241,16 +276,19 @@ async function lookupSiiTaxRoll(rol: string, commune: string): Promise<{ evidenc
     })
 
     if (looksLikeRealOwner(parsed.owner)) {
-      const evidence: OwnerEvidence = {
-        source: "sii_tax_roll",
-        title: `SII · Rol semestral · ${location.name} · ${rol}`,
-        ownerName: parsed.owner,
-        confidence: 0.9,
-        documentType: "sii-tax-roll-owner",
-        url: "https://zeus.sii.cl/avalu_cgi/br/br_rol.sh",
-        note: "Nombre registrado ante SII para efectos de impuesto territorial. SII no acredita dominio; el dueño jurídico debe verificarse en el Conservador de Bienes Raíces.",
+      return {
+        evidence: [{
+          source: "sii_tax_roll",
+          relation: "legal_owner",
+          title: `SII · Rol semestral · ${location.name} · ${rol}`,
+          ownerName: parsed.owner,
+          confidence: 0.9,
+          documentType: "sii-tax-roll-owner-candidate",
+          url: "https://zeus.sii.cl/avalu_cgi/br/br_rol.sh",
+          note: "Nombre asociado al ROL ante SII para efectos tributarios. Es una pista fuerte, pero SII no acredita dominio jurídico; debe verificarse con dominio vigente del CBR.",
+        }],
+        attempt: { source: "sii_tax_roll", status: "found", note: "SII devolvió un nombre asociado al ROL." },
       }
-      return { evidence: [evidence], attempt: { source: "sii_tax_roll", status: "found", note: "SII devolvió un nombre asociado al ROL." } }
     }
 
     return {
@@ -271,6 +309,18 @@ async function lookupSiiTaxRoll(rol: string, commune: string): Promise<{ evidenc
   }
 }
 
+function partyFromEvidence(item: OwnerEvidence | undefined): ResolvedParty | null {
+  if (!item?.ownerName) return null
+  return {
+    name: item.ownerName,
+    confidence: item.confidence,
+    source: item.source,
+    evidenceUrl: item.url,
+    documentType: item.documentType,
+    relation: item.relation,
+  }
+}
+
 export async function researchOwnerByRol(input: { rol: string; commune?: string | null }): Promise<OwnerResearchResult> {
   const rol = normalizeRol(input.rol)
   const commune = String(input.commune ?? "").trim()
@@ -279,12 +329,43 @@ export async function researchOwnerByRol(input: { rol: string; commune?: string 
 
   const internal = await lookupInternalExactRol(rol)
   evidence.push(...internal)
-  attempts.push({ source: "internal_exact_rol", status: internal.length ? "found" : "not_found", note: internal.length ? `Se encontraron ${internal.length} evidencias internas con ROL exacto.` : "Sin propietario confiable en las tablas internas para este ROL." })
+  attempts.push({
+    source: "internal_exact_rol",
+    status: internal.length ? "found" : "not_found",
+    note: internal.length ? `Se encontraron ${internal.length} evidencias internas con ROL exacto.` : "Sin propietario confiable en las tablas internas para este ROL.",
+  })
 
-  if (!internal.some((item) => item.confidence >= 0.95) && commune) {
+  let siiFound = false
+  if (!internal.some((item) => item.relation === "legal_owner" && item.confidence >= 0.95) && commune) {
     const sii = await lookupSiiTaxRoll(rol, commune)
     evidence.push(...sii.evidence)
     attempts.push(sii.attempt)
+    siiFound = sii.evidence.some((item) => item.ownerName)
+  }
+
+  if (!internal.some((item) => item.relation === "legal_owner" && item.confidence >= 0.95) && !siiFound && commune) {
+    const web = await researchOwnerOnPublicWeb({ rol, commune })
+    if (!web.available) {
+      attempts.push({ source: "public_web", status: "unavailable", note: "Búsqueda pública no disponible porque falta el proveedor de búsqueda o el extractor IA." })
+    } else if (!web.evidence) {
+      attempts.push({ source: "public_web", status: "not_found", note: `Se ejecutaron ${web.attemptedQueries} consultas públicas sin evidencia suficiente que coincidiera en ROL + comuna.` })
+    } else {
+      evidence.push({
+        source: "public_web",
+        relation: web.evidence.relation,
+        title: `Web pública · ${web.evidence.source} · ROL ${rol}`,
+        ownerName: web.evidence.name,
+        confidence: web.evidence.confidence,
+        documentType: web.evidence.relation === "producer_operator" ? "producer-operator-evidence" : web.evidence.relation === "historical_owner" ? "historical-owner-evidence" : "public-owner-evidence",
+        url: web.evidence.url,
+        note: web.evidence.relation === "producer_operator"
+          ? "La fuente vincula un productor/operador con este ROL y comuna; no acredita dominio."
+          : web.evidence.relation === "historical_owner"
+            ? "La fuente identifica propietario en evidencia histórica; no se asume vigencia actual."
+            : "La fuente pública nombra explícitamente propietario/dueño/titular para este ROL y comuna; CBR sigue siendo la validación jurídica final.",
+      })
+      attempts.push({ source: "public_web", status: "found", note: `Evidencia pública clasificada como ${web.evidence.relation}; se preserva la diferencia entre propietario, productor e histórico.` })
+    }
   }
 
   attempts.push({
@@ -295,24 +376,41 @@ export async function researchOwnerByRol(input: { rol: string; commune?: string 
   attempts.push({
     source: "cbr_verification",
     status: "manual_verification",
-    note: "El Conservador acredita dominio vigente. Requiere la jurisdicción y antecedentes registrales correctos; se usa como verificación jurídica, no como fuente inventada por IA.",
+    note: "El Conservador acredita dominio vigente. Para Curicó, Conservadores Digitales identifica al Conservador de Bienes Raíces de Curicó dentro de su red; el cierre jurídico requiere índice/antecedentes registrales y dominio vigente cuando corresponda.",
   })
 
-  const best = evidence
+  const sorted = evidence
     .filter((item) => item.ownerName && looksLikeRealOwner(item.ownerName))
-    .sort((a, b) => b.confidence - a.confidence)[0] ?? null
+    .sort((a, b) => b.confidence - a.confidence)
+  const ownerEvidence = sorted.find((item) => item.relation === "legal_owner") ?? null
+  const producerEvidence = sorted.find((item) => item.relation === "producer_operator")
+  const historicalEvidence = sorted.find((item) => item.relation === "historical_owner")
+
+  const status: OwnerResearchResult["status"] = ownerEvidence
+    ? "owner_candidate_found"
+    : producerEvidence
+      ? "producer_candidate_found"
+      : historicalEvidence
+        ? "historical_owner_found"
+        : "owner_pending"
 
   return {
     rol,
     commune: commune || null,
-    owner: best,
-    evidence: evidence.sort((a, b) => b.confidence - a.confidence),
+    owner: ownerEvidence,
+    producer: partyFromEvidence(producerEvidence),
+    historicalOwner: partyFromEvidence(historicalEvidence),
+    evidence: sorted,
     attempts,
-    status: best ? "owner_candidate_found" : "owner_pending",
-    nextAction: best
-      ? best.source === "sii_tax_roll"
-        ? "Usar el nombre SII como pista fuerte y validar dominio vigente en el Conservador antes de contacto."
-        : "Revalidar la evidencia de propietario y resolver un contacto verificable antes de acercamiento."
-      : "SII/CIREN/CBR siguen siendo las fuentes de cierre. Si SII no resuelve automáticamente, verificar el ROL en SII y luego dominio vigente en CBR; cargar Directorio Frutícola CIREN cuando esté disponible.",
+    status,
+    nextAction: ownerEvidence
+      ? ownerEvidence.source === "sii_tax_roll"
+        ? "Usar el nombre SII como pista fuerte y validar dominio vigente en el Conservador de Bienes Raíces antes de contacto."
+        : "Revalidar la evidencia y obtener dominio vigente si se necesita certeza jurídica antes del acercamiento."
+      : producerEvidence
+        ? "Usar el productor/operador como pista comercial, pero no presentarlo como dueño; continuar a CBR/CIREN para resolver dominio."
+        : historicalEvidence
+          ? "Usar el propietario histórico para rastrear la cadena de títulos; no asumir que sigue siendo el dueño actual."
+          : "Mantener el ROL en investigación: CIREN Directorio Frutícola y dominio vigente CBR son las fuentes de cierre si SII/web no resuelven.",
   }
 }
