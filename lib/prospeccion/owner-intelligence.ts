@@ -168,7 +168,17 @@ async function lookupSiiTaxRoll(rol: string, commune: string): Promise<{ evidenc
     page.setDefaultTimeout(10_000)
     await page.goto("https://zeus.sii.cl/avalu_cgi/br/br_rol.sh", { waitUntil: "domcontentloaded", timeout: 15_000 })
 
-    const formResult = await page.evaluate(({ communeCode, communeName, manzanaValue, predioValue }) => {
+    const formResult = await page.evaluate(({
+      communeCode,
+      communeName,
+      manzanaValue,
+      predioValue,
+    }: {
+      communeCode: string
+      communeName: string
+      manzanaValue: string
+      predioValue: string
+    }) => {
       const norm = (value: unknown) => String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()
       const selects = Array.from(document.querySelectorAll("select")) as HTMLSelectElement[]
       let communeSelect: HTMLSelectElement | null = null
