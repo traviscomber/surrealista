@@ -3,6 +3,14 @@ import type { ProspectingCase, ProspectingSourceRef } from "@/lib/prospeccion/in
 
 type SupabaseLike = any
 
+type ExistingCaseRow = {
+  id: string
+  external_case_id: string
+  status: ProspectingCase["status"]
+  source_fingerprint: string
+  active: boolean
+}
+
 type PersistResult = {
   persisted: number
   detected: number
@@ -49,7 +57,10 @@ export async function persistProspectingDecisionCases({
 
   if (existingError) throw existingError
 
-  const existingByExternalId = new Map((existing ?? []).map((row: any) => [String(row.external_case_id), row]))
+  const existingRows = (existing ?? []) as ExistingCaseRow[]
+  const existingByExternalId = new Map<string, ExistingCaseRow>(
+    existingRows.map((row) => [String(row.external_case_id), row]),
+  )
   const seen = new Set<string>()
   let detected = 0
   let revalidated = 0
@@ -123,9 +134,9 @@ export async function persistProspectingDecisionCases({
     if (eventError) throw eventError
   }
 
-  const staleIds = (existing ?? [])
-    .filter((row: any) => row.active !== false && !seen.has(String(row.external_case_id)))
-    .map((row: any) => String(row.id))
+  const staleIds = existingRows
+    .filter((row) => row.active !== false && !seen.has(String(row.external_case_id)))
+    .map((row) => String(row.id))
 
   if (staleIds.length) {
     const { error: inactiveError } = await supabase
