@@ -24,6 +24,9 @@ function officialSignalSummary(evidence: PublicAgriEvidence, infrastructure: Ter
     if (species && evidence.ciren.speciesMatchedCount > 0) {
       parts.push(`${evidence.ciren.speciesMatchedCount} con ${species} declarado en el catastro`)
     }
+    if (evidence.ciren.offMarketProspects.length > 0) {
+      parts.push(`${evidence.ciren.offMarketProspects.length} ROL concretos listos para investigación fuera de portal`)
+    }
   }
   if (evidence.odepa.status === "available" && evidence.odepa.recordCount > 0) {
     parts.push(`${evidence.odepa.totalSurfaceHa.toLocaleString("es-CL")} ha frutícolas registradas por ODEPA/CIREN`)
@@ -32,7 +35,7 @@ function officialSignalSummary(evidence: PublicAgriEvidence, infrastructure: Ter
     }
   }
   if (infrastructure.irrigation.status === "available") {
-    parts.push(`${infrastructure.irrigation.canalFeatures.toLocaleString("es-CL")} elementos de canal y ${infrastructure.irrigation.intakeFeatures.toLocaleString("es-CL")} bocatomas en la cobertura regional CIREN/CNR`)
+    parts.push(`${infrastructure.irrigation.canalFeatures.toLocaleString("es-CL")} elementos de canal y ${infrastructure.irrigation.intakeFeatures.toLocaleString("es-CL")} bocatomas en cobertura regional`)
   }
   if (infrastructure.soils.status === "available" && infrastructure.soils.featureCount > 0) {
     parts.push(`cobertura oficial de suelos agrológicos disponible (${infrastructure.soils.featureCount.toLocaleString("es-CL")} entidades)`)
@@ -64,14 +67,26 @@ function deterministicOutcome({
   const area = [minHa != null ? `${minHa} ha mín.` : null, maxHa != null ? `${maxHa} ha máx.` : null].filter(Boolean).join(" · ")
   const target = [commune || region, area].filter(Boolean).join(" · ") || "los criterios definidos"
   const officialSignal = officialSignalSummary(publicEvidence, infrastructure, species)
+  const offMarket = publicEvidence.ciren.offMarketProspects
   const hasOfficialSignal = Boolean(officialSignal)
 
   if (!candidates.length) {
+    if (offMarket.length > 0) {
+      const top = offMarket[0]
+      return {
+        status: "official_off_market_signal",
+        summary: `No hay avisos publicados que calcen con ${target}, pero Sur Realista encontró ${offMarket.length} prospecto${offMarket.length === 1 ? "" : "s"} fuera de portal con ROL identificable. El primero es ROL ${top.rol} en ${top.commune || commune || region}${top.declaredSpecies.length ? `, con ${top.declaredSpecies.join(", ")} declarado en el catastro` : ""}.`,
+        recommendation: `Investigar propietario del ROL ${top.rol}, validar la evidencia y, sólo después, decidir contacto o descarte.`,
+        generatedBy: "evidence",
+        speciesVerified: false,
+      }
+    }
+
     if (hasOfficialSignal) {
       return {
         status: "official_off_market_signal",
-        summary: `No hay avisos calificados para ${target}, pero sí existe evidencia territorial oficial en la zona: ${officialSignal}. ${species ? `Esto respalda investigar ${species} como hipótesis territorial, pero no confirma que un predio específico corresponda a esa especie.` : "Esto abre una ruta de prospección fuera de portales publicados."}`,
-        recommendation: "Cruza primero polígonos/ROL oficiales con inventario KMZ y luego resuelve por candidato la intersección con riego, suelos y propietario antes de priorizar contacto.",
+        summary: `No hay avisos calificados para ${target}, pero sí existe evidencia territorial oficial en la zona: ${officialSignal}.`,
+        recommendation: "Mantener la búsqueda activa y convertir los próximos ROL oficiales compatibles en prospectos verificables antes de contacto.",
         generatedBy: "evidence",
         speciesVerified: false,
       }
@@ -89,13 +104,15 @@ function deterministicOutcome({
   const top = candidates[0]
   const location = [top.commune, top.region].filter(Boolean).join(", ") || "ubicación disponible"
   const speciesCaveat = species ? ` La especie ${species} sigue siendo un objetivo declarado, no una detección satelital verificada.` : ""
-  const officialContext = hasOfficialSignal ? ` Contexto oficial adicional: ${officialSignal}.` : ""
+  const offMarketContext = offMarket.length ? ` Además hay ${offMarket.length} ROL fuera de portal para investigar.` : ""
 
   if (scopeFallback === "region") {
     return {
       status: "regional_expansion",
-      summary: `No hay coincidencias calificadas hoy en ${commune}, pero encontramos ${candidates.length} candidato${candidates.length === 1 ? "" : "s"} en ${region}. El mejor está en ${location}, con ${top.area_ha} ha y ajuste ${top.prospecting_fit_score}/100.${officialContext}${speciesCaveat}`,
-      recommendation: "Revisa la evidencia del mejor candidato y mantén el mandato activo; en paralelo, usa la capa oficial para abrir prospectos fuera del mercado publicado.",
+      summary: `No hay coincidencias publicadas hoy en ${commune}, pero encontramos ${candidates.length} candidato${candidates.length === 1 ? "" : "s"} en ${region}. El mejor está en ${location}, con ${top.area_ha} ha y ajuste ${top.prospecting_fit_score}/100.${offMarketContext}${speciesCaveat}`,
+      recommendation: offMarket.length
+        ? `Comparar el mejor aviso con los ${offMarket.length} prospectos fuera de portal y priorizar investigación de propietario de los ROL con mejor evidencia.`
+        : "Revisar la evidencia del mejor candidato y mantener el mandato activo para nuevas entradas.",
       generatedBy: "evidence",
       speciesVerified: false,
     }
@@ -103,8 +120,10 @@ function deterministicOutcome({
 
   return {
     status: "qualified_candidates",
-    summary: `Encontramos ${candidates.length} candidato${candidates.length === 1 ? "" : "s"} para ${target}. El mejor está en ${location}, con ${top.area_ha} ha, ajuste ${top.prospecting_fit_score}/100 y señal de mercado ${top.opportunity_score}/100.${officialContext}${speciesCaveat}`,
-    recommendation: "Parte por el candidato con mayor ajuste, contrasta su evidencia con CIREN/ODEPA y luego resuelve riego/suelo por cruce espacial antes de investigar propietario.",
+    summary: `Encontramos ${candidates.length} candidato${candidates.length === 1 ? "" : "s"} publicados para ${target}. El mejor está en ${location}, con ${top.area_ha} ha, ajuste ${top.prospecting_fit_score}/100 y señal de mercado ${top.opportunity_score}/100.${offMarketContext}${speciesCaveat}`,
+    recommendation: offMarket.length
+      ? "No quedarse sólo con el portal: comparar publicados versus ROL fuera de mercado, investigar propietarios y descartar los que no calcen."
+      : "Partir por el candidato con mayor ajuste, validar evidencia y luego investigar propietario si corresponde.",
     generatedBy: "evidence",
     speciesVerified: false,
   }
@@ -137,22 +156,18 @@ async function synthesizeOutcomeWithAI(
       model: "gpt-4o-mini",
       temperature: 0.1,
       maxTokens: 240,
-      system: "Eres el analista de prospección territorial de Sur Realista. Redacta un outcome ejecutivo en español de Chile, máximo 4 frases. Usa sólo la evidencia entregada. CIREN, ODEPA, riego CNR/CIREN y suelos son contexto territorial oficial: no los presentes como prueba de que un aviso inmobiliario sea el mismo predio ni como prueba de proximidad a un candidato. No inventes propietarios, especies detectadas, coordenadas, disponibilidad, derechos de agua ni atributos del predio. Si hay una especie objetivo, distingue entre especie declarada en catastro y detección satelital: la segunda todavía no está verificada. Termina con una acción concreta para el operador.",
+      system: "Eres el analista de prospección territorial de Sur Realista. El objetivo es entregar más opciones concretas sobre la mesa, no un reporte abstracto. Redacta máximo 4 frases usando sólo la evidencia entregada. Prioriza cuántos avisos publicados existen y cuántos ROL fuera de portal están listos para investigar. CIREN y ODEPA son evidencia territorial oficial, no prueba de disponibilidad ni de identidad con un aviso. No inventes propietarios, contacto, derechos de agua, superficie predial ni detección satelital. Si hay especie objetivo, diferencia especie declarada en catastro de especie detectada por satélite. Termina con la siguiente acción operativa.",
       prompt: JSON.stringify({
         criteria,
         deterministic_outcome: base,
-        top_candidates: evidence,
+        top_market_candidates: evidence,
+        off_market_prospects: publicEvidence.ciren.offMarketProspects.slice(0, 10),
         official_agri_evidence: publicEvidence,
         official_territorial_infrastructure: infrastructure,
       }),
     })
 
-    return {
-      ...base,
-      summary: text.trim(),
-      recommendation: base.recommendation,
-      generatedBy: "ai",
-    }
+    return { ...base, summary: text.trim(), recommendation: base.recommendation, generatedBy: "ai" }
   } catch (error) {
     console.warn("[Prospeccion] AI outcome fallback", error instanceof Error ? error.message : "unknown error")
     return base
@@ -192,7 +207,9 @@ export async function GET(request: Request) {
     criteria,
     candidates,
     count: candidates.length,
-    methodology: "market-plus-official-territorial-prospecting-v1.4",
+    offMarketProspects: publicEvidence.ciren.offMarketProspects,
+    offMarketCount: publicEvidence.ciren.offMarketProspects.length,
+    methodology: "market-plus-off-market-prospecting-v1.5",
     scopeFallback,
     outcome,
     publicEvidence,
@@ -203,9 +220,10 @@ export async function GET(request: Request) {
       irrigationInfrastructure: "CIREN+CNR-regional",
       soils: "CIREN-regional",
       kmz: "available-in-detail-flow",
+      ownerResearch: "on-demand-by-ROL",
       speciesClassification: "pending-satellite-pipeline",
       waterRights: "pending-DGA-connector",
-      autonomousDiscovery: "official-polygons-active-satellite-pending",
+      autonomousDiscovery: "official-ROL-shortlist-active-satellite-pending",
     },
     note: `${outcome.summary} ${outcome.recommendation}`,
   })
