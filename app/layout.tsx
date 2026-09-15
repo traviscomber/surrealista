@@ -3,7 +3,7 @@ import type { Metadata } from "next"
 import { Inter, Lora } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
-import { PasswordGate } from "@/components/auth/password-gate"
+import { PasswordGateRouteBoundary } from "@/components/auth/password-gate-route-boundary"
 import { VisitReminders } from "@/components/visits/visit-reminders"
 import { Toaster } from "sonner"
 import { SentryInit } from "@/components/sentry-init"
@@ -32,7 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className={`${inter.variable} ${lora.variable} font-sans bg-background text-foreground`}>
         <SentryInit />
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange storageKey="sur-realista-theme">
-          <PasswordGate>{children}</PasswordGate>
+          <PasswordGateRouteBoundary>{children}</PasswordGateRouteBoundary>
         </ThemeProvider>
         <Toaster />
         <VisitReminders />
