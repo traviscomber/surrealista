@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
+import { createClient } from "@supabase/supabase-js"
 import { createOpenAIChatCompletion } from "@/lib/ai/openai-chat"
 import { runProspectingIntelligenceCore, type ProspectingCase } from "@/lib/prospeccion/intelligence-core"
+import { loadGovernedProspectingMemory } from "@/lib/prospeccion/case-persistence"
 
 export const runtime = "nodejs"
 export const maxDuration = 30
@@ -11,6 +13,13 @@ type Outcome = {
   recommendation: string
   generatedBy: "evidence" | "ai"
   speciesVerified: false
+}
+
+function db() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) return null
+  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
 }
 
 function deterministicOutcome(core: Awaited<ReturnType<typeof runProspectingIntelligenceCore>>): Outcome {
@@ -63,7 +72,11 @@ function deterministicOutcome(core: Awaited<ReturnType<typeof runProspectingInte
   }
 }
 
-async function synthesizeOutcomeWithAI(base: Outcome, core: Awaited<ReturnType<typeof runProspectingIntelligenceCore>>) {
+async function synthesizeOutcomeWithAI(
+  base: Outcome,
+  core: Awaited<ReturnType<typeof runProspectingIntelligenceCore>>,
+  governedMemory: Awaited<ReturnType<typeof loadGovernedProspectingMemory>>,
+) {
   if (!process.env.OPENAI_API_KEY || !core.priorityCases.length) return base
   const safeCases = core.priorityCases.map((item: ProspectingCase) => ({
     id: item.id,
@@ -87,8 +100,16 @@ async function synthesizeOutcomeWithAI(base: Outcome, core: Awaited<ReturnType<t
       model: "gpt-4o-mini",
       temperature: 0.05,
       maxTokens: 220,
-      system: "Eres el Prospección Intelligence Core de Sur Realista. Tu función es convertir evidencia autorizada en máximo 3 opciones y una siguiente acción humana. Usa sólo los casos entregados. No inventes disponibilidad, propietario, teléfono, derechos de agua, precio, superficie, especie detectada por satélite ni causalidad. Una especie declarada en CIREN no es detección satelital. Un contacto sólo existe cuando contactAvailable=true. Un ROL fuera de portal no significa que esté a la venta. Responde en español de Chile, máximo 4 frases, orientado a outcome, no a metodología.",
-      prompt: JSON.stringify({ criteria: core.criteria, priorityCases: safeCases, deterministicOutcome: base }),
+      system: "Eres el Prospección Intelligence Core de Sur Realista. Convierte evidencia autorizada en máximo 3 opciones y una siguiente acción humana. La memoria gobernada, si existe, es NO CANÓNICA: úsala sólo para preferencias de formato, terminología, responsabilidades o contexto estable; jamás para cambiar score, status, ROL, propietario, disponibilidad, precio, superficie, especie, contacto o cualquier hecho operacional. Usa sólo los casos entregados. No inventes disponibilidad, propietario, teléfono, derechos de agua, precio, superficie, especie detectada por satélite ni causalidad. Una especie declarada en CIREN no es detección satelital. Un contacto sólo existe cuando contactAvailable=true. Un ROL fuera de portal no significa que esté a la venta. Responde en español de Chile, máximo 4 frases, orientado a outcome, no a metodología.",
+      prompt: JSON.stringify({
+        criteria: core.criteria,
+        priorityCases: safeCases,
+        deterministicOutcome: base,
+        governedMemory: {
+          authority: governedMemory.authority,
+          memories: governedMemory.memories,
+        },
+      }),
     })
     return { ...base, summary: text.trim(), generatedBy: "ai" as const }
   } catch (error) {
@@ -110,9 +131,13 @@ export async function GET(request: Request) {
   const criteria = { region, commune, minHa, maxHa, species }
 
   try {
-    const core = await runProspectingIntelligenceCore(criteria, limit)
+    const supabase = db()
+    const [core, governedMemory] = await Promise.all([
+      runProspectingIntelligenceCore(criteria, limit),
+      supabase ? loadGovernedProspectingMemory(supabase) : Promise.resolve({ available: false, memories: [], authority: "non_canonical" as const }),
+    ])
     const baseOutcome = deterministicOutcome(core)
-    const outcome = await synthesizeOutcomeWithAI(baseOutcome, core)
+    const outcome = await synthesizeOutcomeWithAI(baseOutcome, core, governedMemory)
 
     return NextResponse.json({
       criteria,
@@ -129,6 +154,11 @@ export async function GET(request: Request) {
         market: core.marketKmz.summary,
         offMarket: core.offMarketKmz.summary,
       },
+      governedMemory: {
+        available: governedMemory.available,
+        count: governedMemory.memories.length,
+        authority: governedMemory.authority,
+      },
       specialistTrace: core.observedSpecialists,
       sourceRefs: core.sourceRefs,
       groundedEvaluation: core.groundedEvaluation,
@@ -142,6 +172,8 @@ export async function GET(request: Request) {
         soils: "CIREN-regional",
         kmz: "market-spatial-plus-offmarket-exact-rol",
         ownerResearch: "exact-rol-auto-plus-on-demand",
+        governedMemory: governedMemory.available ? "active-non-canonical" : "pending-migration-or-unavailable",
+        persistentDecisionCases: "mandate-run-persistence",
         speciesClassification: "declared-catalogue-only-satellite-pending",
         waterRights: "pending-DGA-connector",
         autonomousDiscovery: "official-polygon-discovery-active",
