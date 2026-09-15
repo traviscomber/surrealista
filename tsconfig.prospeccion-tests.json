@@ -15,7 +15,9 @@
     "lib/chile-locations.ts",
     "lib/prospeccion/normalization.ts",
     "lib/prospeccion/owner-web-intelligence.ts",
+    "lib/prospeccion/lead-state.ts",
     "tests/prospeccion-normalization.test.ts",
-    "tests/prospeccion-owner-web.test.ts"
+    "tests/prospeccion-owner-web.test.ts",
+    "tests/prospeccion-lead-state.test.ts"
   ]
 }
