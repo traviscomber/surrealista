@@ -34,6 +34,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Prospección normalization regression tests
+        run: |
+          rm -rf .tmp-prospeccion-tests
+          pnpm exec tsc -p tsconfig.prospeccion-tests.json
+          node --test .tmp-prospeccion-tests/tests/prospeccion-normalization.test.js
+          rm -rf .tmp-prospeccion-tests
+
       - name: Production build
         run: pnpm build
 

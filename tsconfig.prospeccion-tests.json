@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "rootDir": ".",
+    "outDir": ".tmp-prospeccion-tests",
+    "types": ["node"],
+    "noEmitOnError": true
+  },
+  "include": [
+    "lib/chile-locations.ts",
+    "lib/prospeccion/normalization.ts",
+    "tests/prospeccion-normalization.test.ts"
+  ]
+}
