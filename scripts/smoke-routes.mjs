@@ -8,7 +8,7 @@ const signingSecret = process.env.SMOKE_SIGNING_SECRET
 const smokePassword = process.env.SMOKE_PASSWORD
 const operationalRoutes = [
   { route: "/campos", expectedText: /CAMPOS|Colección de campos/i },
-  { route: "/prospeccion", expectedText: /Prospección inteligente|Buscar predios antes de que lleguen al mercado/i },
+  { route: "/prospeccion", expectedText: /Prospección inteligente|Poner más campos sobre la mesa/i },
   { route: "/prospeccion/demanda-mercado", expectedText: /Demanda detectada en mercado|Inteligencia competitiva/i },
   { route: "/kmz-analisis", expectedText: /KMZ|Inteligencia territorial/i },
   { route: "/mercado", expectedText: /Mercado y comparables/i },
@@ -39,9 +39,9 @@ function createSmokeToken(secret) {
   const issuedAt = Math.floor(Date.now() / 1000)
   const expiresAt = issuedAt + 12 * 60 * 60
   const nonce = randomBytes(16).toString("hex")
-  const payload = `v5:juan-navarro:${issuedAt}:${expiresAt}:${nonce}`
+  const payload = `v6:juan-navarro:${issuedAt}:${expiresAt}:${nonce}`
   const signature = createHmac("sha256", secret).update(payload).digest("hex")
-  return `v5.${issuedAt}.${expiresAt}.${nonce}.${signature}`
+  return `v6.${issuedAt}.${expiresAt}.${nonce}.${signature}`
 }
 
 async function inspectRoute(page, route, expectedPath, expectedText) {
