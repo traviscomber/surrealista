@@ -1,4 +1,4 @@
-import { CHILEAN_REGIONS } from "@/lib/chile-locations"
+import { CHILEAN_REGIONS } from "../chile-locations"
 
 export function normalizeSearchText(value: unknown) {
   return String(value ?? "")
@@ -8,6 +8,10 @@ export function normalizeSearchText(value: unknown) {
     .replace(/[^a-z0-9]+/g, " ")
     .trim()
     .replace(/\s+/g, " ")
+}
+
+function compactKey(value: unknown) {
+  return normalizeSearchText(value).replace(/\s+/g, "")
 }
 
 function normalizeRegionKey(value: unknown) {
@@ -20,13 +24,19 @@ function normalizeRegionKey(value: unknown) {
     .trim()
 }
 
+function regionMatches(candidate: unknown, wanted: unknown) {
+  const candidateKey = normalizeRegionKey(candidate)
+  const wantedKey = normalizeRegionKey(wanted)
+  if (!candidateKey || !wantedKey) return false
+  return candidateKey === wantedKey || compactKey(candidateKey) === compactKey(wantedKey)
+}
+
 export function canonicalRegionName(value: unknown) {
   const raw = String(value ?? "").trim()
   if (!raw) return ""
-  const key = normalizeRegionKey(raw)
   const region = CHILEAN_REGIONS.find((item) => {
     const candidates = [item.name, item.shortName, item.code]
-    return candidates.some((candidate) => normalizeRegionKey(candidate) === key)
+    return candidates.some((candidate) => regionMatches(candidate, raw))
   })
   return region?.shortName || raw
 }
@@ -35,9 +45,8 @@ export function canonicalCommuneName(value: unknown, regionValue?: unknown) {
   const raw = String(value ?? "").trim()
   if (!raw) return ""
   const key = normalizeSearchText(raw)
-  const regionKey = normalizeRegionKey(regionValue)
-  const regions = regionKey
-    ? CHILEAN_REGIONS.filter((item) => [item.name, item.shortName, item.code].some((candidate) => normalizeRegionKey(candidate) === regionKey))
+  const regions = regionValue
+    ? CHILEAN_REGIONS.filter((item) => [item.name, item.shortName, item.code].some((candidate) => regionMatches(candidate, regionValue)))
     : CHILEAN_REGIONS
 
   for (const region of regions) {
