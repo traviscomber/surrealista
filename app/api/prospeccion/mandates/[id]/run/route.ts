@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { runProspectingIntelligenceCore } from "@/lib/prospeccion/intelligence-core"
 import { persistProspectingDecisionCases } from "@/lib/prospeccion/case-persistence"
+import { normalizeProspectingCriteria } from "@/lib/prospeccion/normalization"
 
 export const runtime = "nodejs"
 export const maxDuration = 30
@@ -27,13 +28,13 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
   if (mandateError || !mandate) return NextResponse.json({ error: "Mandato no encontrado." }, { status: 404 })
   if (mandate.status !== "active") return NextResponse.json({ error: "El mandato no está activo." }, { status: 409 })
 
-  const criteria = {
+  const criteria = normalizeProspectingCriteria({
     region: mandate.region,
     commune: mandate.commune,
     species: mandate.species,
     minHa: mandate.min_ha == null ? null : Number(mandate.min_ha),
     maxHa: mandate.max_ha == null ? null : Number(mandate.max_ha),
-  }
+  })
   const core = await runProspectingIntelligenceCore(criteria, 100)
 
   const previousIds = new Set<string>((mandate.last_candidate_ids || []).map(String))
@@ -77,6 +78,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
       last_new_candidate_count: newCount,
       last_run_at: now,
     },
+    criteria,
     candidates: core.marketCandidates,
     count: core.marketCount,
     cases: core.cases,
