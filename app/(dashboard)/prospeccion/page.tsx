@@ -32,11 +32,30 @@ type ProspectingResponse = {
   candidates: Candidate[]
   count: number
   note: string
+  outcome?: {
+    status: "qualified_candidates" | "regional_expansion" | "official_off_market_signal" | "no_match"
+    summary: string
+    recommendation: string
+    generatedBy: "evidence" | "ai"
+    speciesVerified: false
+  }
+  publicEvidence?: {
+    ciren: { status: string; polygonCount: number; speciesMatchedCount: number; sampleRoles: string[] }
+    odepa: { status: string; totalSurfaceHa: number; speciesMatchedSurfaceHa: number }
+  }
+  infrastructure?: {
+    irrigation: { status: string; surveyYear: number | null; irrigatedAreaFeatures: number; intakeFeatures: number; canalFeatures: number }
+    soils: { status: string; surveyYear: number | null; featureCount: number }
+  }
   coverage: {
     market: string
     kmz: string
     speciesClassification: string
     autonomousDiscovery: string
+    officialAgriSources?: string
+    irrigationInfrastructure?: string
+    soils?: string
+    waterRights?: string
   }
 }
 
@@ -190,15 +209,7 @@ export default function ProspeccionPage() {
       const response = await fetch("/api/prospeccion/mandates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: mandateName,
-          clientId: selectedClientId || null,
-          region,
-          commune,
-          species,
-          minHa,
-          maxHa,
-        }),
+        body: JSON.stringify({ name: mandateName, clientId: selectedClientId || null, region, commune, species, minHa, maxHa }),
       })
       const body = await response.json()
       if (!response.ok) throw new Error(body.error || "No se pudo guardar el mandato.")
@@ -229,17 +240,8 @@ export default function ProspeccionPage() {
       setData({
         candidates: body.candidates ?? [],
         count: body.count ?? 0,
-        note: body.firstRun
-          ? "Primera ejecución registrada. Los siguientes cambios podrán identificar candidatos nuevos."
-          : body.newCount > 0
-            ? `${body.newCount} candidato${body.newCount === 1 ? " nuevo" : "s nuevos"} desde la ejecución anterior.`
-            : "Sin candidatos nuevos desde la ejecución anterior.",
-        coverage: {
-          market: "active",
-          kmz: "available-in-detail-flow",
-          speciesClassification: "pending-satellite-pipeline",
-          autonomousDiscovery: "not-yet-active",
-        },
+        note: body.firstRun ? "Primera ejecución registrada. Los siguientes cambios podrán identificar candidatos nuevos." : body.newCount > 0 ? `${body.newCount} candidato${body.newCount === 1 ? " nuevo" : "s nuevos"} desde la ejecución anterior.` : "Sin candidatos nuevos desde la ejecución anterior.",
+        coverage: { market: "active", kmz: "available-in-detail-flow", speciesClassification: "pending-satellite-pipeline", autonomousDiscovery: "not-yet-active" },
       })
       await loadMandates()
     } catch (cause) {
@@ -257,11 +259,7 @@ export default function ProspeccionPage() {
       const response = await fetch("/api/prospeccion/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clientId: selectedClientId,
-          mandateId: activeMandateId,
-          candidateId: candidate.id,
-        }),
+        body: JSON.stringify({ clientId: selectedClientId, mandateId: activeMandateId, candidateId: candidate.id }),
       })
       const body = await response.json()
       if (!response.ok) throw new Error(body.error || "No se pudo crear la tarea comercial.")
@@ -275,196 +273,55 @@ export default function ProspeccionPage() {
 
   return (
     <main className="mx-auto w-full max-w-[1800px] space-y-6">
-      <WorkspaceHeading
-        eyebrow="Prospección inteligente"
-        title="Buscar predios antes de que lleguen al mercado"
-        description="Define un mandato de búsqueda y prioriza candidatos usando ubicación, superficie y señal de mercado real. La clasificación satelital por especie se incorpora como siguiente capa, sin inventar resultados mientras no exista evidencia."
-        outcome="Convertir un requerimiento comercial en una lista corta, explicable y trazable de predios para investigar."
-      />
-
-      <Card className="p-5">
-        <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
-          <div>
-            <label className="mb-2 block text-xs font-medium text-muted-foreground">Cliente comprador / inversionista</label>
-            <select
-              value={selectedClientId}
-              onChange={(event) => applyClient(event.target.value)}
-              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-            >
-              <option value="">Sin cliente vinculado</option>
-              {clients.map((client) => (
-                <option key={client.id} value={client.id}>{client.name}{client.mainInterest ? ` · ${client.mainInterest}` : ""}</option>
-              ))}
-            </select>
-          </div>
-          <div className="text-sm text-muted-foreground">
-            {selectedClient ? (
-              <span className="flex items-center gap-2"><UserRound className="h-4 w-4" aria-hidden="true" />{selectedClient.name} · {selectedClient.clientType}</span>
-            ) : "Opcional. Vincular un cliente habilita seguimiento comercial por candidato."}
-          </div>
-        </div>
-      </Card>
+      <WorkspaceHeading eyebrow="Prospección inteligente" title="Buscar predios antes de que lleguen al mercado" description="Define qué terreno buscas. Sur Realista cruza mercado publicado con evidencia agrícola y territorial oficial para producir una recomendación accionable, aun sin cliente vinculado." outcome="Entregar un outcome concreto: qué encontramos, qué evidencia lo respalda y cuál es la siguiente acción." />
 
       <form onSubmit={runSearch} className="grid gap-4 border-y border-border bg-card px-4 py-5 md:grid-cols-2 xl:grid-cols-5 sm:px-6">
-        <div>
-          <label className="mb-2 block text-xs font-medium text-muted-foreground">Región</label>
-          <Input value={region} onChange={(e) => setRegion(e.target.value)} placeholder="Ej. Maule" />
-        </div>
-        <div>
-          <label className="mb-2 block text-xs font-medium text-muted-foreground">Comuna / sector</label>
-          <Input value={commune} onChange={(e) => setCommune(e.target.value)} placeholder="Ej. Curicó" />
-        </div>
-        <div>
-          <label className="mb-2 block text-xs font-medium text-muted-foreground">Especie objetivo</label>
-          <Input value={species} onChange={(e) => setSpecies(e.target.value)} placeholder="Ej. cerezos" />
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className="mb-2 block text-xs font-medium text-muted-foreground">Mín. ha</label>
-            <Input inputMode="decimal" value={minHa} onChange={(e) => setMinHa(e.target.value)} placeholder="15" />
-          </div>
-          <div>
-            <label className="mb-2 block text-xs font-medium text-muted-foreground">Máx. ha</label>
-            <Input inputMode="decimal" value={maxHa} onChange={(e) => setMaxHa(e.target.value)} placeholder="80" />
-          </div>
-        </div>
-        <div className="flex items-end gap-2">
-          <Button type="submit" className="flex-1" disabled={loading}>
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Radar className="h-4 w-4" aria-hidden="true" />}
-            Buscar candidatos
-          </Button>
-          {data ? (
-            <Button type="button" variant="outline" size="icon" onClick={() => void runSearch()} disabled={loading} aria-label="Actualizar">
-              <RefreshCw className="h-4 w-4" aria-hidden="true" />
-            </Button>
-          ) : null}
-        </div>
+        <div><label className="mb-2 block text-xs font-medium text-muted-foreground">Región</label><Input value={region} onChange={(e) => setRegion(e.target.value)} placeholder="Ej. Maule" /></div>
+        <div><label className="mb-2 block text-xs font-medium text-muted-foreground">Comuna / sector</label><Input value={commune} onChange={(e) => setCommune(e.target.value)} placeholder="Ej. Curicó" /></div>
+        <div><label className="mb-2 block text-xs font-medium text-muted-foreground">Especie objetivo</label><Input value={species} onChange={(e) => setSpecies(e.target.value)} placeholder="Ej. cerezos" /></div>
+        <div className="grid grid-cols-2 gap-2"><div><label className="mb-2 block text-xs font-medium text-muted-foreground">Mín. ha</label><Input inputMode="decimal" value={minHa} onChange={(e) => setMinHa(e.target.value)} placeholder="15" /></div><div><label className="mb-2 block text-xs font-medium text-muted-foreground">Máx. ha</label><Input inputMode="decimal" value={maxHa} onChange={(e) => setMaxHa(e.target.value)} placeholder="80" /></div></div>
+        <div className="flex items-end gap-2"><Button type="submit" className="flex-1" disabled={loading}>{loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Radar className="h-4 w-4" aria-hidden="true" />}Prospectar</Button>{data ? <Button type="button" variant="outline" size="icon" onClick={() => void runSearch()} disabled={loading} aria-label="Actualizar"><RefreshCw className="h-4 w-4" aria-hidden="true" /></Button> : null}</div>
       </form>
 
+      {data?.outcome ? (
+        <Card className="p-6">
+          <div className="flex flex-wrap items-center gap-2"><Badge>{data.outcome.status.replaceAll("_", " ")}</Badge><Badge variant="outline">{data.outcome.generatedBy === "ai" ? "Síntesis IA" : "Evidencia"}</Badge></div>
+          <h2 className="mt-4 text-xl font-medium">Outcome</h2>
+          <p className="mt-2 max-w-5xl text-sm leading-6">{data.outcome.summary}</p>
+          <p className="mt-3 text-sm"><span className="text-muted-foreground">Siguiente acción:</span> {data.outcome.recommendation}</p>
+          <div className="mt-5 grid gap-3 md:grid-cols-4">
+            <div><p className="text-xs text-muted-foreground">Mercado</p><p className="mt-1 text-sm font-medium">{data.count} candidatos</p></div>
+            <div><p className="text-xs text-muted-foreground">CIREN</p><p className="mt-1 text-sm font-medium">{data.publicEvidence?.ciren.status === "available" ? `${data.publicEvidence.ciren.polygonCount} polígonos` : "Sin señal"}</p></div>
+            <div><p className="text-xs text-muted-foreground">Riego</p><p className="mt-1 text-sm font-medium">{data.infrastructure?.irrigation.status === "available" ? `${data.infrastructure.irrigation.canalFeatures} canales · ${data.infrastructure.irrigation.intakeFeatures} bocatomas` : "Pendiente"}</p></div>
+            <div><p className="text-xs text-muted-foreground">Suelos</p><p className="mt-1 text-sm font-medium">{data.infrastructure?.soils.status === "available" ? "Cobertura disponible" : "Pendiente"}</p></div>
+          </div>
+        </Card>
+      ) : null}
+
       <section className="grid gap-4 md:grid-cols-4">
-        <Card className="p-4"><p className="text-xs text-muted-foreground">Mandato</p><p className="mt-1 text-sm font-medium">{criteriaSummary}</p></Card>
-        <Card className="p-4"><p className="text-xs text-muted-foreground">Cliente</p><p className="mt-1 text-sm font-medium">{selectedClient?.name || "No vinculado"}</p></Card>
-        <Card className="p-4"><p className="text-xs text-muted-foreground">Especie satelital</p><p className="mt-1 text-sm font-medium">Pendiente · no participa del score</p></Card>
+        <Card className="p-4"><p className="text-xs text-muted-foreground">Búsqueda</p><p className="mt-1 text-sm font-medium">{criteriaSummary}</p></Card>
+        <Card className="p-4"><p className="text-xs text-muted-foreground">Especie satelital</p><p className="mt-1 text-sm font-medium">No verificada todavía</p></Card>
         <Card className="p-4"><p className="text-xs text-muted-foreground">Candidatos</p><p className="mt-1 text-2xl font-medium">{data?.count ?? "—"}</p></Card>
+        <Card className="p-4"><p className="text-xs text-muted-foreground">Cliente</p><p className="mt-1 text-sm font-medium">{selectedClient?.name || "Opcional"}</p></Card>
       </section>
 
       <section className="space-y-3">
         <div className="flex flex-col gap-3 border-b border-border pb-4 lg:flex-row lg:items-end lg:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Búsquedas vivas</p>
-            <h2 className="mt-1 text-xl font-medium">Mandatos guardados</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Cada ejecución conserva el conjunto anterior y marca sólo los candidatos que aparecieron después.</p>
-          </div>
-          <div className="flex w-full gap-2 lg:w-auto">
-            <Input className="lg:w-72" value={mandateName} onChange={(e) => setMandateName(e.target.value)} placeholder="Nombre del mandato" />
-            <Button type="button" variant="outline" onClick={() => void saveMandate()} disabled={saving || !mandateName.trim()}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Save className="h-4 w-4" aria-hidden="true" />}
-              Guardar
-            </Button>
-          </div>
+          <div><p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Búsquedas vivas</p><h2 className="mt-1 text-xl font-medium">Mandatos guardados</h2><p className="mt-1 text-sm text-muted-foreground">Guarda la prospección para volver a ejecutarla y detectar nuevas entradas. No requiere cliente.</p></div>
+          <div className="flex w-full gap-2 lg:w-auto"><Input className="lg:w-72" value={mandateName} onChange={(e) => setMandateName(e.target.value)} placeholder="Nombre del mandato" /><Button type="button" variant="outline" onClick={() => void saveMandate()} disabled={saving || !mandateName.trim()}>{saving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Save className="h-4 w-4" aria-hidden="true" />}Guardar</Button></div>
         </div>
-
-        {mandatesError ? (
-          <Card className="p-4 text-sm text-muted-foreground">Mandatos persistentes aún no disponibles en este entorno: {mandatesError}</Card>
-        ) : loadingMandates ? (
-          <Card className="p-5 text-sm text-muted-foreground">Cargando mandatos…</Card>
-        ) : !mandates.length ? (
-          <Card className="p-5 text-sm text-muted-foreground">Todavía no hay mandatos guardados. Define criterios arriba, nómbralo y guárdalo.</Card>
-        ) : (
-          <div className="grid gap-3 xl:grid-cols-2">
-            {mandates.map((mandate) => {
-              const linkedClient = clients.find((client) => client.id === mandate.client_id)
-              return (
-                <Card key={mandate.id} className="p-5">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-medium">{mandate.name}</h3>
-                        <Badge variant={mandate.status === "active" ? "default" : "secondary"}>{mandate.status}</Badge>
-                        {mandate.last_new_candidate_count > 0 ? <Badge variant="outline">{mandate.last_new_candidate_count} nuevos</Badge> : null}
-                      </div>
-                      <p className="mt-2 text-sm text-muted-foreground">{mandateSummary(mandate)}</p>
-                      {linkedClient ? <p className="mt-2 text-sm"><span className="text-muted-foreground">Cliente:</span> {linkedClient.name}</p> : null}
-                      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                        <span>{mandate.last_candidate_count} candidatos</span>
-                        <span className="flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" aria-hidden="true" />{mandate.last_run_at ? new Date(mandate.last_run_at).toLocaleString("es-CL") : "Nunca ejecutado"}</span>
-                      </div>
-                    </div>
-                    <Button type="button" variant="outline" onClick={() => void runMandate(mandate)} disabled={runningMandateId === mandate.id || mandate.status !== "active"}>
-                      {runningMandateId === mandate.id ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Play className="h-4 w-4" aria-hidden="true" />}
-                      Ejecutar
-                    </Button>
-                  </div>
-                </Card>
-              )
-            })}
-          </div>
-        )}
+        {mandatesError ? <Card className="p-4 text-sm text-muted-foreground">Mandatos persistentes aún no disponibles: {mandatesError}</Card> : loadingMandates ? <Card className="p-5 text-sm text-muted-foreground">Cargando mandatos…</Card> : !mandates.length ? <Card className="p-5 text-sm text-muted-foreground">Todavía no hay mandatos guardados.</Card> : <div className="grid gap-3 xl:grid-cols-2">{mandates.map((mandate) => <Card key={mandate.id} className="p-5"><div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div><div className="flex flex-wrap items-center gap-2"><h3 className="font-medium">{mandate.name}</h3><Badge variant={mandate.status === "active" ? "default" : "secondary"}>{mandate.status}</Badge>{mandate.last_new_candidate_count > 0 ? <Badge variant="outline">{mandate.last_new_candidate_count} nuevos</Badge> : null}</div><p className="mt-2 text-sm text-muted-foreground">{mandateSummary(mandate)}</p><div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground"><span>{mandate.last_candidate_count} candidatos</span><span className="flex items-center gap-1"><Clock3 className="h-3.5 w-3.5" aria-hidden="true" />{mandate.last_run_at ? new Date(mandate.last_run_at).toLocaleString("es-CL") : "Nunca ejecutado"}</span></div></div><Button type="button" variant="outline" onClick={() => void runMandate(mandate)} disabled={runningMandateId === mandate.id || mandate.status !== "active"}>{runningMandateId === mandate.id ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Play className="h-4 w-4" aria-hidden="true" />}Ejecutar</Button></div></Card>)}</div>}
       </section>
 
       {error ? <Card className="border-destructive/30 bg-destructive/5 p-5 text-sm text-destructive">{error}</Card> : null}
 
-      {!data && !loading ? (
-        <Card className="flex min-h-[260px] flex-col items-center justify-center gap-3 p-8 text-center">
-          <Sprout className="h-8 w-8 text-primary" aria-hidden="true" />
-          <h2 className="text-lg font-medium">Define el primer mandato</h2>
-          <p className="max-w-2xl text-sm leading-6 text-muted-foreground">Prospección v1 trabaja sólo con evidencia disponible hoy. No afirmará detectar cerezos, kiwis u otra especie hasta que exista el pipeline satelital correspondiente.</p>
-        </Card>
-      ) : null}
+      {!data && !loading ? <Card className="flex min-h-[220px] flex-col items-center justify-center gap-3 p-8 text-center"><Sprout className="h-8 w-8 text-primary" aria-hidden="true" /><h2 className="text-lg font-medium">Define qué predio estás buscando</h2><p className="max-w-2xl text-sm leading-6 text-muted-foreground">La búsqueda funciona sin cliente. El vínculo comercial se hace después, sólo si un resultado merece seguimiento.</p></Card> : null}
 
-      {data ? (
-        <div className="space-y-4">
-          <div className="flex flex-col gap-2 border-b border-border pb-4 md:flex-row md:items-end md:justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Resultados</p>
-              <h2 className="mt-1 text-xl font-medium">Candidatos priorizados</h2>
-              <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">{data.note}</p>
-            </div>
-            <Badge variant="outline">{data.count} candidatos</Badge>
-          </div>
+      {data?.candidates?.length ? <div className="space-y-4"><div className="flex flex-col gap-2 border-b border-border pb-4 md:flex-row md:items-end md:justify-between"><div><p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Resultados</p><h2 className="mt-1 text-xl font-medium">Candidatos priorizados</h2></div><Badge variant="outline">{data.count} candidatos</Badge></div><div className="space-y-3">{data.candidates.map((candidate) => { const taskCreated = taskCreatedCandidateIds.has(candidate.id); return <Card key={candidate.id} className="p-5"><div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between"><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><Badge>{candidate.prospecting_fit_score}/100 ajuste</Badge><Badge variant="outline">{candidate.opportunity_score}/100 mercado</Badge><span className="text-xs text-muted-foreground">confianza {candidate.confidence}%</span></div><h3 className="mt-3 text-lg font-medium">{candidate.title}</h3><p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground"><MapPin className="h-4 w-4" aria-hidden="true" />{[candidate.commune, candidate.region].filter(Boolean).join(" · ") || "Ubicación pendiente"}</p><div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm"><span><b>{candidate.area_ha.toLocaleString("es-CL")} ha</b></span><span>{candidate.discount_pct}% bajo benchmark</span><span>{candidate.benchmark.sample_count} comparables</span><span>{candidate.benchmark.source_count} fuentes</span></div></div><div className="flex shrink-0 flex-wrap gap-2">{activeMandateId && selectedClientId ? <Button type="button" onClick={() => void createFollowUpTask(candidate)} disabled={creatingTaskFor === candidate.id || taskCreated}>{creatingTaskFor === candidate.id ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : taskCreated ? <Check className="h-4 w-4" aria-hidden="true" /> : null}{taskCreated ? "Tarea creada" : "Crear seguimiento"}</Button> : null}<Button asChild variant="outline"><Link href={`/home-spotter/opportunities/${candidate.id}`}>Ver evidencia<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link></Button></div></div></Card>})}</div></div> : data && !data.candidates.length ? <Card className="p-8 text-center text-sm text-muted-foreground">No hay avisos de mercado que cumplan los criterios. Revisa el Outcome: puede existir señal oficial fuera de mercado para investigar.</Card> : null}
 
-          {!data.candidates.length ? (
-            <Card className="p-8 text-center text-sm text-muted-foreground">No hay candidatos actuales que cumplan simultáneamente los criterios y tengan evidencia de mercado suficiente.</Card>
-          ) : (
-            <div className="space-y-3">
-              {data.candidates.map((candidate) => {
-                const taskCreated = taskCreatedCandidateIds.has(candidate.id)
-                return (
-                  <Card key={candidate.id} className="p-5">
-                    <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Badge>{candidate.prospecting_fit_score}/100 ajuste</Badge>
-                          <Badge variant="outline">{candidate.opportunity_score}/100 mercado</Badge>
-                          <span className="text-xs text-muted-foreground">confianza {candidate.confidence}%</span>
-                        </div>
-                        <h3 className="mt-3 text-lg font-medium">{candidate.title}</h3>
-                        <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground"><MapPin className="h-4 w-4" aria-hidden="true" />{[candidate.commune, candidate.region].filter(Boolean).join(" · ") || "Ubicación pendiente"}</p>
-                        <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm">
-                          <span><b>{candidate.area_ha.toLocaleString("es-CL")} ha</b></span>
-                          <span>{candidate.discount_pct}% bajo benchmark</span>
-                          <span>{candidate.benchmark.sample_count} comparables</span>
-                          <span>{candidate.benchmark.source_count} fuentes</span>
-                          <span>{candidate.source || "Fuente pendiente"}</span>
-                        </div>
-                      </div>
-                      <div className="flex shrink-0 flex-wrap gap-2">
-                        {activeMandateId && selectedClientId ? (
-                          <Button type="button" onClick={() => void createFollowUpTask(candidate)} disabled={creatingTaskFor === candidate.id || taskCreated}>
-                            {creatingTaskFor === candidate.id ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : taskCreated ? <Check className="h-4 w-4" aria-hidden="true" /> : null}
-                            {taskCreated ? "Tarea creada" : "Crear seguimiento"}
-                          </Button>
-                        ) : null}
-                        <Button asChild variant="outline"><Link href={`/home-spotter/opportunities/${candidate.id}`}>Ver evidencia<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link></Button>
-                      </div>
-                    </div>
-                  </Card>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      ) : null}
+      <Card className="p-5">
+        <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end"><div><label className="mb-2 block text-xs font-medium text-muted-foreground">Vincular cliente después de prospectar</label><select value={selectedClientId} onChange={(event) => applyClient(event.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="">Sin cliente vinculado</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}{client.mainInterest ? ` · ${client.mainInterest}` : ""}</option>)}</select></div><div className="text-sm text-muted-foreground">{selectedClient ? <span className="flex items-center gap-2"><UserRound className="h-4 w-4" aria-hidden="true" />{selectedClient.name} · {selectedClient.clientType}</span> : "Opcional. Sólo habilita seguimiento comercial."}</div></div>
+      </Card>
     </main>
   )
 }
