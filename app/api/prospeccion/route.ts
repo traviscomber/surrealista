@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js"
 import { createOpenAIChatCompletion } from "@/lib/ai/openai-chat"
 import { runProspectingIntelligenceCore, type ProspectingCase } from "@/lib/prospeccion/intelligence-core"
 import { loadGovernedProspectingMemory } from "@/lib/prospeccion/case-persistence"
+import { normalizeProspectingCriteria } from "@/lib/prospeccion/normalization"
 
 export const runtime = "nodejs"
 export const maxDuration = 30
@@ -128,7 +129,7 @@ export async function GET(request: Request) {
   const minHa = Number.isFinite(minHaRaw) && minHaRaw > 0 ? minHaRaw : null
   const maxHa = Number.isFinite(maxHaRaw) && maxHaRaw > 0 ? maxHaRaw : null
   const limit = Math.min(Math.max(Number(searchParams.get("limit") || 60), 1), 100)
-  const criteria = { region, commune, minHa, maxHa, species }
+  const criteria = normalizeProspectingCriteria({ region, commune, minHa, maxHa, species })
 
   try {
     const supabase = db()
@@ -140,7 +141,7 @@ export async function GET(request: Request) {
     const outcome = await synthesizeOutcomeWithAI(baseOutcome, core, governedMemory)
 
     return NextResponse.json({
-      criteria,
+      criteria: core.criteria,
       candidates: core.marketCandidates,
       count: core.marketCount,
       offMarketProspects: core.offMarketProspects,
