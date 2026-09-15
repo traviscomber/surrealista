@@ -28,6 +28,10 @@ export type OwnerResearchResult = {
   nextAction: string
 }
 
+const KNOWN_SII_COMMUNES: Record<string, { code: string; name: string; regionCode: string; regionName: string }> = {
+  curico: { code: "07101", name: "Curicó", regionCode: "07", regionName: "Maule" },
+}
+
 function db() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -66,6 +70,8 @@ function looksLikeRealOwner(value: unknown) {
 function findCommuneCode(commune: string) {
   const key = normalizeSearchText(commune)
   if (!key) return null
+  const known = KNOWN_SII_COMMUNES[key]
+  if (known) return known
   for (const region of CHILEAN_REGIONS) {
     for (const province of region.provincias) {
       const found = province.comunas.find((item) => normalizeSearchText(item.name) === key)
