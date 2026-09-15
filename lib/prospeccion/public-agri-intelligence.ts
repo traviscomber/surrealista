@@ -150,6 +150,15 @@ function escapeSqlLiteral(value: string) {
   return value.replace(/'/g, "''")
 }
 
+function normalizeCirenPlace(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .trim()
+    .replace(/\s+/g, " ")
+}
+
 async function fetchJsonWithTimeout(url: string, init?: RequestInit, timeoutMs = 8000) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
@@ -296,7 +305,8 @@ async function getCirenEvidence(criteria: ProspectingPublicCriteria): Promise<Pu
     }
   }
 
-  const where = commune ? `UPPER(desccomu)=UPPER('${escapeSqlLiteral(commune)}')` : "1=1"
+  const cirenCommune = normalizeCirenPlace(commune)
+  const where = cirenCommune ? `UPPER(desccomu)='${escapeSqlLiteral(cirenCommune)}'` : "1=1"
   const sourceUrl = `${CIREN_BASE}/${layer.layerId}`
   const params = new URLSearchParams({
     f: "json",
