@@ -4,11 +4,14 @@ import { FormEvent, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { ArrowRight, Check, Clock3, Loader2, MapPin, Play, Radar, RefreshCw, Save, Sprout, UserRound } from "lucide-react"
 
+import { ProspectingCombobox } from "@/components/prospeccion/prospecting-combobox"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { WorkspaceHeading } from "@/components/ui/workspace-heading"
+import { CHILEAN_REGIONS } from "@/lib/chile-locations"
+import { PROSPECTING_SPECIES_OPTIONS } from "@/lib/prospeccion/species-catalog"
 
 type Candidate = {
   id: string
@@ -146,6 +149,16 @@ function caseStatusLabel(status: ProspectingCase["status"]) {
   return "Revisar mercado"
 }
 
+function normalizeSelection(value: unknown) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("es-CL")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ")
+}
+
 export default function ProspeccionPage() {
   const [region, setRegion] = useState("")
   const [commune, setCommune] = useState("")
@@ -169,6 +182,18 @@ export default function ProspeccionPage() {
   const [researchingPriority, setResearchingPriority] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [mandatesError, setMandatesError] = useState<string | null>(null)
+
+  const regionOptions = useMemo(() => CHILEAN_REGIONS
+    .map((item) => ({ value: item.shortName, label: item.shortName, keywords: [item.name, item.code] }))
+    .sort((a, b) => a.label.localeCompare(b.label, "es-CL")), [])
+  const selectedRegionCatalog = useMemo(() => {
+    const target = normalizeSelection(region)
+    return CHILEAN_REGIONS.find((item) => normalizeSelection(item.shortName) === target || normalizeSelection(item.name) === target) ?? null
+  }, [region])
+  const communeOptions = useMemo(() => selectedRegionCatalog
+    ? selectedRegionCatalog.provincias.flatMap((province) => province.comunas.map((item) => ({ value: item.name, label: item.name, keywords: [province.name, item.code], group: province.name }))).sort((a, b) => a.label.localeCompare(b.label, "es-CL"))
+    : [], [selectedRegionCatalog])
+  const speciesOptions = useMemo(() => PROSPECTING_SPECIES_OPTIONS.map((item) => ({ ...item })), [])
 
   const selectedClient = useMemo(() => clients.find((client) => client.id === selectedClientId) || null, [clients, selectedClientId])
   const criteriaSummary = useMemo(() => {
@@ -356,14 +381,30 @@ export default function ProspeccionPage() {
     }
   }
 
+  function changeRegion(nextRegion: string) {
+    setRegion(nextRegion)
+    const next = CHILEAN_REGIONS.find((item) => item.shortName === nextRegion)
+    const currentCommuneStillValid = next?.provincias.some((province) => province.comunas.some((item) => normalizeSelection(item.name) === normalizeSelection(commune)))
+    if (!currentCommuneStillValid) setCommune("")
+  }
+
   return (
     <main className="mx-auto w-full max-w-[1800px] space-y-6">
       <WorkspaceHeading eyebrow="Prospección inteligente" title="Poner más campos sobre la mesa" description="Define comuna, sector, superficie y especie objetivo. Sur Realista rastrea mercado publicado y catastros oficiales para entregar opciones concretas, incluyendo ROL fuera de portales, y prioriza qué investigar primero." outcome="Resultado útil: 3 prioridades claras + cola secundaria + siguiente acción verificable." />
 
       <form onSubmit={runSearch} className="grid gap-4 border-y border-border bg-card px-4 py-5 md:grid-cols-2 xl:grid-cols-5 sm:px-6">
-        <div><label className="mb-2 block text-xs font-medium text-muted-foreground">Región</label><Input value={region} onChange={(e) => setRegion(e.target.value)} placeholder="Ej. Maule" /></div>
-        <div><label className="mb-2 block text-xs font-medium text-muted-foreground">Comuna / sector</label><Input value={commune} onChange={(e) => setCommune(e.target.value)} placeholder="Ej. Curicó" /></div>
-        <div><label className="mb-2 block text-xs font-medium text-muted-foreground">Especie objetivo</label><Input value={species} onChange={(e) => setSpecies(e.target.value)} placeholder="Ej. cerezos" /></div>
+        <div>
+          <label className="mb-2 block text-xs font-medium text-muted-foreground">Región</label>
+          <ProspectingCombobox value={region} options={regionOptions} onChange={changeRegion} placeholder="Busca una región" emptyLabel="No encontramos esa región" />
+        </div>
+        <div>
+          <label className="mb-2 block text-xs font-medium text-muted-foreground">Comuna / sector</label>
+          <ProspectingCombobox value={commune} options={communeOptions} onChange={setCommune} placeholder={region ? "Busca una comuna" : "Selecciona región primero"} emptyLabel="No encontramos esa comuna en la región" disabled={!region} />
+        </div>
+        <div>
+          <label className="mb-2 block text-xs font-medium text-muted-foreground">Especie objetivo</label>
+          <ProspectingCombobox value={species} options={speciesOptions} onChange={setSpecies} placeholder="Ej. cereza, manzana, nogal" emptyLabel="No encontramos esa especie" />
+        </div>
         <div className="grid grid-cols-2 gap-2"><div><label className="mb-2 block text-xs font-medium text-muted-foreground">Mín. ha</label><Input inputMode="decimal" value={minHa} onChange={(e) => setMinHa(e.target.value)} placeholder="15" /></div><div><label className="mb-2 block text-xs font-medium text-muted-foreground">Máx. ha</label><Input inputMode="decimal" value={maxHa} onChange={(e) => setMaxHa(e.target.value)} placeholder="80" /></div></div>
         <div className="flex items-end gap-2"><Button type="submit" className="flex-1" disabled={loading}>{loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Radar className="h-4 w-4" aria-hidden="true" />}Prospectar</Button>{data ? <Button type="button" variant="outline" size="icon" onClick={() => void runSearch()} disabled={loading} aria-label="Actualizar"><RefreshCw className="h-4 w-4" aria-hidden="true" /></Button> : null}</div>
       </form>
