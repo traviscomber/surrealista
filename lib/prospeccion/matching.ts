@@ -1,4 +1,5 @@
 import { listRealOpportunities } from "@/lib/home-spotter/opportunities"
+import { canonicalRegionName, normalizeProspectingCriteria, normalizeSearchText } from "@/lib/prospeccion/normalization"
 
 type RawOpportunity = Awaited<ReturnType<typeof listRealOpportunities>>[number]
 type Opportunity = NonNullable<RawOpportunity>
@@ -11,24 +12,6 @@ export type ProspectingCriteria = {
   maxHa?: number | null
 }
 
-function normalize(value: string | null | undefined) {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-    .toLocaleLowerCase("es-CL")
-    .replace(/\s+/g, " ")
-}
-
-function canonicalRegion(value: string | null | undefined) {
-  return normalize(value)
-    .replace(/^region de /, "")
-    .replace(/^region del /, "")
-    .replace(/^region /, "")
-    .replace(/^del /, "")
-    .replace(/^de /, "")
-}
-
 function hectares(areaM2: number) {
   return areaM2 / 10_000
 }
@@ -37,14 +20,15 @@ function isOpportunity(item: RawOpportunity): item is Opportunity {
   return item !== null
 }
 
-function scoreCandidate(item: Opportunity, criteria: ProspectingCriteria) {
+function scoreCandidate(item: Opportunity, rawCriteria: ProspectingCriteria) {
+  const criteria = normalizeProspectingCriteria(rawCriteria)
   const areaHa = hectares(Number(item.area_m2 || 0))
   const region = String(criteria.region || "").trim()
   const commune = String(criteria.commune || "").trim()
-  const itemRegion = canonicalRegion(item.region)
-  const wantedRegion = canonicalRegion(region)
+  const itemRegion = normalizeSearchText(canonicalRegionName(item.region))
+  const wantedRegion = normalizeSearchText(canonicalRegionName(region))
   const regionMatch = !region || itemRegion === wantedRegion || itemRegion.includes(wantedRegion) || wantedRegion.includes(itemRegion)
-  const communeMatch = !commune || normalize(item.commune).includes(normalize(commune))
+  const communeMatch = !commune || normalizeSearchText(item.commune).includes(normalizeSearchText(commune))
   const minMatch = criteria.minHa == null || areaHa >= criteria.minHa
   const maxMatch = criteria.maxHa == null || areaHa <= criteria.maxHa
 
@@ -68,7 +52,8 @@ function isScoredCandidate(candidate: ReturnType<typeof scoreCandidate>): candid
   return candidate !== null
 }
 
-function rankCandidates(opportunities: RawOpportunity[], criteria: ProspectingCriteria, limit: number) {
+function rankCandidates(opportunities: RawOpportunity[], rawCriteria: ProspectingCriteria, limit: number) {
+  const criteria = normalizeProspectingCriteria(rawCriteria)
   return opportunities
     .filter(isOpportunity)
     .map((item) => scoreCandidate(item, criteria))
