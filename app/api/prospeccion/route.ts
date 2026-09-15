@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createOpenAIChatCompletion } from "@/lib/ai/openai-chat"
 import { findProspectingCandidates } from "@/lib/prospeccion/matching"
 import { getPublicAgriEvidence, type PublicAgriEvidence } from "@/lib/prospeccion/public-agri-intelligence"
+import { getTerritorialInfrastructureEvidence, type TerritorialInfrastructureEvidence } from "@/lib/prospeccion/territorial-infrastructure"
 
 export const runtime = "nodejs"
 export const maxDuration = 30
@@ -16,7 +17,7 @@ type Outcome = {
   speciesVerified: false
 }
 
-function officialSignalSummary(evidence: PublicAgriEvidence, species: string) {
+function officialSignalSummary(evidence: PublicAgriEvidence, infrastructure: TerritorialInfrastructureEvidence, species: string) {
   const parts: string[] = []
   if (evidence.ciren.status === "available" && evidence.ciren.polygonCount > 0) {
     parts.push(`${evidence.ciren.polygonCount} polígonos de productores frutícolas CIREN`)
@@ -30,6 +31,12 @@ function officialSignalSummary(evidence: PublicAgriEvidence, species: string) {
       parts.push(`${evidence.odepa.speciesMatchedSurfaceHa.toLocaleString("es-CL")} ha asociadas a ${species}`)
     }
   }
+  if (infrastructure.irrigation.status === "available") {
+    parts.push(`${infrastructure.irrigation.canalFeatures.toLocaleString("es-CL")} elementos de canal y ${infrastructure.irrigation.intakeFeatures.toLocaleString("es-CL")} bocatomas en la cobertura regional CIREN/CNR`)
+  }
+  if (infrastructure.soils.status === "available" && infrastructure.soils.featureCount > 0) {
+    parts.push(`cobertura oficial de suelos agrológicos disponible (${infrastructure.soils.featureCount.toLocaleString("es-CL")} entidades)`)
+  }
   return parts.join("; ")
 }
 
@@ -42,6 +49,7 @@ function deterministicOutcome({
   maxHa,
   scopeFallback,
   publicEvidence,
+  infrastructure,
 }: {
   candidates: Candidate[]
   region: string
@@ -51,18 +59,19 @@ function deterministicOutcome({
   maxHa: number | null
   scopeFallback: "region" | null
   publicEvidence: PublicAgriEvidence
+  infrastructure: TerritorialInfrastructureEvidence
 }): Outcome {
   const area = [minHa != null ? `${minHa} ha mín.` : null, maxHa != null ? `${maxHa} ha máx.` : null].filter(Boolean).join(" · ")
   const target = [commune || region, area].filter(Boolean).join(" · ") || "los criterios definidos"
-  const officialSignal = officialSignalSummary(publicEvidence, species)
+  const officialSignal = officialSignalSummary(publicEvidence, infrastructure, species)
   const hasOfficialSignal = Boolean(officialSignal)
 
   if (!candidates.length) {
     if (hasOfficialSignal) {
       return {
         status: "official_off_market_signal",
-        summary: `No hay avisos calificados para ${target}, pero sí existe evidencia agrícola oficial en la zona: ${officialSignal}. ${species ? `Esto respalda investigar ${species} como hipótesis territorial, pero no confirma que un predio específico corresponda a esa especie.` : "Esto abre una ruta de prospección fuera de portales publicados."}`,
-        recommendation: "Cruza primero los polígonos/ROL oficiales con el inventario KMZ y luego prioriza identificación de propietario y contacto antes de ampliar el radio de búsqueda.",
+        summary: `No hay avisos calificados para ${target}, pero sí existe evidencia territorial oficial en la zona: ${officialSignal}. ${species ? `Esto respalda investigar ${species} como hipótesis territorial, pero no confirma que un predio específico corresponda a esa especie.` : "Esto abre una ruta de prospección fuera de portales publicados."}`,
+        recommendation: "Cruza primero polígonos/ROL oficiales con inventario KMZ y luego resuelve por candidato la intersección con riego, suelos y propietario antes de priorizar contacto.",
         generatedBy: "evidence",
         speciesVerified: false,
       }
@@ -95,7 +104,7 @@ function deterministicOutcome({
   return {
     status: "qualified_candidates",
     summary: `Encontramos ${candidates.length} candidato${candidates.length === 1 ? "" : "s"} para ${target}. El mejor está en ${location}, con ${top.area_ha} ha, ajuste ${top.prospecting_fit_score}/100 y señal de mercado ${top.opportunity_score}/100.${officialContext}${speciesCaveat}`,
-    recommendation: "Parte por el candidato con mayor ajuste, contrasta su evidencia con CIREN/ODEPA y decide si corresponde investigar propietario o mantenerlo en seguimiento.",
+    recommendation: "Parte por el candidato con mayor ajuste, contrasta su evidencia con CIREN/ODEPA y luego resuelve riego/suelo por cruce espacial antes de investigar propietario.",
     generatedBy: "evidence",
     speciesVerified: false,
   }
@@ -106,6 +115,7 @@ async function synthesizeOutcomeWithAI(
   criteria: { region: string; commune: string; species: string; minHa: number | null; maxHa: number | null },
   candidates: Candidate[],
   publicEvidence: PublicAgriEvidence,
+  infrastructure: TerritorialInfrastructureEvidence,
 ): Promise<Outcome> {
   if (!process.env.OPENAI_API_KEY) return base
 
@@ -126,9 +136,15 @@ async function synthesizeOutcomeWithAI(
     const text = await createOpenAIChatCompletion({
       model: "gpt-4o-mini",
       temperature: 0.1,
-      maxTokens: 220,
-      system: "Eres el analista de prospección territorial de Sur Realista. Redacta un outcome ejecutivo en español de Chile, máximo 4 frases. Usa sólo la evidencia entregada. CIREN y ODEPA son contexto territorial oficial: no los presentes como prueba de que un aviso inmobiliario sea el mismo predio. No inventes propietarios, especies detectadas, coordenadas, disponibilidad ni atributos del predio. Si hay una especie objetivo, distingue entre especie declarada en catastro y detección satelital: la segunda todavía no está verificada. Termina con una acción concreta para el operador.",
-      prompt: JSON.stringify({ criteria, deterministic_outcome: base, top_candidates: evidence, official_agri_evidence: publicEvidence }),
+      maxTokens: 240,
+      system: "Eres el analista de prospección territorial de Sur Realista. Redacta un outcome ejecutivo en español de Chile, máximo 4 frases. Usa sólo la evidencia entregada. CIREN, ODEPA, riego CNR/CIREN y suelos son contexto territorial oficial: no los presentes como prueba de que un aviso inmobiliario sea el mismo predio ni como prueba de proximidad a un candidato. No inventes propietarios, especies detectadas, coordenadas, disponibilidad, derechos de agua ni atributos del predio. Si hay una especie objetivo, distingue entre especie declarada en catastro y detección satelital: la segunda todavía no está verificada. Termina con una acción concreta para el operador.",
+      prompt: JSON.stringify({
+        criteria,
+        deterministic_outcome: base,
+        top_candidates: evidence,
+        official_agri_evidence: publicEvidence,
+        official_territorial_infrastructure: infrastructure,
+      }),
     })
 
     return {
@@ -155,9 +171,10 @@ export async function GET(request: Request) {
   const limit = Math.min(Math.max(Number(searchParams.get("limit") || 40), 1), 100)
   const criteria = { region, commune, minHa, maxHa, species }
 
-  const [initialCandidates, publicEvidence] = await Promise.all([
+  const [initialCandidates, publicEvidence, infrastructure] = await Promise.all([
     findProspectingCandidates(criteria, limit),
     getPublicAgriEvidence(criteria),
+    getTerritorialInfrastructureEvidence(criteria),
   ])
 
   let candidates = initialCandidates
@@ -168,22 +185,26 @@ export async function GET(request: Request) {
     if (candidates.length > 0) scopeFallback = "region"
   }
 
-  const baseOutcome = deterministicOutcome({ candidates, region, commune, species, minHa, maxHa, scopeFallback, publicEvidence })
-  const outcome = await synthesizeOutcomeWithAI(baseOutcome, criteria, candidates, publicEvidence)
+  const baseOutcome = deterministicOutcome({ candidates, region, commune, species, minHa, maxHa, scopeFallback, publicEvidence, infrastructure })
+  const outcome = await synthesizeOutcomeWithAI(baseOutcome, criteria, candidates, publicEvidence, infrastructure)
 
   return NextResponse.json({
     criteria,
     candidates,
     count: candidates.length,
-    methodology: "market-plus-official-agri-prospecting-v1.3",
+    methodology: "market-plus-official-territorial-prospecting-v1.4",
     scopeFallback,
     outcome,
     publicEvidence,
+    infrastructure,
     coverage: {
       market: "active",
       officialAgriSources: "CIREN+ODEPA",
+      irrigationInfrastructure: "CIREN+CNR-regional",
+      soils: "CIREN-regional",
       kmz: "available-in-detail-flow",
       speciesClassification: "pending-satellite-pipeline",
+      waterRights: "pending-DGA-connector",
       autonomousDiscovery: "official-polygons-active-satellite-pending",
     },
     note: `${outcome.summary} ${outcome.recommendation}`,
