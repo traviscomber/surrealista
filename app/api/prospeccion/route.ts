@@ -5,6 +5,7 @@ import { runProspectingIntelligenceCore, type ProspectingCase } from "@/lib/pros
 import { loadGovernedProspectingMemory } from "@/lib/prospeccion/case-persistence"
 import { normalizeProspectingCriteria } from "@/lib/prospeccion/normalization"
 import { ownerResearchCacheKey, readOwnerResearchCaches } from "@/lib/prospeccion/owner-research-cache"
+import { getSentinelSatelliteEvidence } from "@/lib/prospeccion/sentinel-satellite"
 
 export const runtime = "nodejs"
 export const maxDuration = 30
@@ -18,6 +19,7 @@ type Outcome = {
 }
 
 type ProspectingCore = Awaited<ReturnType<typeof runProspectingIntelligenceCore>>
+type SatelliteEvidence = Awaited<ReturnType<typeof getSentinelSatelliteEvidence>>
 
 type HydratedCase = ProspectingCase & {
   ownerResearch?: {
@@ -108,6 +110,58 @@ async function hydrateOwnerResearch(core: ProspectingCore): Promise<ProspectingC
     cases: hydrated,
     priorityCases: priorityCases.map((item) => byId.get(item.id) ?? item),
   }
+}
+
+function satelliteEvidenceLabel(satellite: SatelliteEvidence) {
+  if (satellite.status !== "available") {
+    return satellite.status === "unconfigured"
+      ? "Sentinel-2 sin configurar"
+      : `Sentinel-2 sin señal utilizable: ${satellite.note}`
+  }
+
+  const { observationCount, meanNdvi, meanNdre, meanNdmi } = satellite.summary
+  const metrics = [
+    meanNdvi != null ? `NDVI ${meanNdvi.toFixed(2)}` : null,
+    meanNdre != null ? `NDRE ${meanNdre.toFixed(2)}` : null,
+    meanNdmi != null ? `NDMI ${meanNdmi.toFixed(2)}` : null,
+  ].filter(Boolean)
+
+  return `Sentinel-2 activo · ${observationCount} observaciones${metrics.length ? ` · ${metrics.join(" · ")}` : ""} · especie aún no clasificada`
+}
+
+async function enrichPrioritySatellites(core: ProspectingCore) {
+  const priorityRols = core.priorityCases
+    .filter((item) => item.kind === "off_market" && item.rol)
+    .map((item) => String(item.rol))
+    .slice(0, 3)
+  const prioritySet = new Set(priorityRols)
+  const targets = core.offMarketProspects.filter((item) => prioritySet.has(item.rol))
+
+  if (!targets.length) {
+    return {
+      offMarketProspects: core.offMarketProspects,
+      byRol: {} as Record<string, SatelliteEvidence>,
+      availableCount: 0,
+    }
+  }
+
+  const entries = await Promise.all(targets.map(async (prospect) => {
+    const satellite = await getSentinelSatelliteEvidence(prospect.centroid)
+    return [prospect.rol, satellite] as const
+  }))
+  const byRol = Object.fromEntries(entries) as Record<string, SatelliteEvidence>
+  const availableCount = entries.filter(([, satellite]) => satellite.status === "available").length
+  const offMarketProspects = core.offMarketProspects.map((prospect) => {
+    const satellite = byRol[prospect.rol]
+    if (!satellite) return prospect
+    return {
+      ...prospect,
+      satellite,
+      evidenceLabel: `${prospect.evidenceLabel} · ${satelliteEvidenceLabel(satellite)}`,
+    }
+  })
+
+  return { offMarketProspects, byRol, availableCount }
 }
 
 function deterministicOutcome(core: ProspectingCore): Outcome {
@@ -225,17 +279,25 @@ export async function GET(request: Request) {
       supabase ? loadGovernedProspectingMemory(supabase) : Promise.resolve({ available: false, memories: [], authority: "non_canonical" as const }),
     ])
     const core = await hydrateOwnerResearch(rawCore)
-    const baseOutcome = deterministicOutcome(core)
+    const [satelliteLayer, baseOutcome] = await Promise.all([
+      enrichPrioritySatellites(core),
+      Promise.resolve(deterministicOutcome(core)),
+    ])
     const outcome = await synthesizeOutcomeWithAI(baseOutcome, core, governedMemory)
 
     return NextResponse.json({
       criteria: core.criteria,
       candidates: core.marketCandidates,
       count: core.marketCount,
-      offMarketProspects: core.offMarketProspects,
+      offMarketProspects: satelliteLayer.offMarketProspects,
       offMarketCount: core.offMarketCount,
       cases: core.cases,
       priorityCases: core.priorityCases,
+      satellite: {
+        scope: "priority-off-market-top-3",
+        availableCount: satelliteLayer.availableCount,
+        byRol: satelliteLayer.byRol,
+      },
       outcome,
       publicEvidence: core.publicEvidence,
       infrastructure: core.infrastructure,
@@ -252,7 +314,7 @@ export async function GET(request: Request) {
       sourceRefs: core.sourceRefs,
       groundedEvaluation: core.groundedEvaluation,
       scopeFallback: core.scopeFallback,
-      methodology: "prospecting-intelligence-core-v2",
+      methodology: "prospecting-intelligence-core-v3-sentinel-priority",
       operationalMutationExecuted: core.operationalMutationExecuted,
       coverage: {
         market: "active",
@@ -263,8 +325,10 @@ export async function GET(request: Request) {
         ownerResearch: "persistent-rol-cache-plus-on-demand",
         governedMemory: governedMemory.available ? "active-non-canonical" : "pending-migration-or-unavailable",
         persistentDecisionCases: "mandate-run-persistence",
-        speciesClassification: "declared-catalogue-only-satellite-pending",
-        waterRights: "pending-DGA-connector",
+        speciesClassification: satelliteLayer.availableCount > 0
+          ? "sentinel-2-spectral-features-active-classifier-pending"
+          : "sentinel-2-priority-enrichment-unavailable",
+        waterRights: "DGA-context-available-on-enrichment-endpoint",
         autonomousDiscovery: "official-polygon-discovery-active",
       },
       note: `${outcome.summary} ${outcome.recommendation}`,
