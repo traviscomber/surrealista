@@ -19,7 +19,11 @@ const LOCKOUT_TIME = 15 * 60 * 1000
 const PUBLIC_ROUTES = ["/ayuda", "/docs"]
 
 async function hasValidServerSession() {
-  const response = await fetch("/api/internal-access", { method: "GET", cache: "no-store" })
+  const response = await fetch("/api/internal-access", {
+    method: "GET",
+    cache: "no-store",
+    credentials: "same-origin",
+  })
   return response.ok
 }
 
@@ -27,6 +31,7 @@ async function createServerSession(password: string) {
   return fetch("/api/internal-access", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "same-origin",
     body: JSON.stringify({ password }),
   })
 }
@@ -149,6 +154,16 @@ export function PasswordGate({ children }: { children: React.ReactNode }) {
     try {
       const response = await createServerSession(password)
       if (response.ok) {
+        const serverSessionConfirmed = await hasValidServerSession()
+        if (!serverSessionConfirmed) {
+          sessionStorage.removeItem(STORAGE_KEY)
+          setIsAuthenticated(false)
+          setPassword("")
+          setError("La sesión no pudo confirmarse en el servidor. Intenta nuevamente.")
+          captureMessage("Login rechazado: cookie de sesión no confirmada por servidor", "error")
+          return
+        }
+
         sessionStorage.setItem(STORAGE_KEY, SESSION_MARKER)
         sessionStorage.removeItem(ATTEMPTS_KEY)
         sessionStorage.removeItem(LOCKOUT_KEY)
@@ -201,6 +216,8 @@ export function PasswordGate({ children }: { children: React.ReactNode }) {
       const remaining = MAX_ATTEMPTS - newAttempts
       setError(`Contraseña incorrecta. ${remaining} intento${remaining === 1 ? "" : "s"} restante${remaining === 1 ? "" : "s"}`)
     } catch {
+      sessionStorage.removeItem(STORAGE_KEY)
+      setIsAuthenticated(false)
       setError("No se pudo validar el acceso interno.")
     } finally {
       setIsSubmitting(false)
