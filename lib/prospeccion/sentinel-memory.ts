@@ -61,6 +61,14 @@ export function normalizeRolKey(rol: string) {
   return rol.trim().toUpperCase().replace(/\s+/g, "")
 }
 
+export function canonicalSentinelPeriod(value: string) {
+  const parsed = new Date(value)
+  if (!Number.isFinite(parsed.getTime())) return null
+  const from = new Date(Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth(), 1))
+  const to = new Date(Date.UTC(parsed.getUTCFullYear(), parsed.getUTCMonth() + 1, 1))
+  return { from: from.toISOString(), to: to.toISOString() }
+}
+
 export function sentinelGeometryFingerprint(input: { polygon?: SentinelPolygon | null; centroid?: Point | null }) {
   const basis = input.polygon?.coordinates?.length
     ? { type: "Polygon", coordinates: input.polygon.coordinates }
@@ -200,22 +208,26 @@ export async function syncSentinelMemory(input: {
   try {
     const rolKey = normalizeRolKey(input.rol)
     const fetchedAt = new Date().toISOString()
-    const rows = input.observations.map((observation) => ({
-      rol: input.rol,
-      rol_key: rolKey,
-      commune: input.commune || "",
-      source: SOURCE,
-      geometry_mode: input.geometryMode,
-      geometry_fingerprint: fingerprint,
-      period_from: observation.from,
-      period_to: observation.to,
-      ndvi: observation.ndvi,
-      ndre: observation.ndre,
-      ndmi: observation.ndmi,
-      sample_count: observation.sampleCount,
-      fetched_at: fetchedAt,
-      updated_at: fetchedAt,
-    }))
+    const rows = input.observations.flatMap((observation) => {
+      const period = canonicalSentinelPeriod(observation.from)
+      if (!period) return []
+      return [{
+        rol: input.rol,
+        rol_key: rolKey,
+        commune: input.commune || "",
+        source: SOURCE,
+        geometry_mode: input.geometryMode,
+        geometry_fingerprint: fingerprint,
+        period_from: period.from,
+        period_to: period.to,
+        ndvi: observation.ndvi,
+        ndre: observation.ndre,
+        ndmi: observation.ndmi,
+        sample_count: observation.sampleCount,
+        fetched_at: fetchedAt,
+        updated_at: fetchedAt,
+      }]
+    })
 
     if (rows.length) {
       const { error: upsertError } = await client
@@ -243,7 +255,7 @@ export async function syncSentinelMemory(input: {
       historyTo: history[history.length - 1]?.period_to ?? null,
       geometryFingerprint: fingerprint,
       anomaly: derivePersistentSentinelAnomaly(history),
-      note: "Las observaciones se guardan por ROL, geometría y período; consultas repetidas actualizan el mismo registro en vez de duplicarlo.",
+      note: "Las observaciones se guardan por ROL, geometría y mes calendario; consultas repetidas actualizan el mismo registro en vez de duplicarlo.",
     }
   } catch (error) {
     console.warn("[Prospeccion Sentinel Memory] persistence unavailable", error instanceof Error ? error.message : "unknown error")
