@@ -9,6 +9,10 @@
     "rootDir": ".",
     "outDir": ".tmp-prospeccion-tests",
     "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"]
+    },
     "noEmitOnError": true
   },
   "include": [
@@ -17,9 +21,12 @@
     "lib/prospeccion/owner-web-intelligence.ts",
     "lib/prospeccion/lead-state.ts",
     "lib/prospeccion/sentinel-satellite.ts",
+    "lib/prospeccion/sentinel-parcel-analysis.ts",
+    "lib/prospeccion/sentinel-memory.ts",
     "tests/prospeccion-normalization.test.ts",
     "tests/prospeccion-owner-web.test.ts",
     "tests/prospeccion-lead-state.test.ts",
-    "tests/prospeccion-sentinel-temporal.test.ts"
+    "tests/prospeccion-sentinel-temporal.test.ts",
+    "tests/prospeccion-sentinel-memory.test.ts"
   ]
 }
