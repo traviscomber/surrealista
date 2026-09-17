@@ -1,4 +1,4 @@
-import { derivePersistentSentinelAnomaly, type SentinelPersistentAnomaly } from "@/lib/prospeccion/sentinel-memory"
+import { derivePersistentSentinelAnomaly, type SentinelPersistentAnomaly } from "./sentinel-memory"
 
 export type SentinelAttentionRow = {
   rol: string
