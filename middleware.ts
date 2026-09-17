@@ -19,6 +19,10 @@ const CANONICAL_PRODUCT_ROUTES = [
   { prefix: "/nueva-tarea", destination: "/gestion-tareas", preserveSuffix: false },
 ]
 
+const NODE_AUTH_API_PATHS = new Set([
+  "/api/prospeccion/sentinel-diagnostics",
+])
+
 function isRetiredProductPath(pathname: string) {
   return RETIRED_PRODUCT_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))
 }
@@ -38,7 +42,8 @@ function isPublicApiPath(pathname: string) {
   return (
     pathname === "/api/internal-access" ||
     pathname === "/api/auth/google" ||
-    pathname.startsWith("/api/cron/")
+    pathname.startsWith("/api/cron/") ||
+    NODE_AUTH_API_PATHS.has(pathname)
   )
 }
 
