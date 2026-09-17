@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
+import { INTERNAL_ACCESS_COOKIE, verifyInternalAccessToken } from "@/lib/auth/internal-access"
 import { runProspectingIntelligenceCore } from "@/lib/prospeccion/intelligence-core"
 import { normalizeProspectingCriteria } from "@/lib/prospeccion/normalization"
 import { getSentinelSatelliteEvidence } from "@/lib/prospeccion/sentinel-satellite"
@@ -6,7 +7,15 @@ import { getSentinelSatelliteEvidence } from "@/lib/prospeccion/sentinel-satelli
 export const runtime = "nodejs"
 export const maxDuration = 30
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
+  const token = request.cookies.get(INTERNAL_ACCESS_COOKIE)?.value
+  if (!(await verifyInternalAccessToken(token))) {
+    return NextResponse.json(
+      { error: "Unauthorized" },
+      { status: 401, headers: { "Cache-Control": "private, no-store" } },
+    )
+  }
+
   const { searchParams } = new URL(request.url)
   const region = searchParams.get("region")?.trim() || ""
   const commune = searchParams.get("commune")?.trim() || ""
