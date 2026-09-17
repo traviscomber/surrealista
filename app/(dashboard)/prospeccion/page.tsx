@@ -104,6 +104,27 @@ type ProspectingResponse = {
   }
 }
 
+type SentinelAttentionSummary = {
+  monitoredRols: number
+  actionableCount: number
+  strongCount: number
+  watchCount: number
+  generatedAt: string
+  items: Array<{
+    rol: string
+    commune: string
+    observationCount: number
+    latestPeriod: string | null
+    anomaly: {
+      level: "watch" | "strong"
+      ndviDelta: number | null
+      ndmiDelta: number | null
+      interpretation: string
+    }
+    severityScore: number
+  }>
+}
+
 type ClientIntent = {
   id: string
   name: string
@@ -171,6 +192,8 @@ export default function ProspeccionPage() {
   const [data, setData] = useState<ProspectingResponse | null>(null)
   const [mandates, setMandates] = useState<Mandate[]>([])
   const [clients, setClients] = useState<ClientIntent[]>([])
+  const [sentinelAttention, setSentinelAttention] = useState<SentinelAttentionSummary | null>(null)
+  const [sentinelAttentionLoading, setSentinelAttentionLoading] = useState(true)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [loadingMandates, setLoadingMandates] = useState(true)
@@ -233,7 +256,21 @@ export default function ProspeccionPage() {
     }
   }
 
-  useEffect(() => { void Promise.all([loadMandates(), loadClients()]) }, [])
+  async function loadSentinelAttention() {
+    setSentinelAttentionLoading(true)
+    try {
+      const response = await fetch("/api/prospeccion/sentinel-attention", { cache: "no-store" })
+      const body = await response.json()
+      if (!response.ok) throw new Error(body.error || "No se pudo cargar la vigilancia Sentinel.")
+      setSentinelAttention(body as SentinelAttentionSummary)
+    } catch (cause) {
+      console.warn("[Prospeccion] sentinel attention", cause)
+    } finally {
+      setSentinelAttentionLoading(false)
+    }
+  }
+
+  useEffect(() => { void Promise.all([loadMandates(), loadClients(), loadSentinelAttention()]) }, [])
 
   function applyClient(clientId: string) {
     setSelectedClientId(clientId)
@@ -265,6 +302,7 @@ export default function ProspeccionPage() {
       const body = await response.json()
       if (!response.ok) throw new Error(body.error || "No se pudo ejecutar la prospección.")
       setData(body)
+      await loadSentinelAttention()
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo ejecutar la prospección.")
     } finally { setLoading(false) }
@@ -313,7 +351,7 @@ export default function ProspeccionPage() {
         note: body.firstRun ? "Primera ejecución registrada." : body.newCount > 0 ? `${body.newCount} candidato${body.newCount === 1 ? " nuevo" : "s nuevos"}.` : "Sin candidatos nuevos.",
         coverage: body.coverage ?? { market: "active", kmz: "available-in-detail-flow", speciesClassification: "pending-satellite-pipeline", autonomousDiscovery: "official-polygon-discovery-active" },
       })
-      await loadMandates()
+      await Promise.all([loadMandates(), loadSentinelAttention()])
     } catch (cause) { setError(cause instanceof Error ? cause.message : "No se pudo ejecutar el mandato.") } finally { setRunningMandateId(null) }
   }
 
@@ -411,7 +449,7 @@ export default function ProspeccionPage() {
 
       {data?.outcome ? <Card className="p-6"><div className="flex flex-wrap items-center gap-2"><Badge>{data.outcome.status.replaceAll("_", " ")}</Badge><Badge variant="outline">{data.outcome.generatedBy === "ai" ? "Síntesis IA" : "Evidencia"}</Badge></div><h2 className="mt-4 text-xl font-medium">Resultado de la prospección</h2><p className="mt-2 max-w-5xl text-sm leading-6">{data.outcome.summary}</p><p className="mt-3 text-sm"><span className="text-muted-foreground">Siguiente acción:</span> {data.outcome.recommendation}</p><div className="mt-5 grid gap-3 md:grid-cols-4"><div><p className="text-xs text-muted-foreground">Publicados</p><p className="mt-1 text-2xl font-medium">{data.count}</p></div><div><p className="text-xs text-muted-foreground">Fuera de portal</p><p className="mt-1 text-2xl font-medium">{data.offMarketCount ?? data.offMarketProspects?.length ?? 0}</p></div><div><p className="text-xs text-muted-foreground">Riego regional</p><p className="mt-1 text-sm font-medium">{data.infrastructure?.irrigation.status === "available" ? `${data.infrastructure.irrigation.canalFeatures} canales · ${data.infrastructure.irrigation.intakeFeatures} bocatomas` : "Pendiente"}</p></div><div><p className="text-xs text-muted-foreground">Suelos</p><p className="mt-1 text-sm font-medium">{data.infrastructure?.soils.status === "available" ? "Cobertura disponible" : "Pendiente"}</p></div></div></Card> : null}
 
-      {data?.priorityCases?.length ? <section className="space-y-4"><div className="flex flex-col gap-3 border-b border-border pb-4 lg:flex-row lg:items-end lg:justify-between"><div><p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Qué importa ahora</p><h2 className="mt-1 text-xl font-medium">Prioridades de hoy</h2><p className="mt-1 max-w-3xl text-sm text-muted-foreground">El Core ordena la evidencia y deja sólo tres casos arriba. El resto permanece en la cola para no convertir la pantalla en una lista de trabajo manual.</p></div><Button type="button" onClick={() => void investigatePriorityOwners()} disabled={researchingPriority || !data.priorityCases.some((item) => item.kind === "off_market" && item.rol && !ownerLookupResults[item.rol])}>{researchingPriority ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <UserRound className="h-4 w-4" aria-hidden="true" />}Investigar top 3</Button></div><div className="grid gap-3 xl:grid-cols-3">{data.priorityCases.map((item, index) => { const lookup = item.rol ? ownerLookupResults[item.rol] : null; const ownerName = lookup?.owner?.name || item.owner?.name || null; return <Card key={item.id} className="p-5"><div className="flex items-center justify-between gap-3"><Badge>#{index + 1}</Badge><span className="text-xs text-muted-foreground">score {item.score}/100</span></div><h3 className="mt-4 text-lg font-medium">{item.title}</h3><p className="mt-1 text-sm text-muted-foreground">{item.location}{item.areaHa != null ? ` · ${item.areaHa.toLocaleString("es-CL")} ha` : ""}</p><div className="mt-4 flex flex-wrap gap-2"><Badge variant="outline">{caseStatusLabel(item.status)}</Badge>{item.speciesEvidence.declared.length ? <Badge variant="outline">{item.speciesEvidence.declared[0]}</Badge> : null}</div><div className="mt-4 border-l-2 border-border pl-3">{ownerName ? <><p className="text-sm font-medium">Propietario candidato: {ownerName}</p><p className="mt-1 text-xs text-muted-foreground">Requiere validación registral antes de contacto.</p></> : lookup?.producer ? <><p className="text-sm font-medium">Productor/operador: {lookup.producer.name}</p><p className="mt-1 text-xs text-muted-foreground">No equivale a propietario legal.</p></> : lookup?.historicalOwner ? <><p className="text-sm font-medium">Propietario histórico: {lookup.historicalOwner.name}</p><p className="mt-1 text-xs text-muted-foreground">No asumir vigencia actual.</p></> : <><p className="text-sm font-medium">Propietario por resolver</p><p className="mt-1 text-xs text-muted-foreground">{item.nextAction}</p></>}</div></Card>})}</div><div className="grid gap-3 md:grid-cols-4"><Card className="p-4"><p className="text-xs text-muted-foreground">Cola total</p><p className="mt-1 text-2xl font-medium">{queueSummary.total}</p></Card><Card className="p-4"><p className="text-xs text-muted-foreground">Investigados</p><p className="mt-1 text-2xl font-medium">{queueSummary.investigated}</p></Card><Card className="p-4"><p className="text-xs text-muted-foreground">Propietario identificado</p><p className="mt-1 text-2xl font-medium">{queueSummary.ownerIdentified}</p></Card><Card className="p-4"><p className="text-xs text-muted-foreground">Pendientes</p><p className="mt-1 text-2xl font-medium">{queueSummary.pending}</p></Card></div></section> : null}
+      {data?.priorityCases?.length ? <section className="space-y-4"><div className="flex flex-col gap-3 border-b border-border pb-4 lg:flex-row lg:items-end lg:justify-between"><div><p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Qué importa ahora</p><h2 className="mt-1 text-xl font-medium">Prioridades de hoy</h2><p className="mt-1 max-w-3xl text-sm text-muted-foreground">El Core ordena la evidencia y deja sólo tres casos arriba. La memoria Sentinel entra aquí únicamente cuando detecta un cambio espectral persistente que requiere revisión.</p></div><div className="flex flex-wrap items-center gap-2">{sentinelAttentionLoading ? <Badge variant="outline">Sentinel · actualizando</Badge> : sentinelAttention ? <Button asChild variant={sentinelAttention.actionableCount > 0 ? "default" : "outline"} size="sm"><Link href="/prospeccion/sentinel/alertas"><Radar className="h-4 w-4" aria-hidden="true" />{sentinelAttention.actionableCount > 0 ? `${sentinelAttention.actionableCount} cambio${sentinelAttention.actionableCount === 1 ? "" : "s"} Sentinel` : `${sentinelAttention.monitoredRols} ROL sin alertas`}<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link></Button> : null}<Button type="button" onClick={() => void investigatePriorityOwners()} disabled={researchingPriority || !data.priorityCases.some((item) => item.kind === "off_market" && item.rol && !ownerLookupResults[item.rol])}>{researchingPriority ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <UserRound className="h-4 w-4" aria-hidden="true" />}Investigar top 3</Button></div></div><div className="grid gap-3 xl:grid-cols-3">{data.priorityCases.map((item, index) => { const lookup = item.rol ? ownerLookupResults[item.rol] : null; const ownerName = lookup?.owner?.name || item.owner?.name || null; const sentinelSignal = item.rol ? sentinelAttention?.items.find((signal) => signal.rol === item.rol) : null; return <Card key={item.id} className="p-5"><div className="flex items-center justify-between gap-3"><Badge>#{index + 1}</Badge><span className="text-xs text-muted-foreground">score {item.score}/100</span></div><h3 className="mt-4 text-lg font-medium">{item.title}</h3><p className="mt-1 text-sm text-muted-foreground">{item.location}{item.areaHa != null ? ` · ${item.areaHa.toLocaleString("es-CL")} ha` : ""}</p><div className="mt-4 flex flex-wrap gap-2"><Badge variant="outline">{caseStatusLabel(item.status)}</Badge>{item.speciesEvidence.declared.length ? <Badge variant="outline">{item.speciesEvidence.declared[0]}</Badge> : null}{sentinelSignal ? <Badge variant="outline">Sentinel · {sentinelSignal.anomaly.level === "strong" ? "cambio fuerte" : "vigilar"}{sentinelSignal.anomaly.ndviDelta != null ? ` · ΔNDVI ${sentinelSignal.anomaly.ndviDelta > 0 ? "+" : ""}${sentinelSignal.anomaly.ndviDelta.toFixed(2)}` : ""}</Badge> : null}</div>{sentinelSignal ? <p className="mt-3 text-xs leading-5 text-muted-foreground">{sentinelSignal.observationCount} observaciones persistidas · cambio espectral, no diagnóstico agronómico.</p> : null}<div className="mt-4 border-l-2 border-border pl-3">{ownerName ? <><p className="text-sm font-medium">Propietario candidato: {ownerName}</p><p className="mt-1 text-xs text-muted-foreground">Requiere validación registral antes de contacto.</p></> : lookup?.producer ? <><p className="text-sm font-medium">Productor/operador: {lookup.producer.name}</p><p className="mt-1 text-xs text-muted-foreground">No equivale a propietario legal.</p></> : lookup?.historicalOwner ? <><p className="text-sm font-medium">Propietario histórico: {lookup.historicalOwner.name}</p><p className="mt-1 text-xs text-muted-foreground">No asumir vigencia actual.</p></> : <><p className="text-sm font-medium">Propietario por resolver</p><p className="mt-1 text-xs text-muted-foreground">{item.nextAction}</p></>}</div></Card>})}</div><div className="grid gap-3 md:grid-cols-4"><Card className="p-4"><p className="text-xs text-muted-foreground">Cola total</p><p className="mt-1 text-2xl font-medium">{queueSummary.total}</p></Card><Card className="p-4"><p className="text-xs text-muted-foreground">Investigados</p><p className="mt-1 text-2xl font-medium">{queueSummary.investigated}</p></Card><Card className="p-4"><p className="text-xs text-muted-foreground">Propietario identificado</p><p className="mt-1 text-2xl font-medium">{queueSummary.ownerIdentified}</p></Card><Card className="p-4"><p className="text-xs text-muted-foreground">Pendientes</p><p className="mt-1 text-2xl font-medium">{queueSummary.pending}</p></Card></div></section> : null}
 
       {data?.offMarketProspects?.length ? <section className="space-y-4"><div className="flex flex-col gap-2 border-b border-border pb-4 md:flex-row md:items-end md:justify-between"><div><p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Cola secundaria</p><h2 className="mt-1 text-xl font-medium">Prospectos para seguir investigando</h2><p className="mt-1 max-w-3xl text-sm text-muted-foreground">Cada fila es un ROL real encontrado en catastro oficial. No significa que esté a la venta. Las prioridades de arriba son las que conviene trabajar primero.</p></div><Badge variant="outline">{data.offMarketProspects.length} opciones</Badge></div><div className="grid gap-3 xl:grid-cols-2">{data.offMarketProspects.map((prospect) => { const lookup = ownerLookupResults[prospect.rol]; return <Card key={prospect.id} className="p-5"><div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between"><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><Badge>Fuera de portal</Badge><Badge variant="outline">Detectado</Badge>{prospect.targetSpeciesMatch ? <Badge variant="outline">Especie declarada</Badge> : null}</div><h3 className="mt-3 text-lg font-medium">ROL {prospect.rol}</h3><p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground"><MapPin className="h-4 w-4" aria-hidden="true" />{prospect.commune || "Comuna pendiente"} · Catastro {prospect.surveyYear}</p><p className="mt-3 text-sm">{prospect.declaredSpecies.length ? prospect.declaredSpecies.join(" · ") : "Sin especie declarada"}</p><p className="mt-2 text-xs text-muted-foreground">{prospect.evidenceLabel}</p>{lookup ? <div className="mt-4 border-l-2 border-border pl-3">{lookup.owner ? <><p className="text-sm font-medium">Propietario candidato: {lookup.owner.name}</p><p className="mt-1 text-xs text-muted-foreground">Confianza {Math.round(lookup.owner.confidence * 100)}% · fuente {lookup.owner.source}. Validar antes de contacto.</p></> : lookup.producer ? <><p className="text-sm font-medium">Productor/operador asociado: {lookup.producer.name}</p><p className="mt-1 text-xs text-muted-foreground">No equivale a propietario legal. {lookup.nextAction}</p></> : lookup.historicalOwner ? <><p className="text-sm font-medium">Propietario histórico: {lookup.historicalOwner.name}</p><p className="mt-1 text-xs text-muted-foreground">No asumir vigencia actual. {lookup.nextAction}</p></> : <><p className="text-sm font-medium">Propietario aún no resuelto</p><p className="mt-1 text-xs text-muted-foreground">{lookup.nextAction}</p></>}</div> : null}</div><div className="shrink-0"><Button type="button" variant={lookup?.owner ? "outline" : "default"} onClick={() => void investigateOwner(prospect)} disabled={ownerLookupRol === prospect.rol}>{ownerLookupRol === prospect.rol ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : lookup?.owner ? <Check className="h-4 w-4" aria-hidden="true" /> : <UserRound className="h-4 w-4" aria-hidden="true" />}{lookup?.owner ? "Revalidar propietario" : "Investigar propietario"}</Button></div></div></Card>})}</div></section> : null}
 
