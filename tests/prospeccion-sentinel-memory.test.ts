@@ -2,6 +2,7 @@ import assert from "node:assert/strict"
 import test from "node:test"
 
 import {
+  canonicalSentinelPeriod,
   derivePersistentSentinelAnomaly,
   sentinelGeometryFingerprint,
 } from "../lib/prospeccion/sentinel-memory"
@@ -15,6 +16,16 @@ test("keeps the geometry fingerprint stable for the same CIREN polygon", () => {
   const second = sentinelGeometryFingerprint({ polygon, centroid: { lat: 0, lng: 0 } })
   assert.equal(first, second)
   assert.equal(first.length, 64)
+})
+
+test("canonicalizes any timestamp in the same month to one stable persistence period", () => {
+  const first = canonicalSentinelPeriod("2026-08-08T19:00:20.275Z")
+  const second = canonicalSentinelPeriod("2026-08-08T19:04:25.305Z")
+  assert.deepEqual(first, {
+    from: "2026-08-01T00:00:00.000Z",
+    to: "2026-09-01T00:00:00.000Z",
+  })
+  assert.deepEqual(second, first)
 })
 
 test("flags a strong persisted seasonal NDVI decrease without calling it agronomic stress", () => {
