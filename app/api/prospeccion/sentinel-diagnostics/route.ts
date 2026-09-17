@@ -3,6 +3,7 @@ import { INTERNAL_ACCESS_COOKIE, verifyInternalAccessToken } from "@/lib/auth/in
 import { runProspectingIntelligenceCore } from "@/lib/prospeccion/intelligence-core"
 import { normalizeProspectingCriteria } from "@/lib/prospeccion/normalization"
 import { getSentinelParcelEvidence, type SentinelPolygon } from "@/lib/prospeccion/sentinel-parcel-analysis"
+import { persistAndReadSentinelHistory, type SentinelHistoryResult } from "@/lib/prospeccion/sentinel-history"
 
 export const runtime = "nodejs"
 export const maxDuration = 30
@@ -89,6 +90,23 @@ export async function GET(request: NextRequest) {
     const results = await Promise.all(targets.map(async (prospect) => {
       const polygon = await fetchCirenPolygon(prospect.sourceUrl, prospect.rol, prospect.commune)
       const satellite = await getSentinelParcelEvidence({ centroid: prospect.centroid, polygon })
+
+      let history: SentinelHistoryResult | null = null
+      let historyError: string | null = null
+      try {
+        history = await persistAndReadSentinelHistory({
+          rol: prospect.rol,
+          commune: prospect.commune,
+          geometryMode: satellite.geometryMode,
+          polygon,
+          centroid: prospect.centroid,
+          observations: satellite.status === "available" ? satellite.observations : [],
+        })
+      } catch (error) {
+        historyError = error instanceof Error ? error.message : "Sentinel history unavailable"
+        console.warn("[Prospeccion Sentinel History] degraded", { rol: prospect.rol, error: historyError })
+      }
+
       const result = {
         rol: prospect.rol,
         commune: prospect.commune,
@@ -97,6 +115,8 @@ export async function GET(request: NextRequest) {
         centroid: prospect.centroid,
         polygonAvailable: Boolean(polygon),
         satellite,
+        history,
+        historyError,
       }
       console.info("[Prospeccion Sentinel Diagnostics]", {
         rol: prospect.rol,
@@ -104,6 +124,9 @@ export async function GET(request: NextRequest) {
         geometryMode: satellite.geometryMode,
         observationCount: satellite.summary.observationCount,
         baseline: satellite.baseline,
+        historyPersistence: history?.persistence ?? "degraded",
+        storedObservationCount: history?.storedObservationCount ?? null,
+        historySignal: history?.signal.state ?? null,
       })
       return result
     }))
