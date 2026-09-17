@@ -19,7 +19,7 @@ export type SentinelTemporalAnalysis = {
   recentNdviDelta: number | null
   recentNdmiTrend: "rising" | "falling" | "stable" | "insufficient_data"
   recentNdmiDelta: number | null
-  seasonalitySignal: "strong" | "moderate" | "weak" | "insufficient_data"
+  annualVariationSignal: "high" | "moderate" | "low" | "insufficient_data"
   interpretation: string
 }
 
@@ -128,8 +128,8 @@ function emptyTemporal(): SentinelTemporalAnalysis {
     recentNdviDelta: null,
     recentNdmiTrend: "insufficient_data",
     recentNdmiDelta: null,
-    seasonalitySignal: "insufficient_data",
-    interpretation: "No hay una serie temporal suficiente para interpretar vigor, humedad o estacionalidad.",
+    annualVariationSignal: "insufficient_data",
+    interpretation: "No hay una serie temporal suficiente para describir cómo cambian NDVI y NDMI en el tiempo.",
   }
 }
 
@@ -160,35 +160,35 @@ function temporalAnalysis(observations: SentinelObservation[]): SentinelTemporal
   const amplitude = round(peak.value - minimum.value)
   const ndviTrend = trend(ndvi)
   const ndmiTrend = trend(ndmi)
-  const seasonalitySignal: SentinelTemporalAnalysis["seasonalitySignal"] = amplitude == null
+  const annualVariationSignal: SentinelTemporalAnalysis["annualVariationSignal"] = amplitude == null
     ? "insufficient_data"
     : amplitude >= 0.35
-      ? "strong"
+      ? "high"
       : amplitude >= 0.18
         ? "moderate"
-        : "weak"
+        : "low"
 
-  const trendText = ndviTrend.direction === "rising"
-    ? "El vigor reciente viene subiendo."
+  const ndviText = ndviTrend.direction === "rising"
+    ? "NDVI aumenta entre los dos últimos intervalos válidos."
     : ndviTrend.direction === "falling"
-      ? "El vigor reciente viene bajando."
+      ? "NDVI disminuye entre los dos últimos intervalos válidos."
       : ndviTrend.direction === "stable"
-        ? "El vigor reciente está relativamente estable."
-        : "No hay suficientes puntos recientes para inferir tendencia de vigor."
-  const moistureText = ndmiTrend.direction === "rising"
-    ? "La señal hídrica reciente mejora."
+        ? "NDVI cambia poco entre los dos últimos intervalos válidos."
+        : "No hay suficientes puntos recientes para describir el cambio de NDVI."
+  const ndmiText = ndmiTrend.direction === "rising"
+    ? "NDMI aumenta entre los dos últimos intervalos válidos."
     : ndmiTrend.direction === "falling"
-      ? "La señal hídrica reciente disminuye y merece seguimiento."
+      ? "NDMI disminuye entre los dos últimos intervalos válidos."
       : ndmiTrend.direction === "stable"
-        ? "La señal hídrica reciente está relativamente estable."
-        : "No hay suficientes puntos recientes para inferir tendencia hídrica."
-  const seasonalityText = seasonalitySignal === "strong"
-    ? "La amplitud anual muestra una estacionalidad marcada."
-    : seasonalitySignal === "moderate"
-      ? "La amplitud anual muestra una estacionalidad moderada."
-      : seasonalitySignal === "weak"
-        ? "La amplitud anual muestra poca variación estacional."
-        : "La estacionalidad no puede estimarse con la serie disponible."
+        ? "NDMI cambia poco entre los dos últimos intervalos válidos."
+        : "No hay suficientes puntos recientes para describir el cambio de NDMI."
+  const variationText = annualVariationSignal === "high"
+    ? "La diferencia entre el NDVI máximo y mínimo del período es alta."
+    : annualVariationSignal === "moderate"
+      ? "La diferencia entre el NDVI máximo y mínimo del período es moderada."
+      : annualVariationSignal === "low"
+        ? "La diferencia entre el NDVI máximo y mínimo del período es baja."
+        : "No se puede estimar la variación anual con la serie disponible."
 
   return {
     from: ordered[0]?.from || null,
@@ -200,8 +200,8 @@ function temporalAnalysis(observations: SentinelObservation[]): SentinelTemporal
     recentNdviDelta: ndviTrend.delta,
     recentNdmiTrend: ndmiTrend.direction,
     recentNdmiDelta: ndmiTrend.delta,
-    seasonalitySignal,
-    interpretation: `${trendText} ${moistureText} ${seasonalityText} Esto describe comportamiento espectral; no identifica una especie por sí solo.`,
+    annualVariationSignal,
+    interpretation: `${ndviText} ${ndmiText} ${variationText} Estos cambios son señales espectrales: por sí solos no prueban especie, calidad agronómica, riego ni estrés hídrico.`,
   }
 }
 
@@ -329,7 +329,7 @@ export async function getSentinelSatelliteEvidence(point: Point | null): Promise
         meanNdre: round(mean(ndre)),
         meanNdmi: round(mean(ndmi)),
       },
-      note: "Sentinel-2 aporta evidencia espectral independiente. No se marca una especie como verificada hasta entrenar y validar un clasificador; una coincidencia CIREN por sí sola no es validación satelital.",
+      note: "Sentinel-2 aporta evidencia espectral independiente. Los índices describen cómo responde la vegetación en distintas bandas; no verifican por sí solos especie, calidad agronómica, riego ni estrés hídrico.",
     }
   } catch (error) {
     return empty("unavailable", `Sentinel-2 no estuvo disponible en esta ejecución: ${error instanceof Error ? error.message : "error desconocido"}.`)
