@@ -306,9 +306,9 @@ export async function getSentinelParcelEvidence(input: { centroid: Point | null;
   }
   if (!token) return empty("unconfigured", geometryMode, "Configura las credenciales OAuth de Copernicus para activar el análisis Sentinel-2.")
 
-  const to = new Date()
-  const from = new Date(to)
-  from.setUTCFullYear(from.getUTCFullYear() - 2)
+  const now = new Date()
+  const to = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+  const from = new Date(Date.UTC(to.getUTCFullYear() - 2, to.getUTCMonth(), 1))
   const bounds = polygon
     ? { geometry: polygon, properties: { crs: WGS84 } }
     : { bbox: bboxAround(input.centroid as Point), properties: { crs: WGS84 } }
@@ -320,7 +320,7 @@ export async function getSentinelParcelEvidence(input: { centroid: Point | null;
     },
     aggregation: {
       timeRange: { from: from.toISOString(), to: to.toISOString() },
-      aggregationInterval: { of: "P30D" },
+      aggregationInterval: { of: "P1M" },
       evalscript: EVALSCRIPT,
       resx: 10,
       resy: 10,
