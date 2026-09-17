@@ -1,7 +1,8 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import { getSentinelParcelEvidence } from "../lib/prospeccion/sentinel-parcel-analysis"
+import { getSentinelParcelEvidence, type ParcelSentinelObservation } from "../lib/prospeccion/sentinel-parcel-analysis"
+import { derivePersistentHistorySignal } from "../lib/prospeccion/sentinel-history-signal"
 
 test("uses the CIREN polygon and derives an interannual Sentinel comparison", async () => {
   const originalFetch = globalThis.fetch
@@ -91,4 +92,44 @@ test("uses the CIREN polygon and derives an interannual Sentinel comparison", as
     if (originalClientSecret == null) delete process.env.COPERNICUS_CLIENT_SECRET
     else process.env.COPERNICUS_CLIENT_SECRET = originalClientSecret
   }
+})
+
+function observation(from: string, ndvi: number): ParcelSentinelObservation {
+  const start = new Date(from)
+  const end = new Date(start.getTime() + 30 * 86_400_000)
+  return { from: start.toISOString(), to: end.toISOString(), ndvi, ndre: null, ndmi: null, sampleCount: 1 }
+}
+
+test("keeps persistent Sentinel history as insufficient until a comparable season exists", () => {
+  const signal = derivePersistentHistorySignal([
+    observation("2026-08-10T00:00:00Z", 0.70),
+  ])
+  assert.equal(signal.state, "insufficient_history")
+  assert.equal(signal.comparableCount, 0)
+  assert.equal(signal.referenceNdvi, null)
+})
+
+test("marks a small same-season NDVI difference as normal", () => {
+  const signal = derivePersistentHistorySignal([
+    observation("2025-08-13T00:00:00Z", 0.735),
+    observation("2026-08-08T00:00:00Z", 0.703),
+  ])
+  assert.equal(signal.state, "normal")
+  assert.equal(signal.comparableCount, 1)
+  assert.equal(signal.referenceNdvi, 0.735)
+  assert.equal(signal.ndviDelta, -0.032)
+})
+
+test("flags a large same-season NDVI change without calling it an agronomic diagnosis", () => {
+  const signal = derivePersistentHistorySignal([
+    observation("2024-08-12T00:00:00Z", 0.72),
+    observation("2025-08-13T00:00:00Z", 0.74),
+    observation("2026-08-08T00:00:00Z", 0.51),
+  ])
+  assert.equal(signal.state, "large_change")
+  assert.equal(signal.comparableCount, 2)
+  assert.equal(signal.referenceNdvi, 0.73)
+  assert.equal(signal.ndviDelta, -0.22)
+  assert.match(signal.interpretation, /alerta espectral heurística/i)
+  assert.match(signal.interpretation, /no un diagnóstico agronómico/i)
 })
