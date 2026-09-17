@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto"
 import { createClient } from "@supabase/supabase-js"
 
-import type { ParcelSentinelObservation, SentinelPolygon } from "@/lib/prospeccion/sentinel-parcel-analysis"
+import type { ParcelSentinelObservation, SentinelPolygon } from "./sentinel-parcel-analysis"
 
 type Point = { lat: number; lng: number }
 
@@ -171,6 +171,7 @@ export async function persistAndReadSentinelHistory(input: {
 
   let persistence: SentinelHistoryResult["persistence"] = "read_only"
   if (input.observations.length) {
+    const now = new Date().toISOString()
     const rows = input.observations.map((entry) => ({
       rol: input.rol,
       rol_key: key,
@@ -184,8 +185,8 @@ export async function persistAndReadSentinelHistory(input: {
       ndre: entry.ndre,
       ndmi: entry.ndmi,
       sample_count: entry.sampleCount,
-      fetched_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      fetched_at: now,
+      updated_at: now,
     }))
     const { error } = await client
       .from("prospecting_sentinel_observations")
