@@ -88,7 +88,7 @@ function setup() {
   return {
     input: [{ bands: ["B04", "B05", "B08", "B11", "SCL", "dataMask"] }],
     output: [
-      { id: "indices", bands: [{ name: "NDVI" }, { name: "NDRE" }, { name: "NDMI" }], sampleType: "FLOAT32" },
+      { id: "indices", bands: ["NDVI", "NDRE", "NDMI"], sampleType: "FLOAT32" },
       { id: "dataMask", bands: 1 }
     ]
   }
