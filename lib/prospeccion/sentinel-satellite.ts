@@ -9,6 +9,20 @@ export type SentinelObservation = {
   sampleCount: number
 }
 
+export type SentinelTemporalAnalysis = {
+  from: string | null
+  to: string | null
+  peakNdvi: { date: string; value: number } | null
+  minimumNdvi: { date: string; value: number } | null
+  ndviAmplitude: number | null
+  recentNdviTrend: "rising" | "falling" | "stable" | "insufficient_data"
+  recentNdviDelta: number | null
+  recentNdmiTrend: "rising" | "falling" | "stable" | "insufficient_data"
+  recentNdmiDelta: number | null
+  seasonalitySignal: "strong" | "moderate" | "weak" | "insufficient_data"
+  interpretation: string
+}
+
 export type SentinelSatelliteEvidence = {
   status: "available" | "unconfigured" | "unavailable"
   source: "Copernicus Data Space / Sentinel-2 L2A"
@@ -21,6 +35,7 @@ export type SentinelSatelliteEvidence = {
     reason: string
   }
   observations: SentinelObservation[]
+  temporal: SentinelTemporalAnalysis
   summary: {
     observationCount: number
     meanNdvi: number | null
@@ -102,6 +117,94 @@ function evaluatePixel(s) {
   return { indices: [ndvi, ndre, ndmi], dataMask: [valid ? 1 : 0] }
 }`
 
+function emptyTemporal(): SentinelTemporalAnalysis {
+  return {
+    from: null,
+    to: null,
+    peakNdvi: null,
+    minimumNdvi: null,
+    ndviAmplitude: null,
+    recentNdviTrend: "insufficient_data",
+    recentNdviDelta: null,
+    recentNdmiTrend: "insufficient_data",
+    recentNdmiDelta: null,
+    seasonalitySignal: "insufficient_data",
+    interpretation: "No hay una serie temporal suficiente para interpretar vigor, humedad o estacionalidad.",
+  }
+}
+
+function trend(values: Array<{ date: string; value: number }>) {
+  if (values.length < 2) return { direction: "insufficient_data" as const, delta: null }
+  const previous = values[values.length - 2].value
+  const latest = values[values.length - 1].value
+  const delta = round(latest - previous)
+  if (delta == null) return { direction: "insufficient_data" as const, delta: null }
+  if (delta > 0.03) return { direction: "rising" as const, delta }
+  if (delta < -0.03) return { direction: "falling" as const, delta }
+  return { direction: "stable" as const, delta }
+}
+
+function temporalAnalysis(observations: SentinelObservation[]): SentinelTemporalAnalysis {
+  const ordered = [...observations].sort((a, b) => a.from.localeCompare(b.from))
+  const ndvi = ordered
+    .filter((entry): entry is SentinelObservation & { ndvi: number } => entry.ndvi != null)
+    .map((entry) => ({ date: entry.from, value: entry.ndvi }))
+  const ndmi = ordered
+    .filter((entry): entry is SentinelObservation & { ndmi: number } => entry.ndmi != null)
+    .map((entry) => ({ date: entry.from, value: entry.ndmi }))
+
+  if (!ndvi.length) return emptyTemporal()
+
+  const peak = ndvi.reduce((best, current) => current.value > best.value ? current : best)
+  const minimum = ndvi.reduce((best, current) => current.value < best.value ? current : best)
+  const amplitude = round(peak.value - minimum.value)
+  const ndviTrend = trend(ndvi)
+  const ndmiTrend = trend(ndmi)
+  const seasonalitySignal: SentinelTemporalAnalysis["seasonalitySignal"] = amplitude == null
+    ? "insufficient_data"
+    : amplitude >= 0.35
+      ? "strong"
+      : amplitude >= 0.18
+        ? "moderate"
+        : "weak"
+
+  const trendText = ndviTrend.direction === "rising"
+    ? "El vigor reciente viene subiendo."
+    : ndviTrend.direction === "falling"
+      ? "El vigor reciente viene bajando."
+      : ndviTrend.direction === "stable"
+        ? "El vigor reciente está relativamente estable."
+        : "No hay suficientes puntos recientes para inferir tendencia de vigor."
+  const moistureText = ndmiTrend.direction === "rising"
+    ? "La señal hídrica reciente mejora."
+    : ndmiTrend.direction === "falling"
+      ? "La señal hídrica reciente disminuye y merece seguimiento."
+      : ndmiTrend.direction === "stable"
+        ? "La señal hídrica reciente está relativamente estable."
+        : "No hay suficientes puntos recientes para inferir tendencia hídrica."
+  const seasonalityText = seasonalitySignal === "strong"
+    ? "La amplitud anual muestra una estacionalidad marcada."
+    : seasonalitySignal === "moderate"
+      ? "La amplitud anual muestra una estacionalidad moderada."
+      : seasonalitySignal === "weak"
+        ? "La amplitud anual muestra poca variación estacional."
+        : "La estacionalidad no puede estimarse con la serie disponible."
+
+  return {
+    from: ordered[0]?.from || null,
+    to: ordered[ordered.length - 1]?.to || null,
+    peakNdvi: { date: peak.date, value: round(peak.value) ?? peak.value },
+    minimumNdvi: { date: minimum.date, value: round(minimum.value) ?? minimum.value },
+    ndviAmplitude: amplitude,
+    recentNdviTrend: ndviTrend.direction,
+    recentNdviDelta: ndviTrend.delta,
+    recentNdmiTrend: ndmiTrend.direction,
+    recentNdmiDelta: ndmiTrend.delta,
+    seasonalitySignal,
+    interpretation: `${trendText} ${moistureText} ${seasonalityText} Esto describe comportamiento espectral; no identifica una especie por sí solo.`,
+  }
+}
+
 function empty(status: "unconfigured" | "unavailable", note: string): SentinelSatelliteEvidence {
   return {
     status,
@@ -117,6 +220,7 @@ function empty(status: "unconfigured" | "unavailable", note: string): SentinelSa
         : "No fue posible obtener una serie espectral utilizable.",
     },
     observations: [],
+    temporal: emptyTemporal(),
     summary: { observationCount: 0, meanNdvi: null, maxNdvi: null, meanNdre: null, meanNdmi: null },
     note,
   }
@@ -217,6 +321,7 @@ export async function getSentinelSatelliteEvidence(point: Point | null): Promise
         reason: "La serie NDVI/NDRE/NDMI está disponible, pero la clasificación por especie requiere un modelo validado con muestras CIREN separadas de entrenamiento y prueba.",
       },
       observations,
+      temporal: temporalAnalysis(observations),
       summary: {
         observationCount: observations.length,
         meanNdvi: round(mean(ndvi)),
