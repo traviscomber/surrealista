@@ -31,6 +31,7 @@ const domains = [
 
 const secondary = [
   { label: "Inventario Sur Realista", href: "/admin/surealista", icon: Building2 },
+  { label: "Lectura Sentinel-2", href: "/prospeccion/sentinel", icon: Radar },
   { label: "Demanda de mercado", href: "/prospeccion/demanda-mercado", icon: Radar },
   { label: "Fuentes y datos", href: "/admin/dashboard?tab=scrapers", icon: Database },
   { label: "Mercado Inciti", href: "/admin/inciti-market", icon: BarChart3 },
