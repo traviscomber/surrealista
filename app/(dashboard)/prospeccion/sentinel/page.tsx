@@ -20,6 +20,7 @@ type Observation = {
 }
 
 type BaselineSignal = "large_increase" | "moderate_increase" | "similar" | "moderate_decrease" | "large_decrease" | "insufficient_data"
+type AnomalyLevel = "none" | "watch" | "strong" | "insufficient_data"
 
 type Evidence = {
   status: "available" | "unconfigured" | "unavailable"
@@ -67,6 +68,30 @@ type Evidence = {
   note: string
 }
 
+type SentinelMemory = {
+  available: boolean
+  persisted: boolean
+  rowCount: number
+  historyFrom: string | null
+  historyTo: string | null
+  geometryFingerprint: string
+  anomaly: {
+    level: AnomalyLevel
+    direction: "above" | "below" | "similar" | "insufficient_data"
+    latestDate: string | null
+    latestNdvi: number | null
+    seasonalBaselineNdvi: number | null
+    ndviDelta: number | null
+    latestNdmi: number | null
+    seasonalBaselineNdmi: number | null
+    ndmiDelta: number | null
+    baselineCount: number
+    interpretation: string
+    methodology: string
+  }
+  note: string
+}
+
 type DiagnosticResult = {
   rol: string
   commune: string
@@ -74,6 +99,7 @@ type DiagnosticResult = {
   declaredSpecies: string[]
   polygonAvailable: boolean
   satellite: Evidence
+  memory: SentinelMemory
 }
 
 type DiagnosticResponse = {
@@ -108,6 +134,13 @@ function baselineLabel(signal: BaselineSignal) {
   if (signal === "moderate_decrease") return "por debajo del año anterior"
   if (signal === "similar") return "parecido al año anterior"
   return "sin comparación suficiente"
+}
+
+function anomalyLabel(level: AnomalyLevel) {
+  if (level === "strong") return "cambio fuerte"
+  if (level === "watch") return "vigilar cambio"
+  if (level === "none") return "sin anomalía relevante"
+  return "historia insuficiente"
 }
 
 function trendLabel(value: Evidence["temporal"]["recentNdviTrend"]) {
@@ -221,7 +254,7 @@ export default function SentinelTemporalPage() {
   return (
     <main className="mx-auto w-full max-w-[1500px] space-y-6">
       <Button asChild variant="ghost"><Link href="/prospeccion"><ArrowLeft className="h-4 w-4" aria-hidden="true" />Volver a Prospección</Link></Button>
-      <WorkspaceHeading eyebrow="Prospección · Copernicus Sentinel-2" title="Qué cambió en este campo" description="Compara el mismo ROL en el tiempo y contra un período equivalente del año anterior. Primero mira la conclusión; usa los índices como evidencia, no como diagnóstico agronómico." outcome="Resultado: polígono CIREN cuando está disponible, ~24 meses de observaciones y comparación interanual." />
+      <WorkspaceHeading eyebrow="Prospección · Copernicus Sentinel-2" title="Qué cambió en este campo" description="Compara el mismo ROL en el tiempo, contra su historia guardada y contra un período equivalente del año anterior. Primero mira la conclusión; usa los índices como evidencia, no como diagnóstico agronómico." outcome="Resultado: polígono CIREN cuando está disponible, memoria persistente por ROL y detección de cambios espectrales." />
 
       <Card className="p-5">
         <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Qué significan los índices</p>
@@ -251,6 +284,27 @@ export default function SentinelTemporalPage() {
           </div>
           <p className="mt-5 text-lg font-medium">NDVI está {baselineLabel(evidence.baseline.signal)}.</p>
           <p className="mt-2 max-w-5xl text-sm leading-6 text-muted-foreground">{evidence.baseline.interpretation}</p>
+        </Card>
+
+        <Card className="p-6">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Memoria del ROL</p>
+              <h3 className="mt-1 text-xl font-medium">{anomalyLabel(result.memory.anomaly.level)}</h3>
+              <p className="mt-2 max-w-5xl text-sm leading-6 text-muted-foreground">{result.memory.anomaly.interpretation}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="outline">{result.memory.rowCount} períodos guardados</Badge>
+              <Badge variant="outline">{result.memory.anomaly.baselineCount} referencias estacionales</Badge>
+            </div>
+          </div>
+          <div className="mt-5 grid gap-3 md:grid-cols-4">
+            <div><p className="text-xs text-muted-foreground">NDVI actual</p><p className="mt-1 text-lg font-medium">{numberLabel(result.memory.anomaly.latestNdvi)}</p></div>
+            <div><p className="text-xs text-muted-foreground">Referencia histórica</p><p className="mt-1 text-lg font-medium">{numberLabel(result.memory.anomaly.seasonalBaselineNdvi)}</p></div>
+            <div><p className="text-xs text-muted-foreground">Diferencia NDVI</p><p className="mt-1 text-lg font-medium">{signed(result.memory.anomaly.ndviDelta)}</p></div>
+            <div><p className="text-xs text-muted-foreground">Historia guardada</p><p className="mt-1 text-sm font-medium">{dateLabel(result.memory.historyFrom)} → {dateLabel(result.memory.historyTo)}</p></div>
+          </div>
+          <p className="mt-4 text-xs text-muted-foreground">La memoria usa el mismo ROL y la misma geometría. Repetir una consulta actualiza el período existente; no duplica observaciones.</p>
         </Card>
 
         <section className="grid gap-3 md:grid-cols-4">
