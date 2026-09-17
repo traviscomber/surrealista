@@ -3,7 +3,7 @@ import test from "node:test"
 
 import { getSentinelSatelliteEvidence } from "../lib/prospeccion/sentinel-satellite"
 
-test("derives temporal Sentinel signals from monthly observations", async () => {
+test("derives evidence-safe temporal Sentinel signals from monthly observations", async () => {
   const originalFetch = globalThis.fetch
   const originalClientId = process.env.COPERNICUS_CLIENT_ID
   const originalClientSecret = process.env.COPERNICUS_CLIENT_SECRET
@@ -40,7 +40,7 @@ test("derives temporal Sentinel signals from monthly observations", async () => 
           } } },
         },
         {
-          interval: { from: "2026-03-01T00:00:00Z", to: "2026-04-01T00:00:00Z" },
+          interval: { from: "2026-04-01T00:00:00Z", to: "2026-05-01T00:00:00Z" },
           outputs: { indices: { bands: {
             NDVI: { stats: { mean: 0.58, sampleCount: 10 } },
             NDRE: { stats: { mean: 0.39, sampleCount: 10 } },
@@ -61,11 +61,13 @@ test("derives temporal Sentinel signals from monthly observations", async () => 
     assert.equal(evidence.temporal.peakNdvi?.value, 0.65)
     assert.equal(evidence.temporal.minimumNdvi?.value, 0.30)
     assert.equal(evidence.temporal.ndviAmplitude, 0.35)
-    assert.equal(evidence.temporal.seasonalitySignal, "strong")
+    assert.equal(evidence.temporal.annualVariationSignal, "high")
     assert.equal(evidence.temporal.recentNdviTrend, "falling")
     assert.equal(evidence.temporal.recentNdviDelta, -0.07)
     assert.equal(evidence.temporal.recentNdmiTrend, "falling")
     assert.equal(evidence.temporal.recentNdmiDelta, -0.06)
+    assert.match(evidence.temporal.interpretation, /NDMI disminuye/)
+    assert.doesNotMatch(evidence.temporal.interpretation, /mejora|empeora|estacionalidad/i)
     assert.equal(evidence.classification.predictedSpecies, null)
   } finally {
     globalThis.fetch = originalFetch
