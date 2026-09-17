@@ -43,6 +43,7 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
       criteria,
+      deploymentEnvironment: process.env.VERCEL_ENV || process.env.NODE_ENV || "unknown",
       credentialsConfigured: Boolean(
         process.env.COPERNICUS_CLIENT_ID?.trim() && process.env.COPERNICUS_CLIENT_SECRET?.trim(),
       ),
