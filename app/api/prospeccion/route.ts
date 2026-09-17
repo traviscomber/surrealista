@@ -22,6 +22,7 @@ type ProspectingCore = Awaited<ReturnType<typeof runProspectingIntelligenceCore>
 type SatelliteEvidence = Awaited<ReturnType<typeof getSentinelSatelliteEvidence>>
 
 type HydratedCase = ProspectingCase & {
+  opportunityScore?: number
   ownerResearch?: {
     decision: "contactar" | "validar_propietario" | "descartar"
     researchedAt: string
@@ -34,6 +35,15 @@ function db() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) return null
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
+}
+
+function cachedContact(value: unknown): ProspectingCase["contact"] {
+  if (!value || typeof value !== "object") return null
+  const contact = value as Record<string, unknown>
+  const name = typeof contact.name === "string" && contact.name.trim() ? contact.name.trim() : null
+  const phone = typeof contact.phone === "string" && contact.phone.trim() ? contact.phone.trim() : null
+  const email = typeof contact.email === "string" && contact.email.trim() ? contact.email.trim() : null
+  return phone || email ? { name, phone, email } : null
 }
 
 async function hydrateOwnerResearch(core: ProspectingCore): Promise<ProspectingCore> {
@@ -63,24 +73,34 @@ async function hydrateOwnerResearch(core: ProspectingCore): Promise<ProspectingC
         }
       : item.owner
 
+    const contact = cachedContact(entry.result.contact) ?? item.contact
+    const rawOpportunityScore = Number(entry.result.opportunityScore)
+    const opportunityScore = Number.isFinite(rawOpportunityScore)
+      ? Math.max(0, Math.min(100, Math.round(rawOpportunityScore)))
+      : 0
+
     const status: ProspectingCase["status"] = entry.decision === "contactar"
-      ? "owner_identified"
+      ? contact ? "ready_to_contact" : "owner_identified"
       : entry.decision === "validar_propietario"
         ? owner ? "owner_identified" : "verify_owner"
         : "review_market"
 
-    const nextAction = entry.decision === "contactar"
-      ? "Propietario confirmado por evidencia interna fuerte. Preparar contacto humano y registrar resultado."
-      : entry.decision === "descartar"
-        ? "Descartar de la cola activa; la investigación no produjo una vía accionable con las fuentes disponibles."
-        : typeof entry.result.nextAction === "string" && entry.result.nextAction.trim()
-          ? entry.result.nextAction.trim()
-          : "Validar propietario antes de iniciar contacto."
+    const nextAction = status === "ready_to_contact"
+      ? "Contacto verificable asociado al mismo ROL y propietario. Preparar acercamiento humano y registrar resultado."
+      : entry.decision === "contactar"
+        ? "Propietario confirmado por evidencia interna fuerte. Resolver un contacto verificable antes del acercamiento."
+        : entry.decision === "descartar"
+          ? "Descartar de la cola activa; la investigación no produjo una vía accionable con las fuentes disponibles."
+          : typeof entry.result.nextAction === "string" && entry.result.nextAction.trim()
+            ? entry.result.nextAction.trim()
+            : "Validar propietario antes de iniciar contacto."
 
     return {
       ...item,
       status,
       owner,
+      contact,
+      opportunityScore,
       nextAction,
       ownerResearch: {
         decision: entry.decision,
@@ -90,16 +110,16 @@ async function hydrateOwnerResearch(core: ProspectingCore): Promise<ProspectingC
     }
   })
 
-  const byId = new Map(hydrated.map((item) => [item.id, item]))
   const rank = (item: HydratedCase) => {
-    const decisionBoost = item.ownerResearch?.decision === "contactar"
-      ? 35
-      : item.ownerResearch?.decision === "validar_propietario"
-        ? 12
-        : item.ownerResearch?.decision === "descartar"
-          ? -100
+    if (item.ownerResearch?.decision === "descartar") return -1000
+    const statusBoost = item.status === "ready_to_contact"
+      ? 80
+      : item.status === "owner_identified"
+        ? 30
+        : item.ownerResearch?.decision === "validar_propietario"
+          ? 10
           : 0
-    return item.score + decisionBoost
+    return item.score + statusBoost + (item.opportunityScore ?? 0) * 0.5
   }
   const priorityCases = [...hydrated]
     .sort((a, b) => rank(b) - rank(a) || b.score - a.score)
@@ -108,7 +128,7 @@ async function hydrateOwnerResearch(core: ProspectingCore): Promise<ProspectingC
   return {
     ...core,
     cases: hydrated,
-    priorityCases: priorityCases.map((item) => byId.get(item.id) ?? item),
+    priorityCases,
   }
 }
 
@@ -314,7 +334,7 @@ export async function GET(request: Request) {
       sourceRefs: core.sourceRefs,
       groundedEvaluation: core.groundedEvaluation,
       scopeFallback: core.scopeFallback,
-      methodology: "prospecting-intelligence-core-v3-sentinel-priority",
+      methodology: "prospecting-intelligence-core-v4-owner-opportunity",
       operationalMutationExecuted: core.operationalMutationExecuted,
       coverage: {
         market: "active",
@@ -322,7 +342,7 @@ export async function GET(request: Request) {
         irrigationInfrastructure: "CIREN+CNR-regional",
         soils: "CIREN-regional",
         kmz: "market-spatial-plus-offmarket-exact-rol",
-        ownerResearch: "persistent-rol-cache-plus-on-demand",
+        ownerResearch: "persistent-rol-cache-plus-exact-owner-contact",
         governedMemory: governedMemory.available ? "active-non-canonical" : "pending-migration-or-unavailable",
         persistentDecisionCases: "mandate-run-persistence",
         speciesClassification: satelliteLayer.availableCount > 0
