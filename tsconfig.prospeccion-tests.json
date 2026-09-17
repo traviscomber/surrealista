@@ -23,10 +23,12 @@
     "lib/prospeccion/sentinel-satellite.ts",
     "lib/prospeccion/sentinel-parcel-analysis.ts",
     "lib/prospeccion/sentinel-memory.ts",
+    "lib/prospeccion/sentinel-attention.ts",
     "tests/prospeccion-normalization.test.ts",
     "tests/prospeccion-owner-web.test.ts",
     "tests/prospeccion-lead-state.test.ts",
     "tests/prospeccion-sentinel-temporal.test.ts",
-    "tests/prospeccion-sentinel-memory.test.ts"
+    "tests/prospeccion-sentinel-memory.test.ts",
+    "tests/prospeccion-sentinel-attention.test.ts"
   ]
 }
