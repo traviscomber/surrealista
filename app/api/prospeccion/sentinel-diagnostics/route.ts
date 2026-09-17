@@ -17,6 +17,7 @@ export async function GET(request: NextRequest) {
   }
 
   const { searchParams } = new URL(request.url)
+  const requestedRol = searchParams.get("rol")?.trim() || ""
   const region = searchParams.get("region")?.trim() || ""
   const commune = searchParams.get("commune")?.trim() || ""
   const species = searchParams.get("species")?.trim() || ""
@@ -33,25 +34,46 @@ export async function GET(request: NextRequest) {
       .filter((item) => item.kind === "off_market" && item.rol)
       .map((item) => String(item.rol))
       .slice(0, 3)
-    const prioritySet = new Set(priorityRols)
-    const targets = core.offMarketProspects.filter((item) => prioritySet.has(item.rol))
+
+    const targets = requestedRol
+      ? core.offMarketProspects.filter((item) => item.rol === requestedRol)
+      : core.offMarketProspects.filter((item) => priorityRols.includes(item.rol))
+
+    if (requestedRol && !targets.length) {
+      return NextResponse.json(
+        {
+          error: `El ROL ${requestedRol} no aparece dentro de los prospectos encontrados con estos filtros. Ajusta comuna, especie o rango de hectáreas y vuelve a intentar.`,
+          criteria,
+          requestedRol,
+          availableRols: core.offMarketProspects.slice(0, 20).map((item) => item.rol),
+        },
+        { status: 404, headers: { "Cache-Control": "private, no-store" } },
+      )
+    }
 
     const results = await Promise.all(targets.map(async (prospect) => {
       const satellite = await getSentinelSatelliteEvidence(prospect.centroid)
       const result = {
         rol: prospect.rol,
+        commune: prospect.commune,
+        areaHa: prospect.areaHa,
+        declaredSpecies: prospect.declaredSpecies,
         centroid: prospect.centroid,
-        status: satellite.status,
-        note: satellite.note,
-        summary: satellite.summary,
-        classification: satellite.classification,
+        satellite,
       }
-      console.info("[Prospeccion Sentinel Diagnostics]", result)
+      console.info("[Prospeccion Sentinel Diagnostics]", {
+        rol: prospect.rol,
+        status: satellite.status,
+        summary: satellite.summary,
+        temporal: satellite.temporal,
+      })
       return result
     }))
 
     return NextResponse.json({
       criteria,
+      requestedRol: requestedRol || null,
+      targetMode: requestedRol ? "exact-rol" : "priority-top-3",
       deploymentEnvironment: process.env.VERCEL_ENV || process.env.NODE_ENV || "unknown",
       credentialsConfigured: Boolean(
         process.env.COPERNICUS_CLIENT_ID?.trim() && process.env.COPERNICUS_CLIENT_SECRET?.trim(),
@@ -59,12 +81,12 @@ export async function GET(request: NextRequest) {
       priorityRols,
       targetCount: targets.length,
       results,
-    })
+    }, { headers: { "Cache-Control": "private, no-store" } })
   } catch (error) {
     console.error("[Prospeccion Sentinel Diagnostics] failed", error)
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Sentinel diagnostics failed" },
-      { status: 500 },
+      { status: 500, headers: { "Cache-Control": "private, no-store" } },
     )
   }
 }
