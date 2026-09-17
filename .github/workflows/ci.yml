@@ -36,7 +36,7 @@ jobs:
 
       - name: Prospección regression tests
         run: |
-          TEST_OUT="/tmp/prospeccion-tests-${GITHUB_SHA}"
+          TEST_OUT=".tmp-prospeccion-tests-${GITHUB_SHA}"
           rm -rf "$TEST_OUT"
           pnpm exec tsc -p tsconfig.prospeccion-tests.json --outDir "$TEST_OUT"
           node --test "$TEST_OUT/tests/prospeccion-normalization.test.js"
