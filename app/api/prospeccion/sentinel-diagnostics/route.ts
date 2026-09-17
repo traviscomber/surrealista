@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { INTERNAL_ACCESS_COOKIE, verifyInternalAccessToken } from "@/lib/auth/internal-access"
 import { runProspectingIntelligenceCore } from "@/lib/prospeccion/intelligence-core"
 import { normalizeProspectingCriteria } from "@/lib/prospeccion/normalization"
+import { syncSentinelMemory } from "@/lib/prospeccion/sentinel-memory"
 import { getSentinelParcelEvidence, type SentinelPolygon } from "@/lib/prospeccion/sentinel-parcel-analysis"
 
 export const runtime = "nodejs"
@@ -89,6 +90,14 @@ export async function GET(request: NextRequest) {
     const results = await Promise.all(targets.map(async (prospect) => {
       const polygon = await fetchCirenPolygon(prospect.sourceUrl, prospect.rol, prospect.commune)
       const satellite = await getSentinelParcelEvidence({ centroid: prospect.centroid, polygon })
+      const memory = await syncSentinelMemory({
+        rol: prospect.rol,
+        commune: prospect.commune,
+        geometryMode: satellite.geometryMode,
+        polygon,
+        centroid: prospect.centroid,
+        observations: satellite.observations,
+      })
       const result = {
         rol: prospect.rol,
         commune: prospect.commune,
@@ -97,6 +106,7 @@ export async function GET(request: NextRequest) {
         centroid: prospect.centroid,
         polygonAvailable: Boolean(polygon),
         satellite,
+        memory,
       }
       console.info("[Prospeccion Sentinel Diagnostics]", {
         rol: prospect.rol,
@@ -104,6 +114,8 @@ export async function GET(request: NextRequest) {
         geometryMode: satellite.geometryMode,
         observationCount: satellite.summary.observationCount,
         baseline: satellite.baseline,
+        memoryRows: memory.rowCount,
+        anomaly: memory.anomaly,
       })
       return result
     }))
