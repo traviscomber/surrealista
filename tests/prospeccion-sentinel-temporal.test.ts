@@ -2,7 +2,7 @@ import assert from "node:assert/strict"
 import test from "node:test"
 
 import { getSentinelParcelEvidence, type ParcelSentinelObservation } from "../lib/prospeccion/sentinel-parcel-analysis"
-import { derivePersistentHistorySignal } from "../lib/prospeccion/sentinel-history"
+import { derivePersistentHistorySignal } from "../lib/prospeccion/sentinel-history-signal"
 
 test("uses the CIREN polygon and derives an interannual Sentinel comparison", async () => {
   const originalFetch = globalThis.fetch
