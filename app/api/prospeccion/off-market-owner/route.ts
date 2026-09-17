@@ -2,18 +2,32 @@ import { NextResponse } from "next/server"
 import { researchOwnerByRol } from "@/lib/prospeccion/owner-intelligence"
 import { classifyOwnerResearch, leadDecisionLabel } from "@/lib/prospeccion/lead-state"
 import { readOwnerResearchCache, writeOwnerResearchCache } from "@/lib/prospeccion/owner-research-cache"
+import { lookupVerifiedOwnerContact, scoreOwnerOpportunity } from "@/lib/prospeccion/owner-opportunity"
 
 export const runtime = "nodejs"
 export const maxDuration = 30
 
-function shapeOwnerResearch(result: Awaited<ReturnType<typeof researchOwnerByRol>>) {
-  const nextAction = result.owner
-    ? result.nextAction
-    : result.producer
-      ? `Productor/operador asociado: ${result.producer.name} (${Math.round(result.producer.confidence * 100)}% de confianza). No equivale a propietario legal; continuar a CIREN/CBR antes de tratarlo como dueño.`
-      : result.historicalOwner
-        ? `Propietario histórico identificado: ${result.historicalOwner.name} (${Math.round(result.historicalOwner.confidence * 100)}% de confianza). No asumir vigencia actual; verificar dominio en CBR.`
-        : result.nextAction
+async function shapeOwnerResearch(result: Awaited<ReturnType<typeof researchOwnerByRol>>) {
+  const ownerName = result.owner?.ownerName ?? null
+  const contact = ownerName
+    ? await lookupVerifiedOwnerContact({ rol: result.rol, ownerName })
+    : null
+  const decision = classifyOwnerResearch(result)
+  const opportunityScore = scoreOwnerOpportunity({
+    decision,
+    ownerConfidence: result.owner?.confidence ?? null,
+    contact,
+  })
+
+  const nextAction = contact
+    ? `Contacto interno verificable asociado al mismo ROL y propietario. Preparar acercamiento humano y registrar resultado.`
+    : result.owner
+      ? result.nextAction
+      : result.producer
+        ? `Productor/operador asociado: ${result.producer.name} (${Math.round(result.producer.confidence * 100)}% de confianza). No equivale a propietario legal; continuar a CIREN/CBR antes de tratarlo como dueño.`
+        : result.historicalOwner
+          ? `Propietario histórico identificado: ${result.historicalOwner.name} (${Math.round(result.historicalOwner.confidence * 100)}% de confianza). No asumir vigencia actual; verificar dominio en CBR.`
+          : result.nextAction
 
   return {
     ...result,
@@ -25,6 +39,8 @@ function shapeOwnerResearch(result: Awaited<ReturnType<typeof researchOwnerByRol
       documentType: result.owner.documentType,
       relation: result.owner.relation,
     } : null,
+    contact,
+    opportunityScore,
     nextAction,
   }
 }
@@ -57,7 +73,7 @@ export async function POST(request: Request) {
     }
 
     const result = await researchOwnerByRol({ rol, commune })
-    const response = shapeOwnerResearch(result)
+    const response = await shapeOwnerResearch(result)
     const decision = classifyOwnerResearch(result)
     const persisted = await writeOwnerResearchCache({
       rol,
