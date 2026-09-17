@@ -16,8 +16,10 @@
     "lib/prospeccion/normalization.ts",
     "lib/prospeccion/owner-web-intelligence.ts",
     "lib/prospeccion/lead-state.ts",
+    "lib/prospeccion/sentinel-satellite.ts",
     "tests/prospeccion-normalization.test.ts",
     "tests/prospeccion-owner-web.test.ts",
-    "tests/prospeccion-lead-state.test.ts"
+    "tests/prospeccion-lead-state.test.ts",
+    "tests/prospeccion-sentinel-temporal.test.ts"
   ]
 }
