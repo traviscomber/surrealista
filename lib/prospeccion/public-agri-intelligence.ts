@@ -89,7 +89,7 @@ const CIREN_PRODUCER_LAYERS: Array<{ aliases: string[]; layerId: number; year: n
   { aliases: ["coquimbo"], layerId: 58, year: 2024 },
   { aliases: ["valparaiso"], layerId: 59, year: 2025 },
   { aliases: ["metropolitana", "metropolitana de santiago", "santiago"], layerId: 60, year: 2025 },
-  { aliases: ["ohiggins", "libertador general bernardo ohiggins", "libertador bernardo ohiggins"], layerId: 61, year: 2024 },
+  { aliases: ["ohiggins", "o higgins", "libertador general bernardo ohiggins", "libertador general bernardo o higgins", "libertador bernardo ohiggins", "libertador bernardo o higgins"], layerId: 61, year: 2024 },
   { aliases: ["maule"], layerId: 62, year: 2024 },
   { aliases: ["nuble"], layerId: 63, year: 2024 },
   { aliases: ["biobio", "bio bio"], layerId: 64, year: 2024 },
