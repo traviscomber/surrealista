@@ -9,8 +9,10 @@ type SentinelPolygon = {
 
 type Props = {
   polygon: SentinelPolygon
-  imageUrl: string
-  periodLabel: string
+  currentImageUrl: string
+  currentPeriodLabel: string
+  baselineImageUrl?: string | null
+  baselinePeriodLabel?: string | null
 }
 
 function boundsFor(polygon: SentinelPolygon) {
@@ -64,10 +66,16 @@ function ensureLeaflet() {
   })
 }
 
-export function SentinelSpatialMap({ polygon, imageUrl, periodLabel }: Props) {
+export function SentinelSpatialMap({
+  polygon,
+  currentImageUrl,
+  currentPeriodLabel,
+  baselineImageUrl,
+  baselinePeriodLabel,
+}: Props) {
   const nodeRef = useRef<HTMLDivElement | null>(null)
   const mapRef = useRef<any>(null)
-  const objectUrlRef = useRef<string | null>(null)
+  const objectUrlsRef = useRef<string[]>([])
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading")
   const bounds = useMemo(() => boundsFor(polygon), [polygon])
 
@@ -81,21 +89,26 @@ export function SentinelSpatialMap({ polygon, imageUrl, periodLabel }: Props) {
         return
       }
 
-      const [leafletReady, imageResponse] = await Promise.all([
+      const [leafletReady, currentResponse, baselineResponse] = await Promise.all([
         ensureLeaflet(),
-        fetch(imageUrl, { cache: "no-store", credentials: "same-origin" }).catch(() => null),
+        fetch(currentImageUrl, { cache: "no-store", credentials: "same-origin" }).catch(() => null),
+        baselineImageUrl
+          ? fetch(baselineImageUrl, { cache: "no-store", credentials: "same-origin" }).catch(() => null)
+          : Promise.resolve(null),
       ])
 
       if (cancelled) return
-      if (!leafletReady || !imageResponse?.ok) {
+      if (!leafletReady || !currentResponse?.ok) {
         setStatus("error")
         return
       }
 
-      const imageBlob = await imageResponse.blob()
+      const currentBlob = await currentResponse.blob()
+      const baselineBlob = baselineResponse?.ok ? await baselineResponse.blob() : null
       if (cancelled) return
-      const imageObjectUrl = URL.createObjectURL(imageBlob)
-      objectUrlRef.current = imageObjectUrl
+      const currentObjectUrl = URL.createObjectURL(currentBlob)
+      const baselineObjectUrl = baselineBlob ? URL.createObjectURL(baselineBlob) : null
+      objectUrlsRef.current = [currentObjectUrl, baselineObjectUrl].filter((value): value is string => Boolean(value))
 
       const L = (window as any).L
       if (!L || !nodeRef.current) {
@@ -125,11 +138,18 @@ export function SentinelSpatialMap({ polygon, imageUrl, periodLabel }: Props) {
         { attribution: "© OpenStreetMap contributors", maxZoom: 19 },
       )
       const overlayBounds = [[bounds.south, bounds.west], [bounds.north, bounds.east]]
-      const ndvi = L.imageOverlay(imageObjectUrl, overlayBounds, {
+      const currentNdvi = L.imageOverlay(currentObjectUrl, overlayBounds, {
         opacity: 0.78,
         interactive: false,
         zIndex: 420,
       }).addTo(map)
+      const previousNdvi = baselineObjectUrl
+        ? L.imageOverlay(baselineObjectUrl, overlayBounds, {
+            opacity: 0.78,
+            interactive: false,
+            zIndex: 419,
+          })
+        : null
 
       const leafletPolygon = polygon.coordinates.map((ring) =>
         ring.map((point) => [Number(point[1]), Number(point[0])]),
@@ -142,10 +162,16 @@ export function SentinelSpatialMap({ polygon, imageUrl, periodLabel }: Props) {
         interactive: false,
       }).addTo(map)
 
+      const overlays: Record<string, any> = {
+        [`NDVI actual · ${currentPeriodLabel}`]: currentNdvi,
+      }
+      if (previousNdvi && baselinePeriodLabel) {
+        overlays[`NDVI año anterior · ${baselinePeriodLabel}`] = previousNdvi
+      }
       L.control.layers(
         { Satélite: satellite, Calles: streets },
-        { "NDVI espacial": ndvi },
-        { position: "topright", collapsed: true },
+        overlays,
+        { position: "topright", collapsed: false },
       ).addTo(map)
       L.control.zoom({ position: "topright" }).addTo(map)
       map.fitBounds(overlayBounds, { padding: [24, 24], maxZoom: 17 })
@@ -159,12 +185,10 @@ export function SentinelSpatialMap({ polygon, imageUrl, periodLabel }: Props) {
       cancelled = true
       mapRef.current?.remove()
       mapRef.current = null
-      if (objectUrlRef.current) {
-        URL.revokeObjectURL(objectUrlRef.current)
-        objectUrlRef.current = null
-      }
+      objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url))
+      objectUrlsRef.current = []
     }
-  }, [bounds, imageUrl, polygon])
+  }, [baselineImageUrl, baselinePeriodLabel, bounds, currentImageUrl, currentPeriodLabel, polygon])
 
   return (
     <div className="space-y-3">
@@ -173,7 +197,7 @@ export function SentinelSpatialMap({ polygon, imageUrl, periodLabel }: Props) {
           ref={nodeRef}
           className="h-[420px] w-full"
           role="img"
-          aria-label={`Mapa Sentinel-2 de variación espacial NDVI para ${periodLabel}`}
+          aria-label={`Mapa Sentinel-2 de comparación espacial NDVI para ${currentPeriodLabel}`}
         />
         {status === "loading" ? (
           <div className="pointer-events-none absolute inset-0 grid place-items-center bg-background/65 text-sm text-muted-foreground">
@@ -197,7 +221,7 @@ export function SentinelSpatialMap({ polygon, imageUrl, periodLabel }: Props) {
           <span>mayor señal</span>
         </div>
         <p className="md:text-right">
-          Período: {periodLabel}. Transparencia indica píxeles sin evidencia utilizable o enmascarados por nube.
+          Actual: {currentPeriodLabel}{baselinePeriodLabel ? ` · comparación: ${baselinePeriodLabel}` : ""}. Transparencia indica píxeles sin evidencia utilizable o enmascarados por nube.
         </p>
       </div>
     </div>
