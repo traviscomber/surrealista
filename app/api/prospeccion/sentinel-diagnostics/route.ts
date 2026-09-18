@@ -105,6 +105,7 @@ export async function GET(request: NextRequest) {
         declaredSpecies: prospect.declaredSpecies,
         centroid: prospect.centroid,
         polygonAvailable: Boolean(polygon),
+        polygon,
         satellite,
         memory,
       }
