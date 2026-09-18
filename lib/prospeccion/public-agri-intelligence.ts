@@ -438,10 +438,211 @@ export type ExactCirenRolLookup = {
   failedLayers: number
 }
 
-export async function lookupExactCirenRol(rolInput: string): Promise<ExactCirenRolLookup> {
-  const rol = String(rolInput ?? "").trim()
-  if (!rol) return { status: "not_found", candidates: [], searchedLayers: 0, failedLayers: 0 }
+type CirenFindResult = {
+  layerId?: number
+  value?: unknown
+  attributes?: Record<string, unknown>
+}
 
+type CirenFindResponse = {
+  results?: CirenFindResult[]
+  error?: { message?: string }
+}
+
+type ExactRolTerritoryGroup = {
+  layerId: number
+  commune: string
+  objectIds: string[]
+  declaredSpecies: string[]
+}
+
+function attributeValue(
+  attributes: Record<string, unknown>,
+  predicate: (normalizedKey: string) => boolean,
+) {
+  const match = Object.entries(attributes).find(([key]) => predicate(normalize(key)))
+  return match?.[1]
+}
+
+function findResultCommune(attributes: Record<string, unknown>) {
+  return String(attributeValue(attributes, (key) => key.includes("comuna") && !key.includes("codigo")) ?? "").trim()
+}
+
+function findResultObjectId(attributes: Record<string, unknown>) {
+  const value = attributeValue(attributes, (key) => key === "objectid" || key === "object id")
+  return String(value ?? "").trim()
+}
+
+function findResultSpecies(attributes: Record<string, unknown>) {
+  return Object.entries(attributes)
+    .filter(([key]) => {
+      const normalizedKey = normalize(key)
+      return normalizedKey.includes("especie") && !normalizedKey.includes("codigo")
+    })
+    .map(([, value]) => String(value ?? "").trim())
+    .filter(Boolean)
+}
+
+export function groupExactCirenFindResults(rolInput: string, results: CirenFindResult[]): ExactRolTerritoryGroup[] {
+  const rol = String(rolInput ?? "").trim()
+  const groups = new Map<string, { layerId: number; commune: string; objectIds: Set<string>; species: Set<string> }>()
+
+  for (const result of results) {
+    const layerId = Number(result.layerId)
+    if (!Number.isFinite(layerId) || !CIREN_PRODUCER_LAYERS.some((layer) => layer.layerId === layerId)) continue
+    if (String(result.value ?? "").trim() !== rol) continue
+
+    const attributes = result.attributes ?? {}
+    const commune = findResultCommune(attributes)
+    if (!commune) continue
+
+    const key = `${layerId}:${normalize(commune)}`
+    const group = groups.get(key) ?? {
+      layerId,
+      commune,
+      objectIds: new Set<string>(),
+      species: new Set<string>(),
+    }
+
+    const objectId = findResultObjectId(attributes)
+    if (objectId) group.objectIds.add(objectId)
+    for (const species of findResultSpecies(attributes)) group.species.add(species)
+    groups.set(key, group)
+  }
+
+  return [...groups.values()].map((group) => ({
+    layerId: group.layerId,
+    commune: group.commune,
+    objectIds: [...group.objectIds],
+    declaredSpecies: [...group.species],
+  }))
+}
+
+function combineFeatureGeometry(features: CirenFeature[]) {
+  const valid = features
+    .map((feature) => {
+      const areaHa = polygonAreaHa(feature.geometry)
+      const centroid = polygonCentroid(feature.geometry)
+      return { areaHa, centroid }
+    })
+    .filter((item) => item.centroid)
+
+  const areaHa = features.reduce((sum, feature) => sum + (polygonAreaHa(feature.geometry) ?? 0), 0)
+  if (!valid.length) return { areaHa: areaHa > 0 ? Number(areaHa.toFixed(2)) : null, centroid: null }
+
+  const weighted = valid.reduce((acc, item) => {
+    const weight = item.areaHa && item.areaHa > 0 ? item.areaHa : 1
+    return {
+      lat: acc.lat + (item.centroid?.lat ?? 0) * weight,
+      lng: acc.lng + (item.centroid?.lng ?? 0) * weight,
+      weight: acc.weight + weight,
+    }
+  }, { lat: 0, lng: 0, weight: 0 })
+
+  return {
+    areaHa: areaHa > 0 ? Number(areaHa.toFixed(2)) : null,
+    centroid: weighted.weight > 0
+      ? {
+          lat: Number((weighted.lat / weighted.weight).toFixed(6)),
+          lng: Number((weighted.lng / weighted.weight).toFixed(6)),
+        }
+      : null,
+  }
+}
+
+async function exactRolCandidatesFromFind(rol: string) {
+  const layers = CIREN_PRODUCER_LAYERS.map((layer) => layer.layerId).join(",")
+  const params = new URLSearchParams({
+    f: "json",
+    searchText: rol,
+    contains: "false",
+    searchFields: "rolpredi",
+    layers,
+    returnGeometry: "false",
+  })
+
+  const payload = await fetchJsonWithTimeout(`${CIREN_BASE}/find?${params.toString()}`, undefined, 10_000) as CirenFindResponse
+  if (payload.error) throw new Error(payload.error.message || "CIREN find failed")
+
+  const groups = groupExactCirenFindResults(rol, payload.results ?? [])
+  if (!groups.length) return { candidates: [] as ExactCirenRolCandidate[], failedLayers: 0 }
+
+  const detailed = await Promise.all(groups.map(async (group) => {
+    const layer = CIREN_PRODUCER_LAYERS.find((entry) => entry.layerId === group.layerId)
+    if (!layer) return { failed: true, candidate: null as ExactCirenRolCandidate | null }
+
+    const sourceUrl = `${CIREN_BASE}/${group.layerId}`
+    const query = new URLSearchParams({
+      f: "json",
+      objectIds: group.objectIds.join(","),
+      outFields: "*",
+      returnGeometry: "true",
+      outSR: "4326",
+      geometryPrecision: "6",
+    })
+
+    try {
+      const detail = await fetchJsonWithTimeout(`${sourceUrl}/query?${query.toString()}`) as CirenResponse
+      if (detail.error) throw new Error(detail.error.message || "CIREN detail query failed")
+      const features = detail.features ?? []
+      const geometry = combineFeatureGeometry(features)
+      const species = new Set(group.declaredSpecies)
+
+      for (const feature of features) {
+        for (const value of Object.entries(feature.attributes ?? {})) {
+          const [key, raw] = value
+          const normalizedKey = normalize(key)
+          if (normalizedKey.includes("especie") && !normalizedKey.includes("codigo")) {
+            const name = String(raw ?? "").trim()
+            if (name) species.add(name)
+          }
+        }
+      }
+
+      const region = formalRegion(layer.aliases[0]) ?? layer.aliases[0]
+      const candidate: ExactCirenRolCandidate = {
+        id: `ciren:${layer.year}:${group.layerId}:${rol}:${normalize(group.commune).replace(/\s+/g, "-")}`,
+        rol,
+        region,
+        commune: group.commune,
+        declaredSpecies: [...species],
+        targetSpeciesMatch: true,
+        source: "CIREN IDE MINAGRI",
+        sourceUrl,
+        surveyYear: layer.year,
+        layerId: group.layerId,
+        areaHa: geometry.areaHa,
+        areaMatch: true,
+        centroid: geometry.centroid,
+        stage: "detected",
+        ownerStatus: "pending",
+        contactStatus: "pending",
+        evidenceLabel: [
+          `ROL oficial en catastro ${layer.year}`,
+          region,
+          group.commune,
+          geometry.areaHa != null ? `${geometry.areaHa.toLocaleString("es-CL")} ha estimadas desde polígonos oficiales` : null,
+        ].filter(Boolean).join(" · "),
+      }
+      return { failed: false, candidate }
+    } catch (error) {
+      console.info("[Prospeccion] CIREN exact ROL detail unavailable", {
+        rol,
+        layerId: group.layerId,
+        commune: group.commune,
+        error: error instanceof Error ? error.message : "unknown error",
+      })
+      return { failed: true, candidate: null as ExactCirenRolCandidate | null }
+    }
+  }))
+
+  return {
+    candidates: detailed.map((item) => item.candidate).filter((item): item is ExactCirenRolCandidate => Boolean(item)),
+    failedLayers: detailed.filter((item) => item.failed).length,
+  }
+}
+
+async function exactRolCandidatesFallback(rol: string) {
   const outcomes = await Promise.all(CIREN_PRODUCER_LAYERS.map(async (layer) => {
     const sourceUrl = `${CIREN_BASE}/${layer.layerId}`
     const params = new URLSearchParams({
@@ -457,28 +658,40 @@ export async function lookupExactCirenRol(rolInput: string): Promise<ExactCirenR
     try {
       const payload = await fetchJsonWithTimeout(`${sourceUrl}/query?${params.toString()}`) as CirenResponse
       if (payload.error) throw new Error(payload.error.message || "CIREN query failed")
+      const groups = new Map<string, CirenFeature[]>()
+      for (const feature of payload.features ?? []) {
+        const commune = String(feature.attributes?.desccomu ?? "").trim()
+        if (!commune) continue
+        const key = normalize(commune)
+        groups.set(key, [...(groups.get(key) ?? []), feature])
+      }
+
       const region = formalRegion(layer.aliases[0]) ?? layer.aliases[0]
-      const candidates = (payload.features ?? []).map((feature, index) => {
-        const attributes = feature.attributes ?? {}
+      const candidates = [...groups.values()].map((features) => {
+        const attributes = features[0]?.attributes ?? {}
         const commune = String(attributes.desccomu ?? "").trim()
-        const declaredSpecies = [attributes.especie_01, attributes.especie_02, attributes.especie_03, attributes.especie_04]
-          .map((value) => String(value ?? "").trim())
-          .filter(Boolean)
-        const areaHa = polygonAreaHa(feature.geometry)
+        const declaredSpecies = new Set<string>()
+        for (const feature of features) {
+          for (const value of [feature.attributes?.especie_01, feature.attributes?.especie_02, feature.attributes?.especie_03, feature.attributes?.especie_04]) {
+            const species = String(value ?? "").trim()
+            if (species) declaredSpecies.add(species)
+          }
+        }
+        const geometry = combineFeatureGeometry(features)
         return {
-          id: `ciren:${layer.year}:${layer.layerId}:${rol}:${index}`,
+          id: `ciren:${layer.year}:${layer.layerId}:${rol}:${normalize(commune).replace(/\s+/g, "-")}`,
           rol,
           region,
           commune,
-          declaredSpecies,
+          declaredSpecies: [...declaredSpecies],
           targetSpeciesMatch: true,
           source: "CIREN IDE MINAGRI" as const,
           sourceUrl,
           surveyYear: layer.year,
           layerId: layer.layerId,
-          areaHa,
+          areaHa: geometry.areaHa,
           areaMatch: true,
-          centroid: polygonCentroid(feature.geometry),
+          centroid: geometry.centroid,
           stage: "detected" as const,
           ownerStatus: "pending" as const,
           contactStatus: "pending" as const,
@@ -486,28 +699,46 @@ export async function lookupExactCirenRol(rolInput: string): Promise<ExactCirenR
             `ROL oficial en catastro ${layer.year}`,
             region,
             commune,
-            areaHa != null ? `${areaHa.toLocaleString("es-CL")} ha estimadas desde polígono oficial` : null,
+            geometry.areaHa != null ? `${geometry.areaHa.toLocaleString("es-CL")} ha estimadas desde polígonos oficiales` : null,
           ].filter(Boolean).join(" · "),
         } satisfies ExactCirenRolCandidate
       })
       return { failed: false, candidates }
-    } catch (error) {
-      console.warn("[Prospeccion] CIREN exact ROL lookup failed", {
-        rol,
-        layerId: layer.layerId,
-        error: error instanceof Error ? error.message : "unknown error",
-      })
+    } catch {
       return { failed: true, candidates: [] as ExactCirenRolCandidate[] }
     }
   }))
 
-  const candidates = outcomes.flatMap((outcome) => outcome.candidates)
-  const failedLayers = outcomes.filter((outcome) => outcome.failed).length
   return {
-    status: candidates.length ? "found" : failedLayers ? "partial" : "not_found",
-    candidates,
-    searchedLayers: outcomes.length,
-    failedLayers,
+    candidates: outcomes.flatMap((outcome) => outcome.candidates),
+    failedLayers: outcomes.filter((outcome) => outcome.failed).length,
+  }
+}
+
+export async function lookupExactCirenRol(rolInput: string): Promise<ExactCirenRolLookup> {
+  const rol = String(rolInput ?? "").trim()
+  if (!rol) return { status: "not_found", candidates: [], searchedLayers: 0, failedLayers: 0 }
+
+  try {
+    const direct = await exactRolCandidatesFromFind(rol)
+    return {
+      status: direct.candidates.length ? "found" : direct.failedLayers ? "partial" : "not_found",
+      candidates: direct.candidates,
+      searchedLayers: CIREN_PRODUCER_LAYERS.length,
+      failedLayers: direct.failedLayers,
+    }
+  } catch (error) {
+    console.info("[Prospeccion] CIREN MapServer find unavailable; using regional fallback", {
+      rol,
+      error: error instanceof Error ? error.message : "unknown error",
+    })
+    const fallback = await exactRolCandidatesFallback(rol)
+    return {
+      status: fallback.candidates.length ? "found" : fallback.failedLayers ? "partial" : "not_found",
+      candidates: fallback.candidates,
+      searchedLayers: CIREN_PRODUCER_LAYERS.length,
+      failedLayers: fallback.failedLayers,
+    }
   }
 }
 
