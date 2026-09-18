@@ -1,7 +1,8 @@
 "use client"
 
 import Link from "next/link"
-import { FormEvent, useMemo, useState } from "react"
+import { FormEvent, useEffect, useMemo, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { ArrowLeft, Loader2, Radar } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -252,7 +253,9 @@ function TemporalChart({ observations }: { observations: Observation[] }) {
 }
 
 export default function SentinelTemporalPage() {
-  const [rol, setRol] = useState("507-45")
+  const searchParams = useSearchParams()
+  const requestedRol = searchParams.get("rol")?.trim() || ""
+  const [rol, setRol] = useState(requestedRol || "507-45")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<DiagnosticResult | null>(null)
@@ -263,6 +266,10 @@ export default function SentinelTemporalPage() {
 
   const evidence = result?.satellite ?? null
   const observations = useMemo(() => [...(evidence?.observations ?? [])].sort((a, b) => a.from.localeCompare(b.from)), [evidence?.observations])
+
+  useEffect(() => {
+    if (requestedRol) setRol(requestedRol)
+  }, [requestedRol])
 
   async function loadSpatial(next: DiagnosticResult) {
     setSpatial(null)
