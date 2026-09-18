@@ -3,6 +3,7 @@ import { INTERNAL_ACCESS_COOKIE, verifyInternalAccessToken } from "@/lib/auth/in
 import { runProspectingIntelligenceCore } from "@/lib/prospeccion/intelligence-core"
 import { normalizeProspectingCriteria } from "@/lib/prospeccion/normalization"
 import { syncSentinelMemory } from "@/lib/prospeccion/sentinel-memory"
+import { resolveExactRolProspects } from "@/lib/prospeccion/sentinel-targeting"
 import { getSentinelParcelEvidence, type SentinelPolygon } from "@/lib/prospeccion/sentinel-parcel-analysis"
 
 export const runtime = "nodejs"
@@ -85,11 +86,13 @@ export async function GET(request: NextRequest) {
         species,
       })
       const exactCore = await runProspectingIntelligenceCore(exactCriteria, limit)
-      const exactTargets = exactCore.offMarketProspects.filter((item) => item.rol === requestedRol)
-      if (exactTargets.length) {
-        targets = exactTargets
-        exactRolAreaFilterBypassed = true
-      }
+      const resolved = resolveExactRolProspects(
+        requestedRol,
+        core.offMarketProspects,
+        exactCore.offMarketProspects,
+      )
+      targets = resolved.targets
+      exactRolAreaFilterBypassed = resolved.areaFilterBypassed
     }
 
     if (requestedRol && !targets.length) {
