@@ -2,7 +2,7 @@ import type { SentinelPolygon } from "./sentinel-parcel-analysis"
 
 const TOKEN_URL = "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token"
 const PROCESS_URL = "https://sh.dataspace.copernicus.eu/process/v1"
-const WGS84 = "http://www.opengis.net/def/crs/EPSG/0/4326"
+const WGS84 = "http://www.opengis.net/def/crs/OGC/1.3/CRS84"
 
 let tokenCache: { token: string; expiresAt: number } | null = null
 
