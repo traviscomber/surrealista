@@ -71,9 +71,26 @@ export async function GET(request: NextRequest) {
       .map((item) => String(item.rol))
       .slice(0, 3)
 
-    const targets = requestedRol
+    let exactRolAreaFilterBypassed = false
+    let targets = requestedRol
       ? core.offMarketProspects.filter((item) => item.rol === requestedRol)
       : core.offMarketProspects.filter((item) => priorityRols.includes(item.rol))
+
+    if (requestedRol && !targets.length && (minHa != null || maxHa != null)) {
+      const exactCriteria = normalizeProspectingCriteria({
+        region,
+        commune,
+        minHa: null,
+        maxHa: null,
+        species,
+      })
+      const exactCore = await runProspectingIntelligenceCore(exactCriteria, limit)
+      const exactTargets = exactCore.offMarketProspects.filter((item) => item.rol === requestedRol)
+      if (exactTargets.length) {
+        targets = exactTargets
+        exactRolAreaFilterBypassed = true
+      }
+    }
 
     if (requestedRol && !targets.length) {
       return NextResponse.json(
@@ -125,6 +142,7 @@ export async function GET(request: NextRequest) {
       criteria,
       requestedRol: requestedRol || null,
       targetMode: requestedRol ? "exact-rol" : "priority-top-3",
+      exactRolAreaFilterBypassed,
       deploymentEnvironment: process.env.VERCEL_ENV || process.env.NODE_ENV || "unknown",
       credentialsConfigured: Boolean(
         process.env.COPERNICUS_CLIENT_ID?.trim() && process.env.COPERNICUS_CLIENT_SECRET?.trim(),
