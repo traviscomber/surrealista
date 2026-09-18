@@ -46,7 +46,7 @@ const REGION_ALIASES: Array<{ aliases: string[]; linkText: string[] }> = [
   { aliases: ["coquimbo"], linkText: ["coquimbo"] },
   { aliases: ["valparaiso"], linkText: ["valparaiso"] },
   { aliases: ["metropolitana", "metropolitana de santiago", "santiago"], linkText: ["metropolitana"] },
-  { aliases: ["ohiggins", "libertador general bernardo ohiggins"], linkText: ["ohiggins", "o higgins"] },
+  { aliases: ["ohiggins", "o higgins", "libertador general bernardo ohiggins", "libertador general bernardo o higgins"], linkText: ["ohiggins", "o higgins"] },
   { aliases: ["maule"], linkText: ["maule"] },
   { aliases: ["biobio", "bio bio"], linkText: ["bio bio", "biobio"] },
   { aliases: ["nuble"], linkText: ["nuble"] },
