@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { WorkspaceHeading } from "@/components/ui/workspace-heading"
+import { SentinelSpatialMap } from "@/components/prospeccion/sentinel-spatial-map"
 
 type Observation = {
   from: string
@@ -92,12 +93,18 @@ type SentinelMemory = {
   note: string
 }
 
+type SentinelPolygon = {
+  type: "Polygon"
+  coordinates: number[][][]
+}
+
 type DiagnosticResult = {
   rol: string
   commune: string
   areaHa: number | null
   declaredSpecies: string[]
   polygonAvailable: boolean
+  polygon: SentinelPolygon | null
   satellite: Evidence
   memory: SentinelMemory
 }
@@ -106,6 +113,18 @@ type DiagnosticResponse = {
   results?: DiagnosticResult[]
   error?: string
   availableRols?: string[]
+}
+
+type SpatialChange = {
+  status: "available" | "unconfigured" | "unavailable"
+  currentPeriod: { from: string; to: string } | null
+  referencePeriod: { from: string; to: string } | null
+  bounds: [number, number, number, number] | null
+  width: number | null
+  height: number | null
+  imageDataUrl: string | null
+  methodology: "pixel-ndvi-change-current-vs-prior-year"
+  note: string
 }
 
 const WIDTH = 760
@@ -222,9 +241,37 @@ export default function SentinelTemporalPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<DiagnosticResult | null>(null)
+  const [spatial, setSpatial] = useState<SpatialChange | null>(null)
+  const [spatialLoading, setSpatialLoading] = useState(false)
+  const [spatialError, setSpatialError] = useState<string | null>(null)
 
   const evidence = result?.satellite ?? null
   const observations = useMemo(() => [...(evidence?.observations ?? [])].sort((a, b) => a.from.localeCompare(b.from)), [evidence?.observations])
+
+  async function loadSpatial(next: DiagnosticResult) {
+    setSpatial(null)
+    setSpatialError(null)
+    const currentDate = next.satellite.baseline.latestDate
+    const referenceDate = next.satellite.baseline.previousYearDate
+    if (!next.polygon || !currentDate || !referenceDate) return
+
+    setSpatialLoading(true)
+    try {
+      const response = await fetch("/api/prospeccion/sentinel-spatial", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        cache: "no-store",
+        body: JSON.stringify({ polygon: next.polygon, currentDate, referenceDate }),
+      })
+      const body = await response.json() as SpatialChange & { error?: string }
+      if (!response.ok) throw new Error(body.error || "No se pudo generar el mapa de cambio Sentinel-2.")
+      setSpatial(body)
+    } catch (cause) {
+      setSpatialError(cause instanceof Error ? cause.message : "No se pudo generar el mapa de cambio Sentinel-2.")
+    } finally {
+      setSpatialLoading(false)
+    }
+  }
 
   async function run(event?: FormEvent) {
     event?.preventDefault()
@@ -244,6 +291,7 @@ export default function SentinelTemporalPage() {
       const next = body.results?.[0] ?? null
       if (!next) throw new Error(`No encontramos evidencia Sentinel-2 para el ROL ${cleanRol}.`)
       setResult(next)
+      void loadSpatial(next)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo cargar la serie Sentinel-2.")
     } finally {
@@ -285,6 +333,41 @@ export default function SentinelTemporalPage() {
           <p className="mt-5 text-lg font-medium">NDVI está {baselineLabel(evidence.baseline.signal)}.</p>
           <p className="mt-2 max-w-5xl text-sm leading-6 text-muted-foreground">{evidence.baseline.interpretation}</p>
         </Card>
+
+        {spatialLoading ? (
+          <Card className="p-6">
+            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              Generando comparación espacial píxel a píxel…
+            </div>
+          </Card>
+        ) : spatial?.status === "available" && spatial.imageDataUrl && spatial.bounds && result.polygon ? (
+          <Card className="p-6">
+            <div className="flex flex-col gap-3 border-b border-border pb-4 md:flex-row md:items-end md:justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Cambio espacial Sentinel-2</p>
+                <h3 className="mt-1 text-xl font-medium">Dónde cambió dentro del ROL</h3>
+                <p className="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">
+                  NDVI píxel a píxel: {dateLabel(spatial.referencePeriod?.from ?? null)} → {dateLabel(spatial.currentPeriod?.from ?? null)}. La capa está recortada al polígono CIREN.
+                </p>
+              </div>
+              <Badge variant="outline">10 m nominal · raster {spatial.width}×{spatial.height}</Badge>
+            </div>
+            <div className="mt-5">
+              <SentinelSpatialMap imageDataUrl={spatial.imageDataUrl} bounds={spatial.bounds} polygon={result.polygon} />
+            </div>
+            <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground">
+              <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-fuchsia-700" />baja fuerte ≤ -0,15</span>
+              <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-fuchsia-400" />baja a vigilar</span>
+              <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-zinc-500" />similar</span>
+              <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-teal-400" />alza a vigilar</span>
+              <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-teal-600" />alza fuerte ≥ +0,15</span>
+            </div>
+            <p className="mt-4 text-xs leading-5 text-muted-foreground">{spatial.note}</p>
+          </Card>
+        ) : spatialError ? (
+          <Card className="p-5 text-sm text-muted-foreground">{spatialError}</Card>
+        ) : null}
 
         <Card className="p-6">
           <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
