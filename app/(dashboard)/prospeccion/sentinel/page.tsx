@@ -123,6 +123,14 @@ type SpatialChange = {
   width: number | null
   height: number | null
   imageDataUrl: string | null
+  summary: {
+    validPixelCount: number
+    lowerPct: number
+    similarPct: number
+    higherPct: number
+    strongDecreasePct: number
+    strongIncreasePct: number
+  } | null
   methodology: "pixel-ndvi-change-current-vs-prior-year"
   note: string
 }
@@ -356,6 +364,25 @@ export default function SentinelTemporalPage() {
             <div className="mt-5">
               <SentinelSpatialMap imageDataUrl={spatial.imageDataUrl} bounds={spatial.bounds} polygon={result.polygon} />
             </div>
+            {spatial.summary && spatial.summary.validPixelCount > 0 ? (
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
+                <div className="border-t border-border pt-3">
+                  <p className="text-xs text-muted-foreground">Menor señal NDVI</p>
+                  <p className="mt-1 text-2xl font-medium">{spatial.summary.lowerPct.toFixed(1)}%</p>
+                  <p className="mt-1 text-xs text-muted-foreground">de píxeles comparables · Δ &lt; -0,04</p>
+                </div>
+                <div className="border-t border-border pt-3">
+                  <p className="text-xs text-muted-foreground">Señal similar</p>
+                  <p className="mt-1 text-2xl font-medium">{spatial.summary.similarPct.toFixed(1)}%</p>
+                  <p className="mt-1 text-xs text-muted-foreground">de píxeles comparables · |Δ| ≤ 0,04</p>
+                </div>
+                <div className="border-t border-border pt-3">
+                  <p className="text-xs text-muted-foreground">Mayor señal NDVI</p>
+                  <p className="mt-1 text-2xl font-medium">{spatial.summary.higherPct.toFixed(1)}%</p>
+                  <p className="mt-1 text-xs text-muted-foreground">de píxeles comparables · Δ &gt; +0,04</p>
+                </div>
+              </div>
+            ) : null}
             <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-muted-foreground">
               <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-fuchsia-700" />baja fuerte ≤ -0,15</span>
               <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-fuchsia-400" />baja a vigilar</span>
@@ -364,6 +391,7 @@ export default function SentinelTemporalPage() {
               <span className="flex items-center gap-2"><i className="h-2.5 w-2.5 rounded-full bg-teal-600" />alza fuerte ≥ +0,15</span>
             </div>
             <p className="mt-4 text-xs leading-5 text-muted-foreground">{spatial.note}</p>
+            {spatial.summary?.validPixelCount ? <p className="mt-1 text-xs text-muted-foreground">Composición calculada sobre {spatial.summary.validPixelCount.toLocaleString("es-CL")} píxeles con datos válidos en ambos períodos; nubes y píxeles sin datos quedan fuera.</p> : null}
           </Card>
         ) : spatialError ? (
           <Card className="p-5 text-sm text-muted-foreground">{spatialError}</Card>

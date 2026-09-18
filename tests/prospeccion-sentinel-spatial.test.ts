@@ -1,7 +1,25 @@
 import assert from "node:assert/strict"
 import test from "node:test"
+import sharp from "sharp"
 
-import { getSentinelSpatialChange } from "../lib/prospeccion/sentinel-spatial"
+import { getSentinelSpatialChange, summarizeSpatialPixels } from "../lib/prospeccion/sentinel-spatial"
+
+test("summarizes comparable raster pixels without counting transparent no-data", () => {
+  const raw = new Uint8Array([
+    140, 56, 173, 255,
+    122, 133, 143, 255,
+    43, 184, 173, 255,
+    0, 0, 0, 0,
+  ])
+
+  const summary = summarizeSpatialPixels(raw)
+  assert.equal(summary.validPixelCount, 3)
+  assert.equal(summary.lowerPct, 33.3)
+  assert.equal(summary.similarPct, 33.3)
+  assert.equal(summary.higherPct, 33.3)
+  assert.equal(summary.strongDecreasePct, 33.3)
+  assert.equal(summary.strongIncreasePct, 0)
+})
 
 test("requests a polygon-clipped two-period Sentinel NDVI change raster", async () => {
   const originalFetch = globalThis.fetch
@@ -10,6 +28,15 @@ test("requests a polygon-clipped two-period Sentinel NDVI change raster", async 
 
   process.env.COPERNICUS_CLIENT_ID = "test-client"
   process.env.COPERNICUS_CLIENT_SECRET = "test-secret"
+
+  const mockPng = await sharp({
+    create: {
+      width: 1,
+      height: 1,
+      channels: 4,
+      background: { r: 122, g: 133, b: 143, alpha: 1 },
+    },
+  }).png().toBuffer()
 
   let processRequest: any = null
   let call = 0
@@ -23,7 +50,7 @@ test("requests a polygon-clipped two-period Sentinel NDVI change raster", async 
     }
 
     processRequest = JSON.parse(String(init?.body || "{}"))
-    return new Response(new Uint8Array([137, 80, 78, 71, 1, 2, 3]), {
+    return new Response(mockPng, {
       status: 200,
       headers: { "content-type": "image/png" },
     })
@@ -50,6 +77,10 @@ test("requests a polygon-clipped two-period Sentinel NDVI change raster", async 
     assert.equal(result.currentPeriod?.from, "2026-08-01T00:00:00.000Z")
     assert.equal(result.referencePeriod?.from, "2025-08-01T00:00:00.000Z")
     assert.ok(result.imageDataUrl?.startsWith("data:image/png;base64,"))
+    assert.equal(result.summary?.validPixelCount, 1)
+    assert.equal(result.summary?.similarPct, 100)
+    assert.equal(result.summary?.lowerPct, 0)
+    assert.equal(result.summary?.higherPct, 0)
     assert.deepEqual(processRequest.input.bounds.geometry.type, "Polygon")
     assert.equal(processRequest.input.data.length, 2)
     assert.equal(processRequest.input.data[0].id, "current")
