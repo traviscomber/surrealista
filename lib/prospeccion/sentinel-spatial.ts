@@ -147,7 +147,7 @@ function evaluatePixel(samples) {
 }`
 
 function nearestBucket(r: number, g: number, b: number): ChangeBucket {
-  let best = CHANGE_COLORS[0]
+  let best: (typeof CHANGE_COLORS)[number] = CHANGE_COLORS[0]
   let bestDistance = Number.POSITIVE_INFINITY
   for (const candidate of CHANGE_COLORS) {
     const distance =
