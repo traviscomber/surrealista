@@ -52,6 +52,9 @@ async function inspectRoute(page, route, expectedPath, expectedText) {
   try {
     const response = await page.goto(`${authenticatedBaseURL}${route}`, { waitUntil: "domcontentloaded", timeout: 30_000 })
     await page.waitForFunction(() => document.body.innerText.trim().length > 10, null, { timeout: 15_000 })
+    if (expectedText) {
+      await page.getByText(expectedText).first().waitFor({ state: "visible", timeout: 15_000 })
+    }
     const status = response?.status() ?? 0
     const body = await page.locator("body").innerText().catch(() => "")
     const finalPath = new URL(page.url()).pathname
