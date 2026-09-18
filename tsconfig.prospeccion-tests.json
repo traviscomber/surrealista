@@ -18,6 +18,7 @@
   "include": [
     "lib/chile-locations.ts",
     "lib/prospeccion/normalization.ts",
+    "lib/prospeccion/public-agri-intelligence.ts",
     "lib/prospeccion/owner-web-intelligence.ts",
     "lib/prospeccion/lead-state.ts",
     "lib/prospeccion/sentinel-satellite.ts",
@@ -26,6 +27,7 @@
     "lib/prospeccion/sentinel-attention.ts",
     "lib/prospeccion/sentinel-spatial.ts",
     "tests/prospeccion-normalization.test.ts",
+    "tests/prospeccion-public-agri-region.test.ts",
     "tests/prospeccion-owner-web.test.ts",
     "tests/prospeccion-lead-state.test.ts",
     "tests/prospeccion-sentinel-temporal.test.ts",
