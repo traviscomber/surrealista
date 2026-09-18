@@ -3,7 +3,7 @@ import { INTERNAL_ACCESS_COOKIE, verifyInternalAccessToken } from "@/lib/auth/in
 import { runProspectingIntelligenceCore } from "@/lib/prospeccion/intelligence-core"
 import { normalizeProspectingCriteria } from "@/lib/prospeccion/normalization"
 import { syncSentinelMemory } from "@/lib/prospeccion/sentinel-memory"
-import { resolveExactRolProspects } from "@/lib/prospeccion/sentinel-targeting"
+import { lookupExactCirenRol, type ExactCirenRolCandidate } from "@/lib/prospeccion/public-agri-intelligence"
 import { getSentinelParcelEvidence, type SentinelPolygon } from "@/lib/prospeccion/sentinel-parcel-analysis"
 
 export const runtime = "nodejs"
@@ -55,6 +55,7 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url)
   const requestedRol = searchParams.get("rol")?.trim() || ""
+  const candidateId = searchParams.get("candidateId")?.trim() || ""
   const region = searchParams.get("region")?.trim() || ""
   const commune = searchParams.get("commune")?.trim() || ""
   const species = searchParams.get("species")?.trim() || ""
@@ -66,45 +67,71 @@ export async function GET(request: NextRequest) {
   const criteria = normalizeProspectingCriteria({ region, commune, minHa, maxHa, species })
 
   try {
-    const core = await runProspectingIntelligenceCore(criteria, limit)
-    const priorityRols = core.priorityCases
-      .filter((item) => item.kind === "off_market" && item.rol)
-      .map((item) => String(item.rol))
-      .slice(0, 3)
-
     let exactRolAreaFilterBypassed = false
-    let targets = requestedRol
-      ? core.offMarketProspects.filter((item) => item.rol === requestedRol)
-      : core.offMarketProspects.filter((item) => priorityRols.includes(item.rol))
+    let priorityRols: string[] = []
+    let targets: Array<ExactCirenRolCandidate | (Awaited<ReturnType<typeof runProspectingIntelligenceCore>>["offMarketProspects"][number] & { region?: string })> = []
+    let exactLookup: Awaited<ReturnType<typeof lookupExactCirenRol>> | null = null
 
-    if (requestedRol && !targets.length && (minHa != null || maxHa != null)) {
-      const exactCriteria = normalizeProspectingCriteria({
-        region,
-        commune,
-        minHa: null,
-        maxHa: null,
-        species,
-      })
-      const exactCore = await runProspectingIntelligenceCore(exactCriteria, limit)
-      const resolved = resolveExactRolProspects(
-        requestedRol,
-        core.offMarketProspects,
-        exactCore.offMarketProspects,
-      )
-      targets = resolved.targets
-      exactRolAreaFilterBypassed = resolved.areaFilterBypassed
-    }
+    if (requestedRol) {
+      exactLookup = await lookupExactCirenRol(requestedRol)
 
-    if (requestedRol && !targets.length) {
-      return NextResponse.json(
-        {
-          error: `El ROL ${requestedRol} no aparece dentro de los prospectos encontrados con estos filtros. Ajusta comuna, especie o rango de hectáreas y vuelve a intentar.`,
-          criteria,
-          requestedRol,
-          availableRols: core.offMarketProspects.slice(0, 20).map((item) => item.rol),
-        },
-        { status: 404, headers: { "Cache-Control": "private, no-store" } },
-      )
+      if (!exactLookup.candidates.length) {
+        const temporarilyIncomplete = exactLookup.status === "partial"
+        return NextResponse.json(
+          {
+            error: temporarilyIncomplete
+              ? `No pudimos resolver el ROL ${requestedRol} con suficiente cobertura CIREN en esta ejecución. Intenta nuevamente.`
+              : `No encontramos el ROL ${requestedRol} en las capas CIREN consultadas.`,
+            requestedRol,
+            resolution: {
+              status: exactLookup.status,
+              searchedLayers: exactLookup.searchedLayers,
+              failedLayers: exactLookup.failedLayers,
+            },
+          },
+          { status: temporarilyIncomplete ? 503 : 404, headers: { "Cache-Control": "private, no-store" } },
+        )
+      }
+
+      const selected = candidateId
+        ? exactLookup.candidates.filter((candidate) => candidate.id === candidateId)
+        : exactLookup.candidates
+
+      if (candidateId && !selected.length) {
+        return NextResponse.json(
+          { error: "La coincidencia seleccionada ya no está disponible para este ROL.", requestedRol },
+          { status: 404, headers: { "Cache-Control": "private, no-store" } },
+        )
+      }
+
+      if (!candidateId && selected.length > 1) {
+        return NextResponse.json(
+          {
+            error: `El ROL ${requestedRol} tiene más de una coincidencia territorial. Selecciona el predio correcto.`,
+            requestedRol,
+            ambiguous: true,
+            candidates: selected.map((candidate) => ({
+              id: candidate.id,
+              rol: candidate.rol,
+              region: candidate.region,
+              commune: candidate.commune,
+              areaHa: candidate.areaHa,
+              declaredSpecies: candidate.declaredSpecies,
+              surveyYear: candidate.surveyYear,
+            })),
+          },
+          { status: 409, headers: { "Cache-Control": "private, no-store" } },
+        )
+      }
+
+      targets = [selected[0]]
+    } else {
+      const core = await runProspectingIntelligenceCore(criteria, limit)
+      priorityRols = core.priorityCases
+        .filter((item) => item.kind === "off_market" && item.rol)
+        .map((item) => String(item.rol))
+        .slice(0, 3)
+      targets = core.offMarketProspects.filter((item) => priorityRols.includes(item.rol))
     }
 
     const results = await Promise.all(targets.map(async (prospect) => {
@@ -120,6 +147,7 @@ export async function GET(request: NextRequest) {
       })
       const result = {
         rol: prospect.rol,
+        region: "region" in prospect ? prospect.region ?? null : null,
         commune: prospect.commune,
         areaHa: prospect.areaHa,
         declaredSpecies: prospect.declaredSpecies,
@@ -131,6 +159,8 @@ export async function GET(request: NextRequest) {
       }
       console.info("[Prospeccion Sentinel Diagnostics]", {
         rol: prospect.rol,
+        region: result.region,
+        commune: prospect.commune,
         status: satellite.status,
         geometryMode: satellite.geometryMode,
         observationCount: satellite.summary.observationCount,
@@ -142,10 +172,15 @@ export async function GET(request: NextRequest) {
     }))
 
     return NextResponse.json({
-      criteria,
+      criteria: requestedRol ? null : criteria,
       requestedRol: requestedRol || null,
       targetMode: requestedRol ? "exact-rol" : "priority-top-3",
       exactRolAreaFilterBypassed,
+      resolution: exactLookup ? {
+        status: exactLookup.status,
+        searchedLayers: exactLookup.searchedLayers,
+        failedLayers: exactLookup.failedLayers,
+      } : null,
       deploymentEnvironment: process.env.VERCEL_ENV || process.env.NODE_ENV || "unknown",
       credentialsConfigured: Boolean(
         process.env.COPERNICUS_CLIENT_ID?.trim() && process.env.COPERNICUS_CLIENT_SECRET?.trim(),
