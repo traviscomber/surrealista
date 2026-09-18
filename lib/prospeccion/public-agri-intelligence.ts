@@ -425,6 +425,92 @@ async function getOdepaEvidence(criteria: ProspectingPublicCriteria): Promise<Pu
   }
 }
 
+
+export type ExactCirenRolCandidate = OffMarketProspect & {
+  region: string
+  layerId: number
+}
+
+export type ExactCirenRolLookup = {
+  status: "found" | "not_found" | "partial"
+  candidates: ExactCirenRolCandidate[]
+  searchedLayers: number
+  failedLayers: number
+}
+
+export async function lookupExactCirenRol(rolInput: string): Promise<ExactCirenRolLookup> {
+  const rol = String(rolInput ?? "").trim()
+  if (!rol) return { status: "not_found", candidates: [], searchedLayers: 0, failedLayers: 0 }
+
+  const outcomes = await Promise.all(CIREN_PRODUCER_LAYERS.map(async (layer) => {
+    const sourceUrl = `${CIREN_BASE}/${layer.layerId}`
+    const params = new URLSearchParams({
+      f: "json",
+      where: `rolpredi='${escapeSqlLiteral(rol)}'`,
+      outFields: "desccomu,rolpredi,especie_01,especie_02,especie_03,especie_04",
+      returnGeometry: "true",
+      outSR: "4326",
+      geometryPrecision: "6",
+      resultRecordCount: "20",
+    })
+
+    try {
+      const payload = await fetchJsonWithTimeout(`${sourceUrl}/query?${params.toString()}`) as CirenResponse
+      if (payload.error) throw new Error(payload.error.message || "CIREN query failed")
+      const region = formalRegion(layer.aliases[0]) ?? layer.aliases[0]
+      const candidates = (payload.features ?? []).map((feature, index) => {
+        const attributes = feature.attributes ?? {}
+        const commune = String(attributes.desccomu ?? "").trim()
+        const declaredSpecies = [attributes.especie_01, attributes.especie_02, attributes.especie_03, attributes.especie_04]
+          .map((value) => String(value ?? "").trim())
+          .filter(Boolean)
+        const areaHa = polygonAreaHa(feature.geometry)
+        return {
+          id: `ciren:${layer.year}:${layer.layerId}:${rol}:${index}`,
+          rol,
+          region,
+          commune,
+          declaredSpecies,
+          targetSpeciesMatch: true,
+          source: "CIREN IDE MINAGRI" as const,
+          sourceUrl,
+          surveyYear: layer.year,
+          layerId: layer.layerId,
+          areaHa,
+          areaMatch: true,
+          centroid: polygonCentroid(feature.geometry),
+          stage: "detected" as const,
+          ownerStatus: "pending" as const,
+          contactStatus: "pending" as const,
+          evidenceLabel: [
+            `ROL oficial en catastro ${layer.year}`,
+            region,
+            commune,
+            areaHa != null ? `${areaHa.toLocaleString("es-CL")} ha estimadas desde polígono oficial` : null,
+          ].filter(Boolean).join(" · "),
+        } satisfies ExactCirenRolCandidate
+      })
+      return { failed: false, candidates }
+    } catch (error) {
+      console.warn("[Prospeccion] CIREN exact ROL lookup failed", {
+        rol,
+        layerId: layer.layerId,
+        error: error instanceof Error ? error.message : "unknown error",
+      })
+      return { failed: true, candidates: [] as ExactCirenRolCandidate[] }
+    }
+  }))
+
+  const candidates = outcomes.flatMap((outcome) => outcome.candidates)
+  const failedLayers = outcomes.filter((outcome) => outcome.failed).length
+  return {
+    status: candidates.length ? "found" : failedLayers ? "partial" : "not_found",
+    candidates,
+    searchedLayers: outcomes.length,
+    failedLayers,
+  }
+}
+
 export async function getPublicAgriEvidence(criteria: ProspectingPublicCriteria): Promise<PublicAgriEvidence> {
   const [ciren, odepa] = await Promise.all([getCirenEvidence(criteria), getOdepaEvidence(criteria)])
   return { ciren, odepa }

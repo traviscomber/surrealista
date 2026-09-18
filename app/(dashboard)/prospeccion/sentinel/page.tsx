@@ -100,6 +100,7 @@ type SentinelPolygon = {
 
 type DiagnosticResult = {
   rol: string
+  region: string | null
   commune: string
   areaHa: number | null
   declaredSpecies: string[]
@@ -109,11 +110,21 @@ type DiagnosticResult = {
   memory: SentinelMemory
 }
 
+type RolCandidate = {
+  id: string
+  rol: string
+  region: string
+  commune: string
+  areaHa: number | null
+  declaredSpecies: string[]
+  surveyYear: number
+}
+
 type DiagnosticResponse = {
   results?: DiagnosticResult[]
   error?: string
-  availableRols?: string[]
-  exactRolAreaFilterBypassed?: boolean
+  ambiguous?: boolean
+  candidates?: RolCandidate[]
 }
 
 type SpatialChange = {
@@ -242,15 +253,10 @@ function TemporalChart({ observations }: { observations: Observation[] }) {
 
 export default function SentinelTemporalPage() {
   const [rol, setRol] = useState("507-45")
-  const [region, setRegion] = useState("Maule")
-  const [commune, setCommune] = useState("Curicó")
-  const [species, setSpecies] = useState("Cerezo")
-  const [minHa, setMinHa] = useState("15")
-  const [maxHa, setMaxHa] = useState("80")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<DiagnosticResult | null>(null)
-  const [areaFilterBypassed, setAreaFilterBypassed] = useState(false)
+  const [candidates, setCandidates] = useState<RolCandidate[]>([])
   const [spatial, setSpatial] = useState<SpatialChange | null>(null)
   const [spatialLoading, setSpatialLoading] = useState(false)
   const [spatialError, setSpatialError] = useState<string | null>(null)
@@ -283,26 +289,28 @@ export default function SentinelTemporalPage() {
     }
   }
 
-  async function run(event?: FormEvent) {
+  async function run(event?: FormEvent, candidateId?: string) {
     event?.preventDefault()
     setLoading(true)
     setError(null)
     setResult(null)
-    setAreaFilterBypassed(false)
+    if (!candidateId) setCandidates([])
     try {
       const cleanRol = rol.trim()
       if (!cleanRol) throw new Error("Ingresa un ROL para analizar.")
-      const params = new URLSearchParams({ rol: cleanRol, region, commune, species, minHa, maxHa, limit: "100" })
+      const params = new URLSearchParams({ rol: cleanRol })
+      if (candidateId) params.set("candidateId", candidateId)
       const response = await fetch(`/api/prospeccion/sentinel-diagnostics?${params.toString()}`, { cache: "no-store" })
       const body = await response.json() as DiagnosticResponse
-      if (!response.ok) {
-        const options = body.availableRols?.length ? ` ROL disponibles con estos filtros: ${body.availableRols.join(", ")}.` : ""
-        throw new Error(`${body.error || "No se pudo ejecutar el análisis Sentinel-2."}${options}`)
+      if (response.status === 409 && body.ambiguous && body.candidates?.length) {
+        setCandidates(body.candidates)
+        return
       }
+      if (!response.ok) throw new Error(body.error || "No se pudo ejecutar el análisis Sentinel-2.")
       const next = body.results?.[0] ?? null
       if (!next) throw new Error(`No encontramos evidencia Sentinel-2 para el ROL ${cleanRol}.`)
+      setCandidates([])
       setResult(next)
-      setAreaFilterBypassed(Boolean(body.exactRolAreaFilterBypassed))
       void loadSpatial(next)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo cargar la serie Sentinel-2.")
@@ -325,24 +333,53 @@ export default function SentinelTemporalPage() {
         </div>
       </Card>
 
-      <form onSubmit={run} className="grid gap-3 border-y border-border bg-card p-5 md:grid-cols-3 xl:grid-cols-6">
-        <div><label className="mb-1.5 block text-xs text-muted-foreground">ROL</label><Input value={rol} onChange={(event) => setRol(event.target.value)} placeholder="507-45" /></div>
-        <div><label className="mb-1.5 block text-xs text-muted-foreground">Región</label><Input value={region} onChange={(event) => setRegion(event.target.value)} /></div>
-        <div><label className="mb-1.5 block text-xs text-muted-foreground">Comuna</label><Input value={commune} onChange={(event) => setCommune(event.target.value)} /></div>
-        <div><label className="mb-1.5 block text-xs text-muted-foreground">Especie buscada</label><Input value={species} onChange={(event) => setSpecies(event.target.value)} /></div>
-        <div><label className="mb-1.5 block text-xs text-muted-foreground">Superficie</label><div className="grid grid-cols-2 gap-2"><Input value={minHa} onChange={(event) => setMinHa(event.target.value)} aria-label="Mínimo hectáreas" /><Input value={maxHa} onChange={(event) => setMaxHa(event.target.value)} aria-label="Máximo hectáreas" /></div></div>
-        <div className="flex items-end"><Button type="submit" className="w-full" disabled={loading}>{loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Radar className="h-4 w-4" aria-hidden="true" />}Analizar ROL</Button></div>
+      <form onSubmit={run} className="border-y border-border bg-card p-5">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end">
+          <div className="w-full md:max-w-md">
+            <label className="mb-1.5 block text-xs text-muted-foreground">ROL</label>
+            <Input value={rol} onChange={(event) => setRol(event.target.value)} placeholder="234-189" autoComplete="off" />
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">Ingresa solo el ROL. Sur Realista resuelve automáticamente comuna, región, superficie, especies declaradas y polígono CIREN.</p>
+          </div>
+          <Button type="submit" disabled={loading} className="md:min-w-40">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Radar className="h-4 w-4" aria-hidden="true" />}
+            Analizar ROL
+          </Button>
+        </div>
       </form>
 
+      {candidates.length ? (
+        <Card className="p-5">
+          <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">ROL con más de una coincidencia</p>
+          <h2 className="mt-1 text-lg font-medium">Selecciona el predio correcto</h2>
+          <p className="mt-2 text-sm text-muted-foreground">El mismo ROL aparece en más de una capa territorial CIREN. No inferimos cuál corresponde.</p>
+          <div className="mt-4 grid gap-2">
+            {candidates.map((candidate) => (
+              <button
+                key={candidate.id}
+                type="button"
+                onClick={() => void run(undefined, candidate.id)}
+                disabled={loading}
+                className="flex w-full flex-col gap-1 border-t border-border py-3 text-left transition-opacity hover:opacity-70 disabled:opacity-50 md:flex-row md:items-center md:justify-between"
+              >
+                <span className="font-medium">{candidate.commune} · {candidate.region}</span>
+                <span className="text-sm text-muted-foreground">
+                  {candidate.areaHa != null ? `${candidate.areaHa.toLocaleString("es-CL")} ha` : "superficie no disponible"}
+                  {candidate.declaredSpecies.length ? ` · ${candidate.declaredSpecies.join(" / ")}` : ""}
+                  {" · CIREN "}{candidate.surveyYear}
+                </span>
+              </button>
+            ))}
+          </div>
+        </Card>
+      ) : null}
       {error ? <Card className="border-destructive/30 bg-destructive/5 p-5 text-sm text-destructive">{error}</Card> : null}
 
       {result && evidence ? <>
         <Card className="p-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div><p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Conclusión primero</p><h2 className="mt-1 text-2xl font-medium">ROL {result.rol}</h2><p className="mt-1 text-sm text-muted-foreground">{result.commune}{result.areaHa != null ? ` · ${result.areaHa.toLocaleString("es-CL")} ha` : ""}{result.declaredSpecies.length ? ` · CIREN declara ${result.declaredSpecies.join(" / ")}` : ""}</p></div>
-            <div className="flex flex-wrap gap-2"><Badge>{evidence.status === "available" ? "Sentinel-2 activo" : evidence.status}</Badge><Badge variant="outline">{evidence.geometryMode === "ciren_polygon" ? "polígono CIREN real" : "fallback por centroide"}</Badge><Badge variant="outline">especie satelital no verificada</Badge>{areaFilterBypassed ? <Badge variant="outline">fuera del rango de superficie solicitado</Badge> : null}</div>
+            <div><p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Conclusión primero</p><h2 className="mt-1 text-2xl font-medium">ROL {result.rol}</h2><p className="mt-1 text-sm text-muted-foreground">{result.commune}{result.region ? ` · ${result.region}` : ""}{result.areaHa != null ? ` · ${result.areaHa.toLocaleString("es-CL")} ha` : ""}{result.declaredSpecies.length ? ` · CIREN declara ${result.declaredSpecies.join(" / ")}` : ""}</p></div>
+            <div className="flex flex-wrap gap-2"><Badge>{evidence.status === "available" ? "Sentinel-2 activo" : evidence.status}</Badge><Badge variant="outline">{evidence.geometryMode === "ciren_polygon" ? "polígono CIREN real" : "fallback por centroide"}</Badge><Badge variant="outline">especie satelital no verificada</Badge></div>
           </div>
-          {areaFilterBypassed ? <p className="mt-4 text-sm text-muted-foreground">El ROL exacto existe y se analiza aunque su superficie quede fuera del filtro usado para descubrir prospectos.</p> : null}
           <p className="mt-5 text-lg font-medium">NDVI está {baselineLabel(evidence.baseline.signal)}.</p>
           <p className="mt-2 max-w-5xl text-sm leading-6 text-muted-foreground">{evidence.baseline.interpretation}</p>
         </Card>
