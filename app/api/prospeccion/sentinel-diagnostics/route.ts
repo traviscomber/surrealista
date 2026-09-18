@@ -1,47 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { INTERNAL_ACCESS_COOKIE, verifyInternalAccessToken } from "@/lib/auth/internal-access"
 import { runProspectingIntelligenceCore } from "@/lib/prospeccion/intelligence-core"
+import { fetchCirenParcelPolygon } from "@/lib/prospeccion/ciren-parcel-geometry"
 import { normalizeProspectingCriteria } from "@/lib/prospeccion/normalization"
 import { syncSentinelMemory } from "@/lib/prospeccion/sentinel-memory"
 import { getSentinelParcelEvidence, type SentinelPolygon } from "@/lib/prospeccion/sentinel-parcel-analysis"
 
 export const runtime = "nodejs"
 export const maxDuration = 30
-
-function escapeSqlLiteral(value: string) {
-  return value.replace(/'/g, "''")
-}
-
-async function fetchCirenPolygon(sourceUrl: string, rol: string, commune: string): Promise<SentinelPolygon | null> {
-  const where = [
-    `rolpredi='${escapeSqlLiteral(rol)}'`,
-    commune ? `UPPER(desccomu)='${escapeSqlLiteral(commune.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase())}'` : null,
-  ].filter(Boolean).join(" AND ")
-  const params = new URLSearchParams({
-    f: "json",
-    where,
-    outFields: "rolpredi,desccomu",
-    returnGeometry: "true",
-    outSR: "4326",
-    geometryPrecision: "6",
-    resultRecordCount: "5",
-  })
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 8_000)
-  try {
-    const response = await fetch(`${sourceUrl}/query?${params.toString()}`, { cache: "no-store", signal: controller.signal })
-    if (!response.ok) return null
-    const payload = await response.json() as { features?: Array<{ geometry?: { rings?: number[][][] } }> }
-    const rings = payload.features?.[0]?.geometry?.rings
-    if (!Array.isArray(rings) || !rings.length) return null
-    return { type: "Polygon", coordinates: rings }
-  } catch (error) {
-    console.warn("[Prospeccion Sentinel Diagnostics] CIREN polygon lookup failed", error instanceof Error ? error.message : "unknown error")
-    return null
-  } finally {
-    clearTimeout(timer)
-  }
-}
 
 export async function GET(request: NextRequest) {
   const token = request.cookies.get(INTERNAL_ACCESS_COOKIE)?.value
@@ -88,7 +54,7 @@ export async function GET(request: NextRequest) {
     }
 
     const results = await Promise.all(targets.map(async (prospect) => {
-      const polygon = await fetchCirenPolygon(prospect.sourceUrl, prospect.rol, prospect.commune)
+      const polygon = await fetchCirenParcelPolygon(prospect.sourceUrl, prospect.rol, prospect.commune)
       const satellite = await getSentinelParcelEvidence({ centroid: prospect.centroid, polygon })
       const memory = await syncSentinelMemory({
         rol: prospect.rol,
@@ -105,6 +71,8 @@ export async function GET(request: NextRequest) {
         declaredSpecies: prospect.declaredSpecies,
         centroid: prospect.centroid,
         polygonAvailable: Boolean(polygon),
+        polygon,
+        sourceUrl: prospect.sourceUrl,
         satellite,
         memory,
       }

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { WorkspaceHeading } from "@/components/ui/workspace-heading"
+import { SentinelSpatialMap } from "@/components/prospeccion/sentinel-spatial-map"
 
 type Observation = {
   from: string
@@ -92,12 +93,16 @@ type SentinelMemory = {
   note: string
 }
 
+type SentinelPolygon = { type: "Polygon"; coordinates: number[][][] }
+
 type DiagnosticResult = {
   rol: string
   commune: string
   areaHa: number | null
   declaredSpecies: string[]
   polygonAvailable: boolean
+  polygon: SentinelPolygon | null
+  sourceUrl: string
   satellite: Evidence
   memory: SentinelMemory
 }
@@ -225,6 +230,22 @@ export default function SentinelTemporalPage() {
 
   const evidence = result?.satellite ?? null
   const observations = useMemo(() => [...(evidence?.observations ?? [])].sort((a, b) => a.from.localeCompare(b.from)), [evidence?.observations])
+  const spatialUrls = useMemo(() => {
+    if (!result?.polygon || !result.sourceUrl || !evidence?.baseline.latestDate) return null
+    const makeUrl = (period: string) => {
+      const params = new URLSearchParams({
+        rol: result.rol,
+        commune: result.commune,
+        source: result.sourceUrl,
+        period,
+      })
+      return `/api/prospeccion/sentinel-spatial?${params.toString()}`
+    }
+    return {
+      current: makeUrl(evidence.baseline.latestDate),
+      baseline: evidence.baseline.previousYearDate ? makeUrl(evidence.baseline.previousYearDate) : null,
+    }
+  }, [evidence?.baseline.latestDate, evidence?.baseline.previousYearDate, result])
 
   async function run(event?: FormEvent) {
     event?.preventDefault()
@@ -321,6 +342,36 @@ export default function SentinelTemporalPage() {
           <Card className="p-4"><p className="text-xs text-muted-foreground">NDMI medio</p><p className="mt-1 text-2xl font-medium">{numberLabel(evidence.summary.meanNdmi)}</p></Card>
           <Card className="p-4"><p className="text-xs text-muted-foreground">Cambio reciente NDVI</p><p className="mt-1 text-sm font-medium">{trendLabel(evidence.temporal.recentNdviTrend)}</p><p className="mt-1 text-xs text-muted-foreground">Δ {signed(evidence.temporal.recentNdviDelta)}</p></Card>
         </section>
+
+        {result.polygon && spatialUrls ? (
+          <Card className="p-6">
+            <div className="flex flex-col gap-3 border-b border-border pb-4 md:flex-row md:items-end md:justify-between">
+              <div>
+                <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Variación dentro del polígono</p>
+                <h3 className="mt-1 text-xl font-medium">Dónde cambió la señal</h3>
+                <p className="mt-2 max-w-4xl text-sm leading-6 text-muted-foreground">
+                  Alterna el NDVI actual y el período comparable del año anterior sobre el mismo polígono CIREN. La capa ubica diferencias espaciales reales; no atribuye causas agronómicas.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="outline">10 m Sentinel-2</Badge>
+                <Badge variant="outline">polígono CIREN</Badge>
+              </div>
+            </div>
+            <div className="mt-5">
+              <SentinelSpatialMap
+                polygon={result.polygon}
+                currentImageUrl={spatialUrls.current}
+                currentPeriodLabel={dateLabel(evidence.baseline.latestDate)}
+                baselineImageUrl={spatialUrls.baseline}
+                baselinePeriodLabel={dateLabel(evidence.baseline.previousYearDate)}
+              />
+            </div>
+            <p className="mt-4 text-xs text-muted-foreground">
+              Esta visualización compara dos mosaicos libres de nube cuando existe cobertura utilizable. Diferencias de color indican respuesta NDVI distinta, no “calidad” del campo, riego, enfermedad ni productividad.
+            </p>
+          </Card>
+        ) : null}
 
         <Card className="p-6">
           <div className="flex flex-col gap-3 border-b border-border pb-4 md:flex-row md:items-end md:justify-between"><div><p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Historia espectral</p><h3 className="mt-1 text-xl font-medium">Cómo cambió el ROL</h3></div><div className="flex flex-wrap gap-2"><Badge variant="outline">NDVI reciente {trendLabel(evidence.temporal.recentNdviTrend)}</Badge><Badge variant="outline">variación anual {variationLabel(evidence.temporal.annualVariationSignal)}</Badge></div></div>
