@@ -42,7 +42,7 @@ const IRRIGATION_LAYERS: Array<{
   { aliases: ["coquimbo"], areaLayer: 2, intakeLayer: 10, canalLayer: 18, year: 2023 },
   { aliases: ["valparaiso"], areaLayer: 3, intakeLayer: 11, canalLayer: 19, year: 2023 },
   { aliases: ["metropolitana", "metropolitana de santiago", "santiago"], areaLayer: 4, intakeLayer: 12, canalLayer: 20, year: 2025 },
-  { aliases: ["ohiggins", "libertador general bernardo ohiggins", "libertador bernardo ohiggins"], areaLayer: 5, intakeLayer: 13, canalLayer: 21, year: 2022 },
+  { aliases: ["ohiggins", "o higgins", "libertador general bernardo ohiggins", "libertador general bernardo o higgins", "libertador bernardo ohiggins", "libertador bernardo o higgins"], areaLayer: 5, intakeLayer: 13, canalLayer: 21, year: 2022 },
   { aliases: ["maule"], areaLayer: 6, intakeLayer: 14, canalLayer: 22, year: 2022 },
   { aliases: ["nuble"], areaLayer: 7, intakeLayer: 15, canalLayer: 23, year: 2026 },
 ]
@@ -52,7 +52,7 @@ const SOIL_LAYERS: Array<{ aliases: string[]; layerId: number; year: number }> =
   { aliases: ["coquimbo"], layerId: 1, year: 2022 },
   { aliases: ["valparaiso"], layerId: 2, year: 2025 },
   { aliases: ["metropolitana", "metropolitana de santiago", "santiago"], layerId: 3, year: 2024 },
-  { aliases: ["ohiggins", "libertador general bernardo ohiggins", "libertador bernardo ohiggins"], layerId: 4, year: 2023 },
+  { aliases: ["ohiggins", "o higgins", "libertador general bernardo ohiggins", "libertador general bernardo o higgins", "libertador bernardo ohiggins", "libertador bernardo o higgins"], layerId: 4, year: 2023 },
   { aliases: ["maule"], layerId: 5, year: 2011 },
   { aliases: ["nuble"], layerId: 6, year: 2014 },
   { aliases: ["biobio", "bio bio"], layerId: 7, year: 2014 },

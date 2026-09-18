@@ -40,6 +40,7 @@ jobs:
           rm -rf "$TEST_OUT"
           pnpm exec tsc -p tsconfig.prospeccion-tests.json --outDir "$TEST_OUT"
           node --test "$TEST_OUT/tests/prospeccion-normalization.test.js"
+          node --test "$TEST_OUT/tests/prospeccion-public-agri-region.test.js"
           node --test "$TEST_OUT/tests/prospeccion-owner-web.test.js"
           node --test "$TEST_OUT/tests/prospeccion-lead-state.test.js"
           node --test "$TEST_OUT/tests/prospeccion-sentinel-temporal.test.js"
