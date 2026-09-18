@@ -113,6 +113,7 @@ type DiagnosticResponse = {
   results?: DiagnosticResult[]
   error?: string
   availableRols?: string[]
+  exactRolAreaFilterBypassed?: boolean
 }
 
 type SpatialChange = {
@@ -249,6 +250,7 @@ export default function SentinelTemporalPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<DiagnosticResult | null>(null)
+  const [areaFilterBypassed, setAreaFilterBypassed] = useState(false)
   const [spatial, setSpatial] = useState<SpatialChange | null>(null)
   const [spatialLoading, setSpatialLoading] = useState(false)
   const [spatialError, setSpatialError] = useState<string | null>(null)
@@ -286,6 +288,7 @@ export default function SentinelTemporalPage() {
     setLoading(true)
     setError(null)
     setResult(null)
+    setAreaFilterBypassed(false)
     try {
       const cleanRol = rol.trim()
       if (!cleanRol) throw new Error("Ingresa un ROL para analizar.")
@@ -299,6 +302,7 @@ export default function SentinelTemporalPage() {
       const next = body.results?.[0] ?? null
       if (!next) throw new Error(`No encontramos evidencia Sentinel-2 para el ROL ${cleanRol}.`)
       setResult(next)
+      setAreaFilterBypassed(Boolean(body.exactRolAreaFilterBypassed))
       void loadSpatial(next)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo cargar la serie Sentinel-2.")
@@ -336,8 +340,9 @@ export default function SentinelTemporalPage() {
         <Card className="p-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div><p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Conclusión primero</p><h2 className="mt-1 text-2xl font-medium">ROL {result.rol}</h2><p className="mt-1 text-sm text-muted-foreground">{result.commune}{result.areaHa != null ? ` · ${result.areaHa.toLocaleString("es-CL")} ha` : ""}{result.declaredSpecies.length ? ` · CIREN declara ${result.declaredSpecies.join(" / ")}` : ""}</p></div>
-            <div className="flex flex-wrap gap-2"><Badge>{evidence.status === "available" ? "Sentinel-2 activo" : evidence.status}</Badge><Badge variant="outline">{evidence.geometryMode === "ciren_polygon" ? "polígono CIREN real" : "fallback por centroide"}</Badge><Badge variant="outline">especie satelital no verificada</Badge></div>
+            <div className="flex flex-wrap gap-2"><Badge>{evidence.status === "available" ? "Sentinel-2 activo" : evidence.status}</Badge><Badge variant="outline">{evidence.geometryMode === "ciren_polygon" ? "polígono CIREN real" : "fallback por centroide"}</Badge><Badge variant="outline">especie satelital no verificada</Badge>{areaFilterBypassed ? <Badge variant="outline">fuera del rango de superficie solicitado</Badge> : null}</div>
           </div>
+          {areaFilterBypassed ? <p className="mt-4 text-sm text-muted-foreground">El ROL exacto existe y se analiza aunque su superficie quede fuera del filtro usado para descubrir prospectos.</p> : null}
           <p className="mt-5 text-lg font-medium">NDVI está {baselineLabel(evidence.baseline.signal)}.</p>
           <p className="mt-2 max-w-5xl text-sm leading-6 text-muted-foreground">{evidence.baseline.interpretation}</p>
         </Card>

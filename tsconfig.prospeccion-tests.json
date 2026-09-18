@@ -26,6 +26,7 @@
     "lib/prospeccion/sentinel-memory.ts",
     "lib/prospeccion/sentinel-attention.ts",
     "lib/prospeccion/sentinel-spatial.ts",
+    "lib/prospeccion/sentinel-targeting.ts",
     "tests/prospeccion-normalization.test.ts",
     "tests/prospeccion-public-agri-region.test.ts",
     "tests/prospeccion-owner-web.test.ts",
@@ -33,6 +34,7 @@
     "tests/prospeccion-sentinel-temporal.test.ts",
     "tests/prospeccion-sentinel-memory.test.ts",
     "tests/prospeccion-sentinel-attention.test.ts",
-    "tests/prospeccion-sentinel-spatial.test.ts"
+    "tests/prospeccion-sentinel-spatial.test.ts",
+    "tests/prospeccion-sentinel-targeting.test.ts"
   ]
 }
