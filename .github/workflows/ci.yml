@@ -45,6 +45,7 @@ jobs:
           node --test "$TEST_OUT/tests/prospeccion-sentinel-temporal.test.js"
           node --test "$TEST_OUT/tests/prospeccion-sentinel-memory.test.js"
           node --test "$TEST_OUT/tests/prospeccion-sentinel-attention.test.js"
+          node --test "$TEST_OUT/tests/prospeccion-sentinel-spatial.test.js"
           rm -rf "$TEST_OUT"
 
       - name: Production build
