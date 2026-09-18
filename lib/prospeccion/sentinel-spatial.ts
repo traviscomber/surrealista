@@ -1,3 +1,5 @@
+import sharp from "sharp"
+
 import type { SentinelPolygon } from "./sentinel-parcel-analysis"
 
 type Bounds = [number, number, number, number]
@@ -11,6 +13,14 @@ export type SentinelSpatialChange = {
   width: number | null
   height: number | null
   imageDataUrl: string | null
+  summary: {
+    validPixelCount: number
+    lowerPct: number
+    similarPct: number
+    higherPct: number
+    strongDecreasePct: number
+    strongIncreasePct: number
+  } | null
   methodology: "pixel-ndvi-change-current-vs-prior-year"
   note: string
 }
@@ -18,6 +28,19 @@ export type SentinelSpatialChange = {
 const TOKEN_URL = "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token"
 const PROCESS_URL = "https://sh.dataspace.copernicus.eu/process/v1"
 const WGS84 = "http://www.opengis.net/def/crs/EPSG/0/4326"
+
+const CHANGE_COLORS = [
+  { key: "strongDecrease", rgb: [140, 56, 173] as const },
+  { key: "watchDecrease", rgb: [184, 110, 199] as const },
+  { key: "minorDecrease", rgb: [163, 161, 184] as const },
+  { key: "similar", rgb: [122, 133, 143] as const },
+  { key: "minorIncrease", rgb: [89, 166, 173] as const },
+  { key: "watchIncrease", rgb: [43, 184, 173] as const },
+  { key: "strongIncrease", rgb: [13, 209, 184] as const },
+] as const
+
+type ChangeBucket = typeof CHANGE_COLORS[number]["key"]
+
 let tokenCache: { token: string; expiresAt: number } | null = null
 
 async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number) {
@@ -123,6 +146,72 @@ function evaluatePixel(samples) {
   return [0.05, 0.82, 0.72, 0.92]
 }`
 
+function nearestBucket(r: number, g: number, b: number): ChangeBucket {
+  let best = CHANGE_COLORS[0]
+  let bestDistance = Number.POSITIVE_INFINITY
+  for (const candidate of CHANGE_COLORS) {
+    const distance =
+      (r - candidate.rgb[0]) ** 2 +
+      (g - candidate.rgb[1]) ** 2 +
+      (b - candidate.rgb[2]) ** 2
+    if (distance < bestDistance) {
+      best = candidate
+      bestDistance = distance
+    }
+  }
+  return best.key
+}
+
+export function summarizeSpatialPixels(raw: Uint8Array) {
+  const counts: Record<ChangeBucket, number> = {
+    strongDecrease: 0,
+    watchDecrease: 0,
+    minorDecrease: 0,
+    similar: 0,
+    minorIncrease: 0,
+    watchIncrease: 0,
+    strongIncrease: 0,
+  }
+  let validPixelCount = 0
+
+  for (let index = 0; index + 3 < raw.length; index += 4) {
+    const alpha = raw[index + 3]
+    if (alpha < 8) continue
+    const bucket = nearestBucket(raw[index], raw[index + 1], raw[index + 2])
+    counts[bucket] += 1
+    validPixelCount += 1
+  }
+
+  if (!validPixelCount) {
+    return {
+      validPixelCount: 0,
+      lowerPct: 0,
+      similarPct: 0,
+      higherPct: 0,
+      strongDecreasePct: 0,
+      strongIncreasePct: 0,
+    }
+  }
+
+  const pct = (count: number) => Math.round((count / validPixelCount) * 1000) / 10
+  const lower = counts.strongDecrease + counts.watchDecrease + counts.minorDecrease
+  const higher = counts.strongIncrease + counts.watchIncrease + counts.minorIncrease
+
+  return {
+    validPixelCount,
+    lowerPct: pct(lower),
+    similarPct: pct(counts.similar),
+    higherPct: pct(higher),
+    strongDecreasePct: pct(counts.strongDecrease),
+    strongIncreasePct: pct(counts.strongIncrease),
+  }
+}
+
+async function summarizeSpatialPng(bytes: Buffer) {
+  const { data } = await sharp(bytes).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
+  return summarizeSpatialPixels(data)
+}
+
 function empty(status: "unconfigured" | "unavailable", note: string): SentinelSpatialChange {
   return {
     status,
@@ -133,6 +222,7 @@ function empty(status: "unconfigured" | "unavailable", note: string): SentinelSp
     width: null,
     height: null,
     imageDataUrl: null,
+    summary: null,
     methodology: "pixel-ndvi-change-current-vs-prior-year",
     note,
   }
@@ -204,6 +294,8 @@ export async function getSentinelSpatialChange(input: {
     const bytes = Buffer.from(await response.arrayBuffer())
     if (!bytes.length) throw new Error("Sentinel Process API returned an empty raster")
 
+    const summary = await summarizeSpatialPng(bytes)
+
     return {
       status: "available",
       source: "Copernicus Data Space / Sentinel-2 L2A",
@@ -213,6 +305,7 @@ export async function getSentinelSpatialChange(input: {
       width,
       height,
       imageDataUrl: `data:image/png;base64,${bytes.toString("base64")}`,
+      summary,
       methodology: "pixel-ndvi-change-current-vs-prior-year",
       note: "La capa compara NDVI píxel a píxel entre dos períodos equivalentes y está recortada por el polígono CIREN. Muestra cambio espectral, no causa agronómica, especie, rendimiento ni condición de riego.",
     }
