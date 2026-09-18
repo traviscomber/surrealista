@@ -21,6 +21,7 @@ const CANONICAL_PRODUCT_ROUTES = [
 
 const NODE_AUTH_API_PATHS = new Set([
   "/api/prospeccion/sentinel-diagnostics",
+  "/api/prospeccion/sentinel-spatial",
 ])
 
 function isRetiredProductPath(pathname: string) {
