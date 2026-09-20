@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto"
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { lookupExactCirenRol } from "@/lib/prospeccion/public-agri-intelligence"
+import { lookupCirenByBounds, lookupExactCirenRol } from "@/lib/prospeccion/public-agri-intelligence"
 
 export const runtime = "nodejs"
 export const maxDuration = 300
@@ -11,6 +11,7 @@ type QueueRow = {
   file_name: string
   region: string | null
   rol_numbers: string[] | null
+  bounds: { west?: number; south?: number; east?: number; north?: number } | null
 }
 
 function admin() {
@@ -95,11 +96,52 @@ async function processRow(row: QueueRow) {
     })
   }
 
-  const hasPartial = roleResults.some((item) => item.lookupStatus === "partial")
-  const ambiguous = roleResults.some((item) => item.territorialCandidateCount > 1)
-  const matched = roleResults.some((item) => item.territorialCandidateCount === 1)
-  const status = hasPartial ? "partial" : ambiguous ? "ambiguous" : matched ? "matched" : "not_found"
-  const confidence = status === "matched" ? 0.98 : status === "ambiguous" ? 0.6 : null
+  const exactPartial = roleResults.some((item) => item.lookupStatus === "partial")
+  const exactAmbiguous = roleResults.some((item) => item.territorialCandidateCount > 1)
+  const exactMatched = roleResults.some((item) => item.territorialCandidateCount === 1)
+
+  const bounds = row.bounds && [row.bounds.west, row.bounds.south, row.bounds.east, row.bounds.north].every(Number.isFinite)
+    ? {
+        west: Number(row.bounds.west),
+        south: Number(row.bounds.south),
+        east: Number(row.bounds.east),
+        north: Number(row.bounds.north),
+      }
+    : null
+
+  const spatial = !exactMatched && !exactAmbiguous && bounds
+    ? await lookupCirenByBounds(row.region, bounds)
+    : null
+
+  const spatialMatched = spatial?.status === "found" && spatial.candidates.length === 1
+  const spatialAmbiguous = spatial?.status === "ambiguous" && spatial.candidates.length > 1
+  const spatialPartial = spatial?.status === "partial"
+
+  const status = exactAmbiguous || spatialAmbiguous
+    ? "ambiguous"
+    : exactMatched || spatialMatched
+      ? "matched"
+      : exactPartial || spatialPartial
+        ? "partial"
+        : "not_found"
+
+  const matchMethod = exactMatched
+    ? "exact_rol_region"
+    : spatialMatched
+      ? (spatial?.candidates[0]?.centerInsideBounds ? "spatial_centroid_inside" : "spatial_single_intersection")
+      : exactAmbiguous
+        ? "exact_rol_ambiguous"
+        : spatialAmbiguous
+          ? "spatial_ambiguous"
+          : "none"
+
+  const confidence = exactMatched
+    ? 0.98
+    : spatialMatched
+      ? (spatial?.candidates[0]?.centerInsideBounds ? 0.9 : 0.82)
+      : status === "ambiguous"
+        ? 0.55
+        : null
 
   const value = {
     kmzFileName: row.file_name,
@@ -107,6 +149,25 @@ async function processRow(row: QueueRow) {
     rawRoles,
     normalizedRoles,
     roleResults,
+    spatialResult: spatial ? {
+      status: spatial.status,
+      layerId: spatial.layerId,
+      surveyYear: spatial.surveyYear,
+      candidateCount: spatial.candidates.length,
+      candidates: spatial.candidates.map((candidate) => ({
+        id: candidate.id,
+        rol: candidate.rol,
+        region: candidate.region,
+        commune: candidate.commune,
+        areaHa: candidate.areaHa,
+        declaredSpecies: candidate.declaredSpecies,
+        surveyYear: candidate.surveyYear,
+        sourceUrl: candidate.sourceUrl,
+        centroid: candidate.centroid,
+        centerInsideBounds: candidate.centerInsideBounds,
+      })),
+    } : null,
+    matchMethod,
   }
 
   return {
@@ -121,7 +182,8 @@ async function processRow(row: QueueRow) {
     dataset_date: null,
     observed_at: new Date().toISOString(),
     metadata: {
-      pipeline: "kmz-ciren-backfill-v1",
+      pipeline: "kmz-ciren-backfill-v2",
+      matchMethod,
       targetRegion,
       normalizedRoleCount: normalizedRoles.length,
     },
@@ -141,7 +203,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await db
     .from("kmz_ciren_enrichment_queue")
-    .select("id,file_name,region,rol_numbers")
+    .select("id,file_name,region,rol_numbers,bounds")
     .limit(limit)
 
   if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 })
