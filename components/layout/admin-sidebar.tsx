@@ -3,19 +3,17 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
-  BarChart3,
-  Building2,
   Calculator,
+  CheckSquare,
   ChevronRight,
   CircleHelp,
-  Database,
   FolderOpen,
   LayoutDashboard,
-  MapPinned,
-  Radar,
+  MessageSquare,
   Search,
   Settings,
   Sprout,
+  Users,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -23,18 +21,14 @@ const domains = [
   { label: "Inicio", href: "/admin/dashboard", icon: LayoutDashboard },
   { label: "Campos", href: "/campos", icon: FolderOpen },
   { label: "Prospección", href: "/prospeccion", icon: Sprout },
-  { label: "Mercado", href: "/busqueda", icon: Search },
-  { label: "Inteligencia", href: "/admin/inteligencia-territorial", icon: MapPinned },
-  { label: "Oportunidades", href: "/home-spotter", icon: Radar },
-  { label: "Valorización", href: "/cotizador", icon: Calculator },
+  { label: "Mercado", href: "/mercado", icon: Search },
 ]
 
 const secondary = [
-  { label: "Inventario Sur Realista", href: "/admin/surealista", icon: Building2 },
-  { label: "Lectura Sentinel-2", href: "/prospeccion/sentinel", icon: Radar },
-  { label: "Demanda de mercado", href: "/prospeccion/demanda-mercado", icon: Radar },
-  { label: "Fuentes y datos", href: "/admin/dashboard?tab=scrapers", icon: Database },
-  { label: "Mercado Inciti", href: "/admin/inciti-market", icon: BarChart3 },
+  { label: "Clientes", href: "/clientes", icon: Users },
+  { label: "Tareas", href: "/gestion-tareas", icon: CheckSquare },
+  { label: "Comunicaciones", href: "/comunicaciones", icon: MessageSquare },
+  { label: "Valorización", href: "/cotizador", icon: Calculator },
 ]
 
 export function AdminSidebar() {
@@ -55,7 +49,7 @@ export function AdminSidebar() {
       </div>
 
       <nav className="flex-1 overflow-y-auto px-3 py-5" aria-label="Áreas del producto">
-        <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Producto operativo</p>
+        <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Navegación</p>
         <div className="space-y-1">
           {domains.map((item) => {
             const Icon = item.icon
@@ -78,7 +72,7 @@ export function AdminSidebar() {
         </div>
 
         <div className="my-5 border-t border-border" />
-        <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Datos</p>
+        <p className="px-3 pb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Trabajo comercial</p>
         <div className="space-y-1">
           {secondary.map((item) => {
             const Icon = item.icon
