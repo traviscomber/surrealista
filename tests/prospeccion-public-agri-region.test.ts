@@ -324,3 +324,10 @@ test("canonical Chile region normalization handles accented southern regions", (
   assert.equal(canonicalRegionKey("Bío Bío"), "biobio")
   assert.equal(canonicalRegionKey("La Araucanía"), "araucania")
 })
+
+
+test("canonical region helper treats O'Higgins aliases as the same region", () => {
+  assert.equal(canonicalRegionKey("O'Higgins"), "ohiggins")
+  assert.equal(canonicalRegionKey("Libertador General Bernardo O'Higgins"), "ohiggins")
+  assert.equal(canonicalRegionKey("Región de O’Higgins"), "ohiggins")
+})

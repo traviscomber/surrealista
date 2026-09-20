@@ -73,10 +73,20 @@ function resolvedTerritory(row: QueueRow) {
     ?? "",
   ).trim()
 
+  const lat = Number(siiRecord?.coordinates?.lat)
+  const lng = Number(siiRecord?.coordinates?.lng)
+  const destination = String(
+    siiRecord?.destino
+    ?? siiRecord?.raw?.destinoDescripcion
+    ?? "",
+  ).trim()
+
   return {
     rol: resolvedRol,
     commune,
     region,
+    destination,
+    point: Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null,
     source: siiRecord?.comuna || siiRecord?.raw?.nombreComuna
       ? "sii_point_resolution"
       : territorial?.commune
@@ -157,11 +167,35 @@ async function processRow(row: QueueRow) {
   const spatialAmbiguous = spatial?.status === "ambiguous" && spatial.candidates.length > 1
   const spatialPartial = spatial?.status === "partial"
 
-  const status = exactAmbiguous || spatialAmbiguous
+  const siiPointEnvelope = territory.point
+    ? {
+        west: territory.point.lng - 0.0015,
+        south: territory.point.lat - 0.0015,
+        east: territory.point.lng + 0.0015,
+        north: territory.point.lat + 0.0015,
+      }
+    : null
+
+  const siiPointSpatial = !exactMatched
+    && !exactAmbiguous
+    && !spatialMatched
+    && !spatialAmbiguous
+    && siiPointEnvelope
+    ? await lookupCirenByBounds(spatialRegion, siiPointEnvelope)
+    : null
+
+  const siiPointCandidates = (siiPointSpatial?.candidates ?? []).filter((candidate) =>
+    normalizedRoles.includes(normalizeCirenRol(candidate.rol) ?? ""),
+  )
+  const siiPointMatched = siiPointCandidates.length === 1
+  const siiPointAmbiguous = siiPointCandidates.length > 1
+  const siiPointPartial = siiPointSpatial?.status === "partial"
+
+  const status = exactAmbiguous || spatialAmbiguous || siiPointAmbiguous
     ? "ambiguous"
-    : exactMatched || spatialMatched
+    : exactMatched || spatialMatched || siiPointMatched
       ? "matched"
-      : exactPartial || spatialPartial
+      : exactPartial || spatialPartial || siiPointPartial
         ? "partial"
         : "not_found"
 
@@ -173,19 +207,23 @@ async function processRow(row: QueueRow) {
     ? (exactCommuneMatched ? "exact_rol_resolved_commune" : "exact_rol_region")
     : spatialMatched
       ? (spatial?.candidates[0]?.centerInsideBounds ? "spatial_centroid_inside" : "spatial_single_intersection")
-      : exactAmbiguous
-        ? "exact_rol_ambiguous"
-        : spatialAmbiguous
-          ? "spatial_ambiguous"
-          : "none"
+      : siiPointMatched
+        ? "sii_point_spatial_rol"
+        : exactAmbiguous
+          ? "exact_rol_ambiguous"
+          : spatialAmbiguous || siiPointAmbiguous
+            ? "spatial_ambiguous"
+            : "none"
 
   const confidence = exactMatched
     ? (exactCommuneMatched ? 0.995 : 0.98)
-    : spatialMatched
-      ? (spatial?.candidates[0]?.centerInsideBounds ? 0.9 : 0.82)
-      : status === "ambiguous"
-        ? 0.55
-        : null
+    : siiPointMatched
+      ? 0.99
+      : spatialMatched
+        ? (spatial?.candidates[0]?.centerInsideBounds ? 0.9 : 0.82)
+        : status === "ambiguous"
+          ? 0.55
+          : null
 
   const value = {
     kmzFileName: row.file_name,
@@ -196,6 +234,22 @@ async function processRow(row: QueueRow) {
     rawRoles,
     normalizedRoles,
     roleResults,
+    siiPointSpatialResult: siiPointSpatial ? {
+      status: siiPointSpatial.status,
+      candidateCount: siiPointCandidates.length,
+      candidates: siiPointCandidates.map((candidate) => ({
+        id: candidate.id,
+        rol: candidate.rol,
+        region: candidate.region,
+        commune: candidate.commune,
+        areaHa: candidate.areaHa,
+        declaredSpecies: candidate.declaredSpecies,
+        surveyYear: candidate.surveyYear,
+        sourceUrl: candidate.sourceUrl,
+        centroid: candidate.centroid,
+        centerInsideBounds: candidate.centerInsideBounds,
+      })),
+    } : null,
     spatialResult: spatial ? {
       status: spatial.status,
       layerId: spatial.layerId,
@@ -229,7 +283,7 @@ async function processRow(row: QueueRow) {
     dataset_date: null,
     observed_at: new Date().toISOString(),
     metadata: {
-      pipeline: "kmz-ciren-backfill-v3",
+      pipeline: "kmz-ciren-backfill-v4",
       matchMethod,
       targetRegion,
       canonicalKmzRegion: canonicalRegionLabel(row.region),
