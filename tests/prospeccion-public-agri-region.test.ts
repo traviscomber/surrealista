@@ -1,3 +1,4 @@
+import { canonicalRegionKey, canonicalRegionLabel, sameChileRegion } from "../lib/territory/chile-regions"
 import assert from "node:assert/strict"
 import test from "node:test"
 
@@ -306,4 +307,20 @@ test("spatial CIREN query requests only fields guaranteed by 2024 southern layer
   } finally {
     globalThis.fetch = originalFetch
   }
+})
+
+
+test("canonical Chile region normalization collapses O'Higgins aliases", () => {
+  assert.equal(canonicalRegionKey("O'Higgins"), "ohiggins")
+  assert.equal(canonicalRegionKey("Región de O’Higgins"), "ohiggins")
+  assert.equal(canonicalRegionKey("Libertador General Bernardo O'Higgins"), "ohiggins")
+  assert.equal(canonicalRegionLabel("libertador general bernardo ohiggins"), "O'Higgins")
+  assert.equal(sameChileRegion("O'Higgins", "Libertador General Bernardo O'Higgins"), true)
+})
+
+test("canonical Chile region normalization handles accented southern regions", () => {
+  assert.equal(canonicalRegionKey("Región de Aysén del General Carlos Ibáñez del Campo"), "aysen")
+  assert.equal(canonicalRegionKey("Ñuble"), "nuble")
+  assert.equal(canonicalRegionKey("Bío Bío"), "biobio")
+  assert.equal(canonicalRegionKey("La Araucanía"), "araucania")
 })
