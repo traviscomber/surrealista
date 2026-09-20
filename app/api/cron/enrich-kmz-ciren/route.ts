@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto"
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { lookupCirenByBounds, lookupExactCirenRol } from "@/lib/prospeccion/public-agri-intelligence"
+import { classifyCirenCoverageReason, lookupCirenByBounds, lookupExactCirenRol } from "@/lib/prospeccion/public-agri-intelligence"
 import { canonicalRegionKey, canonicalRegionLabel } from "@/lib/territory/chile-regions"
 
 export const runtime = "nodejs"
@@ -225,15 +225,12 @@ async function processRow(row: QueueRow) {
           ? 0.55
           : null
 
-  const coverageReason = status !== "not_found"
-    ? null
-    : spatial?.status === "unsupported_region" || siiPointSpatial?.status === "unsupported_region"
-      ? "unsupported_ciren_region"
-      : (spatial?.status === "not_found" || siiPointSpatial?.status === "not_found")
-        ? "no_ciren_feature_at_geometry"
-        : roleResults.length > 0 && roleResults.every((item) => item.allCandidateCount === 0)
-          ? "rol_absent_from_ciren_catalog"
-          : "no_matching_ciren_evidence"
+  const coverageReason = classifyCirenCoverageReason({
+    status,
+    spatialStatus: spatial?.status ?? null,
+    siiPointStatus: siiPointSpatial?.status ?? null,
+    roleCandidateCounts: roleResults.map((item) => item.allCandidateCount),
+  })
 
   const value = {
     kmzFileName: row.file_name,
