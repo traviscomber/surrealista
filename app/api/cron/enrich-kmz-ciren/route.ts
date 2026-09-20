@@ -117,12 +117,12 @@ async function processRow(row: QueueRow) {
   const spatialAmbiguous = spatial?.status === "ambiguous" && spatial.candidates.length > 1
   const spatialPartial = spatial?.status === "partial"
 
-  const status = exactPartial || spatialPartial
-    ? "partial"
-    : exactAmbiguous || spatialAmbiguous
-      ? "ambiguous"
-      : exactMatched || spatialMatched
-        ? "matched"
+  const status = exactAmbiguous || spatialAmbiguous
+    ? "ambiguous"
+    : exactMatched || spatialMatched
+      ? "matched"
+      : exactPartial || spatialPartial
+        ? "partial"
         : "not_found"
 
   const matchMethod = exactMatched
