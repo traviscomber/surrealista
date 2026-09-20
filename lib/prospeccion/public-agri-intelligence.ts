@@ -742,6 +742,158 @@ export async function lookupExactCirenRol(rolInput: string): Promise<ExactCirenR
   }
 }
 
+
+export type CirenBounds = {
+  west: number
+  south: number
+  east: number
+  north: number
+}
+
+export type SpatialCirenCandidate = ExactCirenRolCandidate & {
+  matchMethod: "spatial_bounds"
+  centerInsideBounds: boolean
+}
+
+export type SpatialCirenLookup = {
+  status: "found" | "ambiguous" | "not_found" | "unsupported_region" | "partial"
+  candidates: SpatialCirenCandidate[]
+  layerId: number | null
+  surveyYear: number | null
+}
+
+function validBounds(bounds: CirenBounds | null | undefined) {
+  if (!bounds) return false
+  return [bounds.west, bounds.south, bounds.east, bounds.north].every(Number.isFinite)
+    && bounds.west < bounds.east
+    && bounds.south < bounds.north
+}
+
+function pointInsideBounds(point: { lat: number; lng: number } | null, bounds: CirenBounds) {
+  if (!point) return false
+  return point.lng >= bounds.west
+    && point.lng <= bounds.east
+    && point.lat >= bounds.south
+    && point.lat <= bounds.north
+}
+
+export async function lookupCirenByBounds(
+  regionInput: string | null | undefined,
+  bounds: CirenBounds | null | undefined,
+): Promise<SpatialCirenLookup> {
+  if (!validBounds(bounds)) {
+    return { status: "not_found", candidates: [], layerId: null, surveyYear: null }
+  }
+
+  const regionKey = normalize(regionInput)
+  const layer = CIREN_PRODUCER_LAYERS.find((entry) =>
+    entry.aliases.some((alias) => normalize(alias) === regionKey),
+  )
+  if (!layer) {
+    return { status: "unsupported_region", candidates: [], layerId: null, surveyYear: null }
+  }
+
+  const sourceUrl = `${CIREN_BASE}/${layer.layerId}`
+  const envelope = bounds as CirenBounds
+  const params = new URLSearchParams({
+    f: "json",
+    where: "1=1",
+    geometry: `${envelope.west},${envelope.south},${envelope.east},${envelope.north}`,
+    geometryType: "esriGeometryEnvelope",
+    inSR: "4326",
+    spatialRel: "esriSpatialRelIntersects",
+    outFields: "desccomu,rolpredi,especie_01,especie_02,especie_03,especie_04",
+    returnGeometry: "true",
+    outSR: "4326",
+    geometryPrecision: "6",
+    resultRecordCount: "200",
+  })
+
+  try {
+    const payload = await fetchJsonWithTimeout(`${sourceUrl}/query?${params.toString()}`, undefined, 10_000) as CirenResponse
+    if (payload.error) throw new Error(payload.error.message || "CIREN spatial query failed")
+
+    const groups = new Map<string, CirenFeature[]>()
+    for (const feature of payload.features ?? []) {
+      const attributes = feature.attributes ?? {}
+      const rol = String(attributes.rolpredi ?? "").trim()
+      const commune = String(attributes.desccomu ?? "").trim()
+      if (!rol || !commune) continue
+      const key = `${rol}:${normalize(commune)}`
+      groups.set(key, [...(groups.get(key) ?? []), feature])
+    }
+
+    const region = formalRegion(layer.aliases[0]) ?? layer.aliases[0]
+    const candidates = [...groups.entries()].map(([key, features]) => {
+      const attributes = features[0]?.attributes ?? {}
+      const rol = String(attributes.rolpredi ?? "").trim()
+      const commune = String(attributes.desccomu ?? "").trim()
+      const declaredSpecies = new Set<string>()
+      for (const feature of features) {
+        for (const value of [
+          feature.attributes?.especie_01,
+          feature.attributes?.especie_02,
+          feature.attributes?.especie_03,
+          feature.attributes?.especie_04,
+        ]) {
+          const species = String(value ?? "").trim()
+          if (species) declaredSpecies.add(species)
+        }
+      }
+      const geometry = combineFeatureGeometry(features)
+      return {
+        id: `ciren:${layer.year}:${layer.layerId}:${key.replace(/\s+/g, "-")}`,
+        rol,
+        region,
+        commune,
+        declaredSpecies: [...declaredSpecies],
+        targetSpeciesMatch: true,
+        source: "CIREN IDE MINAGRI" as const,
+        sourceUrl,
+        surveyYear: layer.year,
+        layerId: layer.layerId,
+        areaHa: geometry.areaHa,
+        areaMatch: true,
+        centroid: geometry.centroid,
+        stage: "detected" as const,
+        ownerStatus: "pending" as const,
+        contactStatus: "pending" as const,
+        evidenceLabel: [
+          `Intersección espacial CIREN ${layer.year}`,
+          region,
+          commune,
+          geometry.areaHa != null ? `${geometry.areaHa.toLocaleString("es-CL")} ha estimadas desde polígonos oficiales` : null,
+        ].filter(Boolean).join(" · "),
+        matchMethod: "spatial_bounds" as const,
+        centerInsideBounds: pointInsideBounds(geometry.centroid, envelope),
+      } satisfies SpatialCirenCandidate
+    })
+
+    const inside = candidates.filter((candidate) => candidate.centerInsideBounds)
+    const selected = inside.length ? inside : candidates
+    const status = selected.length === 1 ? "found" : selected.length > 1 ? "ambiguous" : "not_found"
+
+    return {
+      status,
+      candidates: selected,
+      layerId: layer.layerId,
+      surveyYear: layer.year,
+    }
+  } catch (error) {
+    console.info("[Prospeccion] CIREN spatial lookup unavailable", {
+      region: regionInput,
+      layerId: layer.layerId,
+      error: error instanceof Error ? error.message : "unknown error",
+    })
+    return {
+      status: "partial",
+      candidates: [],
+      layerId: layer.layerId,
+      surveyYear: layer.year,
+    }
+  }
+}
+
 export async function getPublicAgriEvidence(criteria: ProspectingPublicCriteria): Promise<PublicAgriEvidence> {
   const [ciren, odepa] = await Promise.all([getCirenEvidence(criteria), getOdepaEvidence(criteria)])
   return { ciren, odepa }
