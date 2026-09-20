@@ -265,12 +265,34 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await db
     .from("kmz_ciren_enrichment_queue")
-    .select("id,file_name,region,rol_numbers,bounds,metadata")
+    .select("id,file_name,region,rol_numbers,bounds")
     .limit(limit)
 
   if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 })
 
-  const rows = (data ?? []) as QueueRow[]
+  const queueRows = (data ?? []) as Omit<QueueRow, "metadata">[]
+  const ids = queueRows.map((row) => row.id)
+  const metadataById = new Map<string, Record<string, unknown> | null>()
+
+  if (ids.length) {
+    const { data: metadataRows, error: metadataError } = await db
+      .from("kmz_collection")
+      .select("id,metadata")
+      .in("id", ids)
+
+    if (metadataError) {
+      return NextResponse.json({ success: false, error: metadataError.message }, { status: 500 })
+    }
+
+    for (const row of metadataRows ?? []) {
+      metadataById.set(String(row.id), metadataRecord(row.metadata))
+    }
+  }
+
+  const rows: QueueRow[] = queueRows.map((row) => ({
+    ...row,
+    metadata: metadataById.get(row.id) ?? null,
+  }))
   const evidence = []
   const failures: Array<{ id: string; fileName: string; error: string }> = []
 
