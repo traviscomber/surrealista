@@ -275,3 +275,35 @@ test("spatial CIREN fallback retries transient failures before returning partial
     globalThis.fetch = originalFetch
   }
 })
+
+
+test("spatial CIREN query requests only fields guaranteed by 2024 southern layers", async () => {
+  const originalFetch = globalThis.fetch
+  let requestedUrl = ""
+
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    requestedUrl = String(input)
+    return new Response(JSON.stringify({ features: [] }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    })
+  }) as typeof fetch
+
+  try {
+    const result = await lookupCirenByBounds("Los Lagos", {
+      west: -73.05,
+      south: -41.36,
+      east: -73.04,
+      north: -41.34,
+    })
+
+    assert.equal(result.status, "not_found")
+    const outFields = new URL(requestedUrl).searchParams.get("outFields")
+    assert.equal(outFields, "desccomu,rolpredi,especie_01")
+    assert.equal(outFields?.includes("especie_02"), false)
+    assert.equal(outFields?.includes("especie_03"), false)
+    assert.equal(outFields?.includes("especie_04"), false)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
