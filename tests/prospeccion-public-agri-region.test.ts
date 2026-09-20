@@ -241,3 +241,37 @@ test("spatial CIREN fallback preserves ambiguity when multiple parcel centroids 
     globalThis.fetch = originalFetch
   }
 })
+
+
+test("spatial CIREN fallback retries transient failures before returning partial", async () => {
+  const originalFetch = globalThis.fetch
+  let attempts = 0
+
+  globalThis.fetch = (async () => {
+    attempts += 1
+    if (attempts < 3) throw new Error("transient timeout")
+    return new Response(JSON.stringify({
+      features: [
+        {
+          attributes: { desccomu: "OSORNO", rolpredi: "2257-22", especie_01: "CEREZO" },
+          geometry: { rings: [[[-73.0, -40.7], [-72.99, -40.7], [-72.99, -40.71], [-73.0, -40.71], [-73.0, -40.7]]] },
+        },
+      ],
+    }), { status: 200, headers: { "content-type": "application/json" } })
+  }) as typeof fetch
+
+  try {
+    const result = await lookupCirenByBounds("Los Lagos", {
+      west: -73.01,
+      south: -40.72,
+      east: -72.98,
+      north: -40.69,
+    })
+
+    assert.equal(attempts, 3)
+    assert.equal(result.status, "found")
+    assert.equal(result.candidates.length, 1)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
