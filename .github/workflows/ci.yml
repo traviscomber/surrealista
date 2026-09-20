@@ -72,6 +72,24 @@ jobs:
           done
           pnpm test:smoke
 
+      - name: Wait for exact production deployment
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          RELEASE_URL: https://sur-realista.vercel.app/api/release
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          for attempt in {1..60}; do
+            DEPLOYED_SHA="$(curl --fail --silent --max-time 10 "$RELEASE_URL" | node -e 'let data=""; process.stdin.on("data",c=>data+=c); process.stdin.on("end",()=>{try{process.stdout.write(JSON.parse(data).commitSha||"")}catch{}})' || true)"
+            if [ "$DEPLOYED_SHA" = "$EXPECTED_SHA" ]; then
+              echo "Exact production deployment is ready: $DEPLOYED_SHA"
+              exit 0
+            fi
+            echo "Waiting for production SHA $EXPECTED_SHA (current: ${DEPLOYED_SHA:-unavailable})"
+            sleep 10
+          done
+          echo "Production alias did not reach expected SHA $EXPECTED_SHA within 10 minutes."
+          exit 1
+
       - name: Production cloud browser
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
