@@ -806,12 +806,26 @@ export async function lookupCirenByBounds(
     returnGeometry: "true",
     outSR: "4326",
     geometryPrecision: "6",
-    resultRecordCount: "200",
+    resultRecordCount: "50",
   })
 
   try {
-    const payload = await fetchJsonWithTimeout(`${sourceUrl}/query?${params.toString()}`, undefined, 10_000) as CirenResponse
-    if (payload.error) throw new Error(payload.error.message || "CIREN spatial query failed")
+    const queryUrl = `${sourceUrl}/query?${params.toString()}`
+    let payload: CirenResponse | null = null
+    let lastError: unknown = null
+
+    for (const timeoutMs of [12_000, 20_000, 30_000]) {
+      try {
+        const candidate = await fetchJsonWithTimeout(queryUrl, undefined, timeoutMs) as CirenResponse
+        if (candidate.error) throw new Error(candidate.error.message || "CIREN spatial query failed")
+        payload = candidate
+        break
+      } catch (error) {
+        lastError = error
+      }
+    }
+
+    if (!payload) throw lastError instanceof Error ? lastError : new Error("CIREN spatial query unavailable after retries")
 
     const groups = new Map<string, CirenFeature[]>()
     for (const feature of payload.features ?? []) {
