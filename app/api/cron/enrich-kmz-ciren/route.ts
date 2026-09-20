@@ -225,6 +225,16 @@ async function processRow(row: QueueRow) {
           ? 0.55
           : null
 
+  const coverageReason = status !== "not_found"
+    ? null
+    : spatial?.status === "unsupported_region" || siiPointSpatial?.status === "unsupported_region"
+      ? "unsupported_ciren_region"
+      : (spatial?.status === "not_found" || siiPointSpatial?.status === "not_found")
+        ? "no_ciren_feature_at_geometry"
+        : roleResults.length > 0 && roleResults.every((item) => item.allCandidateCount === 0)
+          ? "rol_absent_from_ciren_catalog"
+          : "no_matching_ciren_evidence"
+
   const value = {
     kmzFileName: row.file_name,
     kmzRegion: row.region,
@@ -269,6 +279,7 @@ async function processRow(row: QueueRow) {
       })),
     } : null,
     matchMethod,
+    coverageReason,
   }
 
   return {
@@ -285,6 +296,7 @@ async function processRow(row: QueueRow) {
     metadata: {
       pipeline: "kmz-ciren-backfill-v4",
       matchMethod,
+      coverageReason,
       targetRegion,
       canonicalKmzRegion: canonicalRegionLabel(row.region),
       canonicalSpatialRegion: canonicalRegionLabel(spatialRegion),
