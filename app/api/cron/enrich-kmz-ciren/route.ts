@@ -2,6 +2,7 @@ import { createHash } from "node:crypto"
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { lookupCirenByBounds, lookupExactCirenRol } from "@/lib/prospeccion/public-agri-intelligence"
+import { canonicalRegionKey, canonicalRegionLabel } from "@/lib/territory/chile-regions"
 
 export const runtime = "nodejs"
 export const maxDuration = 300
@@ -32,23 +33,7 @@ function normalizeText(value: unknown) {
 }
 
 function regionKey(value: unknown) {
-  const normalized = normalizeText(value)
-  if (!normalized) return ""
-  if (normalized.includes("metropolitana")) return "metropolitana"
-  if (normalized.includes("higgins")) return "ohiggins"
-  if (normalized.includes("maule")) return "maule"
-  if (normalized.includes("nuble")) return "nuble"
-  if (normalized.includes("biobio") || normalized.includes("bio bio")) return "biobio"
-  if (normalized.includes("araucania")) return "araucania"
-  if (normalized.includes("los rios")) return "los-rios"
-  if (normalized.includes("los lagos")) return "los-lagos"
-  if (normalized.includes("aysen")) return "aysen"
-  if (normalized.includes("valparaiso")) return "valparaiso"
-  if (normalized.includes("coquimbo")) return "coquimbo"
-  if (normalized.includes("atacama")) return "atacama"
-  if (normalized.includes("tarapaca")) return "tarapaca"
-  if (normalized.includes("arica")) return "arica-parinacota"
-  return normalized
+  return canonicalRegionKey(value) ?? normalizeText(value)
 }
 
 function normalizeCirenRol(raw: unknown) {
@@ -102,7 +87,7 @@ function resolvedTerritory(row: QueueRow) {
 
 async function processRow(row: QueueRow) {
   const territory = resolvedTerritory(row)
-  const spatialRegion = territory.region || row.region
+  const spatialRegion = canonicalRegionLabel(territory.region) || canonicalRegionLabel(row.region) || territory.region || row.region
   const targetRegion = regionKey(spatialRegion)
   const rawRoles = row.rol_numbers ?? []
   const normalizedRoles = [...new Set(rawRoles.map(normalizeCirenRol).filter((value): value is string => Boolean(value)))]
@@ -205,6 +190,7 @@ async function processRow(row: QueueRow) {
   const value = {
     kmzFileName: row.file_name,
     kmzRegion: row.region,
+    canonicalKmzRegion: canonicalRegionLabel(row.region),
     resolvedTerritory: territory,
     spatialRegion,
     rawRoles,
@@ -246,6 +232,8 @@ async function processRow(row: QueueRow) {
       pipeline: "kmz-ciren-backfill-v3",
       matchMethod,
       targetRegion,
+      canonicalKmzRegion: canonicalRegionLabel(row.region),
+      canonicalSpatialRegion: canonicalRegionLabel(spatialRegion),
       territorySource: territory.source,
       normalizedRoleCount: normalizedRoles.length,
     },
