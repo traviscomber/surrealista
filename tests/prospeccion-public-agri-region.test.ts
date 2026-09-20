@@ -1,7 +1,7 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import { getPublicAgriEvidence, groupExactCirenFindResults, lookupExactCirenRol } from "../lib/prospeccion/public-agri-intelligence"
+import { getPublicAgriEvidence, groupExactCirenFindResults, lookupCirenByBounds, lookupExactCirenRol } from "../lib/prospeccion/public-agri-intelligence"
 
 test("maps canonical O'Higgins to CIREN producer layer 61", async () => {
   const originalFetch = globalThis.fetch
@@ -159,6 +159,84 @@ test("single-territory ROL resolves without artificial ambiguity", async () => {
     assert.equal(result.candidates[0]?.region, "Libertador General Bernardo O'Higgins")
     assert.equal(result.candidates[0]?.commune, "RENGO")
     assert.equal(requestedUrls.length, 2)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+
+test("spatial CIREN fallback resolves one parcel whose centroid is inside KMZ bounds", async () => {
+  const originalFetch = globalThis.fetch
+  const requestedUrls: string[] = []
+
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = String(input)
+    requestedUrls.push(url)
+
+    if (url.includes("MapServer/62/query")) {
+      return new Response(JSON.stringify({
+        features: [
+          {
+            attributes: { desccomu: "LONGAVI", rolpredi: "194-84", especie_01: "CEREZO" },
+            geometry: { rings: [[[-71.638, -35.965], [-71.63, -35.965], [-71.63, -35.971], [-71.638, -35.971], [-71.638, -35.965]]] },
+          },
+        ],
+      }), { status: 200, headers: { "content-type": "application/json" } })
+    }
+
+    return new Response(JSON.stringify({ error: { message: "unexpected url" } }), {
+      status: 404,
+      headers: { "content-type": "application/json" },
+    })
+  }) as typeof fetch
+
+  try {
+    const result = await lookupCirenByBounds("Región del Maule", {
+      west: -71.64121984270501,
+      south: -35.97446200399056,
+      east: -71.62485126095736,
+      north: -35.96243806526419,
+    })
+
+    assert.equal(result.status, "found")
+    assert.equal(result.layerId, 62)
+    assert.equal(result.candidates.length, 1)
+    assert.equal(result.candidates[0]?.rol, "194-84")
+    assert.equal(result.candidates[0]?.centerInsideBounds, true)
+    assert.ok(requestedUrls[0]?.includes("geometryType=esriGeometryEnvelope"))
+    assert.ok(requestedUrls[0]?.includes("spatialRel=esriSpatialRelIntersects"))
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})
+
+test("spatial CIREN fallback preserves ambiguity when multiple parcel centroids fall inside KMZ bounds", async () => {
+  const originalFetch = globalThis.fetch
+
+  globalThis.fetch = (async () => new Response(JSON.stringify({
+    features: [
+      {
+        attributes: { desccomu: "LOS ANGELES", rolpredi: "23-1", especie_01: "ARANDANO" },
+        geometry: { rings: [[[-72.435, -37.445], [-72.43, -37.445], [-72.43, -37.45], [-72.435, -37.45], [-72.435, -37.445]]] },
+      },
+      {
+        attributes: { desccomu: "LOS ANGELES", rolpredi: "1566-39", especie_01: "CEREZO" },
+        geometry: { rings: [[[-72.429, -37.448], [-72.424, -37.448], [-72.424, -37.453], [-72.429, -37.453], [-72.429, -37.448]]] },
+      },
+    ],
+  }), { status: 200, headers: { "content-type": "application/json" } })) as typeof fetch
+
+  try {
+    const result = await lookupCirenByBounds("Bío Bío", {
+      west: -72.44,
+      south: -37.46,
+      east: -72.42,
+      north: -37.44,
+    })
+
+    assert.equal(result.status, "ambiguous")
+    assert.equal(result.candidates.length, 2)
+    assert.ok(result.candidates.every((candidate) => candidate.centerInsideBounds))
   } finally {
     globalThis.fetch = originalFetch
   }
