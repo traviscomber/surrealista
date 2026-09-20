@@ -36,6 +36,9 @@
     },
     "app/api/cron/prospecting-mandates/route.ts": {
       "maxDuration": 300
+    },
+    "app/api/cron/enrich-kmz-ciren/route.ts": {
+      "maxDuration": 300
     }
   },
   "crons": [
@@ -78,6 +81,10 @@
     {
       "path": "/api/cron/prospecting-mandates",
       "schedule": "40 11 * * *"
+    },
+    {
+      "path": "/api/cron/enrich-kmz-ciren",
+      "schedule": "7,17,27,37,47,57 * * * *"
     }
   ]
 }
