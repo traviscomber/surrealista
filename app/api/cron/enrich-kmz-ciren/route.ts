@@ -2,6 +2,7 @@ import { createHash } from "node:crypto"
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { lookupCirenByBounds, lookupExactCirenRol } from "@/lib/prospeccion/public-agri-intelligence"
+import { canonicalRegionKey, canonicalRegionLabel } from "@/lib/territory/chile-regions"
 
 export const runtime = "nodejs"
 export const maxDuration = 300
@@ -12,6 +13,7 @@ type QueueRow = {
   region: string | null
   rol_numbers: string[] | null
   bounds: { west?: number; south?: number; east?: number; north?: number } | null
+  metadata: Record<string, unknown> | null
 }
 
 function admin() {
@@ -31,23 +33,7 @@ function normalizeText(value: unknown) {
 }
 
 function regionKey(value: unknown) {
-  const normalized = normalizeText(value)
-  if (!normalized) return ""
-  if (normalized.includes("metropolitana")) return "metropolitana"
-  if (normalized.includes("higgins")) return "ohiggins"
-  if (normalized.includes("maule")) return "maule"
-  if (normalized.includes("nuble")) return "nuble"
-  if (normalized.includes("biobio") || normalized.includes("bio bio")) return "biobio"
-  if (normalized.includes("araucania")) return "araucania"
-  if (normalized.includes("los rios")) return "los-rios"
-  if (normalized.includes("los lagos")) return "los-lagos"
-  if (normalized.includes("aysen")) return "aysen"
-  if (normalized.includes("valparaiso")) return "valparaiso"
-  if (normalized.includes("coquimbo")) return "coquimbo"
-  if (normalized.includes("atacama")) return "atacama"
-  if (normalized.includes("tarapaca")) return "tarapaca"
-  if (normalized.includes("arica")) return "arica-parinacota"
-  return normalized
+  return canonicalRegionKey(value) ?? normalizeText(value)
 }
 
 function normalizeCirenRol(raw: unknown) {
@@ -64,17 +50,69 @@ function fingerprint(kmzId: string, value: unknown) {
     .digest("hex")
 }
 
+function metadataRecord(value: unknown): Record<string, any> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, any> : null
+}
+
+function resolvedTerritory(row: QueueRow) {
+  const metadata = metadataRecord(row.metadata)
+  const sii = metadataRecord(metadata?.sii_point_resolution)
+  const siiRecord = metadataRecord(sii?.record)
+  const territorial = metadataRecord(metadata?.territorial_resolution)
+
+  const resolvedRol = normalizeCirenRol(siiRecord?.rol)
+  const commune = String(
+    siiRecord?.comuna
+    ?? siiRecord?.raw?.nombreComuna
+    ?? territorial?.commune
+    ?? "",
+  ).trim()
+
+  const region = String(
+    territorial?.region
+    ?? "",
+  ).trim()
+
+  return {
+    rol: resolvedRol,
+    commune,
+    region,
+    source: siiRecord?.comuna || siiRecord?.raw?.nombreComuna
+      ? "sii_point_resolution"
+      : territorial?.commune
+        ? "territorial_resolution"
+        : null,
+  }
+}
+
 async function processRow(row: QueueRow) {
-  const targetRegion = regionKey(row.region)
+  const territory = resolvedTerritory(row)
+  const spatialRegion = canonicalRegionLabel(territory.region) || canonicalRegionLabel(row.region) || territory.region || row.region
+  const targetRegion = regionKey(spatialRegion)
   const rawRoles = row.rol_numbers ?? []
   const normalizedRoles = [...new Set(rawRoles.map(normalizeCirenRol).filter((value): value is string => Boolean(value)))]
   const roleResults = []
 
   for (const rol of normalizedRoles) {
     const lookup = await lookupExactCirenRol(rol)
-    const territorial = lookup.candidates
+    const regionCandidates = lookup.candidates
       .filter((candidate) => regionKey(candidate.region) === targetRegion)
+
+    const canUseResolvedCommune = Boolean(
+      territory.commune
+      && (!territory.rol || territory.rol === rol),
+    )
+    const communeKey = normalizeText(territory.commune)
+    const communeCandidates = canUseResolvedCommune
+      ? lookup.candidates.filter((candidate) => normalizeText(candidate.commune) === communeKey)
+      : []
+
+    const territorial = (communeCandidates.length ? communeCandidates : regionCandidates)
       .sort((a, b) => `${a.region}|${a.commune}|${a.id}`.localeCompare(`${b.region}|${b.commune}|${b.id}`))
+
+    const territorialBasis = communeCandidates.length
+      ? "resolved_commune"
+      : "region"
 
     roleResults.push({
       rol,
@@ -83,6 +121,8 @@ async function processRow(row: QueueRow) {
       failedLayers: lookup.failedLayers,
       allCandidateCount: lookup.candidates.length,
       territorialCandidateCount: territorial.length,
+      territorialBasis,
+      resolvedCommune: canUseResolvedCommune ? territory.commune : null,
       candidates: territorial.map((candidate) => ({
         id: candidate.id,
         region: candidate.region,
@@ -110,7 +150,7 @@ async function processRow(row: QueueRow) {
     : null
 
   const spatial = !exactMatched && !exactAmbiguous && bounds
-    ? await lookupCirenByBounds(row.region, bounds)
+    ? await lookupCirenByBounds(spatialRegion, bounds)
     : null
 
   const spatialMatched = spatial?.status === "found" && spatial.candidates.length === 1
@@ -125,8 +165,12 @@ async function processRow(row: QueueRow) {
         ? "partial"
         : "not_found"
 
+  const exactCommuneMatched = roleResults.some((item) =>
+    item.territorialCandidateCount === 1 && item.territorialBasis === "resolved_commune",
+  )
+
   const matchMethod = exactMatched
-    ? "exact_rol_region"
+    ? (exactCommuneMatched ? "exact_rol_resolved_commune" : "exact_rol_region")
     : spatialMatched
       ? (spatial?.candidates[0]?.centerInsideBounds ? "spatial_centroid_inside" : "spatial_single_intersection")
       : exactAmbiguous
@@ -136,7 +180,7 @@ async function processRow(row: QueueRow) {
           : "none"
 
   const confidence = exactMatched
-    ? 0.98
+    ? (exactCommuneMatched ? 0.995 : 0.98)
     : spatialMatched
       ? (spatial?.candidates[0]?.centerInsideBounds ? 0.9 : 0.82)
       : status === "ambiguous"
@@ -146,6 +190,9 @@ async function processRow(row: QueueRow) {
   const value = {
     kmzFileName: row.file_name,
     kmzRegion: row.region,
+    canonicalKmzRegion: canonicalRegionLabel(row.region),
+    resolvedTerritory: territory,
+    spatialRegion,
     rawRoles,
     normalizedRoles,
     roleResults,
@@ -182,9 +229,12 @@ async function processRow(row: QueueRow) {
     dataset_date: null,
     observed_at: new Date().toISOString(),
     metadata: {
-      pipeline: "kmz-ciren-backfill-v2",
+      pipeline: "kmz-ciren-backfill-v3",
       matchMethod,
       targetRegion,
+      canonicalKmzRegion: canonicalRegionLabel(row.region),
+      canonicalSpatialRegion: canonicalRegionLabel(spatialRegion),
+      territorySource: territory.source,
       normalizedRoleCount: normalizedRoles.length,
     },
     fingerprint: fingerprint(row.id, value),
@@ -208,7 +258,29 @@ export async function GET(req: NextRequest) {
 
   if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 })
 
-  const rows = (data ?? []) as QueueRow[]
+  const queueRows = (data ?? []) as Omit<QueueRow, "metadata">[]
+  const ids = queueRows.map((row) => row.id)
+  const metadataById = new Map<string, Record<string, unknown> | null>()
+
+  if (ids.length) {
+    const { data: metadataRows, error: metadataError } = await db
+      .from("kmz_collection")
+      .select("id,metadata")
+      .in("id", ids)
+
+    if (metadataError) {
+      return NextResponse.json({ success: false, error: metadataError.message }, { status: 500 })
+    }
+
+    for (const row of metadataRows ?? []) {
+      metadataById.set(String(row.id), metadataRecord(row.metadata))
+    }
+  }
+
+  const rows: QueueRow[] = queueRows.map((row) => ({
+    ...row,
+    metadata: metadataById.get(row.id) ?? null,
+  }))
   const evidence = []
   const failures: Array<{ id: string; fileName: string; error: string }> = []
 
