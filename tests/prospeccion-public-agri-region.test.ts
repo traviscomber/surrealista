@@ -1,3 +1,4 @@
+import { classifyCirenCoverageReason } from "../lib/prospeccion/public-agri-intelligence"
 import { canonicalRegionKey, canonicalRegionLabel, sameChileRegion } from "../lib/territory/chile-regions"
 import assert from "node:assert/strict"
 import test from "node:test"
@@ -330,4 +331,35 @@ test("canonical region helper treats O'Higgins aliases as the same region", () =
   assert.equal(canonicalRegionKey("O'Higgins"), "ohiggins")
   assert.equal(canonicalRegionKey("Libertador General Bernardo O'Higgins"), "ohiggins")
   assert.equal(canonicalRegionKey("Región de O’Higgins"), "ohiggins")
+})
+
+
+test("CIREN coverage classifier preserves canonical not_found semantics with explicit reasons", () => {
+  assert.equal(classifyCirenCoverageReason({
+    status: "matched",
+    spatialStatus: "found",
+    siiPointStatus: null,
+    roleCandidateCounts: [1],
+  }), null)
+
+  assert.equal(classifyCirenCoverageReason({
+    status: "not_found",
+    spatialStatus: "unsupported_region",
+    siiPointStatus: "unsupported_region",
+    roleCandidateCounts: [0],
+  }), "unsupported_ciren_region")
+
+  assert.equal(classifyCirenCoverageReason({
+    status: "not_found",
+    spatialStatus: "not_found",
+    siiPointStatus: "not_found",
+    roleCandidateCounts: [0],
+  }), "no_ciren_feature_at_geometry")
+
+  assert.equal(classifyCirenCoverageReason({
+    status: "not_found",
+    spatialStatus: null,
+    siiPointStatus: null,
+    roleCandidateCounts: [0, 0],
+  }), "rol_absent_from_ciren_catalog")
 })

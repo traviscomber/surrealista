@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto"
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { lookupCirenByBounds, lookupExactCirenRol } from "@/lib/prospeccion/public-agri-intelligence"
+import { classifyCirenCoverageReason, lookupCirenByBounds, lookupExactCirenRol } from "@/lib/prospeccion/public-agri-intelligence"
 import { canonicalRegionKey, canonicalRegionLabel } from "@/lib/territory/chile-regions"
 
 export const runtime = "nodejs"
@@ -225,6 +225,13 @@ async function processRow(row: QueueRow) {
           ? 0.55
           : null
 
+  const coverageReason = classifyCirenCoverageReason({
+    status,
+    spatialStatus: spatial?.status ?? null,
+    siiPointStatus: siiPointSpatial?.status ?? null,
+    roleCandidateCounts: roleResults.map((item) => item.allCandidateCount),
+  })
+
   const value = {
     kmzFileName: row.file_name,
     kmzRegion: row.region,
@@ -269,6 +276,7 @@ async function processRow(row: QueueRow) {
       })),
     } : null,
     matchMethod,
+    coverageReason,
   }
 
   return {
@@ -285,6 +293,7 @@ async function processRow(row: QueueRow) {
     metadata: {
       pipeline: "kmz-ciren-backfill-v4",
       matchMethod,
+      coverageReason,
       targetRegion,
       canonicalKmzRegion: canonicalRegionLabel(row.region),
       canonicalSpatialRegion: canonicalRegionLabel(spatialRegion),

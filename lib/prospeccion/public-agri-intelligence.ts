@@ -912,3 +912,25 @@ export async function getPublicAgriEvidence(criteria: ProspectingPublicCriteria)
   const [ciren, odepa] = await Promise.all([getCirenEvidence(criteria), getOdepaEvidence(criteria)])
   return { ciren, odepa }
 }
+
+
+export type CirenLookupStatus = "found" | "ambiguous" | "not_found" | "partial" | "unsupported_region"
+
+export function classifyCirenCoverageReason(input: {
+  status: string
+  spatialStatus?: CirenLookupStatus | null
+  siiPointStatus?: CirenLookupStatus | null
+  roleCandidateCounts?: number[]
+}) {
+  if (input.status !== "not_found") return null
+  if (input.spatialStatus === "unsupported_region" || input.siiPointStatus === "unsupported_region") {
+    return "unsupported_ciren_region"
+  }
+  if (input.spatialStatus === "not_found" || input.siiPointStatus === "not_found") {
+    return "no_ciren_feature_at_geometry"
+  }
+  if (input.roleCandidateCounts?.length && input.roleCandidateCounts.every((count) => count === 0)) {
+    return "rol_absent_from_ciren_catalog"
+  }
+  return "no_matching_ciren_evidence"
+}
