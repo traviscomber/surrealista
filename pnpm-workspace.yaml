@@ -1,5 +1,7 @@
+ignoredBuiltDependencies:
+  - puppeteer
+
 allowBuilds:
   '@sentry/cli@2.58.6': false
   'core-js@3.46.0': false
-  'puppeteer@22.8.0': false
   'sharp@0.33.5 || 0.34.5': true
