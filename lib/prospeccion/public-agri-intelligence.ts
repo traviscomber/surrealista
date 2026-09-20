@@ -802,7 +802,7 @@ export async function lookupCirenByBounds(
     geometryType: "esriGeometryEnvelope",
     inSR: "4326",
     spatialRel: "esriSpatialRelIntersects",
-    outFields: "desccomu,rolpredi,especie_01,especie_02,especie_03,especie_04",
+    outFields: "desccomu,rolpredi,especie_01",
     returnGeometry: "true",
     outSR: "4326",
     geometryPrecision: "6",
