@@ -298,10 +298,11 @@ test("spatial CIREN query requests only fields guaranteed by 2024 southern layer
     })
 
     assert.equal(result.status, "not_found")
-    assert.ok(requestedUrl.includes("outFields=desccomu%2Crolpredi%2Cespecie_01"))
-    assert.equal(requestedUrl.includes("especie_02"), false)
-    assert.equal(requestedUrl.includes("especie_03"), false)
-    assert.equal(requestedUrl.includes("especie_04"), false)
+    const outFields = new URL(requestedUrl).searchParams.get("outFields")
+    assert.equal(outFields, "desccomu,rolpredi,especie_01")
+    assert.equal(outFields?.includes("especie_02"), false)
+    assert.equal(outFields?.includes("especie_03"), false)
+    assert.equal(outFields?.includes("especie_04"), false)
   } finally {
     globalThis.fetch = originalFetch
   }
