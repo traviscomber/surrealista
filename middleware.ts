@@ -42,6 +42,7 @@ function getCanonicalProductPath(pathname: string) {
 function isPublicApiPath(pathname: string) {
   return (
     pathname === "/api/internal-access" ||
+    pathname === "/api/release" ||
     pathname === "/api/auth/google" ||
     pathname.startsWith("/api/cron/") ||
     NODE_AUTH_API_PATHS.has(pathname)
