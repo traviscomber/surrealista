@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 
 import { normalizeSearchText } from "@/lib/prospeccion/normalization"
+import { ownerResearchCacheKey, readOwnerResearchCaches } from "@/lib/prospeccion/owner-research-cache"
 import { isReliableSpectralProspectingSignal, scoreProspectingSignal, type CirenSignalStatus } from "@/lib/prospeccion/prospecting-signal"
 import { deriveSentinelAttentionQueue } from "@/lib/prospeccion/sentinel-attention"
 import { readAllSentinelAttentionRows } from "@/lib/prospeccion/sentinel-repository"
@@ -76,16 +77,26 @@ function contextCommune(row: KmzContext) {
   return clean(sii.comuna) || clean(raw.nombreComuna)
 }
 
-function contextOwner(row: KmzContext) {
+function contextConfirmedOwner(row: KmzContext) {
   const metadata = asRecord(row.metadata)
-  return clean(metadata.confirmed_owner) || clean(row.owner)
+  return clean(metadata.confirmed_owner)
 }
 
 function contextRank(row: KmzContext) {
-  const owner = contextOwner(row)
-  const contact = Boolean(clean(row.pic_phone) || clean(row.pic_email))
+  const confirmedOwner = contextConfirmedOwner(row)
   const location = Boolean(contextCommune(row) && row.region)
-  return Number(contact) * 100 + Number(Boolean(owner)) * 30 + Number(location) * 10 + (Date.parse(row.updated_at || "") || 0) / 1e15
+  return Number(Boolean(confirmedOwner)) * 30 + Number(location) * 10 + (Date.parse(row.updated_at || "") || 0) / 1e15
+}
+
+function cachedOwner(result: Record<string, unknown> | undefined) {
+  const owner = asRecord(result?.owner)
+  const name = clean(owner.name)
+  return name ? { name, confidence: Number(owner.confidence) || 0 } : null
+}
+
+function cachedContactAvailable(result: Record<string, unknown> | undefined) {
+  const contact = asRecord(result?.contact)
+  return Boolean(clean(contact.phone) || clean(contact.email))
 }
 
 function cirenStatus(value: string | undefined): CirenSignalStatus {
@@ -198,12 +209,23 @@ export async function GET() {
     }))
     const excludedLowConfidenceCount = attention.items.length - reliableAttentionItems.length
 
+    const ownerResearchInputs = reliableAttentionItems.map((item) => {
+      const context = kmzByRol.get(rolKey(item.rol))
+      return {
+        rol: item.rol,
+        commune: context ? contextCommune(context) || clean(item.commune) : clean(item.commune),
+      }
+    })
+    const ownerResearch = await readOwnerResearchCaches(ownerResearchInputs)
+
     const items = reliableAttentionItems.map((item) => {
       const context = kmzByRol.get(rolKey(item.rol))
       const region = clean(context?.region)
       const commune = context ? contextCommune(context) || clean(item.commune) : clean(item.commune)
-      const ownerName = context ? contextOwner(context) : null
-      const contactAvailable = Boolean(clean(context?.pic_phone) || clean(context?.pic_email))
+      const ownerEntry = ownerResearch.get(ownerResearchCacheKey({ rol: item.rol, commune }))
+      const researchedOwner = cachedOwner(ownerEntry?.result)
+      const ownerName = researchedOwner?.name || (context ? contextConfirmedOwner(context) : null)
+      const contactAvailable = cachedContactAvailable(ownerEntry?.result)
       const ciren = context ? latestCirenByKmz.get(context.id) : undefined
       const market = marketByLocation.get(marketKey(region, commune))
       const signal = scoreProspectingSignal({
