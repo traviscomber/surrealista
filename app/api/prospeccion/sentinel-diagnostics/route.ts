@@ -4,7 +4,7 @@ import { INTERNAL_ACCESS_COOKIE, verifyInternalAccessToken } from "@/lib/auth/in
 import { runProspectingIntelligenceCore } from "@/lib/prospeccion/intelligence-core"
 import { normalizeProspectingCriteria } from "@/lib/prospeccion/normalization"
 import { syncSentinelMemory } from "@/lib/prospeccion/sentinel-memory"
-import { resolveSentinelCentroidTarget } from "@/lib/prospeccion/sentinel-backfill"
+import { normalizeSentinelRol, resolveRequestedRolFromSiiMetadata } from "@/lib/prospeccion/sentinel-backfill"
 import { lookupExactCirenRol, type ExactCirenRolCandidate } from "@/lib/prospeccion/public-agri-intelligence"
 import { getSentinelParcelEvidence, type SentinelPolygon } from "@/lib/prospeccion/sentinel-parcel-analysis"
 
@@ -31,19 +31,8 @@ function admin() {
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
 }
 
-function normalizeRol(value: unknown) {
-  return String(value ?? "")
-    .trim()
-    .toUpperCase()
-    .replace(/\./g, "")
-    .replace(/\//g, "-")
-    .replace(/\s+/g, "")
-    .replace(/[^0-9K-]/g, "")
-    .replace(/-+/g, "-")
-}
-
 function rolVariants(value: unknown) {
-  const canonical = normalizeRol(value)
+  const canonical = normalizeSentinelRol(value)
   if (!canonical) return []
   return Array.from(new Set([canonical, canonical.replace(/-/g, "/"), canonical.replace(/-/g, "")]))
 }
@@ -67,10 +56,9 @@ async function lookupSiiSentinelTargets(requestedRol: string): Promise<Diagnosti
     return []
   }
 
-  const canonical = normalizeRol(requestedRol)
   const targets = (data ?? []).flatMap((row) => {
-    const target = resolveSentinelCentroidTarget(row.metadata)
-    if (!target || normalizeRol(target.rol) !== canonical) return []
+    const target = resolveRequestedRolFromSiiMetadata(requestedRol, row.metadata)
+    if (!target) return []
 
     return [{
       id: `sii:${String(row.id)}`,
@@ -88,7 +76,7 @@ async function lookupSiiSentinelTargets(requestedRol: string): Promise<Diagnosti
 
   const seen = new Set<string>()
   return targets.filter((target) => {
-    const key = [normalizeRol(target.rol), target.commune.toUpperCase(), target.centroid.lat.toFixed(6), target.centroid.lng.toFixed(6)].join("|")
+    const key = [normalizeSentinelRol(target.rol), target.commune.toUpperCase(), target.centroid.lat.toFixed(6), target.centroid.lng.toFixed(6)].join("|")
     if (seen.has(key)) return false
     seen.add(key)
     return true
