@@ -107,6 +107,7 @@ type DiagnosticResult = {
   declaredSpecies: string[]
   polygonAvailable: boolean
   polygon: SentinelPolygon | null
+  resolutionSource?: "ciren" | "sii"
   satellite: Evidence
   memory: SentinelMemory
 }
@@ -118,7 +119,8 @@ type RolCandidate = {
   commune: string
   areaHa: number | null
   declaredSpecies: string[]
-  surveyYear: number
+  surveyYear: number | null
+  source?: "CIREN" | "SII"
 }
 
 type DiagnosticResponse = {
@@ -329,7 +331,7 @@ export default function SentinelTemporalPage() {
   return (
     <main className="mx-auto w-full max-w-[1500px] space-y-6">
       <Button asChild variant="ghost"><Link href="/prospeccion"><ArrowLeft className="h-4 w-4" aria-hidden="true" />Volver a Prospección</Link></Button>
-      <WorkspaceHeading eyebrow="Prospección · Copernicus Sentinel-2" title="Qué cambió en este campo" description="Compara el mismo ROL en el tiempo, contra su historia guardada y contra un período equivalente del año anterior. Primero mira la conclusión; usa los índices como evidencia, no como diagnóstico agronómico." outcome="Resultado: polígono CIREN cuando está disponible, memoria persistente por ROL y detección de cambios espectrales." />
+      <WorkspaceHeading eyebrow="Prospección · Copernicus Sentinel-2" title="Qué cambió en este campo" description="Compara el mismo ROL en el tiempo, contra su historia guardada y contra un período equivalente del año anterior. Primero mira la conclusión; usa los índices como evidencia, no como diagnóstico agronómico." outcome="Resultado: NDVI, NDRE y NDMI desde Sentinel-2. CIREN mejora la geometría cuando está disponible, pero no es requisito para analizar el ROL." />
 
       <Card className="p-5">
         <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Qué significan los índices</p>
@@ -345,7 +347,7 @@ export default function SentinelTemporalPage() {
           <div className="w-full md:max-w-md">
             <label className="mb-1.5 block text-xs text-muted-foreground">ROL</label>
             <Input value={rol} onChange={(event) => setRol(event.target.value)} placeholder="234-189" autoComplete="off" />
-            <p className="mt-2 text-xs leading-5 text-muted-foreground">Ingresa solo el ROL. Sur Realista resuelve automáticamente comuna, región, superficie, especies declaradas y polígono CIREN.</p>
+            <p className="mt-2 text-xs leading-5 text-muted-foreground">Ingresa solo el ROL. Sur Realista resuelve automáticamente la ubicación. Si existe polígono CIREN lo usa; si no, analiza Sentinel-2 desde la referencia territorial SII.</p>
           </div>
           <Button type="submit" disabled={loading} className="md:min-w-40">
             {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Radar className="h-4 w-4" aria-hidden="true" />}
@@ -372,7 +374,7 @@ export default function SentinelTemporalPage() {
                 <span className="text-sm text-muted-foreground">
                   {candidate.areaHa != null ? `${candidate.areaHa.toLocaleString("es-CL")} ha` : "superficie no disponible"}
                   {candidate.declaredSpecies.length ? ` · ${candidate.declaredSpecies.join(" / ")}` : ""}
-                  {" · CIREN "}{candidate.surveyYear}
+                  {candidate.source === "SII" ? " · referencia SII" : candidate.surveyYear ? ` · CIREN ${candidate.surveyYear}` : ""}
                 </span>
               </button>
             ))}
@@ -385,9 +387,9 @@ export default function SentinelTemporalPage() {
         <Card className="p-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div><p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Conclusión primero</p><h2 className="mt-1 text-2xl font-medium">ROL {result.rol}</h2><p className="mt-1 text-sm text-muted-foreground">{result.commune}{result.region ? ` · ${result.region}` : ""}{result.areaHa != null ? ` · ${result.areaHa.toLocaleString("es-CL")} ha` : ""}{result.declaredSpecies.length ? ` · CIREN declara ${result.declaredSpecies.join(" / ")}` : ""}</p></div>
-            <div className="flex flex-wrap gap-2"><Badge>{evidence.status === "available" ? "Sentinel-2 activo" : evidence.status}</Badge><Badge variant="outline">{evidence.geometryMode === "ciren_polygon" ? "polígono CIREN real" : "fallback por centroide"}</Badge><Badge variant="outline">especie satelital no verificada</Badge></div>
+            <div className="flex flex-wrap gap-2"><Badge>{evidence.status === "available" ? "Sentinel-2 activo" : evidence.status}</Badge><Badge variant="outline">{evidence.geometryMode === "ciren_polygon" ? "polígono CIREN real" : "ubicación SII · sin polígono CIREN"}</Badge><Badge variant="outline">especie satelital no verificada</Badge></div>
           </div>
-          <p className="mt-5 text-lg font-medium">NDVI está {baselineLabel(evidence.baseline.signal)}.</p>
+          <p className="mt-5 text-lg font-medium">NDVI está {baselineLabel(evidence.baseline.signal)}.</p>{evidence.geometryMode === "centroid_fallback" ? <p className="mt-2 text-sm text-muted-foreground">CIREN no es necesario para estos índices: NDVI, NDRE y NDMI provienen directamente de Sentinel-2 sobre la referencia territorial SII disponible para este ROL.</p> : null}
           <p className="mt-2 max-w-5xl text-sm leading-6 text-muted-foreground">{evidence.baseline.interpretation}</p>
         </Card>
 
