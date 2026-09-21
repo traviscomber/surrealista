@@ -43,6 +43,7 @@ jobs:
           node --test "$TEST_OUT/tests/prospeccion-public-agri-region.test.js"
           node --test "$TEST_OUT/tests/prospeccion-owner-web.test.js"
           node --test "$TEST_OUT/tests/prospeccion-lead-state.test.js"
+          node --test "$TEST_OUT/tests/prospeccion-cross-layer-signal.test.js"
           node --test "$TEST_OUT/tests/prospeccion-sentinel-temporal.test.js"
           node --test "$TEST_OUT/tests/prospeccion-sentinel-memory.test.js"
           node --test "$TEST_OUT/tests/prospeccion-sentinel-attention.test.js"
