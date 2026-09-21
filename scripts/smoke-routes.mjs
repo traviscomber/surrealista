@@ -44,6 +44,65 @@ function createSmokeToken(secret) {
   return `v6.${issuedAt}.${expiresAt}.${nonce}.${signature}`
 }
 
+async function inspectCamposLoaded(page) {
+  const pageErrors = []
+  const capturePageError = (error) => pageErrors.push(error.message)
+  page.on("pageerror", capturePageError)
+
+  try {
+    await page.goto(`${authenticatedBaseURL}/campos`, { waitUntil: "domcontentloaded", timeout: 30_000 })
+    await page.getByText("Colección de campos").waitFor({ state: "visible", timeout: 30_000 })
+    await page.waitForFunction(() => {
+      const text = document.body.innerText || ""
+      return !text.includes("Cargando inventario") && /\d+\s+KMZ\s+·\s+\d+\s+regiones/i.test(text)
+    }, null, { timeout: 30_000 })
+
+    const aside = page.locator("aside").filter({ hasText: "Colección de campos" }).first()
+    const regionButton = aside.getByRole("button", { name: /Metropolitana/i }).first()
+    await regionButton.waitFor({ state: "visible", timeout: 30_000 })
+    await regionButton.click()
+
+    const regionRow = regionButton.locator("xpath=..")
+    await regionRow.locator("button").first().click()
+
+    const fieldButton = aside.getByRole("button", { name: /Santa Rita\.kmz/i }).first()
+    await fieldButton.waitFor({ state: "visible", timeout: 30_000 })
+    await fieldButton.click()
+
+    await page.getByText("KMZ seleccionado").waitFor({ state: "visible", timeout: 30_000 })
+    await page.getByText(/ROL 16302-19-28/i).waitFor({ state: "visible", timeout: 30_000 })
+    await page.getByText(/Ficha operativa/i).waitFor({ state: "visible", timeout: 30_000 })
+    await page.waitForTimeout(2500)
+
+    const metrics = await page.evaluate(() => {
+      const section = [...document.querySelectorAll("section")].find((node) =>
+        (node.textContent || "").includes("KMZ seleccionado"),
+      )
+      const body = document.body
+      const html = document.documentElement
+      return {
+        viewport: { width: window.innerWidth, height: window.innerHeight },
+        bodyHorizontalOverflow: Math.max(body.scrollWidth, html.scrollWidth) > window.innerWidth,
+        detailClientHeight: section?.clientHeight || 0,
+        detailScrollHeight: section?.scrollHeight || 0,
+        detailScrollable: Boolean(section && section.scrollHeight > section.clientHeight),
+        visibleTextLength: (body.innerText || "").length,
+      }
+    })
+
+    await page.screenshot({ path: `${evidenceDir}/campos-selected-santa-rita-desktop.png`, fullPage: false })
+    console.log(`PASS /campos selected Metropolitana > Santa Rita.kmz metrics=${JSON.stringify(metrics)}`)
+    if (pageErrors.length > 0) {
+      failures.push({ route: "/campos", check: "selected field", pageErrors })
+    }
+  } catch (error) {
+    failures.push({ route: "/campos", check: "selected field", error: error instanceof Error ? error.message : String(error) })
+    console.error(`FAIL /campos selected field: ${error instanceof Error ? error.message : String(error)}`)
+  } finally {
+    page.off("pageerror", capturePageError)
+  }
+}
+
 async function inspectRoute(page, route, expectedPath, expectedText) {
   const pageErrors = []
   const capturePageError = (error) => pageErrors.push(error.message)
@@ -190,6 +249,9 @@ try {
     authenticatedPage ??= await context.newPage()
     for (const { route, expectedText } of operationalRoutes) {
       await inspectRoute(authenticatedPage, route, route, expectedText)
+    }
+    if (smokePassword && authenticatedBaseURL.includes("sur-realista.vercel.app")) {
+      await inspectCamposLoaded(authenticatedPage)
     }
     for (const [route, expectedPath] of canonicalRoutes) await inspectRoute(authenticatedPage, route, expectedPath)
     for (const route of retiredRoutes) await inspectRoute(authenticatedPage, route, "/campos")
