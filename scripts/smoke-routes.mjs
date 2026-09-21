@@ -157,17 +157,59 @@ try {
       await authenticatedPage.getByText("Ficha operativa · Score v1").waitFor({ state: "visible", timeout: 30_000 })
       await authenticatedPage.getByText(/ROL 16302-19-28/).first().waitFor({ state: "visible", timeout: 30_000 })
       await authenticatedPage.locator(".leaflet-container").waitFor({ state: "visible", timeout: 30_000 })
+
+      const detailSection = authenticatedPage.locator("section").filter({ hasText: "KMZ seleccionado" }).first()
+      await detailSection.waitFor({ state: "visible", timeout: 30_000 })
+
+      await authenticatedPage.screenshot({ path: `${evidenceDir}/campos-selected-kmz-desktop-top.png`, fullPage: false })
+
+      const detailMetricsTop = await detailSection.evaluate((node) => ({
+        clientHeight: node.clientHeight,
+        scrollHeight: node.scrollHeight,
+        scrollTop: node.scrollTop,
+      }))
+
+      await detailSection.evaluate((node) => {
+        node.scrollTop = Math.round((node.scrollHeight - node.clientHeight) / 2)
+      })
+      await authenticatedPage.waitForTimeout(500)
+      await authenticatedPage.screenshot({ path: `${evidenceDir}/campos-selected-kmz-desktop-middle.png`, fullPage: false })
+
+      await detailSection.evaluate((node) => {
+        node.scrollTop = node.scrollHeight
+      })
+      await authenticatedPage.waitForTimeout(500)
+      await authenticatedPage.screenshot({ path: `${evidenceDir}/campos-selected-kmz-desktop-bottom.png`, fullPage: false })
+
+      const detailMetricsBottom = await detailSection.evaluate((node) => ({
+        clientHeight: node.clientHeight,
+        scrollHeight: node.scrollHeight,
+        scrollTop: node.scrollTop,
+      }))
+      console.log(`CAMPOS detail scroll metrics top=${JSON.stringify(detailMetricsTop)} bottom=${JSON.stringify(detailMetricsBottom)}`)
+
+      await authenticatedPage.setViewportSize({ width: 1180, height: 820 })
+      await authenticatedPage.waitForTimeout(800)
+      await detailSection.evaluate((node) => {
+        node.scrollTop = 0
+      })
+      await authenticatedPage.screenshot({ path: `${evidenceDir}/campos-selected-kmz-1180-top.png`, fullPage: false })
+      await detailSection.evaluate((node) => {
+        node.scrollTop = node.scrollHeight
+      })
+      await authenticatedPage.waitForTimeout(500)
+      await authenticatedPage.screenshot({ path: `${evidenceDir}/campos-selected-kmz-1180-bottom.png`, fullPage: false })
+
+      await authenticatedPage.setViewportSize({ width: 1440, height: 900 })
+      await detailSection.evaluate((node) => {
+        node.scrollTop = 0
+      })
+
       await authenticatedPage.waitForFunction(() => {
         const paths = document.querySelectorAll(".leaflet-overlay-pane path").length
         const markers = document.querySelectorAll(".leaflet-marker-pane > *, .leaflet-overlay-pane circle").length
         return paths + markers > 0
       }, null, { timeout: 30_000 })
-      await authenticatedPage.screenshot({ path: `${evidenceDir}/campos-selected-kmz-desktop.png`, fullPage: false })
-
-      await authenticatedPage.setViewportSize({ width: 1180, height: 820 })
-      await authenticatedPage.waitForTimeout(800)
-      await authenticatedPage.screenshot({ path: `${evidenceDir}/campos-selected-kmz-1180.png`, fullPage: false })
-      await authenticatedPage.setViewportSize({ width: 1440, height: 900 })
     }
 
     if (signingSecret) {
