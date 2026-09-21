@@ -2,11 +2,12 @@ import { createHash } from "node:crypto"
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 
-import { resolveSentinelCentroidTarget } from "@/lib/prospeccion/sentinel-backfill"
+import { mapWithConcurrency, resolveSentinelCentroidTarget } from "@/lib/prospeccion/sentinel-backfill"
 import { syncSentinelMemory } from "@/lib/prospeccion/sentinel-memory"
 import { getSentinelParcelEvidence } from "@/lib/prospeccion/sentinel-parcel-analysis"
 
 export const runtime = "nodejs"
+export const maxDuration = 300
 
 type QueueRow = {
   id: string
@@ -108,17 +109,19 @@ export async function GET(req: NextRequest) {
   const evidence = []
   const failures: Array<{ id: string; fileName: string; error: string }> = []
 
-  for (const row of rows) {
-    try {
-      evidence.push(await processRow(row))
-    } catch (cause) {
-      failures.push({
-        id: row.id,
-        fileName: row.file_name,
-        error: cause instanceof Error ? cause.message : String(cause),
-      })
+  const settled = await mapWithConcurrency(rows, 3, (row) => processRow(row))
+  settled.forEach((result, index) => {
+    const row = rows[index]
+    if (result.status === "fulfilled") {
+      evidence.push(result.value)
+      return
     }
-  }
+    failures.push({
+      id: row.id,
+      fileName: row.file_name,
+      error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+    })
+  })
 
   if (evidence.length) {
     const { error: insertError } = await db
