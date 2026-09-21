@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 
 import { normalizeSearchText } from "@/lib/prospeccion/normalization"
-import { scoreProspectingSignal, type CirenSignalStatus } from "@/lib/prospeccion/prospecting-signal"
+import { isReliableSpectralProspectingSignal, scoreProspectingSignal, type CirenSignalStatus } from "@/lib/prospeccion/prospecting-signal"
 import { deriveSentinelAttentionQueue } from "@/lib/prospeccion/sentinel-attention"
 import { readAllSentinelAttentionRows } from "@/lib/prospeccion/sentinel-repository"
 import { canonicalRegionKey } from "@/lib/territory/chile-regions"
@@ -191,7 +191,14 @@ export async function GET() {
       }
     }
 
-    const items = attention.items.map((item) => {
+    const reliableAttentionItems = attention.items.filter((item) => isReliableSpectralProspectingSignal({
+      latestNdvi: item.anomaly.latestNdvi,
+      seasonalBaselineNdvi: item.anomaly.seasonalBaselineNdvi,
+      baselineCount: item.anomaly.baselineCount,
+    }))
+    const excludedLowConfidenceCount = attention.items.length - reliableAttentionItems.length
+
+    const items = reliableAttentionItems.map((item) => {
       const context = kmzByRol.get(rolKey(item.rol))
       const region = clean(context?.region)
       const commune = context ? contextCommune(context) || clean(item.commune) : clean(item.commune)
@@ -240,6 +247,7 @@ export async function GET() {
       actionableCount: items.length,
       highPriorityCount: items.filter((item) => item.level === "alta").length,
       mediumPriorityCount: items.filter((item) => item.level === "media").length,
+      excludedLowConfidenceCount,
       items: items.slice(0, 50),
       methodology: {
         name: "cross-layer-evidence-convergence-v1",
@@ -251,6 +259,7 @@ export async function GET() {
           temporalSatelliteSignal: 30,
           marketCoverage: 15,
         },
+        qualityGate: "Requiere al menos 2 referencias estacionales y excluye NDVI saturado en ±1 de la priorización comercial.",
         guardrail: "Prioriza convergencia de evidencia; no predice intención de venta ni diagnostica causas agronómicas.",
       },
     })
