@@ -149,8 +149,9 @@ try {
       const toggle = regionRow.locator("button").first()
       if ((await toggle.getAttribute("data-state")) !== "checked") await toggle.click()
 
-      const kmzButton = camposAside.getByRole("button", { name: "Parcelacion Santa Rita.kmz", exact: true })
-      await kmzButton.waitFor({ state: "visible", timeout: 30_000 })
+      const kmzLabel = camposAside.getByText("Parcelacion Santa Rita.kmz", { exact: true })
+      await kmzLabel.waitFor({ state: "visible", timeout: 30_000 })
+      const kmzButton = kmzLabel.locator("xpath=ancestor::button[1]")
       await kmzButton.click()
 
       await authenticatedPage.getByText("Ficha operativa · Score v1").waitFor({ state: "visible", timeout: 30_000 })
