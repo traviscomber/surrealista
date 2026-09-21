@@ -49,3 +49,24 @@ test("keeps CIREN not_found neutral instead of treating missing coverage as nega
   assert.match(signal.reasons.join(" "), /SII\/Sentinel mantienen el ROL trazable/)
   assert.ok(signal.score > 0)
 })
+
+
+test("rejects fragile spectral signals from commercial prioritization", () => {
+  const { isReliableSpectralProspectingSignal } = require("../lib/prospeccion/prospecting-signal")
+
+  assert.equal(isReliableSpectralProspectingSignal({
+    latestNdvi: -1,
+    seasonalBaselineNdvi: 0.35,
+    baselineCount: 4,
+  }), false)
+  assert.equal(isReliableSpectralProspectingSignal({
+    latestNdvi: 0.52,
+    seasonalBaselineNdvi: 0.70,
+    baselineCount: 1,
+  }), false)
+  assert.equal(isReliableSpectralProspectingSignal({
+    latestNdvi: 0.52,
+    seasonalBaselineNdvi: 0.70,
+    baselineCount: 2,
+  }), true)
+})
