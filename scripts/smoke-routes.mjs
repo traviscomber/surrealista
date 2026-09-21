@@ -149,12 +149,18 @@ try {
       const toggle = regionRow.locator("button").first()
       if ((await toggle.getAttribute("data-state")) !== "checked") await toggle.click()
 
-      const kmzButton = camposAside.getByRole("button", { name: /Santa Rita\.kmz/i }).first()
+      const kmzButton = camposAside.getByRole("button", { name: "Parcelacion Santa Rita.kmz", exact: true })
       await kmzButton.waitFor({ state: "visible", timeout: 30_000 })
       await kmzButton.click()
 
       await authenticatedPage.getByText("Ficha operativa · Score v1").waitFor({ state: "visible", timeout: 30_000 })
-      await authenticatedPage.getByText(/ROL 16302-19-28/).first().waitFor({ state: "visible", timeout: 30_000 }).catch(() => {})
+      await authenticatedPage.getByText(/ROL 16302-19-28/).first().waitFor({ state: "visible", timeout: 30_000 })
+      await authenticatedPage.locator(".leaflet-container").waitFor({ state: "visible", timeout: 30_000 })
+      await authenticatedPage.waitForFunction(() => {
+        const paths = document.querySelectorAll(".leaflet-overlay-pane path").length
+        const markers = document.querySelectorAll(".leaflet-marker-pane > *, .leaflet-overlay-pane circle").length
+        return paths + markers > 0
+      }, null, { timeout: 30_000 })
       await authenticatedPage.screenshot({ path: `${evidenceDir}/campos-selected-kmz-desktop.png`, fullPage: false })
 
       await authenticatedPage.setViewportSize({ width: 1180, height: 820 })
