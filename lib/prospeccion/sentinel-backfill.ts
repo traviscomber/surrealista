@@ -5,6 +5,7 @@ function record(value: unknown): MetadataRecord | null {
 }
 
 function numeric(value: unknown) {
+  if (value == null || value === "") return null
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : null
 }
