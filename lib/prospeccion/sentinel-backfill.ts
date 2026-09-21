@@ -10,7 +10,7 @@ function numeric(value: unknown) {
   return Number.isFinite(parsed) ? parsed : null
 }
 
-export const SENTINEL_CRON_BATCH_MAX = 16
+export const SENTINEL_CRON_BATCH_MAX = 20
 
 export function resolveSentinelCronBatchLimit(value: unknown) {
   if (value == null || value === "") return SENTINEL_CRON_BATCH_MAX

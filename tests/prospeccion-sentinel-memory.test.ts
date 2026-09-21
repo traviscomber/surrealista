@@ -63,13 +63,13 @@ test("does not raise an anomaly when current NDVI remains close to seasonal hist
 })
 
 test("keeps Sentinel cron batches bounded while defaulting to the proven ceiling", () => {
-  assert.equal(resolveSentinelCronBatchLimit(null), 16)
-  assert.equal(resolveSentinelCronBatchLimit(""), 16)
-  assert.equal(resolveSentinelCronBatchLimit("20"), 16)
+  assert.equal(resolveSentinelCronBatchLimit(null), 20)
+  assert.equal(resolveSentinelCronBatchLimit(""), 20)
+  assert.equal(resolveSentinelCronBatchLimit("24"), 20)
   assert.equal(resolveSentinelCronBatchLimit("9.8"), 9)
   assert.equal(resolveSentinelCronBatchLimit("0"), 1)
   assert.equal(resolveSentinelCronBatchLimit("-4"), 1)
-  assert.equal(resolveSentinelCronBatchLimit("invalid"), 16)
+  assert.equal(resolveSentinelCronBatchLimit("invalid"), 20)
 })
 
 test("resolves a Sentinel centroid target only from complete SII evidence", () => {
