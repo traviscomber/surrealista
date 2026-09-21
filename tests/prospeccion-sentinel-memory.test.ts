@@ -6,7 +6,7 @@ import {
   derivePersistentSentinelAnomaly,
   sentinelGeometryFingerprint,
 } from "../lib/prospeccion/sentinel-memory"
-import { resolveRequestedRolFromSiiMetadata, resolveSentinelCentroidTarget } from "../lib/prospeccion/sentinel-backfill"
+import { mapWithConcurrency, resolveRequestedRolFromSiiMetadata, resolveSentinelCentroidTarget } from "../lib/prospeccion/sentinel-backfill"
 
 test("keeps the geometry fingerprint stable for the same CIREN polygon", () => {
   const polygon = {
@@ -115,4 +115,29 @@ test("does not attach Sentinel evidence to a different SII ROL", () => {
       },
     },
   }), null)
+})
+
+
+test("Sentinel backfill concurrency preserves result order and isolates failures", async () => {
+  let active = 0
+  let maxActive = 0
+  const results = await mapWithConcurrency([1, 2, 3, 4, 5], 2, async (value) => {
+    active += 1
+    maxActive = Math.max(maxActive, active)
+    await new Promise((resolve) => setTimeout(resolve, 5))
+    active -= 1
+    if (value === 3) throw new Error("boom")
+    return value * 10
+  })
+
+  assert.equal(maxActive <= 2, true)
+  assert.deepEqual(results.map((result) => result.status), [
+    "fulfilled",
+    "fulfilled",
+    "rejected",
+    "fulfilled",
+    "fulfilled",
+  ])
+  assert.equal(results[0].status === "fulfilled" ? results[0].value : null, 10)
+  assert.equal(results[4].status === "fulfilled" ? results[4].value : null, 50)
 })
