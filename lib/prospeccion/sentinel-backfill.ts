@@ -11,6 +11,7 @@ function numeric(value: unknown) {
 }
 
 export const SENTINEL_CRON_BATCH_MAX = 24
+export const SENTINEL_CRON_CONCURRENCY = 2
 
 export function resolveSentinelCronBatchLimit(value: unknown) {
   if (value == null || value === "") return SENTINEL_CRON_BATCH_MAX
