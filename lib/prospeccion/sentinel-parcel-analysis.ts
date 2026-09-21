@@ -299,7 +299,7 @@ export function isRetryableSentinelProviderError(error: unknown) {
     ? String((error as { name?: unknown }).name ?? "")
     : ""
   if (name === "AbortError") return true
-  return /HTTP (?:429|5\\d\\d)\\b/i.test(message)
+  return /HTTP (?:429|5\d\d)\b/i.test(message)
     || /(?:fetch failed|network|timeout|timed out|ECONNRESET|ETIMEDOUT|EAI_AGAIN|socket hang up)/i.test(message)
 }
 
