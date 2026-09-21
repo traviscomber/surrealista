@@ -6,7 +6,12 @@ import {
   derivePersistentSentinelAnomaly,
   sentinelGeometryFingerprint,
 } from "../lib/prospeccion/sentinel-memory"
-import { mapWithConcurrency, resolveRequestedRolFromSiiMetadata, resolveSentinelCentroidTarget } from "../lib/prospeccion/sentinel-backfill"
+import {
+  mapWithConcurrency,
+  resolveRequestedRolFromSiiMetadata,
+  resolveSentinelCentroidTarget,
+  resolveSentinelCronBatchLimit,
+} from "../lib/prospeccion/sentinel-backfill"
 
 test("keeps the geometry fingerprint stable for the same CIREN polygon", () => {
   const polygon = {
@@ -57,6 +62,15 @@ test("does not raise an anomaly when current NDVI remains close to seasonal hist
   assert.equal(anomaly.ndviDelta, 0.04)
 })
 
+test("keeps Sentinel cron batches bounded while defaulting to the proven ceiling", () => {
+  assert.equal(resolveSentinelCronBatchLimit(null), 16)
+  assert.equal(resolveSentinelCronBatchLimit(""), 16)
+  assert.equal(resolveSentinelCronBatchLimit("20"), 16)
+  assert.equal(resolveSentinelCronBatchLimit("9.8"), 9)
+  assert.equal(resolveSentinelCronBatchLimit("0"), 1)
+  assert.equal(resolveSentinelCronBatchLimit("-4"), 1)
+  assert.equal(resolveSentinelCronBatchLimit("invalid"), 16)
+})
 
 test("resolves a Sentinel centroid target only from complete SII evidence", () => {
   assert.deepEqual(resolveSentinelCentroidTarget({
@@ -84,7 +98,6 @@ test("resolves a Sentinel centroid target only from complete SII evidence", () =
     },
   }), null)
 })
-
 
 test("runs Sentinel from SII metadata when CIREN is absent", () => {
   const target = resolveRequestedRolFromSiiMetadata("234-189", {
@@ -116,7 +129,6 @@ test("does not attach Sentinel evidence to a different SII ROL", () => {
     },
   }), null)
 })
-
 
 test("Sentinel backfill concurrency preserves result order and isolates failures", async () => {
   let active = 0
