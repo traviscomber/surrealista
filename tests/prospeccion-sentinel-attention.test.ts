@@ -53,3 +53,16 @@ test("prefers CIREN polygon memory when the same ROL has multiple geometries", (
   assert.equal(queue.monitoredRols, 1)
   assert.equal(queue.actionableCount, 0)
 })
+
+
+test("exposes latest NDVI NDRE and NDMI values for the selected geometry", () => {
+  const rows: SentinelAttentionRow[] = [
+    { ...month("300-1", "2025-08", 0.70), ndre: 0.21, ndmi: 0.18 },
+    { ...month("300-1", "2026-08", 0.50), ndre: 0.14, ndmi: 0.07 },
+  ]
+
+  const queue = deriveSentinelAttentionQueue(rows)
+  assert.equal(queue.items[0]?.latest.ndvi, 0.50)
+  assert.equal(queue.items[0]?.latest.ndre, 0.14)
+  assert.equal(queue.items[0]?.latest.ndmi, 0.07)
+})
