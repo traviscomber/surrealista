@@ -22,6 +22,7 @@ export type SentinelAttentionItem = {
   geometryFingerprint: string
   observationCount: number
   latestPeriod: string | null
+  latest: { ndvi: number | null; ndre: number | null; ndmi: number | null }
   anomaly: SentinelPersistentAnomaly
   severityScore: number
 }
@@ -70,6 +71,11 @@ export function deriveSentinelAttentionQueue(rows: SentinelAttentionRow[], now =
       geometryFingerprint: first.geometry_fingerprint,
       observationCount: ordered.length,
       latestPeriod: anomaly.latestDate ?? ordered.at(-1)?.period_from ?? null,
+      latest: {
+        ndvi: ordered.at(-1)?.ndvi == null ? null : Number(ordered.at(-1)?.ndvi),
+        ndre: ordered.at(-1)?.ndre == null ? null : Number(ordered.at(-1)?.ndre),
+        ndmi: ordered.at(-1)?.ndmi == null ? null : Number(ordered.at(-1)?.ndmi),
+      },
       anomaly,
       severityScore: severityScore(anomaly),
     }
