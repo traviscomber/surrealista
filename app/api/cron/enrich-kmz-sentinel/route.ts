@@ -106,7 +106,7 @@ export async function GET(req: NextRequest) {
   if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 })
 
   const rows = (data ?? []) as QueueRow[]
-  const evidence = []
+  const evidence: Array<Awaited<ReturnType<typeof processRow>>> = []
   const failures: Array<{ id: string; fileName: string; error: string }> = []
 
   const settled = await mapWithConcurrency(rows, 3, (row) => processRow(row))
