@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { WorkspaceHeading } from "@/components/ui/workspace-heading"
+import { APP_TIME_ZONE } from "@/lib/timezone"
 
 type AttentionItem = {
   rol: string
@@ -56,7 +57,11 @@ function dateLabel(value: string | null) {
   if (!value) return "Sin fecha"
   const parsed = new Date(value)
   if (!Number.isFinite(parsed.getTime())) return "Sin fecha"
-  return new Intl.DateTimeFormat("es-CL", { month: "short", year: "numeric", timeZone: "UTC" }).format(parsed)
+  return new Intl.DateTimeFormat("es-CL", {
+    month: "short",
+    year: "numeric",
+    timeZone: APP_TIME_ZONE,
+  }).format(parsed)
 }
 
 export default function SentinelAttentionPage() {

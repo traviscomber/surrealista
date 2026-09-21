@@ -3,6 +3,8 @@
 import { useEffect, useRef, useMemo, useState, useCallback } from "react"
 import { usePathname } from "next/navigation"
 
+import { APP_TIME_ZONE } from "@/lib/timezone"
+
 type PhaseId = "mapa" | "contexto" | "ia" | "timeline" | "dashboard"
 
 type Snapshot = {
