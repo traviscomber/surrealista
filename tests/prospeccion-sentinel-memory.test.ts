@@ -6,7 +6,7 @@ import {
   derivePersistentSentinelAnomaly,
   sentinelGeometryFingerprint,
 } from "../lib/prospeccion/sentinel-memory"
-import { resolveSentinelCentroidTarget } from "../lib/prospeccion/sentinel-backfill"
+import { resolveRequestedRolFromSiiMetadata, resolveSentinelCentroidTarget } from "../lib/prospeccion/sentinel-backfill"
 
 test("keeps the geometry fingerprint stable for the same CIREN polygon", () => {
   const polygon = {
@@ -80,6 +80,38 @@ test("resolves a Sentinel centroid target only from complete SII evidence", () =
         rol: "234-189",
         comuna: "Rengo",
         coordinates: { lat: null, lng: -70.8584 },
+      },
+    },
+  }), null)
+})
+
+
+test("runs Sentinel from SII metadata when CIREN is absent", () => {
+  const target = resolveRequestedRolFromSiiMetadata("234-189", {
+    sii_point_resolution: {
+      record: {
+        rol: "234/189",
+        comuna: "Rengo",
+        coordinates: { lat: -34.4061, lng: -70.8584 },
+      },
+    },
+  })
+
+  assert.deepEqual(target, {
+    rol: "234/189",
+    commune: "Rengo",
+    centroid: { lat: -34.4061, lng: -70.8584 },
+    source: "sii_point_resolution",
+  })
+})
+
+test("does not attach Sentinel evidence to a different SII ROL", () => {
+  assert.equal(resolveRequestedRolFromSiiMetadata("234-189", {
+    sii_point_resolution: {
+      record: {
+        rol: "999-1",
+        comuna: "Rengo",
+        coordinates: { lat: -34.4061, lng: -70.8584 },
       },
     },
   }), null)
