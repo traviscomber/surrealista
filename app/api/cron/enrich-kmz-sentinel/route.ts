@@ -94,8 +94,8 @@ export async function GET(req: NextRequest) {
   }
 
   const db = admin()
-  const requested = Number(req.nextUrl.searchParams.get("limit") ?? "8")
-  const limit = Math.max(1, Math.min(Number.isFinite(requested) ? requested : 8, 12))
+  const requested = Number(req.nextUrl.searchParams.get("limit") ?? "12")
+  const limit = Math.max(1, Math.min(Number.isFinite(requested) ? requested : 12, 12))
 
   const { data, error } = await db
     .from("kmz_sentinel_centroid_queue")
