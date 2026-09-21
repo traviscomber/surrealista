@@ -69,6 +69,7 @@ export type ParcelSentinelEvidence = {
     reason: string
   }
   note: string
+  retryable: boolean
 }
 
 const TOKEN_URL = "https://identity.dataspace.copernicus.eu/auth/realms/CDSE/protocol/openid-connect/token"
@@ -270,7 +271,7 @@ export function deriveInterannualBaseline(observations: ParcelSentinelObservatio
   }
 }
 
-function empty(status: "unconfigured" | "unavailable", geometryMode: ParcelSentinelEvidence["geometryMode"], note: string): ParcelSentinelEvidence {
+function empty(status: "unconfigured" | "unavailable", geometryMode: ParcelSentinelEvidence["geometryMode"], note: string, retryable = false): ParcelSentinelEvidence {
   return {
     status,
     source: "Copernicus Data Space / Sentinel-2 L2A",
@@ -288,7 +289,18 @@ function empty(status: "unconfigured" | "unavailable", geometryMode: ParcelSenti
       reason: status === "unconfigured" ? "Faltan credenciales OAuth de Copernicus Data Space." : "No fue posible obtener una serie espectral utilizable.",
     },
     note,
+    retryable,
   }
+}
+
+export function isRetryableSentinelProviderError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? "")
+  const name = error && typeof error === "object" && "name" in error
+    ? String((error as { name?: unknown }).name ?? "")
+    : ""
+  if (name === "AbortError") return true
+  return /HTTP (?:429|5\d\d)\b/i.test(message)
+    || /(?:fetch failed|network|timeout|timed out|ECONNRESET|ETIMEDOUT|EAI_AGAIN|socket hang up)/i.test(message)
 }
 
 export async function getSentinelParcelEvidence(input: { centroid: Point | null; polygon?: SentinelPolygon | null }): Promise<ParcelSentinelEvidence> {
@@ -302,7 +314,7 @@ export async function getSentinelParcelEvidence(input: { centroid: Point | null;
   try {
     token = await accessToken()
   } catch (error) {
-    return empty("unavailable", geometryMode, `No fue posible autenticar Copernicus: ${error instanceof Error ? error.message : "error desconocido"}.`)
+    return empty("unavailable", geometryMode, `No fue posible autenticar Copernicus: ${error instanceof Error ? error.message : "error desconocido"}.`, isRetryableSentinelProviderError(error))
   }
   if (!token) return empty("unconfigured", geometryMode, "Configura las credenciales OAuth de Copernicus para activar el análisis Sentinel-2.")
 
@@ -375,8 +387,9 @@ export async function getSentinelParcelEvidence(input: { centroid: Point | null;
       note: polygon
         ? "Sentinel-2 fue calculado sobre el polígono oficial CIREN del ROL. Los índices describen respuesta espectral; no verifican por sí solos especie, calidad, riego ni estrés hídrico."
         : "No se recuperó un polígono CIREN utilizable; Sentinel-2 usó una ventana alrededor del centroide como fallback. Los índices no verifican por sí solos especie, calidad, riego ni estrés hídrico.",
+      retryable: false,
     }
   } catch (error) {
-    return empty("unavailable", geometryMode, `Sentinel-2 no estuvo disponible en esta ejecución: ${error instanceof Error ? error.message : "error desconocido"}.`)
+    return empty("unavailable", geometryMode, `Sentinel-2 no estuvo disponible en esta ejecución: ${error instanceof Error ? error.message : "error desconocido"}.`, isRetryableSentinelProviderError(error))
   }
 }

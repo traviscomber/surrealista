@@ -1,7 +1,15 @@
 import assert from "node:assert/strict"
 import test from "node:test"
 
-import { getSentinelParcelEvidence } from "../lib/prospeccion/sentinel-parcel-analysis"
+import { getSentinelParcelEvidence, isRetryableSentinelProviderError } from "../lib/prospeccion/sentinel-parcel-analysis"
+
+test("classifies transient Sentinel provider failures as retryable", () => {
+  assert.equal(isRetryableSentinelProviderError(new Error("Sentinel Statistical API HTTP 429")), true)
+  assert.equal(isRetryableSentinelProviderError(new Error("Sentinel Statistical API HTTP 503")), true)
+  assert.equal(isRetryableSentinelProviderError(new Error("fetch failed: ETIMEDOUT")), true)
+  assert.equal(isRetryableSentinelProviderError(Object.assign(new Error("aborted"), { name: "AbortError" })), true)
+  assert.equal(isRetryableSentinelProviderError(new Error("Sentinel Statistical API HTTP 400")), false)
+})
 
 test("uses the CIREN polygon and derives an interannual Sentinel comparison", async () => {
   const originalFetch = globalThis.fetch
