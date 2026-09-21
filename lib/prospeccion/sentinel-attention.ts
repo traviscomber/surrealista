@@ -48,11 +48,16 @@ function severityScore(anomaly: SentinelPersistentAnomaly) {
 
 export function deriveSentinelAttentionQueue(rows: SentinelAttentionRow[], now = new Date()): SentinelAttentionSummary {
   const byRolAndGeometry = new Map<string, SentinelAttentionRow[]>()
+  const latestByFingerprint = new Map<string, number>()
   for (const row of rows) {
     const key = `${row.rol_key}::${row.geometry_fingerprint}`
     const current = byRolAndGeometry.get(key) ?? []
     current.push(row)
     byRolAndGeometry.set(key, current)
+    latestByFingerprint.set(
+      row.geometry_fingerprint,
+      Math.max(latestByFingerprint.get(row.geometry_fingerprint) ?? 0, Date.parse(row.period_from) || 0),
+    )
   }
 
   const candidatesByRol = new Map<string, SentinelAttentionItem[]>()
@@ -87,7 +92,7 @@ export function deriveSentinelAttentionQueue(rows: SentinelAttentionRow[], now =
   const monitored = [...candidatesByRol.values()].map((items) => [...items].sort((a, b) => {
     const polygonPreference = Number(b.geometryMode === "ciren_polygon") - Number(a.geometryMode === "ciren_polygon")
     if (polygonPreference) return polygonPreference
-    const latestDifference = latestMs(rows.filter((row) => row.geometry_fingerprint === b.geometryFingerprint)) - latestMs(rows.filter((row) => row.geometry_fingerprint === a.geometryFingerprint))
+    const latestDifference = (latestByFingerprint.get(b.geometryFingerprint) ?? 0) - (latestByFingerprint.get(a.geometryFingerprint) ?? 0)
     if (latestDifference) return latestDifference
     return b.observationCount - a.observationCount
   })[0]).filter((item): item is SentinelAttentionItem => Boolean(item))
