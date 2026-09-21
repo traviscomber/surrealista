@@ -15,6 +15,7 @@ type AttentionItem = {
   geometryMode: string
   observationCount: number
   latestPeriod: string | null
+  latest: { ndvi: number | null; ndre: number | null; ndmi: number | null }
   severityScore: number
   anomaly: {
     level: "watch" | "strong"
@@ -132,10 +133,13 @@ export default function SentinelAttentionPage() {
                   <span>{item.anomaly.baselineCount} períodos comparables</span>
                 </div>
               </div>
-              <div className="grid min-w-[280px] grid-cols-2 gap-3 text-sm">
+              <div className="grid min-w-[320px] grid-cols-3 gap-3 text-sm">
+                <div><p className="text-xs text-muted-foreground">NDVI</p><p className="mt-1 font-medium">{item.latest.ndvi == null ? "—" : item.latest.ndvi.toFixed(3)}</p></div>
+                <div><p className="text-xs text-muted-foreground">NDRE</p><p className="mt-1 font-medium">{item.latest.ndre == null ? "—" : item.latest.ndre.toFixed(3)}</p></div>
+                <div><p className="text-xs text-muted-foreground">NDMI</p><p className="mt-1 font-medium">{item.latest.ndmi == null ? "—" : item.latest.ndmi.toFixed(3)}</p></div>
                 <div><p className="text-xs text-muted-foreground">Δ NDVI</p><p className="mt-1 font-medium">{signed(item.anomaly.ndviDelta)}</p></div>
                 <div><p className="text-xs text-muted-foreground">Δ NDMI</p><p className="mt-1 font-medium">{signed(item.anomaly.ndmiDelta)}</p></div>
-                <div className="col-span-2"><Button asChild size="sm" variant="outline"><Link href="/prospeccion/sentinel"><Radar className="h-4 w-4" aria-hidden="true" />Abrir lectura Sentinel</Link></Button></div>
+                <div className="col-span-3"><Button asChild size="sm" variant="outline"><Link href="/prospeccion/sentinel"><Radar className="h-4 w-4" aria-hidden="true" />Abrir lectura Sentinel</Link></Button></div>
               </div>
             </div>
           </Card>)}
