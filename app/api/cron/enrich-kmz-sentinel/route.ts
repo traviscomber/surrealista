@@ -2,7 +2,7 @@ import { createHash } from "node:crypto"
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 
-import { mapWithConcurrency, resolveSentinelCentroidTarget, resolveSentinelCronBatchLimit } from "@/lib/prospeccion/sentinel-backfill"
+import { mapWithConcurrency, resolveSentinelCentroidTarget, resolveSentinelCronBatchLimit, SENTINEL_CRON_CONCURRENCY } from "@/lib/prospeccion/sentinel-backfill"
 import { syncSentinelMemory } from "@/lib/prospeccion/sentinel-memory"
 import { getSentinelParcelEvidence } from "@/lib/prospeccion/sentinel-parcel-analysis"
 
@@ -111,7 +111,7 @@ export async function GET(req: NextRequest) {
   const evidence: Array<Awaited<ReturnType<typeof processRow>>> = []
   const failures: Array<{ id: string; fileName: string; error: string }> = []
 
-  const settled = await mapWithConcurrency(rows, 3, (row) => processRow(row))
+  const settled = await mapWithConcurrency(rows, SENTINEL_CRON_CONCURRENCY, (row) => processRow(row))
   settled.forEach((result, index) => {
     const row = rows[index]
     if (result.status === "fulfilled") {
