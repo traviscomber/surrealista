@@ -1,7 +1,9 @@
 "use client"
 
 import { useEffect, useRef, useMemo, useState, useCallback } from "react"
-import { usePathname } from "next/navigation"\n\nimport { APP_TIME_ZONE } from "@/lib/timezone"
+import { usePathname } from "next/navigation"
+
+import { APP_TIME_ZONE } from "@/lib/timezone"
 
 type PhaseId = "mapa" | "contexto" | "ia" | "timeline" | "dashboard"
 
