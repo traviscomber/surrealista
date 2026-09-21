@@ -133,6 +133,36 @@ try {
       authenticatedPage = loginPage
     }
 
+    if (smokePassword && authenticatedPage) {
+      await authenticatedPage.getByText(/\d+ KMZ · \d+ regiones/).waitFor({ state: "visible", timeout: 30_000 })
+      await authenticatedPage.waitForFunction(() => {
+        const text = document.body.innerText || ""
+        const match = text.match(/(\d+) KMZ · (\d+) regiones/)
+        return Boolean(match && Number(match[1]) > 0 && Number(match[2]) > 0)
+      }, null, { timeout: 30_000 })
+
+      const camposAside = authenticatedPage.locator("aside").filter({ hasText: "Colección de campos" }).first()
+      const regionButton = camposAside.getByRole("button", { name: /Metropolitana/i }).first()
+      await regionButton.waitFor({ state: "visible", timeout: 30_000 })
+
+      const regionRow = regionButton.locator("xpath=..")
+      const toggle = regionRow.locator("button").first()
+      if ((await toggle.getAttribute("data-state")) !== "checked") await toggle.click()
+
+      const kmzButton = camposAside.getByRole("button", { name: /Santa Rita\.kmz/i }).first()
+      await kmzButton.waitFor({ state: "visible", timeout: 30_000 })
+      await kmzButton.click()
+
+      await authenticatedPage.getByText("Ficha operativa · Score v1").waitFor({ state: "visible", timeout: 30_000 })
+      await authenticatedPage.getByText(/ROL 16302-19-28/).first().waitFor({ state: "visible", timeout: 30_000 }).catch(() => {})
+      await authenticatedPage.screenshot({ path: `${evidenceDir}/campos-selected-kmz-desktop.png`, fullPage: false })
+
+      await authenticatedPage.setViewportSize({ width: 1180, height: 820 })
+      await authenticatedPage.waitForTimeout(800)
+      await authenticatedPage.screenshot({ path: `${evidenceDir}/campos-selected-kmz-1180.png`, fullPage: false })
+      await authenticatedPage.setViewportSize({ width: 1440, height: 900 })
+    }
+
     if (signingSecret) {
       await context.addInitScript(() => window.sessionStorage.setItem("site_access_token", "granted"))
       const smokeToken = createSmokeToken(signingSecret)
