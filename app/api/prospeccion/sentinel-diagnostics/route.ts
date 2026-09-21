@@ -1,13 +1,99 @@
 import { NextRequest, NextResponse } from "next/server"
+import { createClient } from "@supabase/supabase-js"
 import { INTERNAL_ACCESS_COOKIE, verifyInternalAccessToken } from "@/lib/auth/internal-access"
 import { runProspectingIntelligenceCore } from "@/lib/prospeccion/intelligence-core"
 import { normalizeProspectingCriteria } from "@/lib/prospeccion/normalization"
 import { syncSentinelMemory } from "@/lib/prospeccion/sentinel-memory"
+import { resolveSentinelCentroidTarget } from "@/lib/prospeccion/sentinel-backfill"
 import { lookupExactCirenRol, type ExactCirenRolCandidate } from "@/lib/prospeccion/public-agri-intelligence"
 import { getSentinelParcelEvidence, type SentinelPolygon } from "@/lib/prospeccion/sentinel-parcel-analysis"
 
 export const runtime = "nodejs"
 export const maxDuration = 30
+
+type DiagnosticTarget = {
+  id: string
+  rol: string
+  region: string | null
+  commune: string
+  areaHa: number | null
+  declaredSpecies: string[]
+  surveyYear: number | null
+  sourceUrl: string | null
+  centroid: { lat: number; lng: number }
+  source: "ciren" | "sii"
+}
+
+function admin() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) return null
+  return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
+}
+
+function normalizeRol(value: unknown) {
+  return String(value ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/\./g, "")
+    .replace(/\//g, "-")
+    .replace(/\s+/g, "")
+    .replace(/[^0-9K-]/g, "")
+    .replace(/-+/g, "-")
+}
+
+function rolVariants(value: unknown) {
+  const canonical = normalizeRol(value)
+  if (!canonical) return []
+  return Array.from(new Set([canonical, canonical.replace(/-/g, "/"), canonical.replace(/-/g, "")]))
+}
+
+async function lookupSiiSentinelTargets(requestedRol: string): Promise<DiagnosticTarget[]> {
+  const client = admin()
+  if (!client) return []
+
+  const variants = rolVariants(requestedRol)
+  if (!variants.length) return []
+
+  const { data, error } = await client
+    .from("kmz_collection")
+    .select("id,region,rol_numbers,metadata")
+    .eq("is_active", true)
+    .overlaps("rol_numbers", variants)
+    .limit(20)
+
+  if (error) {
+    console.warn("[Prospeccion Sentinel Diagnostics] SII target lookup failed", error.message)
+    return []
+  }
+
+  const canonical = normalizeRol(requestedRol)
+  const targets = (data ?? []).flatMap((row) => {
+    const target = resolveSentinelCentroidTarget(row.metadata)
+    if (!target || normalizeRol(target.rol) !== canonical) return []
+
+    return [{
+      id: `sii:${String(row.id)}`,
+      rol: target.rol,
+      region: row.region ? String(row.region) : null,
+      commune: target.commune,
+      areaHa: null,
+      declaredSpecies: [],
+      surveyYear: null,
+      sourceUrl: null,
+      centroid: target.centroid,
+      source: "sii" as const,
+    }]
+  })
+
+  const seen = new Set<string>()
+  return targets.filter((target) => {
+    const key = [normalizeRol(target.rol), target.commune.toUpperCase(), target.centroid.lat.toFixed(6), target.centroid.lng.toFixed(6)].join("|")
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}
 
 function escapeSqlLiteral(value: string) {
   return value.replace(/'/g, "''")
