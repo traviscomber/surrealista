@@ -10,6 +10,15 @@ function numeric(value: unknown) {
   return Number.isFinite(parsed) ? parsed : null
 }
 
+export const SENTINEL_CRON_BATCH_MAX = 16
+
+export function resolveSentinelCronBatchLimit(value: unknown) {
+  if (value == null || value === "") return SENTINEL_CRON_BATCH_MAX
+  const requested = Number(value)
+  const safeRequested = Number.isFinite(requested) ? Math.floor(requested) : SENTINEL_CRON_BATCH_MAX
+  return Math.max(1, Math.min(safeRequested, SENTINEL_CRON_BATCH_MAX))
+}
+
 export type SentinelCentroidTarget = {
   rol: string
   commune: string

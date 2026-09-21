@@ -2,7 +2,7 @@ import { createHash } from "node:crypto"
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 
-import { mapWithConcurrency, resolveSentinelCentroidTarget } from "@/lib/prospeccion/sentinel-backfill"
+import { mapWithConcurrency, resolveSentinelCentroidTarget, resolveSentinelCronBatchLimit } from "@/lib/prospeccion/sentinel-backfill"
 import { syncSentinelMemory } from "@/lib/prospeccion/sentinel-memory"
 import { getSentinelParcelEvidence } from "@/lib/prospeccion/sentinel-parcel-analysis"
 
@@ -95,8 +95,7 @@ export async function GET(req: NextRequest) {
   }
 
   const db = admin()
-  const requested = Number(req.nextUrl.searchParams.get("limit") ?? "12")
-  const limit = Math.max(1, Math.min(Number.isFinite(requested) ? requested : 12, 12))
+  const limit = resolveSentinelCronBatchLimit(req.nextUrl.searchParams.get("limit"))
 
   const { data, error } = await db
     .from("kmz_sentinel_centroid_queue")
