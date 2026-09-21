@@ -36,6 +36,8 @@ async function processRow(row: QueueRow) {
   if (!target) throw new Error("SII point target is incomplete")
 
   const sentinel = await getSentinelParcelEvidence({ centroid: target.centroid, polygon: null })
+  if (sentinel.retryable) throw new Error(`Retryable Sentinel provider failure: ${sentinel.note}`)
+
   const memory = sentinel.status === "available"
     ? await syncSentinelMemory({
         rol: target.rol,
@@ -83,6 +85,7 @@ async function processRow(row: QueueRow) {
       targetSource: target.source,
       observationCount: sentinel.summary.observationCount,
       satelliteVerified: sentinel.satelliteVerified,
+      retryable: sentinel.retryable,
     },
     fingerprint: fingerprint(row.id, target.rol, observedAt),
   }
