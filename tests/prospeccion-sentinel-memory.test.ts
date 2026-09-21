@@ -11,6 +11,7 @@ import {
   resolveRequestedRolFromSiiMetadata,
   resolveSentinelCentroidTarget,
   resolveSentinelCronBatchLimit,
+  SENTINEL_CRON_CONCURRENCY,
 } from "../lib/prospeccion/sentinel-backfill"
 
 test("keeps the geometry fingerprint stable for the same CIREN polygon", () => {
@@ -60,6 +61,10 @@ test("does not raise an anomaly when current NDVI remains close to seasonal hist
   assert.equal(anomaly.direction, "similar")
   assert.equal(anomaly.baselineCount, 1)
   assert.equal(anomaly.ndviDelta, 0.04)
+})
+
+test("keeps Sentinel provider pacing bounded", () => {
+  assert.equal(SENTINEL_CRON_CONCURRENCY, 2)
 })
 
 test("keeps Sentinel cron batches bounded while defaulting to the proven ceiling", () => {
