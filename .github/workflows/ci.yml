@@ -20,6 +20,9 @@ jobs:
     env:
       NEXT_TELEMETRY_DISABLED: "1"
     steps:
+      - name: Configure Git defaults
+        run: git config --global init.defaultBranch main
+
       - name: Checkout
         uses: actions/checkout@v7
 
@@ -37,7 +40,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Cache Next.js build
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .next/cache
           key: ${{ runner.os }}-nextjs-${{ hashFiles('pnpm-lock.yaml') }}-${{ hashFiles('app/**', 'components/**', 'lib/**', 'next.config.*', 'tsconfig.json') }}
