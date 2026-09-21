@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 
-import { deriveSentinelAttentionQueue, type SentinelAttentionRow } from "@/lib/prospeccion/sentinel-attention"
+import { deriveSentinelAttentionQueue } from "@/lib/prospeccion/sentinel-attention"
+import { readAllSentinelAttentionRows } from "@/lib/prospeccion/sentinel-repository"
 
 export const dynamic = "force-dynamic"
 
@@ -18,25 +19,20 @@ export async function GET() {
     return NextResponse.json({ error: "Memoria Sentinel no disponible: faltan variables server-side de Supabase." }, { status: 503 })
   }
 
-  const { data, error } = await client
-    .from("prospecting_sentinel_observations")
-    .select("rol,rol_key,commune,geometry_mode,geometry_fingerprint,period_from,period_to,ndvi,ndre,ndmi,sample_count,fetched_at")
-    .order("period_from", { ascending: true })
-    .limit(5000)
-
-  if (error) {
-    console.error("[Prospeccion Sentinel Attention] query failed", error.message)
+  try {
+    const rows = await readAllSentinelAttentionRows(client)
+    const queue = deriveSentinelAttentionQueue(rows)
+    return NextResponse.json({
+      ...queue,
+      methodology: {
+        signal: "same-season-persisted-history",
+        strongThreshold: "|ΔNDVI| >= 0.15",
+        watchThreshold: "|ΔNDVI| >= 0.08",
+        guardrail: "Cambio espectral, no diagnóstico agronómico ni identificación de especie.",
+      },
+    })
+  } catch (error) {
+    console.error("[Prospeccion Sentinel Attention] query failed", error)
     return NextResponse.json({ error: "No se pudo leer la memoria Sentinel." }, { status: 500 })
   }
-
-  const queue = deriveSentinelAttentionQueue((data ?? []) as SentinelAttentionRow[])
-  return NextResponse.json({
-    ...queue,
-    methodology: {
-      signal: "same-season-persisted-history",
-      strongThreshold: "|ΔNDVI| >= 0.15",
-      watchThreshold: "|ΔNDVI| >= 0.08",
-      guardrail: "Cambio espectral, no diagnóstico agronómico ni identificación de especie.",
-    },
-  })
 }

@@ -126,6 +126,39 @@ type SentinelAttentionSummary = {
   }>
 }
 
+
+type CrossLayerSignalSummary = {
+  generatedAt: string
+  monitoredRols: number
+  actionableCount: number
+  highPriorityCount: number
+  mediumPriorityCount: number
+  items: Array<{
+    rol: string
+    kmzId: string | null
+    commune: string | null
+    region: string | null
+    ownerName: string | null
+    contactAvailable: boolean
+    cirenStatus: "matched" | "partial" | "ambiguous" | "not_found" | "unknown"
+    marketSampleCount: number
+    latestPeriod: string | null
+    latest: { ndvi: number | null; ndre: number | null; ndmi: number | null }
+    anomaly: {
+      level: "watch" | "strong"
+      ndviDelta: number | null
+      ndmiDelta: number | null
+      interpretation: string
+    }
+    observationCount: number
+    score: number
+    level: "alta" | "media" | "observar"
+    reasons: string[]
+    nextAction: string
+    guardrail: string
+  }>
+}
+
 type ClientIntent = {
   id: string
   name: string
@@ -195,6 +228,8 @@ export default function ProspeccionPage() {
   const [clients, setClients] = useState<ClientIntent[]>([])
   const [sentinelAttention, setSentinelAttention] = useState<SentinelAttentionSummary | null>(null)
   const [sentinelAttentionLoading, setSentinelAttentionLoading] = useState(true)
+  const [crossLayerSignals, setCrossLayerSignals] = useState<CrossLayerSignalSummary | null>(null)
+  const [crossLayerSignalsLoading, setCrossLayerSignalsLoading] = useState(true)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [loadingMandates, setLoadingMandates] = useState(true)
@@ -271,7 +306,22 @@ export default function ProspeccionPage() {
     }
   }
 
-  useEffect(() => { void Promise.all([loadMandates(), loadClients(), loadSentinelAttention()]) }, [])
+
+  async function loadCrossLayerSignals() {
+    setCrossLayerSignalsLoading(true)
+    try {
+      const response = await fetch("/api/prospeccion/signals", { cache: "no-store" })
+      const body = await response.json()
+      if (!response.ok) throw new Error(body.error || "No se pudieron construir las señales de prospección.")
+      setCrossLayerSignals(body as CrossLayerSignalSummary)
+    } catch (cause) {
+      console.warn("[Prospeccion] cross-layer signals", cause)
+    } finally {
+      setCrossLayerSignalsLoading(false)
+    }
+  }
+
+  useEffect(() => { void Promise.all([loadMandates(), loadClients(), loadSentinelAttention(), loadCrossLayerSignals()]) }, [])
 
   function applyClient(clientId: string) {
     setSelectedClientId(clientId)
@@ -303,7 +353,7 @@ export default function ProspeccionPage() {
       const body = await response.json()
       if (!response.ok) throw new Error(body.error || "No se pudo ejecutar la prospección.")
       setData(body)
-      await loadSentinelAttention()
+      await Promise.all([loadSentinelAttention(), loadCrossLayerSignals()])
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "No se pudo ejecutar la prospección.")
     } finally { setLoading(false) }
@@ -449,6 +499,54 @@ export default function ProspeccionPage() {
       </form>
 
       {data?.outcome ? <Card className="p-6"><div className="flex flex-wrap items-center gap-2"><Badge>{data.outcome.status.replaceAll("_", " ")}</Badge><Badge variant="outline">{data.outcome.generatedBy === "ai" ? "Síntesis IA" : "Evidencia"}</Badge></div><h2 className="mt-4 text-xl font-medium">Resultado de la prospección</h2><p className="mt-2 max-w-5xl text-sm leading-6">{data.outcome.summary}</p><p className="mt-3 text-sm"><span className="text-muted-foreground">Siguiente acción:</span> {data.outcome.recommendation}</p><div className="mt-5 grid gap-3 md:grid-cols-4"><div><p className="text-xs text-muted-foreground">Publicados</p><p className="mt-1 text-2xl font-medium">{data.count}</p></div><div><p className="text-xs text-muted-foreground">Fuera de portal</p><p className="mt-1 text-2xl font-medium">{data.offMarketCount ?? data.offMarketProspects?.length ?? 0}</p></div><div><p className="text-xs text-muted-foreground">Riego regional</p><p className="mt-1 text-sm font-medium">{data.infrastructure?.irrigation.status === "available" ? `${data.infrastructure.irrigation.canalFeatures} canales · ${data.infrastructure.irrigation.intakeFeatures} bocatomas` : "Pendiente"}</p></div><div><p className="text-xs text-muted-foreground">Suelos</p><p className="mt-1 text-sm font-medium">{data.infrastructure?.soils.status === "available" ? "Cobertura disponible" : "Pendiente"}</p></div></div></Card> : null}
+
+
+      <section className="space-y-4">
+        <div className="flex flex-col gap-3 border-b border-border pb-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Cruce de capas</p>
+            <h2 className="mt-1 text-xl font-medium">Señales de prospección</h2>
+            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">Prioriza ROL donde convergen ubicación/SII, propietario, CIREN, memoria Sentinel y cobertura de mercado. El score ordena evidencia; no predice intención de venta.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {crossLayerSignalsLoading ? <Badge variant="outline">Actualizando señales</Badge> : crossLayerSignals ? <>
+              <Badge>{crossLayerSignals.highPriorityCount} prioridad alta</Badge>
+              <Badge variant="outline">{crossLayerSignals.actionableCount} señales activas</Badge>
+              <Badge variant="outline">{crossLayerSignals.monitoredRols} ROL monitoreados</Badge>
+            </> : null}
+          </div>
+        </div>
+
+        {crossLayerSignalsLoading ? <Card className="flex items-center gap-3 p-5 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />Cruzando evidencia territorial, satelital y de mercado…</Card> : crossLayerSignals?.items.length ? <div className="grid gap-3 xl:grid-cols-3">
+          {crossLayerSignals.items.slice(0, 6).map((signal, index) => <Card key={signal.rol} className="p-5">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2"><Badge>#{index + 1}</Badge><Badge variant={signal.level === "alta" ? "default" : "outline"}>{signal.level === "alta" ? "Prioridad alta" : signal.level === "media" ? "Prioridad media" : "Observar"}</Badge></div>
+              <span className="text-xs text-muted-foreground">convergencia {signal.score}/100</span>
+            </div>
+            <h3 className="mt-4 text-lg font-medium">ROL {signal.rol}</h3>
+            <p className="mt-1 text-sm text-muted-foreground">{[signal.commune, signal.region].filter(Boolean).join(" · ") || "Ubicación parcial"}</p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Badge variant="outline">Sentinel · {signal.anomaly.level === "strong" ? "cambio fuerte" : "vigilar"}</Badge>
+              <Badge variant="outline">CIREN · {signal.cirenStatus}</Badge>
+              {signal.contactAvailable ? <Badge variant="outline">Contacto verificable</Badge> : signal.ownerName ? <Badge variant="outline">Propietario identificado</Badge> : <Badge variant="outline">Propietario pendiente</Badge>}
+              {signal.marketSampleCount > 0 ? <Badge variant="outline">{signal.marketSampleCount} muestras mercado</Badge> : null}
+            </div>
+            <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
+              <div><span className="text-muted-foreground">NDVI</span><p className="mt-1 font-medium">{signal.latest.ndvi == null ? "—" : signal.latest.ndvi.toFixed(3)}</p></div>
+              <div><span className="text-muted-foreground">NDRE</span><p className="mt-1 font-medium">{signal.latest.ndre == null ? "—" : signal.latest.ndre.toFixed(3)}</p></div>
+              <div><span className="text-muted-foreground">NDMI</span><p className="mt-1 font-medium">{signal.latest.ndmi == null ? "—" : signal.latest.ndmi.toFixed(3)}</p></div>
+            </div>
+            <p className="mt-4 text-sm leading-6">{signal.anomaly.interpretation}</p>
+            <p className="mt-3 text-xs leading-5 text-muted-foreground">{signal.reasons.slice(1).join(" · ")}</p>
+            <div className="mt-4 border-t border-border pt-4">
+              <p className="text-sm font-medium">{signal.nextAction}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button asChild size="sm" variant="outline"><Link href={`/prospeccion/sentinel?rol=${encodeURIComponent(signal.rol)}`}><Radar className="h-4 w-4" aria-hidden="true" />Ver evidencia<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link></Button>
+              </div>
+            </div>
+          </Card>)}
+        </div> : <Card className="p-5 text-sm text-muted-foreground">No hay señales temporales que superen los umbrales de atención en este momento.</Card>}
+      </section>
 
       {data?.priorityCases?.length ? <section className="space-y-4"><div className="flex flex-col gap-3 border-b border-border pb-4 lg:flex-row lg:items-end lg:justify-between"><div><p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Qué importa ahora</p><h2 className="mt-1 text-xl font-medium">Prioridades de hoy</h2><p className="mt-1 max-w-3xl text-sm text-muted-foreground">El Core ordena la evidencia y deja sólo tres casos arriba. La memoria Sentinel entra aquí únicamente cuando detecta un cambio espectral persistente que requiere revisión.</p></div><div className="flex flex-wrap items-center gap-2">{sentinelAttentionLoading ? <Badge variant="outline">Sentinel · actualizando</Badge> : sentinelAttention ? <Button asChild variant={sentinelAttention.actionableCount > 0 ? "default" : "outline"} size="sm"><Link href="/prospeccion/sentinel/alertas"><Radar className="h-4 w-4" aria-hidden="true" />{sentinelAttention.actionableCount > 0 ? `${sentinelAttention.actionableCount} cambio${sentinelAttention.actionableCount === 1 ? "" : "s"} Sentinel` : `${sentinelAttention.monitoredRols} ROL sin alertas`}<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link></Button> : null}<Button type="button" onClick={() => void investigatePriorityOwners()} disabled={researchingPriority || !data.priorityCases.some((item) => item.kind === "off_market" && item.rol && !ownerLookupResults[item.rol])}>{researchingPriority ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <UserRound className="h-4 w-4" aria-hidden="true" />}Investigar top 3</Button></div></div><div className="grid gap-3 xl:grid-cols-3">{data.priorityCases.map((item, index) => { const lookup = item.rol ? ownerLookupResults[item.rol] : null; const ownerName = lookup?.owner?.name || item.owner?.name || null; const sentinelSignal = item.rol ? sentinelAttention?.items.find((signal) => signal.rol === item.rol) : null; return <Card key={item.id} className="p-5"><div className="flex items-center justify-between gap-3"><Badge>#{index + 1}</Badge><span className="text-xs text-muted-foreground">score {item.score}/100</span></div><h3 className="mt-4 text-lg font-medium">{item.title}</h3><p className="mt-1 text-sm text-muted-foreground">{item.location}{item.areaHa != null ? ` · ${item.areaHa.toLocaleString("es-CL")} ha` : ""}</p><div className="mt-4 flex flex-wrap gap-2"><Badge variant="outline">{caseStatusLabel(item.status)}</Badge>{item.speciesEvidence.declared.length ? <Badge variant="outline">{item.speciesEvidence.declared[0]}</Badge> : null}{sentinelSignal ? <Badge variant="outline">Sentinel · {sentinelSignal.anomaly.level === "strong" ? "cambio fuerte" : "vigilar"}{sentinelSignal.anomaly.ndviDelta != null ? ` · ΔNDVI ${sentinelSignal.anomaly.ndviDelta > 0 ? "+" : ""}${sentinelSignal.anomaly.ndviDelta.toFixed(2)}` : ""}</Badge> : null}</div>{sentinelSignal ? <><div className="mt-3 grid grid-cols-3 gap-2 text-xs"><div><span className="text-muted-foreground">NDVI</span><p className="mt-1 font-medium">{sentinelSignal.latest.ndvi == null ? "—" : sentinelSignal.latest.ndvi.toFixed(3)}</p></div><div><span className="text-muted-foreground">NDRE</span><p className="mt-1 font-medium">{sentinelSignal.latest.ndre == null ? "—" : sentinelSignal.latest.ndre.toFixed(3)}</p></div><div><span className="text-muted-foreground">NDMI</span><p className="mt-1 font-medium">{sentinelSignal.latest.ndmi == null ? "—" : sentinelSignal.latest.ndmi.toFixed(3)}</p></div></div><p className="mt-3 text-xs leading-5 text-muted-foreground">{sentinelSignal.observationCount} observaciones persistidas · cambio espectral, no diagnóstico agronómico.</p></> : null}<div className="mt-4 border-l-2 border-border pl-3">{ownerName ? <><p className="text-sm font-medium">Propietario candidato: {ownerName}</p><p className="mt-1 text-xs text-muted-foreground">Requiere validación registral antes de contacto.</p></> : lookup?.producer ? <><p className="text-sm font-medium">Productor/operador: {lookup.producer.name}</p><p className="mt-1 text-xs text-muted-foreground">No equivale a propietario legal.</p></> : lookup?.historicalOwner ? <><p className="text-sm font-medium">Propietario histórico: {lookup.historicalOwner.name}</p><p className="mt-1 text-xs text-muted-foreground">No asumir vigencia actual.</p></> : <><p className="text-sm font-medium">Propietario por resolver</p><p className="mt-1 text-xs text-muted-foreground">{item.nextAction}</p></>}</div></Card>})}</div><div className="grid gap-3 md:grid-cols-4"><Card className="p-4"><p className="text-xs text-muted-foreground">Cola total</p><p className="mt-1 text-2xl font-medium">{queueSummary.total}</p></Card><Card className="p-4"><p className="text-xs text-muted-foreground">Investigados</p><p className="mt-1 text-2xl font-medium">{queueSummary.investigated}</p></Card><Card className="p-4"><p className="text-xs text-muted-foreground">Propietario identificado</p><p className="mt-1 text-2xl font-medium">{queueSummary.ownerIdentified}</p></Card><Card className="p-4"><p className="text-xs text-muted-foreground">Pendientes</p><p className="mt-1 text-2xl font-medium">{queueSummary.pending}</p></Card></div></section> : null}
 
