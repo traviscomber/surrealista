@@ -155,73 +155,141 @@ export async function GET(request: NextRequest) {
   try {
     let exactRolAreaFilterBypassed = false
     let priorityRols: string[] = []
-    let targets: Array<ExactCirenRolCandidate | (Awaited<ReturnType<typeof runProspectingIntelligenceCore>>["offMarketProspects"][number] & { region?: string })> = []
+    let targets: DiagnosticTarget[] = []
     let exactLookup: Awaited<ReturnType<typeof lookupExactCirenRol>> | null = null
+    let exactResolutionSource: "ciren" | "sii" | null = null
 
     if (requestedRol) {
       exactLookup = await lookupExactCirenRol(requestedRol)
 
-      if (!exactLookup.candidates.length) {
-        const temporarilyIncomplete = exactLookup.status === "partial"
-        return NextResponse.json(
-          {
-            error: temporarilyIncomplete
-              ? `No pudimos resolver el ROL ${requestedRol} con suficiente cobertura CIREN en esta ejecución. Intenta nuevamente.`
-              : `No encontramos el ROL ${requestedRol} en las capas CIREN consultadas.`,
-            requestedRol,
-            resolution: {
-              status: exactLookup.status,
-              searchedLayers: exactLookup.searchedLayers,
-              failedLayers: exactLookup.failedLayers,
+      if (exactLookup.candidates.length) {
+        const selected = candidateId
+          ? exactLookup.candidates.filter((candidate) => candidate.id === candidateId)
+          : exactLookup.candidates
+
+        if (candidateId && !selected.length) {
+          return NextResponse.json(
+            { error: "La coincidencia seleccionada ya no está disponible para este ROL.", requestedRol },
+            { status: 404, headers: { "Cache-Control": "private, no-store" } },
+          )
+        }
+
+        if (!candidateId && selected.length > 1) {
+          return NextResponse.json(
+            {
+              error: `El ROL ${requestedRol} tiene más de una coincidencia territorial. Selecciona el predio correcto.`,
+              requestedRol,
+              ambiguous: true,
+              candidates: selected.map((candidate) => ({
+                id: candidate.id,
+                rol: candidate.rol,
+                region: candidate.region,
+                commune: candidate.commune,
+                areaHa: candidate.areaHa,
+                declaredSpecies: candidate.declaredSpecies,
+                surveyYear: candidate.surveyYear,
+                source: "CIREN",
+              })),
             },
-          },
-          { status: temporarilyIncomplete ? 503 : 404, headers: { "Cache-Control": "private, no-store" } },
-        )
+            { status: 409, headers: { "Cache-Control": "private, no-store" } },
+          )
+        }
+
+        targets = selected
+          .filter((candidate) => candidate.centroid)
+          .map((candidate) => ({
+            id: candidate.id,
+            rol: candidate.rol,
+            region: candidate.region,
+            commune: candidate.commune,
+            areaHa: candidate.areaHa,
+            declaredSpecies: candidate.declaredSpecies,
+            surveyYear: candidate.surveyYear,
+            sourceUrl: candidate.sourceUrl,
+            centroid: candidate.centroid!,
+            source: "ciren" as const,
+          }))
+        exactResolutionSource = "ciren"
+      } else {
+        const siiTargets = await lookupSiiSentinelTargets(requestedRol)
+        const selected = candidateId
+          ? siiTargets.filter((candidate) => candidate.id === candidateId)
+          : siiTargets
+
+        if (candidateId && !selected.length) {
+          return NextResponse.json(
+            { error: "La referencia SII seleccionada ya no está disponible para este ROL.", requestedRol },
+            { status: 404, headers: { "Cache-Control": "private, no-store" } },
+          )
+        }
+
+        if (!candidateId && selected.length > 1) {
+          return NextResponse.json(
+            {
+              error: `El ROL ${requestedRol} tiene más de una referencia territorial SII. Selecciona la correcta.`,
+              requestedRol,
+              ambiguous: true,
+              candidates: selected.map((candidate) => ({
+                id: candidate.id,
+                rol: candidate.rol,
+                region: candidate.region,
+                commune: candidate.commune,
+                areaHa: null,
+                declaredSpecies: [],
+                surveyYear: null,
+                source: "SII",
+              })),
+            },
+            { status: 409, headers: { "Cache-Control": "private, no-store" } },
+          )
+        }
+
+        if (!selected.length) {
+          const temporarilyIncomplete = exactLookup.status === "partial"
+          return NextResponse.json(
+            {
+              error: temporarilyIncomplete
+                ? `No pudimos resolver el ROL ${requestedRol} con CIREN ni con una referencia SII utilizable en esta ejecución.`
+                : `No encontramos una geometría CIREN ni una referencia SII con coordenadas para el ROL ${requestedRol}.`,
+              requestedRol,
+              resolution: {
+                status: exactLookup.status,
+                searchedLayers: exactLookup.searchedLayers,
+                failedLayers: exactLookup.failedLayers,
+                fallback: "sii_point_resolution",
+              },
+            },
+            { status: temporarilyIncomplete ? 503 : 404, headers: { "Cache-Control": "private, no-store" } },
+          )
+        }
+
+        targets = [selected[0]]
+        exactResolutionSource = "sii"
       }
-
-      const selected = candidateId
-        ? exactLookup.candidates.filter((candidate) => candidate.id === candidateId)
-        : exactLookup.candidates
-
-      if (candidateId && !selected.length) {
-        return NextResponse.json(
-          { error: "La coincidencia seleccionada ya no está disponible para este ROL.", requestedRol },
-          { status: 404, headers: { "Cache-Control": "private, no-store" } },
-        )
-      }
-
-      if (!candidateId && selected.length > 1) {
-        return NextResponse.json(
-          {
-            error: `El ROL ${requestedRol} tiene más de una coincidencia territorial. Selecciona el predio correcto.`,
-            requestedRol,
-            ambiguous: true,
-            candidates: selected.map((candidate) => ({
-              id: candidate.id,
-              rol: candidate.rol,
-              region: candidate.region,
-              commune: candidate.commune,
-              areaHa: candidate.areaHa,
-              declaredSpecies: candidate.declaredSpecies,
-              surveyYear: candidate.surveyYear,
-            })),
-          },
-          { status: 409, headers: { "Cache-Control": "private, no-store" } },
-        )
-      }
-
-      targets = [selected[0]]
     } else {
       const core = await runProspectingIntelligenceCore(criteria, limit)
       priorityRols = core.priorityCases
         .filter((item) => item.kind === "off_market" && item.rol)
         .map((item) => String(item.rol))
         .slice(0, 3)
-      targets = core.offMarketProspects.filter((item) => priorityRols.includes(item.rol))
+      targets = core.offMarketProspects
+        .filter((item) => priorityRols.includes(item.rol) && item.centroid)
+        .map((item) => ({
+          id: item.id,
+          rol: item.rol,
+          region: null,
+          commune: item.commune,
+          areaHa: item.areaHa,
+          declaredSpecies: item.declaredSpecies,
+          surveyYear: item.surveyYear,
+          sourceUrl: item.sourceUrl,
+          centroid: item.centroid!,
+          source: "ciren" as const,
+        }))
     }
 
     const results = await Promise.all(targets.map(async (prospect) => {
-      const polygon = await fetchCirenPolygon(prospect.sourceUrl, prospect.rol, prospect.commune)
+      const polygon = prospect.sourceUrl ? await fetchCirenPolygon(prospect.sourceUrl, prospect.rol, prospect.commune) : null
       const satellite = await getSentinelParcelEvidence({ centroid: prospect.centroid, polygon })
       const memory = await syncSentinelMemory({
         rol: prospect.rol,
@@ -233,7 +301,7 @@ export async function GET(request: NextRequest) {
       })
       const result = {
         rol: prospect.rol,
-        region: "region" in prospect ? prospect.region ?? null : null,
+        region: prospect.region ?? null,
         commune: prospect.commune,
         areaHa: prospect.areaHa,
         declaredSpecies: prospect.declaredSpecies,
@@ -242,6 +310,7 @@ export async function GET(request: NextRequest) {
         polygon,
         satellite,
         memory,
+        resolutionSource: prospect.source,
       }
       console.info("[Prospeccion Sentinel Diagnostics]", {
         rol: prospect.rol,
@@ -266,6 +335,7 @@ export async function GET(request: NextRequest) {
         status: exactLookup.status,
         searchedLayers: exactLookup.searchedLayers,
         failedLayers: exactLookup.failedLayers,
+        source: exactResolutionSource,
       } : null,
       deploymentEnvironment: process.env.VERCEL_ENV || process.env.NODE_ENV || "unknown",
       credentialsConfigured: Boolean(
