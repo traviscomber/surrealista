@@ -99,3 +99,17 @@ export function scoreProspectingSignal(input: ProspectingSignalInput): Prospecti
     guardrail: "Este score prioriza convergencia de evidencia. No estima intención de venta ni atribuye causalidad agronómica al cambio satelital.",
   }
 }
+
+
+export function isReliableSpectralProspectingSignal(input: {
+  latestNdvi: number | null
+  seasonalBaselineNdvi: number | null
+  baselineCount: number
+}) {
+  if (input.baselineCount < 2) return false
+  if (input.latestNdvi == null || input.seasonalBaselineNdvi == null) return false
+  if (!Number.isFinite(input.latestNdvi) || !Number.isFinite(input.seasonalBaselineNdvi)) return false
+  // Exact/saturated bounds are valid NDVI-domain values but too fragile for commercial prioritization.
+  if (Math.abs(input.latestNdvi) >= 0.98 || Math.abs(input.seasonalBaselineNdvi) >= 0.98) return false
+  return true
+}
