@@ -8,10 +8,14 @@
     "skipLibCheck": true,
     "rootDir": ".",
     "outDir": ".tmp-prospeccion-tests",
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": [
+        "./*"
+      ]
     },
     "noEmitOnError": true
   },
@@ -25,6 +29,7 @@
     "lib/prospeccion/sentinel-parcel-analysis.ts",
     "lib/prospeccion/sentinel-memory.ts",
     "lib/prospeccion/sentinel-attention.ts",
+    "lib/prospeccion/signal-engine.ts",
     "lib/prospeccion/sentinel-spatial.ts",
     "lib/prospeccion/sentinel-targeting.ts",
     "tests/prospeccion-normalization.test.ts",
@@ -34,6 +39,7 @@
     "tests/prospeccion-sentinel-temporal.test.ts",
     "tests/prospeccion-sentinel-memory.test.ts",
     "tests/prospeccion-sentinel-attention.test.ts",
+    "tests/prospeccion-signal-engine.test.ts",
     "tests/prospeccion-sentinel-spatial.test.ts",
     "tests/prospeccion-sentinel-targeting.test.ts"
   ]
