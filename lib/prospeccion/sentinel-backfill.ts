@@ -39,3 +39,21 @@ export function resolveSentinelCentroidTarget(metadata: unknown): SentinelCentro
     source: "sii_point_resolution",
   }
 }
+
+
+export function normalizeSentinelRol(value: unknown) {
+  return String(value ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/\./g, "")
+    .replace(/\//g, "-")
+    .replace(/\s+/g, "")
+    .replace(/[^0-9K-]/g, "")
+    .replace(/-+/g, "-")
+}
+
+export function resolveRequestedRolFromSiiMetadata(requestedRol: string, metadata: unknown) {
+  const target = resolveSentinelCentroidTarget(metadata)
+  if (!target) return null
+  return normalizeSentinelRol(target.rol) === normalizeSentinelRol(requestedRol) ? target : null
+}
