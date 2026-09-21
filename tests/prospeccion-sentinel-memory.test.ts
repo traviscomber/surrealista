@@ -6,6 +6,7 @@ import {
   derivePersistentSentinelAnomaly,
   sentinelGeometryFingerprint,
 } from "../lib/prospeccion/sentinel-memory"
+import { resolveSentinelCentroidTarget } from "../lib/prospeccion/sentinel-backfill"
 
 test("keeps the geometry fingerprint stable for the same CIREN polygon", () => {
   const polygon = {
@@ -54,4 +55,32 @@ test("does not raise an anomaly when current NDVI remains close to seasonal hist
   assert.equal(anomaly.direction, "similar")
   assert.equal(anomaly.baselineCount, 1)
   assert.equal(anomaly.ndviDelta, 0.04)
+})
+
+
+test("resolves a Sentinel centroid target only from complete SII evidence", () => {
+  assert.deepEqual(resolveSentinelCentroidTarget({
+    sii_point_resolution: {
+      record: {
+        rol: "234-189",
+        comuna: "Rengo",
+        coordinates: { lat: -34.4061, lng: -70.8584 },
+      },
+    },
+  }), {
+    rol: "234-189",
+    commune: "Rengo",
+    centroid: { lat: -34.4061, lng: -70.8584 },
+    source: "sii_point_resolution",
+  })
+
+  assert.equal(resolveSentinelCentroidTarget({
+    sii_point_resolution: {
+      record: {
+        rol: "234-189",
+        comuna: "Rengo",
+        coordinates: { lat: null, lng: -70.8584 },
+      },
+    },
+  }), null)
 })

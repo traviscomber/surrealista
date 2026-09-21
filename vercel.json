@@ -39,6 +39,9 @@
     },
     "app/api/cron/enrich-kmz-ciren/route.ts": {
       "maxDuration": 300
+    },
+    "app/api/cron/enrich-kmz-sentinel/route.ts": {
+      "maxDuration": 300
     }
   },
   "crons": [
@@ -85,6 +88,10 @@
     {
       "path": "/api/cron/enrich-kmz-ciren",
       "schedule": "7,17,27,37,47,57 * * * *"
+    },
+    {
+      "path": "/api/cron/enrich-kmz-sentinel",
+      "schedule": "3,13,23,33,43,53 * * * *"
     }
   ]
 }
