@@ -166,11 +166,11 @@ export async function GET(request: NextRequest) {
           .limit(80)
       : Promise.resolve({ data: [], error: null })
 
-    const publicPromise = canonicalRegion
+    const publicPromise = regionVariants.length
       ? admin
           .from("market_public_metrics")
           .select("source,metric,value,unit,period,scraped_at")
-          .eq("region", canonicalRegion)
+          .in("region", regionVariants)
           .order("scraped_at", { ascending: false })
           .limit(20)
       : Promise.resolve({ data: [], error: null })
