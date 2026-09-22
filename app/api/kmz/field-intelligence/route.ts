@@ -246,8 +246,12 @@ export async function GET(request: NextRequest) {
     const contactAvailable = Boolean(clean(ownerContact.phone) || clean(ownerContact.email))
     const cirenStatus = normalizeCirenStatus(cirenResult.data?.status)
 
-    const actionableAnomaly = sentinelReliable && (sentinelAnomaly.level === "watch" || sentinelAnomaly.level === "strong")
-    const prospecting = actionableAnomaly && rol
+    const actionableLevel = sentinelAnomaly.level === "strong"
+      ? "strong"
+      : sentinelAnomaly.level === "watch"
+        ? "watch"
+        : null
+    const prospecting = sentinelReliable && actionableLevel && rol
       ? scoreProspectingSignal({
           rol,
           commune,
@@ -257,7 +261,7 @@ export async function GET(request: NextRequest) {
           cirenStatus,
           marketSampleCount,
           anomaly: {
-            level: sentinelAnomaly.level,
+            level: actionableLevel,
             ndviDelta: sentinelAnomaly.ndviDelta,
             ndmiDelta: sentinelAnomaly.ndmiDelta,
             interpretation: sentinelAnomaly.interpretation,
