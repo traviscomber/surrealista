@@ -154,7 +154,10 @@ try {
       const kmzButton = kmzLabel.locator("xpath=ancestor::button[1]")
       await kmzButton.click()
 
-      await authenticatedPage.getByText("Ficha operativa · Score v1").waitFor({ state: "visible", timeout: 30_000 })
+      await authenticatedPage.getByText("Inteligencia cruzada del campo").waitFor({ state: "visible", timeout: 30_000 })
+      await authenticatedPage.getByText("NDVI", { exact: true }).waitFor({ state: "visible", timeout: 30_000 })
+      await authenticatedPage.getByText("NDRE", { exact: true }).waitFor({ state: "visible", timeout: 30_000 })
+      await authenticatedPage.getByText("NDMI", { exact: true }).waitFor({ state: "visible", timeout: 30_000 })
       await authenticatedPage.getByText(/ROL 16302-19-28/).first().waitFor({ state: "visible", timeout: 30_000 })
       await authenticatedPage.locator(".leaflet-container").waitFor({ state: "visible", timeout: 30_000 })
 
@@ -206,9 +209,12 @@ try {
       })
 
       await authenticatedPage.waitForFunction(() => {
-        const paths = document.querySelectorAll(".leaflet-overlay-pane path").length
-        const markers = document.querySelectorAll(".leaflet-marker-pane > *, .leaflet-overlay-pane circle").length
-        return paths + markers > 0
+        const map = document.querySelector(".leaflet-container")
+        if (!map) return false
+        const paths = map.querySelectorAll(".leaflet-overlay-pane path").length
+        const markers = map.querySelectorAll(".leaflet-marker-pane > *, .leaflet-overlay-pane circle").length
+        const tiles = map.querySelectorAll(".leaflet-tile-loaded").length
+        return paths + markers + tiles > 0
       }, null, { timeout: 30_000 })
     }
 
