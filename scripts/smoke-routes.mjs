@@ -154,7 +154,10 @@ try {
       const kmzButton = kmzLabel.locator("xpath=ancestor::button[1]")
       await kmzButton.click()
 
-      await authenticatedPage.getByText("Inteligencia cruzada del campo").waitFor({ state: "visible", timeout: 30_000 })\n      await authenticatedPage.getByText("NDVI", { exact: true }).waitFor({ state: "visible", timeout: 30_000 })\n      await authenticatedPage.getByText("NDRE", { exact: true }).waitFor({ state: "visible", timeout: 30_000 })\n      await authenticatedPage.getByText("NDMI", { exact: true }).waitFor({ state: "visible", timeout: 30_000 })
+      await authenticatedPage.getByText("Inteligencia cruzada del campo").waitFor({ state: "visible", timeout: 30_000 })
+      await authenticatedPage.getByText("NDVI", { exact: true }).waitFor({ state: "visible", timeout: 30_000 })
+      await authenticatedPage.getByText("NDRE", { exact: true }).waitFor({ state: "visible", timeout: 30_000 })
+      await authenticatedPage.getByText("NDMI", { exact: true }).waitFor({ state: "visible", timeout: 30_000 })
       await authenticatedPage.getByText(/ROL 16302-19-28/).first().waitFor({ state: "visible", timeout: 30_000 })
       await authenticatedPage.locator(".leaflet-container").waitFor({ state: "visible", timeout: 30_000 })
 
