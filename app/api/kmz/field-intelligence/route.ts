@@ -137,11 +137,30 @@ export async function GET(request: NextRequest) {
       .order("distance_m", { ascending: true })
       .limit(40)
 
-    const marketPromise = canonicalRegion
+    const regionVariants = canonicalRegion
+      ? Array.from(new Set([
+          canonicalRegion,
+          `Región ${canonicalRegion}`,
+          `Región de ${canonicalRegion}`,
+          `Región del ${canonicalRegion}`,
+        ]))
+      : []
+
+    const marketCommunePromise = commune
       ? admin
           .from("market_comparable_data")
           .select("region,commune,property_type,operation,sample_count,median_price_m2_clp,absorption_rate,price_trend_30d,computed_at")
-          .eq("region", canonicalRegion)
+          .ilike("commune", commune)
+          .eq("operation", "venta")
+          .order("computed_at", { ascending: false })
+          .limit(40)
+      : Promise.resolve({ data: [], error: null })
+
+    const marketRegionPromise = regionVariants.length
+      ? admin
+          .from("market_comparable_data")
+          .select("region,commune,property_type,operation,sample_count,median_price_m2_clp,absorption_rate,price_trend_30d,computed_at")
+          .in("region", regionVariants)
           .eq("operation", "venta")
           .order("computed_at", { ascending: false })
           .limit(80)
@@ -184,9 +203,10 @@ export async function GET(request: NextRequest) {
 
     if (communeKey) ownerQuery = ownerQuery.eq("commune_key", communeKey)
 
-    const [nearbyResult, marketResult, publicResult, sentinelResult, cirenResult, ownerResult] = await Promise.all([
+    const [nearbyResult, marketCommuneResult, marketRegionResult, publicResult, sentinelResult, cirenResult, ownerResult] = await Promise.all([
       nearbyPromise,
-      marketPromise,
+      marketCommunePromise,
+      marketRegionPromise,
       publicPromise,
       sentinelPromise,
       cirenPromise,
@@ -195,7 +215,8 @@ export async function GET(request: NextRequest) {
 
     const errors = [
       nearbyResult.error,
-      marketResult.error,
+      marketCommuneResult.error,
+      marketRegionResult.error,
       publicResult.error,
       sentinelResult.error,
       cirenResult.error,
@@ -206,7 +227,7 @@ export async function GET(request: NextRequest) {
       console.warn("[CAMPOS field intelligence] partial evidence failure", errors.map((error) => error?.message))
     }
 
-    const marketRows = (marketResult.data ?? []) as Array<{
+    type MarketContextRow = {
       region: string | null
       commune: string | null
       property_type: string | null
@@ -216,13 +237,12 @@ export async function GET(request: NextRequest) {
       absorption_rate: number | null
       price_trend_30d: number | null
       computed_at: string | null
-    }>
+    }
 
-    const communeRows = communeKey
-      ? marketRows.filter((row) => normalizeSearchText(row.commune || "") === communeKey)
-      : []
-    const scopedMarketRows = communeRows.length ? communeRows : marketRows
-    const marketScope = communeRows.length ? "commune" : scopedMarketRows.length ? "region" : "none"
+    const communeRows = (marketCommuneResult.data ?? []) as MarketContextRow[]
+    const regionRows = (marketRegionResult.data ?? []) as MarketContextRow[]
+    const scopedMarketRows = communeRows.length ? communeRows : regionRows
+    const marketScope = communeRows.length ? "commune" : regionRows.length ? "region" : "none"
     const freshestComputedAt = scopedMarketRows.find((row) => row.computed_at)?.computed_at ?? null
     const latestMarketRows = freshestComputedAt
       ? scopedMarketRows.filter((row) => row.computed_at === freshestComputedAt)
