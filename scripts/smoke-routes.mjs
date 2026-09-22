@@ -206,9 +206,12 @@ try {
       })
 
       await authenticatedPage.waitForFunction(() => {
-        const paths = document.querySelectorAll(".leaflet-overlay-pane path").length
-        const markers = document.querySelectorAll(".leaflet-marker-pane > *, .leaflet-overlay-pane circle").length
-        return paths + markers > 0
+        const map = document.querySelector(".leaflet-container")
+        if (!map) return false
+        const paths = map.querySelectorAll(".leaflet-overlay-pane path").length
+        const markers = map.querySelectorAll(".leaflet-marker-pane > *, .leaflet-overlay-pane circle").length
+        const tiles = map.querySelectorAll(".leaflet-tile-loaded").length
+        return paths + markers + tiles > 0
       }, null, { timeout: 30_000 })
     }
 
