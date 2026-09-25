@@ -1,4 +1,6 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "fluid": true,
   "buildCommand": "next build",
   "functions": {
     "app/api/cron/nightly-property-scrapers/route.ts": {
