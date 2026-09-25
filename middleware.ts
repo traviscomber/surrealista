@@ -69,6 +69,12 @@ function unauthorizedResponse() {
 }
 
 export async function middleware(request: NextRequest) {
+  // Vercel Cron routes authenticate themselves with CRON_SECRET. Avoid running
+  // Supabase session refresh logic on every background tick.
+  if (request.nextUrl.pathname.startsWith("/api/cron/")) {
+    return NextResponse.next()
+  }
+
   if (isPrivilegedPath(request.nextUrl.pathname)) {
     const token = request.cookies.get(INTERNAL_ACCESS_COOKIE)?.value
     const authorized = await verifyInternalAccessToken(token)
