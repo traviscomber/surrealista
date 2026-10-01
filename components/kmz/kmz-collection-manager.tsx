@@ -20,7 +20,7 @@ import {
   Upload,
   Edit2,
 } from "lucide-react"
-import { createBrowserClient } from "@supabase/ssr"
+import { createBrowserClient } from "@/lib/supabase/client"
 import { driveService } from "@/lib/google-drive/drive-service"
 import { kmzReader } from "@/lib/kmz/kmz-reader"
 import { NeighborhoodAnalysisModal } from "@/components/kmz/neighborhood-analysis-modal"
@@ -83,10 +83,7 @@ export function KMZCollectionManager() {
 
   const setupMissingColumns = async () => {
     try {
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      )
+      const supabase = createBrowserClient()
 
       const response = await fetch("/api/admin/kmz/setup-contact-fields", {
         method: "POST",
@@ -108,10 +105,7 @@ export function KMZCollectionManager() {
   const loadKMZCollection = async () => {
     setLoading(true)
     try {
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      )
+      const supabase = createBrowserClient()
 
       // Fetch ALL KMZ files WITHOUT the default 1000-row limit
       // Use range query to bypass Supabase's default row limit
@@ -232,10 +226,7 @@ export function KMZCollectionManager() {
     if (!confirm("¿Estás seguro de eliminar este archivo KMZ de la colección?")) return
 
     try {
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      )
+      const supabase = createBrowserClient()
 
       const { error } = await supabase.from("kmz_collection").update({ is_active: false }).eq("id", id)
 
@@ -297,10 +288,7 @@ export function KMZCollectionManager() {
 
     setUploading(true)
     try {
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      )
+      const supabase = createBrowserClient()
 
       let successCount = 0
       let errorCount = 0
