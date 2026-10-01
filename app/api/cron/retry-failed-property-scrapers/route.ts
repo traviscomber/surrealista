@@ -8,7 +8,6 @@ import { scrapeRura } from "@/lib/scrapers/rura-scraper"
 import { scrapeSurRealista } from "@/lib/scrapers/surealista-scraper"
 import { scrapePortalTerreno } from "@/lib/scrapers/terrachiloe-portalterreno-scraper"
 import { scrapeTocToc } from "@/lib/scrapers/toctoc-scraper"
-import { scrapeYapo } from "@/lib/scrapers/yapo-scraper"
 
 export const maxDuration = 300
 
@@ -38,10 +37,9 @@ const VALID_SOURCES = [
   "remax",
   "portal_inmobiliario",
   "toctoc",
-  "yapo",
 ] as const
 
-const QUARANTINED_SOURCES = new Set(["goplaceit", "icasas", "terrachiloe"])
+const QUARANTINED_SOURCES = new Set(["goplaceit", "icasas", "terrachiloe", "yapo"])
 type RetrySource = (typeof VALID_SOURCES)[number]
 
 type NormalizedResult = {
@@ -112,8 +110,6 @@ function buildRetryTask(source: RetrySource): ScraperTask {
       return { source, run: () => scrapePortalInmobiliario({ operation: "venta", regions: GENERAL_REGIONS, maxPerQuery: 24 }) }
     case "toctoc":
       return { source, run: () => scrapeTocToc({ operation: "venta", regions: GENERAL_REGIONS, pages: 1 }) }
-    case "yapo":
-      return { source, run: () => scrapeYapo({ operation: "venta", regions: GENERAL_REGIONS, pages: 1 }) }
   }
 }
 
