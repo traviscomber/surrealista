@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { POST as canonicalValuation } from '@/app/api/cotizador/valuar-canonico/route'
@@ -13,17 +12,10 @@ function admin() {
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
 }
 
-function accessCookie() {
-  const password = process.env.APP_PASSWORD?.trim()
-  if (!password) throw new Error('APP_PASSWORD is not configured')
-  const token = createHash('sha256').update(`sur-realista:${password}`).digest('hex')
-  return `sur_realista_access=${token}`
-}
-
 async function evaluate(req: NextRequest, item: any) {
   const valuationReq = new NextRequest(req.nextUrl.origin + '/api/cotizador/valuar-canonico', {
     method: 'POST',
-    headers: { 'content-type': 'application/json', cookie: accessCookie() },
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       address: item.address,
       region: item.region,
