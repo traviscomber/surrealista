@@ -1,4 +1,3 @@
-import { createHash, timingSafeEqual } from 'node:crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { geocodeChileAddress, isAmbiguousAddress } from '@/lib/geocoding/forward-geocode'
@@ -7,8 +6,6 @@ import { buildMarketChallenger, type MarketComparableInput } from '@/lib/valuati
 
 export const maxDuration = 30
 export const runtime = 'nodejs'
-
-const ACCESS_COOKIE = 'sur_realista_access'
 const MIN_COMPARABLES = 3
 const MIN_CHALLENGER_CONFIDENCE = 45
 const MAX_AREA_SQM = 1_000_000_000
@@ -42,20 +39,6 @@ type ResolvedContext = {
   lng: number | null
   property_type: string
   area_sqm: number | null
-}
-
-function isAuthorized(request: NextRequest): boolean {
-  const password = process.env.APP_PASSWORD?.trim()
-  if (!password) return false
-
-  const expected = createHash('sha256')
-    .update(`sur-realista:${password}`)
-    .digest('hex')
-  const received = request.cookies.get(ACCESS_COOKIE)?.value ?? ''
-
-  const expectedBuffer = Buffer.from(expected)
-  const receivedBuffer = Buffer.from(received)
-  return expectedBuffer.length === receivedBuffer.length && timingSafeEqual(expectedBuffer, receivedBuffer)
 }
 
 async function getCurrentUF(): Promise<{ value: number; date: string } | null> {
@@ -96,10 +79,6 @@ function needsInput(question: string, missing: string[], context: ResolvedContex
 }
 
 export async function POST(request: NextRequest) {
-  if (!isAuthorized(request)) {
-    return NextResponse.json({ error: 'No autorizado.' }, { status: 401 })
-  }
-
   try {
     const body = await request.json()
     const prior = body.resolved_context ?? {}
