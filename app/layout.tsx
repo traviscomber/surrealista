@@ -5,7 +5,6 @@ import { Inter, Lora } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { PasswordGateRouteBoundary } from "@/components/auth/password-gate-route-boundary"
-import { VisitReminders } from "@/components/visits/visit-reminders"
 import { Toaster } from "sonner"
 import { SentryInit } from "@/components/sentry-init"
 import { APP_TIME_ZONE } from "@/lib/timezone"
@@ -61,7 +60,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <PasswordGateRouteBoundary>{children}</PasswordGateRouteBoundary>
         </ThemeProvider>
         <Toaster />
-        <VisitReminders />
       </body>
     </html>
   )
