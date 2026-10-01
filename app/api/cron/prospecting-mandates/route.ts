@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto"
 import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { POST as runMandate } from "@/app/api/prospeccion/mandates/[id]/run/route"
@@ -11,12 +10,6 @@ function admin() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) throw new Error("Missing Supabase configuration")
   return createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false } })
-}
-
-function accessCookie() {
-  const password = process.env.APP_PASSWORD?.trim()
-  if (!password) throw new Error("APP_PASSWORD is not configured")
-  return `sur_realista_access=${createHash("sha256").update(`sur-realista:${password}`).digest("hex")}`
 }
 
 export async function GET(req: NextRequest) {
@@ -40,7 +33,6 @@ export async function GET(req: NextRequest) {
     try {
       const request = new NextRequest(req.nextUrl.origin + `/api/prospeccion/mandates/${mandate.id}/run`, {
         method: "POST",
-        headers: { cookie: accessCookie() },
       })
       const response = await runMandate(request, { params: Promise.resolve({ id: mandate.id }) })
       const payload = await response.json().catch(() => null)

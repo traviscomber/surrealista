@@ -86,18 +86,17 @@ export function PasswordGate({ children }: { children: React.ReactNode }) {
         return
       }
 
-      if (sessionStorage.getItem(STORAGE_KEY) === SESSION_MARKER) {
-        try {
-          const valid = await hasValidServerSession()
-          if (cancelled) return
-          if (valid) {
-            setIsAuthenticated(true)
-          } else {
-            sessionStorage.removeItem(STORAGE_KEY)
-          }
-        } catch {
-          if (!cancelled) sessionStorage.removeItem(STORAGE_KEY)
+      try {
+        const valid = await hasValidServerSession()
+        if (cancelled) return
+        if (valid) {
+          sessionStorage.setItem(STORAGE_KEY, SESSION_MARKER)
+          setIsAuthenticated(true)
+        } else {
+          sessionStorage.removeItem(STORAGE_KEY)
         }
+      } catch {
+        if (!cancelled) sessionStorage.removeItem(STORAGE_KEY)
       }
 
       if (!cancelled) setIsLoading(false)
