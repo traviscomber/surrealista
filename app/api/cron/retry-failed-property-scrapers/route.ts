@@ -2,13 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { scrapeCamposChile } from "@/lib/scrapers/camposchile-scraper"
 import { scrapeIChiloe } from "@/lib/scrapers/ichiloe-scraper"
-import { scrapePortalInmobiliario } from "@/lib/scrapers/portal-inmobiliario-scraper"
-import { scrapeRemax } from "@/lib/scrapers/remax-scraper"
 import { scrapeRura } from "@/lib/scrapers/rura-scraper"
 import { scrapeSurRealista } from "@/lib/scrapers/surealista-scraper"
 import { scrapePortalTerreno } from "@/lib/scrapers/terrachiloe-portalterreno-scraper"
-import { scrapeTocToc } from "@/lib/scrapers/toctoc-scraper"
-import { scrapeYapo } from "@/lib/scrapers/yapo-scraper"
 
 export const maxDuration = 300
 
@@ -21,27 +17,15 @@ const SOUTH_REGIONS = [
   "Región de Magallanes",
 ]
 
-const GENERAL_REGIONS = [
-  "Región Metropolitana",
-  "Región de Valparaíso",
-  "Región del Biobío",
-  "Región de La Araucanía",
-  "Región de Los Lagos",
-]
-
 const VALID_SOURCES = [
   "surealista",
   "camposchile",
   "ichiloe",
   "portalterreno",
   "rura",
-  "remax",
-  "portal_inmobiliario",
-  "toctoc",
-  "yapo",
 ] as const
 
-const QUARANTINED_SOURCES = new Set(["goplaceit", "icasas", "terrachiloe"])
+const QUARANTINED_SOURCES = new Set(["goplaceit", "icasas", "terrachiloe", "yapo", "portal_inmobiliario", "toctoc", "remax"])
 type RetrySource = (typeof VALID_SOURCES)[number]
 
 type NormalizedResult = {
@@ -106,14 +90,6 @@ function buildRetryTask(source: RetrySource): ScraperTask {
       return { source, run: () => scrapePortalTerreno({ pages: 1, regions: SOUTH_REGIONS }) }
     case "rura":
       return { source, run: () => scrapeRura({}) }
-    case "remax":
-      return { source, run: () => scrapeRemax({ pages: 1 }) }
-    case "portal_inmobiliario":
-      return { source, run: () => scrapePortalInmobiliario({ operation: "venta", regions: GENERAL_REGIONS, maxPerQuery: 24 }) }
-    case "toctoc":
-      return { source, run: () => scrapeTocToc({ operation: "venta", regions: GENERAL_REGIONS, pages: 1 }) }
-    case "yapo":
-      return { source, run: () => scrapeYapo({ operation: "venta", regions: GENERAL_REGIONS, pages: 1 }) }
   }
 }
 
@@ -141,9 +117,6 @@ async function fetchRetrySources(): Promise<RetrySource[]> {
 async function runMaintenance() {
   const supabase = getAdminClient()
   const maintenance = { deduplication: "ok", aggregation: "ok" }
-
-  const { error: dedupError } = await supabase.rpc("deduplicate_properties_external")
-  if (dedupError && !dedupError.message.includes("does not exist")) maintenance.deduplication = dedupError.message
 
   const { error: aggregateError } = await supabase.rpc("recompute_market_comparables", { p_operation: "venta" })
   if (aggregateError && !aggregateError.message.includes("does not exist")) maintenance.aggregation = aggregateError.message

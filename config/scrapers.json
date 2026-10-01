@@ -71,8 +71,9 @@
       "url": "remax.cl",
       "focus": "Propiedades desde Biobío a Magallanes",
       "group": "south",
-      "enabled": true,
-      "defaultPages": 2
+      "enabled": false,
+      "defaultPages": 2,
+      "disabledReason": "Deshabilitado 2026-10-01: inventario sin refresco efectivo desde 2026-08-23"
     },
     {
       "key": "portal_inmobiliario",
@@ -80,8 +81,9 @@
       "url": "portalinmobiliario.com",
       "focus": "Cobertura nacional",
       "group": "general",
-      "enabled": true,
-      "defaultPages": 2
+      "enabled": false,
+      "defaultPages": 2,
+      "disabledReason": "Deshabilitado 2026-10-01: scraper completa con 0 resultados; inventario no se refresca"
     },
     {
       "key": "yapo",
@@ -89,8 +91,9 @@
       "url": "yapo.cl",
       "focus": "Cobertura nacional",
       "group": "general",
-      "enabled": true,
-      "defaultPages": 2
+      "enabled": false,
+      "defaultPages": 2,
+      "disabledReason": "Deshabilitado 2026-10-01: HTTP 403 sostenido; 0 resultados"
     },
     {
       "key": "toctoc",
@@ -98,8 +101,9 @@
       "url": "toctoc.com",
       "focus": "Cobertura nacional",
       "group": "general",
-      "enabled": true,
-      "defaultPages": 2
+      "enabled": false,
+      "defaultPages": 2,
+      "disabledReason": "Deshabilitado 2026-10-01: scraper completa con 0 resultados"
     },
     {
       "key": "rura",

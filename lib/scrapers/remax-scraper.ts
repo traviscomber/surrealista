@@ -28,7 +28,7 @@ const SOUTH_PROVINCE_NAMES = new Set([
   // Region XIV - Los Ríos
   "Los Ríos", "Valdivia", "Ranco",
   // Region X - Los Lagos
-  "Los Lagos", "Llanquihue", "Chiloé",
+  "Los Lagos", "Llanquihue", "Chiloé", "Osorno",
   // Region XI - Aysén
   "Aysén", "Aisén", "General Carrera", "Coihaique",
   // Region XII - Magallanes

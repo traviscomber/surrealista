@@ -2,13 +2,9 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { scrapeCamposChile } from "@/lib/scrapers/camposchile-scraper"
 import { scrapeIChiloe } from "@/lib/scrapers/ichiloe-scraper"
-import { scrapePortalInmobiliario } from "@/lib/scrapers/portal-inmobiliario-scraper"
-import { scrapeRemax } from "@/lib/scrapers/remax-scraper"
 import { scrapeRura } from "@/lib/scrapers/rura-scraper"
 import { scrapeSurRealista } from "@/lib/scrapers/surealista-scraper"
 import { scrapePortalTerreno } from "@/lib/scrapers/terrachiloe-portalterreno-scraper"
-import { scrapeTocToc } from "@/lib/scrapers/toctoc-scraper"
-import { scrapeYapo } from "@/lib/scrapers/yapo-scraper"
 
 export const maxDuration = 300
 
@@ -21,15 +17,7 @@ const SOUTH_REGIONS = [
   "Región de Magallanes",
 ]
 
-const GENERAL_REGIONS = [
-  "Región Metropolitana",
-  "Región de Valparaíso",
-  "Región del Biobío",
-  "Región de La Araucanía",
-  "Región de Los Lagos",
-]
-
-const QUARANTINED_SOURCES = ["goplaceit", "icasas", "terrachiloe"] as const
+const QUARANTINED_SOURCES = ["goplaceit", "icasas", "terrachiloe", "yapo", "portal_inmobiliario", "toctoc", "remax"] as const
 
 type NormalizedResult = {
   source: string
@@ -91,9 +79,6 @@ async function runMaintenance() {
   const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } })
   const maintenance = { deduplication: "ok", aggregation: "ok" }
 
-  const { error: dedupError } = await supabase.rpc("deduplicate_properties_external")
-  if (dedupError && !dedupError.message.includes("does not exist")) maintenance.deduplication = dedupError.message
-
   const { error: aggregateError } = await supabase.rpc("recompute_market_comparables", { p_operation: "venta" })
   if (aggregateError && !aggregateError.message.includes("does not exist")) maintenance.aggregation = aggregateError.message
 
@@ -112,20 +97,12 @@ export async function GET(request: NextRequest) {
     { source: "ichiloe", run: () => scrapeIChiloe({ pages: 3 }) },
     { source: "portalterreno", run: () => scrapePortalTerreno({ pages: 3, regions: SOUTH_REGIONS }) },
     { source: "rura", run: () => scrapeRura({}) },
-    { source: "remax", run: () => scrapeRemax({ pages: 1 }) },
-  ]
-
-  const generalBatch: ScraperTask[] = [
-    { source: "portal_inmobiliario", run: () => scrapePortalInmobiliario({ operation: "venta", regions: GENERAL_REGIONS, maxPerQuery: 48 }) },
-    { source: "toctoc", run: () => scrapeTocToc({ operation: "venta", regions: GENERAL_REGIONS, pages: 2 }) },
-    { source: "yapo", run: () => scrapeYapo({ operation: "venta", regions: GENERAL_REGIONS, pages: 2 }) },
   ]
 
   try {
     console.log(requestId, "[v0] Nightly property scraper cron started", { quarantined: QUARANTINED_SOURCES })
     const southResults = await runTaskBatch(southBatch)
-    const generalResults = await runTaskBatch(generalBatch)
-    const sources = [...southResults, ...generalResults].sort((a, b) => b.inserted - a.inserted)
+    const sources = [...southResults].sort((a, b) => b.inserted - a.inserted)
     const maintenance = await runMaintenance()
 
     const totals = sources.reduce(

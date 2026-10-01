@@ -4,7 +4,6 @@ import { scrapeIncitiPublic } from '@/lib/scrapers/inciti-public-scraper'
 export const maxDuration = 300
 
 const CURATED_ARTICLES = [
-  'https://www.inciti.com/servicios/prensa/2026-04-03-elmercurio-multifamily-50mil-unidades',
   'https://www.inciti.com/cl/prensa/2026-04-29-df-contribuciones-adultos-mayores',
   'https://www.inciti.com/cl/prensa/2026-03-30-elmercurio-iva-vivienda-entrega-inmediata',
   'https://www.inciti.com/cl/prensa/2025-12-06-emol-acceso-vivienda-uf',
