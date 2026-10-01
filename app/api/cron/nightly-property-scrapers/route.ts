@@ -88,10 +88,7 @@ async function runMaintenance() {
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } })
-  const maintenance = { deduplication: "ok", aggregation: "ok" }
-
-  const { error: dedupError } = await supabase.rpc("deduplicate_properties_external")
-  if (dedupError && !dedupError.message.includes("does not exist")) maintenance.deduplication = dedupError.message
+  const maintenance = { deduplication: "enforced by unique external_id", aggregation: "ok" }
 
   const { error: aggregateError } = await supabase.rpc("recompute_market_comparables", { p_operation: "venta" })
   if (aggregateError && !aggregateError.message.includes("does not exist")) maintenance.aggregation = aggregateError.message
