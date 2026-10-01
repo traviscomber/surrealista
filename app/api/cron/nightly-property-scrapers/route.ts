@@ -8,7 +8,6 @@ import { scrapeRura } from "@/lib/scrapers/rura-scraper"
 import { scrapeSurRealista } from "@/lib/scrapers/surealista-scraper"
 import { scrapePortalTerreno } from "@/lib/scrapers/terrachiloe-portalterreno-scraper"
 import { scrapeTocToc } from "@/lib/scrapers/toctoc-scraper"
-import { scrapeYapo } from "@/lib/scrapers/yapo-scraper"
 
 export const maxDuration = 300
 
@@ -29,7 +28,7 @@ const GENERAL_REGIONS = [
   "Región de Los Lagos",
 ]
 
-const QUARANTINED_SOURCES = ["goplaceit", "icasas", "terrachiloe"] as const
+const QUARANTINED_SOURCES = ["goplaceit", "icasas", "terrachiloe", "yapo"] as const
 
 type NormalizedResult = {
   source: string
@@ -118,7 +117,6 @@ export async function GET(request: NextRequest) {
   const generalBatch: ScraperTask[] = [
     { source: "portal_inmobiliario", run: () => scrapePortalInmobiliario({ operation: "venta", regions: GENERAL_REGIONS, maxPerQuery: 48 }) },
     { source: "toctoc", run: () => scrapeTocToc({ operation: "venta", regions: GENERAL_REGIONS, pages: 2 }) },
-    { source: "yapo", run: () => scrapeYapo({ operation: "venta", regions: GENERAL_REGIONS, pages: 2 }) },
   ]
 
   try {
