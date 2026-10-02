@@ -1,3 +1,5 @@
+import { load } from "cheerio"
+
 const BRIGHTDATA_ENDPOINT = "https://api.brightdata.com/request"
 const DEFAULT_ZONE = "portal_inmobiliario_unlocker"
 const REQUEST_TIMEOUT_MS = 45_000
@@ -62,6 +64,9 @@ export function extractExternalLinks(content: string, limit = 8): BrightDataSear
       host === "google.com" ||
       host.endsWith(".google.com") ||
       /^([^.]+\.)*google\.[a-z.]+$/i.test(host) ||
+      host.endsWith("gstatic.com") ||
+      host.endsWith("googleusercontent.com") ||
+      host.endsWith("doubleclick.net") ||
       host.endsWith("bing.com") ||
       host.endsWith("duckduckgo.com")
 
@@ -86,23 +91,43 @@ export function extractExternalLinks(content: string, limit = 8): BrightDataSear
     hits.push({ label: label || host, url: normalized })
   }
 
-  const markdownRegex = /\[([^\]]{2,180})\]\((https?:\/\/[^)\s]+)\)/g
-  let match: RegExpExecArray | null
-  while ((match = markdownRegex.exec(content)) && hits.length < limit) accept(match[2], match[1])
+  const $ = load(content)
+  $("a[href]").each((_, element) => {
+    if (hits.length >= limit) return false
+    const rawHref = $(element).attr("href") || ""
+    const label = $(element).text()
 
-  const htmlRegex = /<a\b[^>]*href=["'](https?:\/\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi
-  while ((match = htmlRegex.exec(content)) && hits.length < limit) accept(match[1], match[2])
+    if (/^https?:\/\//i.test(rawHref)) {
+      accept(rawHref, label)
+      return
+    }
 
-  const googleRedirectRegex = /<a\b[^>]*href=["']\/url\?([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi
-  while ((match = googleRedirectRegex.exec(content)) && hits.length < limit) {
-    const params = new URLSearchParams(match[1].replace(/&amp;/gi, "&"))
-    const target = params.get("q") || params.get("url")
-    if (target?.startsWith("http")) accept(target, match[2])
+    if (rawHref.startsWith("/url?")) {
+      const query = rawHref.slice(rawHref.indexOf("?") + 1).replace(/&amp;/gi, "&")
+      const params = new URLSearchParams(query)
+      const target = params.get("q") || params.get("url")
+      if (target?.startsWith("http")) accept(target, label)
+    }
+  })
+
+  if (hits.length < limit) {
+    const decoded = content
+      .replace(/\\u002F/gi, "/")
+      .replace(/\\u003A/gi, ":")
+      .replace(/\\u0026/gi, "&")
+      .replace(/\\u003D/gi, "=")
+      .replace(/\\\//g, "/")
+      .replace(/&amp;/gi, "&")
+
+    const genericUrlRegex = /https?:\/\/[^\s"'<>\\)]+/gi
+    let match: RegExpExecArray | null
+    while ((match = genericUrlRegex.exec(decoded)) && hits.length < limit) {
+      accept(match[0], "")
+    }
   }
 
   return hits.slice(0, limit)
 }
-
 export function buildPublicEvidenceSearchUrl(args: {
   rol: string
   fileName?: string | null
