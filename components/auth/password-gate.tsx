@@ -45,7 +45,7 @@ function getServerRetryAfterMs(response: Response) {
 
 function getSafeRedirect(redirect: string | null, pathname: string) {
   if (redirect?.startsWith("/") && !redirect.startsWith("//")) return redirect
-  return pathname === "/" ? "/campos" : pathname
+  return pathname || "/"
 }
 
 export function PasswordGate({ children }: { children: React.ReactNode }) {
