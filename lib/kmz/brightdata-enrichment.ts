@@ -195,14 +195,37 @@ export function buildPublicEvidenceSearchUrl(args: {
   rol: string
   fileName?: string | null
   region?: string | null
+  commune?: string | null
+  address?: string | null
 }) {
-  const query = `"${args.rol}" Chile`
+  const parts = String(args.rol || "").split("-").filter(Boolean)
+  const shortRol = parts.length >= 3 ? parts.slice(1).join("-") : args.rol
+  const commune = String(args.commune || "").replace(/\s+/g, " ").trim()
+  const address = String(args.address || "").replace(/\s+/g, " ").trim()
+  const cleanName = String(args.fileName || "")
+    .replace(/\.kmz$/i, "")
+    .replace(/\(\d+\)/g, " ")
+    .replace(/[_-]+/g, " ")
+    .replace(/\b(kmz|marca posicion googleearth|googleearth|tentativo|opcion|vta|cal)\b/gi, " ")
+    .replace(/\d+(?:[.,]\d+)?/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+
+  const context = address || cleanName || args.region || ""
+  const query = [
+    `"${shortRol}"`,
+    commune ? `"${commune}"` : "",
+    context ? `"${context}"` : "",
+    "Chile",
+  ].filter(Boolean).join(" ")
+
   return `https://www.google.com/search?q=${encodeURIComponent(query)}&hl=es-419&gl=cl`
 }
 
 export function buildFieldEvidenceSearchUrl(args: {
   fileName?: string | null
   region?: string | null
+  commune?: string | null
 }) {
   const cleanName = String(args.fileName || "")
     .replace(/\.kmz$/i, "")
@@ -215,7 +238,9 @@ export function buildFieldEvidenceSearchUrl(args: {
 
   if (!cleanName) return null
   const region = String(args.region || "").replace(/\s+/g, " ").trim()
-  const query = [`"${cleanName}"`, region ? `"${region}"` : "", "Chile terreno campo"].filter(Boolean).join(" ")
+  const commune = String(args.commune || "").replace(/\s+/g, " ").trim()
+  const location = commune || region
+  const query = [`"${cleanName}"`, location ? `"${location}"` : "", "Chile terreno campo"].filter(Boolean).join(" ")
   return `https://www.google.com/search?q=${encodeURIComponent(query)}&hl=es-419&gl=cl`
 }
 
