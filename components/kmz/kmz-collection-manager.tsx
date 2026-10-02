@@ -24,6 +24,7 @@ import { createBrowserClient } from "@supabase/ssr"
 import { driveService } from "@/lib/google-drive/drive-service"
 import { kmzReader } from "@/lib/kmz/kmz-reader"
 import { NeighborhoodAnalysisModal } from "@/components/kmz/neighborhood-analysis-modal"
+import { KMZDetailModal } from "@/components/kmz/kmz-detail-modal"
 import { KMZOwnerEditModal } from "@/components/kmz/kmz-owner-edit-modal"
 import { InfoBox } from "@/components/educational/educational-components"
 
@@ -51,6 +52,26 @@ interface KMZRecord {
   region?: string | null
 }
 
+function getKmzManualLocation(kmz: KMZRecord): { lat: number | null; lng: number | null } {
+  const metadata = kmz.metadata && typeof kmz.metadata === "object" ? kmz.metadata as Record<string, any> : {}
+  const manual = metadata.manual_location && typeof metadata.manual_location === "object"
+    ? metadata.manual_location as Record<string, unknown>
+    : null
+  const manualLat = Number(manual?.lat)
+  const manualLng = Number(manual?.lng)
+  if (Number.isFinite(manualLat) && Number.isFinite(manualLng)) return { lat: manualLat, lng: manualLng }
+
+  const north = Number(kmz.bounds?.north)
+  const south = Number(kmz.bounds?.south)
+  const east = Number(kmz.bounds?.east)
+  const west = Number(kmz.bounds?.west)
+  if ([north, south, east, west].every(Number.isFinite)) {
+    return { lat: (north + south) / 2, lng: (east + west) / 2 }
+  }
+
+  return { lat: null, lng: null }
+}
+
 export function KMZCollectionManager() {
   const [kmzFiles, setKmzFiles] = useState<KMZRecord[]>([])
   const [loading, setLoading] = useState(false)
@@ -60,6 +81,8 @@ export function KMZCollectionManager() {
   const [settingUpTable, setSettingUpTable] = useState(false)
   const [tableExists, setTableExists] = useState<boolean | null>(null)
   const [selectedKmzForAnalysis, setSelectedKmzForAnalysis] = useState<KMZRecord | null>(null)
+  const [selectedKmzForDetail, setSelectedKmzForDetail] = useState<KMZRecord | null>(null)
+  const [showDetailModal, setShowDetailModal] = useState(false)
   const [showAnalysisModal, setShowAnalysisModal] = useState(false)
   const [sortBy, setSortBy] = useState<"date" | "placemarks">("date")
   const [stats, setStats] = useState({
@@ -520,6 +543,17 @@ export function KMZCollectionManager() {
 
   return (
     <div className="min-h-screen bg-background">
+      <KMZDetailModal
+        open={showDetailModal}
+        onOpenChange={setShowDetailModal}
+        kmz={selectedKmzForDetail}
+        onEdit={() => {
+          if (!selectedKmzForDetail) return
+          setShowDetailModal(false)
+          setSelectedKmzForOwnerEdit(selectedKmzForDetail)
+          setShowOwnerEditModal(true)
+        }}
+      />
       <NeighborhoodAnalysisModal
         open={showAnalysisModal}
         onOpenChange={setShowAnalysisModal}
@@ -535,6 +569,13 @@ export function KMZCollectionManager() {
         currentPicPhone={selectedKmzForOwnerEdit?.pic_phone ?? undefined}
         currentPicEmail={selectedKmzForOwnerEdit?.pic_email ?? undefined}
         currentGoogleDocsLink={selectedKmzForOwnerEdit?.google_docs_link ?? undefined}
+        currentRegion={selectedKmzForOwnerEdit?.region ?? undefined}
+        currentCategory={selectedKmzForOwnerEdit?.category ?? undefined}
+        currentDescription={selectedKmzForOwnerEdit?.description ?? undefined}
+        currentFilePath={selectedKmzForOwnerEdit?.file_path ?? undefined}
+        currentLatitude={selectedKmzForOwnerEdit ? getKmzManualLocation(selectedKmzForOwnerEdit).lat : null}
+        currentLongitude={selectedKmzForOwnerEdit ? getKmzManualLocation(selectedKmzForOwnerEdit).lng : null}
+        currentMetadata={selectedKmzForOwnerEdit?.metadata || null}
         onSave={loadKMZCollection}
       />
       <div className="container mx-auto p-6 space-y-8">
@@ -870,12 +911,25 @@ export function KMZCollectionManager() {
             {sortedKMZ.map((kmz) => (
               <Card
                 key={kmz.id}
-                className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-card"
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                  setSelectedKmzForDetail(kmz)
+                  setShowDetailModal(true)
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault()
+                    setSelectedKmzForDetail(kmz)
+                    setShowDetailModal(true)
+                  }
+                }}
+                className="cursor-pointer border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-card"
               >
                 <CardHeader className="pb-3">
                   <div className="flex justify-between items-start mb-2">
                     <Badge className="bg-purple-100 text-purple-700 font-semibold">{kmz.category || "general"}</Badge>
-                    <Button variant="ghost" size="sm" onClick={() => deleteKMZ(kmz.id)} className="hover:bg-red-50">
+                    <Button variant="ghost" size="sm" onClick={(event) => { event.stopPropagation(); void deleteKMZ(kmz.id) }} className="hover:bg-red-50">
                       <Trash2 className="h-4 w-4 text-red-600" />
                     </Button>
                   </div>
@@ -959,14 +1013,15 @@ export function KMZCollectionManager() {
 
                   <div className="flex gap-2">
                     <Button
-                      onClick={() => loadToMap(kmz)}
+                      onClick={(event) => { event.stopPropagation(); loadToMap(kmz) }}
                       className="flex-1 bg-gradient-to-r from-primary to-accent hover:from-primary/80 hover:to-accent/80"
                     >
                       <Layers className="h-4 w-4 mr-2" />
                       Cargar en Mapa
                     </Button>
                     <Button
-                      onClick={() => {
+                      onClick={(event) => {
+                        event.stopPropagation()
                         setSelectedKmzForOwnerEdit(kmz)
                         setShowOwnerEditModal(true)
                       }}

@@ -198,14 +198,26 @@ export class KMZReader {
     }
   }
 
+  private getDirectChildText(element: Element, tagName: string): string | undefined {
+    for (let index = 0; index < element.childNodes.length; index++) {
+      const child = element.childNodes[index]
+      if (child.nodeType !== 1) continue
+      const childElement = child as Element
+      const localName = childElement.localName || childElement.tagName.split(":").pop()
+      if (localName === tagName) return childElement.textContent?.trim() || undefined
+    }
+    return undefined
+  }
+
   private extractFolderPath(placemark: Element): string[] {
     const path: string[] = []
     let parent = placemark.parentNode
 
     while (parent && parent.nodeType === 1) {
       const element = parent as Element
-      if (element.tagName === "Folder") {
-        const folderName = element.getElementsByTagName("name")[0]?.textContent?.trim()
+      const localName = element.localName || element.tagName.split(":").pop()
+      if (localName === "Folder") {
+        const folderName = this.getDirectChildText(element, "name")
         if (folderName) path.unshift(folderName)
       }
       parent = parent.parentNode

@@ -1,7 +1,7 @@
 import { randomBytes, timingSafeEqual } from "node:crypto"
 import { type NextRequest, NextResponse } from "next/server"
 
-const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.readonly"
+const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive"
 const OAUTH_STATE_COOKIE = "google_oauth_state"
 const OAUTH_STATE_MAX_AGE_SECONDS = 10 * 60
 

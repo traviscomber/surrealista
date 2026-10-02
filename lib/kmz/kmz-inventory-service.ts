@@ -53,6 +53,18 @@ export interface KmzInventoryFilters {
 
 const PAGE_SIZE = 1000
 
+function applyManualLocation(record: KmzInventoryRecord): KmzInventoryRecord {
+  const metadata = record.metadata && typeof record.metadata === "object" ? record.metadata : null
+  const manual = metadata?.manual_location && typeof metadata.manual_location === "object"
+    ? metadata.manual_location as Record<string, unknown>
+    : null
+  const lat = Number(manual?.lat)
+  const lng = Number(manual?.lng)
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return record
+  return { ...record, latitude: lat, longitude: lng }
+}
+
 export async function loadKmzInventory(
   supabase: SupabaseClient,
   filters: KmzInventoryFilters = {},
@@ -75,7 +87,7 @@ export async function loadKmzInventory(
     const { data, error } = await query
     if (error) throw error
 
-    const page = (data || []) as KmzInventoryRecord[]
+    const page = ((data || []) as KmzInventoryRecord[]).map(applyManualLocation)
     records.push(...page)
 
     if (page.length < PAGE_SIZE) break
