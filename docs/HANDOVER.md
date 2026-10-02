@@ -175,3 +175,26 @@ Commits:
 
 Estado: IMPLEMENTED / pendiente de gate final.
 No mergear hasta que el deployment de Vercel del commit `7634ccf` quede READY y se repita QA visual/funcional en Opera.
+
+
+## 2026-10-02 — Simplificación UX de Campos / mapa
+
+Auditoría Frida + Opera confirmó exceso de complejidad simultánea en `/campos`.
+
+Implementado:
+- shell de Campos queda por encima del chrome legado para evitar doble navegación;
+- toolbar del mapa reducida a `Capas`, `Seleccionar` y pantalla completa;
+- Rectángulo / Polígono / Radio pasan a disclosure dentro de `Seleccionar`;
+- geometría del campo seleccionado usa jerarquía sage y mayor peso visual;
+- overlay CIREN vuelve a renderizarse junto al KMZ seleccionado y usa línea secundaria discontinua;
+- ficha/inteligencia del campo deja de consumir ~46% vertical del mapa y pasa a drawer derecho colapsable en desktop, bottom drawer en pantallas menores;
+- endpoint `/api/kmz/search` amplía búsqueda canónica a `rol_numbers` para ROL exactos;
+- buscador de Campos consume ese endpoint y permite abrir directamente un resultado, recuperando después el registro canónico por ID.
+
+Build gate:
+- `bec2c8d` mapa simplificado = READY;
+- `03bfc87` drawer aislado = READY;
+- `0999f37` búsqueda ROL + UI = READY.
+
+QA visual final pendiente únicamente de revalidar el preview autenticado en Opera (la pantalla de acceso está abierta con la contraseña autocompletada).
+No mergear PR #184 hasta completar ese QA visual/funcional.
