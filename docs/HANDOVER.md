@@ -335,3 +335,12 @@ Accesibilidad y QA:
 - smoke cubre también herramientas legacy directas.
 
 Gate pendiente: HEAD READY + QA visual autenticado en Opera antes de mergear PR #184.
+
+
+## 2026-10-02 — Bright Data KMZ smoke
+
+- Bright Data enrichment is scoped exclusively to canonical `kmz_collection`.
+- Preview smoke route: `/api/cron/brightdata-kmz-smoke?dry_run=1`.
+- Smoke is read-only: 3 unique critical/high ROLs, zero canonical writes.
+- Candidate evidence target remains `kmz_enrichment_evidence`; promotion into canonical fields requires evidence validation.
+- Preview deployment must be rebuilt after adding `BRIGHTDATA_API_KEY` / `BRIGHTDATA_WEB_UNLOCKER_ZONE`.
