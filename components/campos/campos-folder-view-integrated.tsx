@@ -439,11 +439,7 @@ export function CAMPOSFolderViewIntegrated() {
 
   const hasGlobalSearch = search.trim().length >= 2
 
-  const filteredSummaries = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase("es")
-    if (!query) return summaries
-    return summaries.filter((summary) => summary.region.toLocaleLowerCase("es").includes(query))
-  }, [search, summaries])
+  const filteredSummaries = useMemo(() => summaries, [summaries])
 
   const visibleRegionRecords = useCallback((region: string) => {
     const records = recordsByRegion[region] || []
@@ -493,7 +489,34 @@ export function CAMPOSFolderViewIntegrated() {
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
-          {loadingInitial ? (
+          {hasGlobalSearch ? (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between px-2 pb-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Resultados</p>
+                <span className="text-[11px] tabular-nums text-muted-foreground">{searchResults.length}</span>
+              </div>
+              {searching ? (
+                <div className="flex h-28 items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Buscando...</div>
+              ) : searchResults.length ? searchResults.map((hit) => (
+                <button
+                  key={hit.id}
+                  type="button"
+                  onClick={() => void openSearchHit(hit)}
+                  className="flex w-full items-start gap-3 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-secondary/70"
+                >
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">{hit.file_name}</span>
+                    <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
+                      {hit.region || "Sin región"}{hit.rol_numbers?.[0] ? ` · ROL ${hit.rol_numbers[0]}` : ""}
+                    </span>
+                  </span>
+                </button>
+              )) : (
+                <div className="px-3 py-8 text-center text-sm text-muted-foreground">No encontramos un campo, región o ROL con esa búsqueda.</div>
+              )}
+            </div>
+          ) : loadingInitial ? (
             <div className="flex h-40 items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Cargando inventario...</div>
           ) : filteredSummaries.map((summary) => {
             const isOpen = openRegions.has(summary.region)
