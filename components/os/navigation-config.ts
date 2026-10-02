@@ -64,7 +64,7 @@ export const SUR_REALISTA_MODULES: SurRealistaNavItem[] = [
     label: "Mercado",
     href: "/mercado",
     icon: BriefcaseBusiness,
-    prefixes: ["/mercado", "/prospeccion", "/propiedades", "/cotizador", "/busqueda", "/opportunities", "/home-spotter"],
+    prefixes: ["/mercado", "/prospeccion", "/propiedades", "/cotizador", "/opportunities", "/home-spotter"],
     description: "Propiedades, comparables, prospección, valorización y señales de oportunidad.",
     agent: "Agente Mercado",
   },
