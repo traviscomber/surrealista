@@ -167,6 +167,51 @@ export class RealGoogleDriveService {
     })
   }
 
+  async listFolderContents(folderId: string): Promise<DriveFile[]> {
+    if (!this.connected && !(await this.checkAuthenticationStatus())) {
+      throw new Error("Google Drive no está autenticado")
+    }
+
+    const response = await fetch(`/api/drive/folders/${encodeURIComponent(folderId)}`, { cache: "no-store" })
+    if (!response.ok) throw new Error(`No se pudo leer la carpeta (${response.status})`)
+    const payload = await response.json().catch(() => ({}))
+    return Array.isArray(payload?.files) ? payload.files as DriveFile[] : []
+  }
+
+  async createFolder(parentFolderId: string, name: string): Promise<DriveFile> {
+    const response = await fetch(`/api/drive/folders/${encodeURIComponent(parentFolderId)}/create`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    })
+    const payload = await response.json().catch(() => ({}))
+    if (!response.ok || !payload?.file) throw new Error(payload?.error || "No se pudo crear la carpeta")
+    return payload.file as DriveFile
+  }
+
+  async uploadFile(parentFolderId: string, file: File): Promise<DriveFile> {
+    const formData = new FormData()
+    formData.append("file", file)
+    const response = await fetch(`/api/drive/folders/${encodeURIComponent(parentFolderId)}/upload`, {
+      method: "POST",
+      body: formData,
+    })
+    const payload = await response.json().catch(() => ({}))
+    if (!response.ok || !payload?.file) throw new Error(payload?.error || "No se pudo subir el archivo")
+    return payload.file as DriveFile
+  }
+
+  async renameFile(fileId: string, name: string): Promise<DriveFile> {
+    const response = await fetch(`/api/drive/files/${encodeURIComponent(fileId)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name }),
+    })
+    const payload = await response.json().catch(() => ({}))
+    if (!response.ok || !payload?.file) throw new Error(payload?.error || "No se pudo renombrar el elemento")
+    return payload.file as DriveFile
+  }
+
   async extractRolNumbers(_folderId: string): Promise<string[]> {
     // No verified server-side ROL extractor is exposed by the Drive API.
     // Never infer ROL values from folder/file names.
