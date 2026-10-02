@@ -136,15 +136,104 @@ export function AIAssistantChat() {
 
     setIsLoading(true)
     try {
-      const response = await fetch("/api/os/tasks", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...draft, explicitConfirm: true, createdBy: "sur-realista-router" }),
+      const normalize = (value: string) =>
+        value.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase().trim()
+
+      const { data: users, error: usersError } = await supabase
+        .from("users")
+        .select("id,name,email,phone,whatsapp,notification_preferences")
+        .order("name")
+
+      if (usersError) throw usersError
+
+      const wanted = draft.assigneeNames.map(normalize)
+      const matchedUsers = (users || []).filter((user) => {
+        if (!wanted.length) return false
+        const userName = normalize(String(user.name || ""))
+        const userEmail = normalize(String(user.email || ""))
+        return wanted.some((name) => userName === name || userName.includes(name) || name.includes(userName) || userEmail === name)
       })
-      const data = await response.json().catch(() => ({}))
-      if (!response.ok) {
-        const missing = Array.isArray(data.missingAssignees) ? ` No encontré: ${data.missingAssignees.join(", ")}.` : ""
-        throw new Error((data.error || "No se pudo crear la tarea.") + missing)
+
+      const missing = draft.assigneeNames.filter((name) => {
+        const normalizedName = normalize(name)
+        return !matchedUsers.some((user) => {
+          const userName = normalize(String(user.name || ""))
+          const userEmail = normalize(String(user.email || ""))
+          return userName === normalizedName || userName.includes(normalizedName) || normalizedName.includes(userName) || userEmail === normalizedName
+        })
+      })
+
+      if (missing.length) throw new Error(`No encontré el responsable: ${missing.join(", ")}.`)
+
+      const now = new Date().toISOString()
+      const { data: createdTask, error: taskError } = await supabase
+        .from("tasks")
+        .insert({
+          title: draft.title,
+          description: draft.description,
+          priority: draft.priority,
+          due_date: draft.dueDate,
+          status: "pending",
+          related_to: draft.module,
+          related_id: draft.relatedId,
+          created_by: "sur-realista-router",
+          created_at: now,
+          updated_at: now,
+          tags: ["router", draft.module],
+        })
+        .select("id")
+        .single()
+
+      if (taskError) throw taskError
+      if (!createdTask?.id) throw new Error("La tarea se creó sin identificador.")
+
+      if (matchedUsers.length) {
+        const { error: assignmentError } = await supabase.from("task_assignments").insert(
+          matchedUsers.map((user) => ({
+            task_id: createdTask.id,
+            user_id: user.id,
+            assigned_by: "sur-realista-router",
+            assigned_at: now,
+            role: "assignee",
+          })),
+        )
+        if (assignmentError) throw assignmentError
+      }
+
+      const priorityText: Record<string, string> = { urgent: "URGENTE", high: "ALTA", medium: "MEDIA", low: "BAJA" }
+      const notificationMessage =
+        `NUEVA TAREA ASIGNADA\\n\\nTitulo: ${draft.title}\\n\\nDescripcion:\\n${draft.description || "Sin descripción"}\\n\\n` +
+        `Prioridad: ${priorityText[draft.priority]}\\nModulo: ${draft.module}\\nFecha limite: ${draft.dueDate ? new Date(draft.dueDate).toLocaleDateString("es-CL") : "Sin fecha límite"}\\n\\nEnviado desde Sur Realista`
+
+      const whatsappActions = matchedUsers.flatMap((user) => {
+        const prefs = user.notification_preferences || {}
+        if (prefs.whatsapp === false) return []
+
+        const raw = String(user.whatsapp || user.phone || "")
+        let phone = raw.replace(/[\\s\\-()]/g, "").replace(/^\\+/, "")
+        if (phone.startsWith("9")) phone = `56${phone}`
+        if (!/^569\\d{8}$/.test(phone)) return []
+
+        return [{
+          name: String(user.name || user.email || "Responsable"),
+          url: `https://web.whatsapp.com/send?phone=${phone}&text=${encodeURIComponent(notificationMessage)}`,
+          userId: user.id,
+        }]
+      })
+
+      if (whatsappActions.length) {
+        const { error: notificationError } = await supabase.from("task_notifications").insert(
+          whatsappActions.map((action) => ({
+            task_id: createdTask.id,
+            user_id: action.userId,
+            notification_type: "whatsapp",
+            notification_event: "task_assigned",
+            message: notificationMessage,
+            delivery_status: "pending",
+            metadata: { channel: "whatsapp_web", requires_user_send: true },
+          })),
+        )
+        if (notificationError) console.warn("[assistant] notification log unavailable", notificationError)
       }
 
       setMessages((current) => current.map((item) =>
@@ -155,7 +244,7 @@ export function AIAssistantChat() {
               metadata: {
                 ...item.metadata,
                 taskCreated: true,
-                whatsappActions: Array.isArray(data.whatsappActions) ? data.whatsappActions : [],
+                whatsappActions: whatsappActions.map(({ name, url }) => ({ name, url })),
               },
             }
           : item,
