@@ -1,12 +1,10 @@
-import { OperatingWorkspace } from "@/components/os/operating-workspace"
 import DocumentsManager from "@/components/communications/documents-manager"
 import { ModuleTasksDock } from "@/components/tasks/module-tasks-dock"
 import { WorkspaceHeading } from "@/components/ui/workspace-heading"
 
 export default function DocumentosPage() {
   return (
-    <OperatingWorkspace>
-      <main className="mx-auto w-full max-w-[1800px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+    <main className="mx-auto w-full max-w-[1800px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
       <WorkspaceHeading
         eyebrow="Evidencia y entregables"
         title="Documentos e informes"
@@ -14,8 +12,7 @@ export default function DocumentosPage() {
         outcome="Cada informe debe poder remontarse a fuentes verificables y cada pendiente documental debe tener responsable."
       />
       <DocumentsManager />
-        <ModuleTasksDock module="documentos" />
-      </main>
-    </OperatingWorkspace>
+      <ModuleTasksDock module="documentos" />
+    </main>
   )
 }
