@@ -28,7 +28,6 @@ export async function brightDataMarkdown(url: string) {
       zone,
       url,
       format: "raw",
-      data_format: "markdown",
     }),
     cache: "no-store",
     signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
@@ -49,16 +48,14 @@ function normalizeUrl(raw: string) {
   }
 }
 
-export function extractExternalLinks(markdown: string, limit = 8): BrightDataSearchHit[] {
+export function extractExternalLinks(content: string, limit = 8): BrightDataSearchHit[] {
   const hits: BrightDataSearchHit[] = []
   const seen = new Set<string>()
-  const regex = /\[([^\]]{2,180})\]\((https?:\/\/[^)\s]+)\)/g
-  let match: RegExpExecArray | null
 
-  while ((match = regex.exec(markdown)) && hits.length < limit) {
-    const label = match[1].replace(/\s+/g, " ").trim()
-    const normalized = normalizeUrl(match[2])
-    if (!normalized) continue
+  const accept = (rawUrl: string, rawLabel: string) => {
+    const cleanedUrl = rawUrl.replace(/&amp;/gi, "&").replace(/&#x2F;/gi, "/")
+    const normalized = normalizeUrl(cleanedUrl)
+    if (!normalized) return
 
     const host = new URL(normalized).hostname.toLowerCase()
     if (
@@ -66,14 +63,30 @@ export function extractExternalLinks(markdown: string, limit = 8): BrightDataSea
       host.endsWith("microsoft.com") ||
       host.endsWith("msn.com") ||
       host.endsWith("brightdata.com")
-    ) continue
+    ) return
 
-    if (seen.has(normalized)) continue
+    if (seen.has(normalized)) return
     seen.add(normalized)
-    hits.push({ label, url: normalized })
+
+    const label = rawLabel
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&amp;/gi, "&")
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;/gi, "'")
+      .replace(/\s+/g, " ")
+      .trim()
+
+    hits.push({ label: label || host, url: normalized })
   }
 
-  return hits
+  const markdownRegex = /\[([^\]]{2,180})\]\((https?:\/\/[^)\s]+)\)/g
+  let match: RegExpExecArray | null
+  while ((match = markdownRegex.exec(content)) && hits.length < limit) accept(match[2], match[1])
+
+  const htmlRegex = /<a\b[^>]*href=["'](https?:\/\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi
+  while ((match = htmlRegex.exec(content)) && hits.length < limit) accept(match[1], match[2])
+
+  return hits.slice(0, limit)
 }
 
 export function buildPublicEvidenceSearchUrl(args: {
