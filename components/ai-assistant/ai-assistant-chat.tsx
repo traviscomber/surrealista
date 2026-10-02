@@ -17,6 +17,9 @@ interface Message {
   metadata?: {
     type?: string
     confidence?: number
+    mode?: string
+    agent?: string
+    sources?: string[]
   }
 }
 
@@ -71,7 +74,13 @@ export function AIAssistantChat() {
           data.response ||
           "No encontré una respuesta verificable con las fuentes disponibles. Revisa el módulo correspondiente o reformula la consulta.",
         timestamp: new Date(),
-        metadata: { type: data.type || "general", confidence: data.confidence },
+        metadata: {
+          type: data.type || "general",
+          confidence: data.confidence,
+          mode: data.mode,
+          agent: data.agent,
+          sources: Array.isArray(data.sources) ? data.sources : [],
+        },
       }
     } catch (error) {
       console.error("[assistant] request failed", error)
@@ -160,9 +169,17 @@ export function AIAssistantChat() {
                         minute: "2-digit",
                       })}
                     </time>
+                    {!isUser && message.metadata?.mode ? (
+                      <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-normal">
+                        {message.metadata.mode === "fullagentic" ? "FullAgentic" : "FastTrack"}
+                      </Badge>
+                    ) : null}
+                    {!isUser && message.metadata?.agent ? (
+                      <span>{message.metadata.agent}</span>
+                    ) : null}
                     {!isUser && typeof message.metadata?.confidence === "number" ? (
                       <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-normal">
-                        Confianza informada: {Math.round(message.metadata.confidence * 100)}%
+                        Evidencia: {Math.round(message.metadata.confidence * 100)}%
                       </Badge>
                     ) : null}
                   </div>
