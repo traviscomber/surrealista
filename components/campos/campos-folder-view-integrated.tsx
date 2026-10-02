@@ -182,8 +182,6 @@ export function CAMPOSFolderViewIntegrated() {
   const [kmzFiles, setKmzFiles] = useState<any[]>([])
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null)
   const [search, setSearch] = useState("")
-  const [searchResults, setSearchResults] = useState<KmzInventoryRecord[]>([])
-  const [searching, setSearching] = useState(false)
   const [detailOpen, setDetailOpen] = useState(true)
   const [loadingRegions, setLoadingRegions] = useState<Set<string>>(new Set())
   const [loadingInitial, setLoadingInitial] = useState(true)
@@ -394,54 +392,11 @@ export function CAMPOSFolderViewIntegrated() {
     if (record && String(record.id) !== String(selectedRecord?.id || "")) void loadSelectedKmz(record)
   }, [loadSelectedKmz, recordsByRegion, selectedRecord?.id, selectedRegion])
 
-  useEffect(() => {
-    const query = search.trim()
-    if (query.length < 2) {
-      setSearchResults([])
-      setSearching(false)
-      return
-    }
-
-    const timer = window.setTimeout(async () => {
-      setSearching(true)
-      const safeQuery = query.replace(/[%(),]/g, " ").trim()
-      const pattern = `%${safeQuery}%`
-
-      try {
-        const [textAttempt, rolAttempt] = await Promise.all([
-          supabase
-            .from("kmz_inventory_status")
-            .select("*")
-            .or(`file_name.ilike.${pattern},region.ilike.${pattern}`)
-            .limit(40),
-          supabase
-            .from("kmz_inventory_status")
-            .select("*")
-            .contains("rol_numbers", [query])
-            .limit(40),
-        ])
-
-        const merged = [...(textAttempt.data || []), ...(rolAttempt.data || [])] as KmzInventoryRecord[]
-        const uniqueById = new Map<string, KmzInventoryRecord>()
-        merged.forEach((record) => uniqueById.set(String(record.id), record))
-        setSearchResults(Array.from(uniqueById.values()).slice(0, 40))
-      } catch (error) {
-        console.warn("[CAMPOS] global search failed", error)
-        setSearchResults([])
-      } finally {
-        setSearching(false)
-      }
-    }, 220)
-
-    return () => window.clearTimeout(timer)
-  }, [search, supabase])
-
-  const hasGlobalSearch = search.trim().length >= 2
-
   const filteredSummaries = useMemo(() => {
-    if (hasGlobalSearch) return summaries
-    return summaries
-  }, [hasGlobalSearch, summaries])
+    const query = search.trim().toLocaleLowerCase("es")
+    if (!query) return summaries
+    return summaries.filter((summary) => summary.region.toLocaleLowerCase("es").includes(query))
+  }, [search, summaries])
 
   const visibleRegionRecords = useCallback((region: string) => {
     const records = recordsByRegion[region] || []
@@ -491,39 +446,7 @@ export function CAMPOSFolderViewIntegrated() {
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
-          {hasGlobalSearch ? (
-            <div className="space-y-1">
-              <div className="flex items-center justify-between px-2 pb-2">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Resultados</p>
-                <span className="text-[11px] tabular-nums text-muted-foreground">{searchResults.length}</span>
-              </div>
-              {searching ? (
-                <div className="flex h-28 items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Buscando...</div>
-              ) : searchResults.length ? searchResults.map((record) => {
-                const badge = geometryBadge(record)
-                const active = selectedRecord?.id === record.id
-                return (
-                  <button
-                    key={record.id}
-                    type="button"
-                    onClick={() => void loadSelectedKmz(record)}
-                    className={`flex w-full items-start gap-3 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-secondary/70 ${active ? "bg-secondary" : ""}`}
-                  >
-                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium">{record.file_name}</span>
-                      <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
-                        {record.region}{record.rol_numbers?.[0] ? ` · ROL ${record.rol_numbers[0]}` : ""}
-                      </span>
-                    </span>
-                    <Badge variant="outline" className={`shrink-0 text-[10px] ${badge.className}`}>{badge.label}</Badge>
-                  </button>
-                )
-              }) : (
-                <div className="px-3 py-8 text-center text-sm text-muted-foreground">No encontramos un campo, región o ROL con esa búsqueda.</div>
-              )}
-            </div>
-          ) : loadingInitial ? (
+          {loadingInitial ? (
             <div className="flex h-40 items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Cargando inventario...</div>
           ) : filteredSummaries.map((summary) => {
             const isOpen = openRegions.has(summary.region)
