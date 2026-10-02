@@ -6,6 +6,7 @@ import { CAMPOSMapVisualBehavior } from "@/components/campos/campos-map-visual-b
 import { CAMPOSTagFilterBridge } from "@/components/campos/campos-tag-filter-bridge"
 import { CAMPOSDetailPanelSafeRedesign } from "@/components/campos/campos-detail-panel-safe-redesign"
 import { LeafletPopupBehavior } from "@/components/kmz/leaflet-popup-behavior"
+import { ModuleTasksDock } from "@/components/tasks/module-tasks-dock"
 
 export const metadata: Metadata = {
   title: "Campos",
@@ -22,6 +23,7 @@ export default function CAMPOSPage() {
       <CAMPOSUniversalTagFilter />
       <CAMPOSUnifiedVisualSystem />
       <CAMPOSDetailPanelSafeRedesign />
+      <ModuleTasksDock module="campos" />
     </div>
   )
 }
