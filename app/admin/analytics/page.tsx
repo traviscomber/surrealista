@@ -45,7 +45,7 @@ export default async function AnalyticsPage() {
   const metrics: Metric[] = [
     { label: "Propiedades", value: properties, description: "Registros actuales en properties.", icon: Home, href: "/propiedades" },
     { label: "Clientes", value: clients, description: "Registros actuales en clients.", icon: Users, href: "/gestion-clientes" },
-    { label: "Tareas", value: tasks, description: "Registros actuales en tasks.", icon: CheckSquare, href: "/busqueda?modulo=tareas" },
+    { label: "Tareas", value: tasks, description: "Registros actuales en tasks.", icon: CheckSquare, href: "/gestion-tareas" },
     { label: "KMZ activos", value: kmz, description: "KMZ con is_active=true en la colección canónica.", icon: Folder, href: "/campos" },
     { label: "Documentos", value: documents, description: "Registros actuales en documents.", icon: FileText, href: "/documentacion" },
     { label: "Comparables externos", value: externalProperties, description: "Registros persistidos en properties_external.", icon: Database, href: "/admin/scrapers" },
