@@ -28,10 +28,13 @@ const NAV_ITEMS = [
   { label: "Clientes", href: "/clientes", icon: Users, match: (path: string) => path.startsWith("/clientes") || path.startsWith("/gestion-clientes") },
   { label: "Multimedia", href: "/comunicaciones", icon: ImageIcon, match: (path: string) => path.startsWith("/comunicaciones") },
   { label: "Documentos", href: "/documentacion", icon: Files, match: (path: string) => path.startsWith("/documentacion") },
-  { label: "Mercado", href: "/mercado", icon: BriefcaseBusiness, match: (path: string) => path.startsWith("/mercado") || path.startsWith("/prospeccion") || path.startsWith("/propiedades") },
+  { label: "Mercado", href: "/mercado", icon: BriefcaseBusiness, match: (path: string) => path.startsWith("/mercado") || path.startsWith("/prospeccion") || path.startsWith("/propiedades") || path.startsWith("/cotizador") || path.startsWith("/busqueda") },
 ]
 
 function moduleLabel(pathname: string) {
+  if (pathname.startsWith("/gestion-tareas")) return "Tareas"
+  if (pathname.startsWith("/asistente")) return "Asistente"
+  if (pathname.startsWith("/admin")) return "Administración"
   return NAV_ITEMS.find((item) => item.match(pathname))?.label || "Operación"
 }
 
