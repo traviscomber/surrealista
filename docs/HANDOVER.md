@@ -280,3 +280,13 @@ UI:
 - Smoke tests cubren ruta canónica y aliases legacy.
 
 No separar Inteligencia de Oportunidades como módulo principal del OS.
+
+
+## 2026-10-02 — Subnavegación contextual de Mercado
+
+Para reducir saltos y evitar que Inteligencia de Oportunidades parezca otro producto:
+- Mercado mantiene un subnav persistente de segundo nivel.
+- Orden: Resumen · Inteligencia de Oportunidades · Prospección · Valorización.
+- El subnav aparece sólo dentro del contexto Mercado.
+- En mobile es horizontal y desplazable; no agrega otro drawer.
+- Propiedades/comparables permanecen dentro del Resumen de Mercado por ahora.
