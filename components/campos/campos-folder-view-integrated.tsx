@@ -56,6 +56,13 @@ type CirenContext = {
   soils: (CirenDatasetContext & { classes?: string[]; featureCount?: number }) | null
 }
 
+type KmzSearchHit = {
+  id: string
+  file_name: string
+  region: string | null
+  rol_numbers: string[] | null
+}
+
 function geometryBadge(record: KmzInventoryRecord) {
   return STATUS_STYLE[record.geometry_status] || STATUS_STYLE.real_or_reference
 }
@@ -182,6 +189,8 @@ export function CAMPOSFolderViewIntegrated() {
   const [kmzFiles, setKmzFiles] = useState<any[]>([])
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null)
   const [search, setSearch] = useState("")
+  const [searchResults, setSearchResults] = useState<KmzSearchHit[]>([])
+  const [searching, setSearching] = useState(false)
   const [detailOpen, setDetailOpen] = useState(true)
   const [loadingRegions, setLoadingRegions] = useState<Set<string>>(new Set())
   const [loadingInitial, setLoadingInitial] = useState(true)
