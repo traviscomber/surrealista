@@ -51,6 +51,26 @@ interface KMZRecord {
   region?: string | null
 }
 
+function getKmzManualLocation(kmz: KMZRecord): { lat: number | null; lng: number | null } {
+  const metadata = kmz.metadata && typeof kmz.metadata === "object" ? kmz.metadata as Record<string, any> : {}
+  const manual = metadata.manual_location && typeof metadata.manual_location === "object"
+    ? metadata.manual_location as Record<string, unknown>
+    : null
+  const manualLat = Number(manual?.lat)
+  const manualLng = Number(manual?.lng)
+  if (Number.isFinite(manualLat) && Number.isFinite(manualLng)) return { lat: manualLat, lng: manualLng }
+
+  const north = Number(kmz.bounds?.north)
+  const south = Number(kmz.bounds?.south)
+  const east = Number(kmz.bounds?.east)
+  const west = Number(kmz.bounds?.west)
+  if ([north, south, east, west].every(Number.isFinite)) {
+    return { lat: (north + south) / 2, lng: (east + west) / 2 }
+  }
+
+  return { lat: null, lng: null }
+}
+
 export function KMZCollectionManager() {
   const [kmzFiles, setKmzFiles] = useState<KMZRecord[]>([])
   const [loading, setLoading] = useState(false)
@@ -535,6 +555,13 @@ export function KMZCollectionManager() {
         currentPicPhone={selectedKmzForOwnerEdit?.pic_phone ?? undefined}
         currentPicEmail={selectedKmzForOwnerEdit?.pic_email ?? undefined}
         currentGoogleDocsLink={selectedKmzForOwnerEdit?.google_docs_link ?? undefined}
+        currentRegion={selectedKmzForOwnerEdit?.region ?? undefined}
+        currentCategory={selectedKmzForOwnerEdit?.category ?? undefined}
+        currentDescription={selectedKmzForOwnerEdit?.description ?? undefined}
+        currentFilePath={selectedKmzForOwnerEdit?.file_path ?? undefined}
+        currentLatitude={selectedKmzForOwnerEdit ? getKmzManualLocation(selectedKmzForOwnerEdit).lat : null}
+        currentLongitude={selectedKmzForOwnerEdit ? getKmzManualLocation(selectedKmzForOwnerEdit).lng : null}
+        currentMetadata={selectedKmzForOwnerEdit?.metadata || null}
         onSave={loadKMZCollection}
       />
       <div className="container mx-auto p-6 space-y-8">
