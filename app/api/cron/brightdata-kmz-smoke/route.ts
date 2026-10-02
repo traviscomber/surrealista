@@ -32,6 +32,7 @@ function allowed(request: Request) {
 export async function GET(request: Request) {
   if (!allowed(request)) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
 
+  const url = new URL(request.url)
   const config = brightDataConfigStatus()
   const requested = Number(url.searchParams.get("limit") || "1")
   const limit = Math.max(1, Math.min(Number.isFinite(requested) ? requested : 1, 3))
