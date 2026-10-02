@@ -34,30 +34,48 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url)
   const config = brightDataConfigStatus()
-  const providerProbe = url.searchParams.get("probe") === "portal"
+  const providerProbe = url.searchParams.get("probe")
   const requested = Number(url.searchParams.get("limit") || "1")
   const limit = Math.max(1, Math.min(Number.isFinite(requested) ? requested : 1, 3))
   console.info("[brightdata-kmz-smoke] start", JSON.stringify({ configured: config.configured, zone: config.zone, limit }))
   if (providerProbe) {
+    const probeUrls: Record<string, string> = {
+      portal: "https://www.portalinmobiliario.com/venta/casa/vitacura-metropolitana",
+      ddg: "https://html.duckduckgo.com/html/?q=%2210108-204-16%22+Chile+propiedad",
+      google: "https://www.google.com/search?q=%2210108-204-16%22+Chile+propiedad&hl=es&gl=cl",
+    }
+    const probeUrl = probeUrls[providerProbe]
+    if (!probeUrl) {
+      return NextResponse.json({ ok: false, error: "Unknown probe" }, { status: 400 })
+    }
+
     try {
-      const probeUrl = "https://www.portalinmobiliario.com/venta/casa/vitacura-metropolitana"
       const body = await brightDataMarkdown(probeUrl)
-      console.info("[brightdata-kmz-smoke] provider-probe", JSON.stringify({ bytes: body.length, target: "portal_inmobiliario" }))
+      const links = extractExternalLinks(body, 8)
+      console.info("[brightdata-kmz-smoke] provider-probe", JSON.stringify({
+        probe: providerProbe,
+        bytes: body.length,
+        links: links.length,
+      }))
       return NextResponse.json({
         ok: body.length > 0,
         dryRun: true,
         writes: 0,
-        providerProbe: "portal_inmobiliario",
+        providerProbe,
         bytes: body.length,
-        containsPortal: /portalinmobiliario/i.test(body),
+        exactRolVisible: body.includes("10108-204-16"),
+        links,
       }, { headers: { "Cache-Control": "no-store" } })
     } catch (error) {
-      console.warn("[brightdata-kmz-smoke] provider-probe-failed", error)
+      console.warn("[brightdata-kmz-smoke] provider-probe-failed", JSON.stringify({
+        probe: providerProbe,
+        error: error instanceof Error ? error.message : String(error),
+      }))
       return NextResponse.json({
         ok: false,
         dryRun: true,
         writes: 0,
-        providerProbe: "portal_inmobiliario",
+        providerProbe,
         error: error instanceof Error ? error.message : String(error),
       }, { status: 503, headers: { "Cache-Control": "no-store" } })
     }
