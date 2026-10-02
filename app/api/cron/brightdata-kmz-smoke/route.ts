@@ -127,8 +127,15 @@ export async function GET(request: Request) {
 
     try {
       providerRequests += 1
+      const siiRecord = row.metadata?.sii_point_resolution?.record || null
       rolBody = await brightDataMarkdown(
-        buildPublicEvidenceSearchUrl({ rol: row.rol, fileName: row.file_name, region: row.region }),
+        buildPublicEvidenceSearchUrl({
+          rol: row.rol,
+          fileName: row.file_name,
+          region: row.region,
+          commune: siiRecord?.comuna || siiRecord?.raw?.nombreComuna || null,
+          address: siiRecord?.direccion || siiRecord?.raw?.direccion || null,
+        }),
       )
     } catch (error) {
       console.warn("[brightdata-kmz-smoke] rol-query-failed", JSON.stringify({
@@ -158,7 +165,12 @@ export async function GET(request: Request) {
       return result
     }
 
-    const fieldUrl = buildFieldEvidenceSearchUrl({ fileName: row.file_name, region: row.region })
+    const siiRecord = row.metadata?.sii_point_resolution?.record || null
+    const fieldUrl = buildFieldEvidenceSearchUrl({
+      fileName: row.file_name,
+      region: row.region,
+      commune: siiRecord?.comuna || siiRecord?.raw?.nombreComuna || null,
+    })
     if (!fieldUrl) {
       return {
         rol: row.rol,
