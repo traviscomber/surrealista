@@ -422,8 +422,9 @@ export function CAMPOSFolderViewIntegrated() {
         ])
 
         const merged = [...(textAttempt.data || []), ...(rolAttempt.data || [])] as KmzInventoryRecord[]
-        const unique = Array.from(new Map(merged.map((record) => [String(record.id), record])).values())
-        setSearchResults(unique.slice(0, 40))
+        const uniqueById = new Map<string, KmzInventoryRecord>()
+        merged.forEach((record) => uniqueById.set(String(record.id), record))
+        setSearchResults(Array.from(uniqueById.values()).slice(0, 40))
       } catch (error) {
         console.warn("[CAMPOS] global search failed", error)
         setSearchResults([])
