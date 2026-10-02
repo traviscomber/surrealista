@@ -2,6 +2,7 @@ import Link from "next/link"
 import { ArrowRight, Calculator, Search } from "lucide-react"
 
 import { ScrapedPropertiesDashboard } from "@/components/admin/scraped-properties-dashboard"
+import { ModuleTasksDock } from "@/components/tasks/module-tasks-dock"
 import { Button } from "@/components/ui/button"
 import { WorkspaceHeading } from "@/components/ui/workspace-heading"
 
@@ -35,6 +36,7 @@ export default function MarketWorkspacePage() {
       </div>
 
       <ScrapedPropertiesDashboard mode="full" />
+      <ModuleTasksDock module="mercado" />
     </main>
   )
 }
