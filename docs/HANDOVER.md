@@ -91,3 +91,67 @@ P2:
 ## Handover rule
 
 Este archivo debe actualizarse antes de cerrar cualquier bloque de trabajo relevante, antes de merge a `main` y siempre que cambien arquitectura, fuente canónica, flujo operativo, rutas principales o blockers.
+
+
+## 2026-10-02 — Recuperación y profesionalización de Tareas
+
+Se recuperó la capa operativa de tareas existente y se integró al Sur Realista OS.
+
+### Capacidades recuperadas
+- módulo global `/gestion-tareas`;
+- usuarios y contactos;
+- asignación mediante `task_assignments`;
+- registro de alertas mediante `task_notifications`;
+- WhatsApp por contacto configurado;
+- Speech-to-Text en creación completa y creación rápida;
+- edición, estado, prioridad, notas y eliminación.
+
+### Integración por módulo
+Cada módulo canónico dispone ahora de un To Do contextual mediante `ModuleTasksDock`:
+- Campos → `related_to=campos`;
+- Clientes → `related_to=clientes`;
+- Multimedia → `related_to=multimedia`;
+- Documentos → `related_to=documentos`;
+- Mercado → `related_to=mercado`.
+
+Las tareas siguen viviendo en la tabla canónica `tasks`; no se crean silos por módulo.
+
+### Router → tareas
+El asistente transversal puede detectar intención de crear/asignar una tarea y preparar un `taskDraft`.
+Reglas:
+- el router no ejecuta el write por inferencia;
+- presenta el borrador;
+- requiere confirmación humana explícita;
+- asigna sólo responsables nombrados explícitamente;
+- después de confirmar, escribe en `tasks`, `task_assignments` y `task_notifications`;
+- WhatsApp se prepara sólo para usuarios con teléfono válido y preferencias compatibles.
+
+Endpoint router: `POST /api/tasks/router`.
+Endpoint gestión: `GET|POST|PATCH|DELETE /api/tasks/manage`.
+
+Autorización: ambos endpoints usan el mismo `INTERNAL_ACCESS_COOKIE` de Sur Realista, no dependen de una sesión Supabase separada.
+
+### Base de datos verificada
+Tablas existentes confirmadas:
+- `tasks`;
+- `users`;
+- `task_assignments`;
+- `task_notifications`.
+
+El esquema de notificaciones usa:
+- `notification_type`;
+- `notification_event`;
+- `delivery_status`;
+- `message`;
+- `metadata`.
+
+### Estado de QA
+Se encontraron varios builds intermedios fallidos mientras se movían operaciones directas del navegador hacia APIs autenticadas. Los commits estables previos construyeron correctamente. La última rama se dejó nuevamente sobre la página estable de tareas mientras se mantiene la nueva capa server-side.
+
+No mergear a `main` hasta:
+1. build final Vercel = READY;
+2. prueba funcional de creación manual con STT;
+3. prueba de asignación a usuario existente;
+4. prueba de creación desde el asistente con confirmación;
+5. comprobación de que la tarea cae en el módulo correcto;
+6. comprobación de WhatsApp sin duplicación.
