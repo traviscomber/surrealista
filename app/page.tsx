@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { OperatingSystemDashboard } from "@/components/os/operating-system-dashboard"
+import { OperatingWorkspace } from "@/components/os/operating-workspace"
 
 export const dynamic = "force-dynamic"
 
@@ -32,14 +33,16 @@ export default async function HomePage() {
   ])
 
   return (
-    <OperatingSystemDashboard
-      metrics={[
+    <OperatingWorkspace>
+      <OperatingSystemDashboard
+        metrics={[
         { label: "Campos activos", value: kmz, href: "/campos", note: "KMZ canónicos activos." },
         { label: "Clientes", value: clients, href: "/clientes", note: "Registros de clientes." },
         { label: "Tareas", value: tasks, href: "/gestion-tareas", note: "Tareas registradas." },
         { label: "Documentos", value: documents, href: "/documentacion", note: "Evidencia documental." },
         { label: "Mercado", value: externalProperties, href: "/mercado", note: "Propiedades externas." },
-      ]}
-    />
+        ]}
+      />
+    </OperatingWorkspace>
   )
 }
