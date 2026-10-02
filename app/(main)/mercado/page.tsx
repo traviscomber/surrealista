@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { ArrowRight, Calculator, Search } from "lucide-react"
+import { ArrowRight, Calculator, Radar, Search } from "lucide-react"
 
 import { ScrapedPropertiesDashboard } from "@/components/admin/scraped-properties-dashboard"
 import { ModuleTasksDock } from "@/components/tasks/module-tasks-dock"
@@ -20,15 +20,21 @@ export default function MarketWorkspacePage() {
         />
         <div className="flex flex-wrap gap-2 lg:pb-1">
           <Button asChild variant="outline">
-            <Link href="/busqueda">
+            <Link href="/mercado/oportunidades">
+              <Radar className="h-4 w-4" aria-hidden="true" />
+              Inteligencia de Oportunidades
+            </Link>
+          </Button>
+          <Button asChild variant="outline">
+            <Link href="/prospeccion">
               <Search className="h-4 w-4" aria-hidden="true" />
-              Centro operativo
+              Prospección
             </Link>
           </Button>
           <Button asChild>
             <Link href="/cotizador">
               <Calculator className="h-4 w-4" aria-hidden="true" />
-              Ir a Valorización
+              Valorización
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           </Button>
