@@ -1,12 +1,11 @@
 import { AIAssistantChat } from "@/components/ai-assistant/ai-assistant-chat"
-import { ModuleOperatingShell } from "@/components/os/module-operating-shell"
+import { OperatingWorkspace } from "@/components/os/operating-workspace"
 import { WorkspaceHeading } from "@/components/ui/workspace-heading"
 
 export default function AssistantPage() {
   return (
-    <div className="fixed inset-0 z-[100] bg-background">
-      <ModuleOperatingShell>
-        <div className="mx-auto flex h-full w-full max-w-[1500px] flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
+    <OperatingWorkspace>
+      <div className="mx-auto flex h-full w-full max-w-[1500px] flex-col gap-5 px-4 py-5 sm:px-6 lg:px-8">
           <WorkspaceHeading
             eyebrow="Inteligencia transversal"
             title="Asistente Sur Realista"
@@ -16,8 +15,7 @@ export default function AssistantPage() {
           <section className="min-h-0 flex-1 overflow-hidden border border-border/80 bg-card">
             <AIAssistantChat />
           </section>
-        </div>
-      </ModuleOperatingShell>
-    </div>
+      </div>
+    </OperatingWorkspace>
   )
 }
