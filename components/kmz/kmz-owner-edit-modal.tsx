@@ -73,8 +73,8 @@ export function KMZOwnerEditModal({
     setCategory(currentCategory || '')
     setDescription(currentDescription || '')
     setFilePath(currentFilePath || '')
-    setLatitude(Number.isFinite(Number(currentLatitude)) ? String(currentLatitude) : '')
-    setLongitude(Number.isFinite(Number(currentLongitude)) ? String(currentLongitude) : '')
+    setLatitude(currentLatitude != null && Number.isFinite(Number(currentLatitude)) ? String(currentLatitude) : '')
+    setLongitude(currentLongitude != null && Number.isFinite(Number(currentLongitude)) ? String(currentLongitude) : '')
     setError(null)
   }, [
     open,
