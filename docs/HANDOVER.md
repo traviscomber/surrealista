@@ -198,3 +198,40 @@ Build gate:
 
 QA visual final pendiente únicamente de revalidar el preview autenticado en Opera (la pantalla de acceso está abierta con la contraseña autocompletada).
 No mergear PR #184 hasta completar ese QA visual/funcional.
+
+
+## 2026-10-02 — Navegación canónica primero
+
+Decisión UX: antes de continuar refinando mapa/Campos, cerrar la navegación global de Sur Realista.
+
+Arquitectura canónica:
+- Inicio
+- Campos
+- Clientes
+- Multimedia
+- Documentos
+- Mercado
+
+Utilidades transversales:
+- Tareas
+- Asistente
+- Administración
+
+Reglas:
+- Prospección y Valorización pertenecen a Mercado; no compiten como módulos principales.
+- La navegación OS debe permanecer al profundizar en módulos y utilidades.
+- Desktop inicia con labels visibles; el sidebar puede colapsarse.
+- Mobile usa drawer lateral con los mismos módulos y utilidades.
+- Una sola configuración canónica vive en `components/os/navigation-config.ts`.
+- Rutas históricas como `/gestion-clientes` y `/asistente-ia` quedan sólo como redirects de compatibilidad.
+
+Implementado:
+- `/clientes` es el destino canónico del módulo Clientes.
+- nuevo workspace canónico `/asistente`.
+- middleware redirige `/asistente-ia` a `/asistente`.
+- Campos, Clientes, Multimedia, Documentos y Mercado usan navegación persistente del OS.
+- Tareas, Prospección y Valorización mantienen la navegación global al profundizar.
+- sidebar OS visible por defecto en desktop y drawer equivalente en mobile.
+- dashboard, header legado y shell OS fueron alineados con la nueva IA.
+
+Gate: no continuar refinando mapa hasta completar QA visual de navegación en Opera y confirmar build READY del HEAD.
