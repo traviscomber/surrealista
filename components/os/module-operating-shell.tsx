@@ -195,10 +195,10 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
                 </div>
               </SheetContent>
             </Sheet>
-            <div className="min-w-0">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Sur Realista OS</p>
-            <h1 className="truncate text-base font-semibold tracking-tight">{currentModule}</h1>
-            </div>
+            <Link href="/" className="min-w-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Volver a Inicio">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Sur Realista OS</p>
+              <h1 className="truncate text-base font-semibold tracking-tight">{currentModule}</h1>
+            </Link>
           </div>
 
           <div className="hidden items-center gap-1 sm:flex">
