@@ -401,6 +401,44 @@ export function CAMPOSFolderViewIntegrated() {
     if (record && String(record.id) !== String(selectedRecord?.id || "")) void loadSelectedKmz(record)
   }, [loadSelectedKmz, recordsByRegion, selectedRecord?.id, selectedRegion])
 
+  useEffect(() => {
+    const query = search.trim()
+    if (query.length < 2) {
+      setSearchResults([])
+      setSearching(false)
+      return
+    }
+
+    const timer = window.setTimeout(async () => {
+      setSearching(true)
+      try {
+        const response = await fetch("/api/kmz/search?q=" + encodeURIComponent(query), { cache: "no-store" })
+        const body = await response.json().catch(() => ({}))
+        const hits = Array.isArray(body?.results?.kmzCollection) ? body.results.kmzCollection : []
+        setSearchResults(hits.slice(0, 40) as KmzSearchHit[])
+      } catch (error) {
+        console.warn("[CAMPOS] search failed", error)
+        setSearchResults([])
+      } finally {
+        setSearching(false)
+      }
+    }, 220)
+
+    return () => window.clearTimeout(timer)
+  }, [search])
+
+  const openSearchHit = useCallback(async (hit: KmzSearchHit) => {
+    try {
+      const records = await loadKmzInventory(supabase, { ids: [String(hit.id)] })
+      const record = records[0]
+      if (record) await loadSelectedKmz(record)
+    } catch (error) {
+      console.warn("[CAMPOS] search hit failed", error)
+    }
+  }, [loadSelectedKmz, supabase])
+
+  const hasGlobalSearch = search.trim().length >= 2
+
   const filteredSummaries = useMemo(() => {
     const query = search.trim().toLocaleLowerCase("es")
     if (!query) return summaries
