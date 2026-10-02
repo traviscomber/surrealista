@@ -71,6 +71,8 @@ async function inspectRoute(page, route, expectedPath, expectedText) {
     const hasFatalUI = /Application error|Internal Server Error|Unhandled Runtime Error|This page could not be found/i.test(body)
     const hasAccessForm = await page.locator("#password").isVisible().catch(() => false)
     const hasExpectedText = expectedText ? expectedText.test(body) : true
+    const hasGlobalNavigation = await page.locator('nav[aria-label="Módulos de Sur Realista"]:visible').count().then((count) => count > 0).catch(() => false)
+    const hasHomeAffordance = await page.getByRole("link", { name: /Sur Realista · Inicio|Volver a Inicio/i }).first().isVisible().catch(() => false)
 
     if (route === "/campos" && finalPath === "/campos" && !hasAccessForm) {
       await page.screenshot({ path: `${evidenceDir}/campos-authenticated-desktop.png`, fullPage: false })
@@ -88,9 +90,9 @@ async function inspectRoute(page, route, expectedPath, expectedText) {
       await page.screenshot({ path: `${evidenceDir}/tareas-authenticated-desktop.png`, fullPage: false })
     }
 
-    if (!response || status >= 500 || finalPath !== expectedPath || hasFatalUI || hasAccessForm || pageErrors.length > 0 || !hasExpectedText) {
-      failures.push({ route, expectedPath, finalPath, status, pageErrors, hasFatalUI, hasAccessForm, hasExpectedText })
-      console.error(`FAIL ${route} status=${status} expected=${expectedPath} final=${finalPath} gate=${hasAccessForm} text=${hasExpectedText} pageErrors=${pageErrors.length}`)
+    if (!response || status >= 500 || finalPath !== expectedPath || hasFatalUI || hasAccessForm || pageErrors.length > 0 || !hasExpectedText || !hasGlobalNavigation || !hasHomeAffordance) {
+      failures.push({ route, expectedPath, finalPath, status, pageErrors, hasFatalUI, hasAccessForm, hasExpectedText, hasGlobalNavigation, hasHomeAffordance })
+      console.error(`FAIL ${route} status=${status} expected=${expectedPath} final=${finalPath} gate=${hasAccessForm} text=${hasExpectedText} nav=${hasGlobalNavigation} home=${hasHomeAffordance} pageErrors=${pageErrors.length}`)
     } else {
       console.log(`PASS ${route} status=${status} final=${finalPath}`)
     }
@@ -252,6 +254,22 @@ try {
     }
     for (const [route, expectedPath] of canonicalRoutes) await inspectRoute(authenticatedPage, route, expectedPath)
     for (const route of retiredRoutes) await inspectRoute(authenticatedPage, route, "/campos")
+
+    await authenticatedPage.setViewportSize({ width: 390, height: 844 })
+    await authenticatedPage.goto(`${authenticatedBaseURL}/mercado/oportunidades`, { waitUntil: "domcontentloaded", timeout: 30_000 })
+    const mobileMenuButton = authenticatedPage.getByRole("button", { name: "Abrir navegación" })
+    await mobileMenuButton.waitFor({ state: "visible", timeout: 15_000 })
+    await mobileMenuButton.click()
+    const mobileNav = authenticatedPage.locator('nav[aria-label="Módulos de Sur Realista"]:visible')
+    await mobileNav.getByRole("link", { name: "Inicio", exact: true }).waitFor({ state: "visible", timeout: 15_000 })
+    for (const label of ["Campos", "Clientes", "Multimedia", "Documentos", "Mercado"]) {
+      await mobileNav.getByRole("link", { name: label, exact: true }).waitFor({ state: "visible", timeout: 15_000 })
+    }
+    await mobileNav.getByRole("link", { name: "Inicio", exact: true }).click()
+    await authenticatedPage.waitForURL((url) => url.pathname === "/", { timeout: 15_000 })
+    console.log("PASS mobile navigation and home recovery")
+
+    await authenticatedPage.setViewportSize({ width: 1440, height: 900 })
     await authenticatedPage.close()
     await context.close()
   }
