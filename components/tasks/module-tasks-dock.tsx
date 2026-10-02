@@ -1,12 +1,11 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { CheckSquare2, Plus, RefreshCw, X } from "lucide-react"
 
 import { TaskCreationDialog } from "@/components/tasks/task-creation-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { createBrowserClient } from "@/lib/supabase/client"
 
 type ModuleName = "campos" | "clientes" | "multimedia" | "documentos" | "mercado"
 
@@ -33,7 +32,6 @@ export function ModuleTasksDock({
   module: ModuleName
   relatedId?: string
 }) {
-  const supabase = useMemo(() => createBrowserClient(), [])
   const [open, setOpen] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [tasks, setTasks] = useState<ModuleTask[]>([])
@@ -41,21 +39,18 @@ export function ModuleTasksDock({
 
   const load = useCallback(async () => {
     setLoading(true)
-    let query = supabase
-      .from("tasks")
-      .select("id,title,status,priority,due_date")
-      .eq("related_to", module)
-      .neq("status", "completed")
-      .order("due_date", { ascending: true, nullsFirst: false })
-      .limit(20)
+    const params = new URLSearchParams({ module, activeOnly: "true", limit: "20" })
+    const response = await fetch(`/api/tasks/manage?${params.toString()}`, { cache: "no-store" })
+    const body = await response.json().catch(() => ({}))
 
-    if (relatedId) query = query.eq("related_id", relatedId)
-
-    const { data, error } = await query
-    if (!error) setTasks((data || []) as ModuleTask[])
-    else console.warn("[module-tasks] load failed", error)
+    if (response.ok) {
+      const rows = (Array.isArray(body.tasks) ? body.tasks : []) as Array<ModuleTask & { related_id?: string | null }>
+      setTasks(relatedId ? rows.filter((task) => task.related_id === relatedId) : rows)
+    } else {
+      console.warn("[module-tasks] load failed", body)
+    }
     setLoading(false)
-  }, [module, relatedId, supabase])
+  }, [module, relatedId])
 
   useEffect(() => {
     void load()
