@@ -155,3 +155,23 @@ No mergear a `main` hasta:
 4. prueba de creación desde el asistente con confirmación;
 5. comprobación de que la tarea cae en el módulo correcto;
 6. comprobación de WhatsApp sin duplicación.
+
+
+## 2026-10-02 — Shell OS aplicado a Campos
+
+Se validó en Opera que la landing del nuevo OS ya usa navegación modular, indicadores, asistente transversal y lenguaje operativo coherente, pero el módulo `/campos` seguía visualmente dentro de la shell antigua de Sur Realista.
+
+Cambio implementado en la rama `feat/operating-system-shell`:
+- nuevo `components/os/module-operating-shell.tsx`;
+- navegación lateral compacta y colapsable con los cinco módulos canónicos;
+- header operativo consistente con el OS;
+- acceso directo a Tareas y Asistente IA;
+- `/campos` usa la nueva shell sin cambiar su inventario, mapa, buscador, CIREN, filtros, inteligencia ni To Do contextual;
+- el wrapper de Campos cubre localmente el header/footer antiguo para evitar migrar toda la aplicación de una vez.
+
+Commits:
+- `7031eea` — shared module operating shell;
+- `7634ccf` — Campos alineado con la shell del OS.
+
+Estado: IMPLEMENTED / pendiente de gate final.
+No mergear hasta que el deployment de Vercel del commit `7634ccf` quede READY y se repita QA visual/funcional en Opera.
