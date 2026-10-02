@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { CheckCircle2, Edit, Trash2, MapPin, Calendar, User, Clock, AlertCircle, MessageSquare } from "lucide-react"
-import { createBrowserClient } from "@/lib/supabase/client"
 import { TaskCreationDialog } from "./task-creation-dialog" // Import TaskCreationDialog
 
 interface Task {
@@ -32,19 +31,21 @@ export function TaskActionsPanel({ task, onTaskUpdated, onTaskDeleted }: TaskAct
   const [isUpdating, setIsUpdating] = useState(false)
   const [notes, setNotes] = useState("")
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false) // Add state for edit dialog
-  const supabase = createBrowserClient()
 
   const updateTaskStatus = async (newStatus: string) => {
     setIsUpdating(true)
     try {
-      const { error } = await supabase.from("tasks").update({ status: newStatus }).eq("id", task.id)
-
-      if (error) throw error
-      console.log("[v0] Task status updated to:", newStatus)
+      const response = await fetch("/api/tasks/manage", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskId: task.id, status: newStatus }),
+      })
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(body.error || "No se pudo actualizar el estado")
       onTaskUpdated()
     } catch (error) {
-      console.error("[v0] Error updating task status:", error)
-      alert("Error al actualizar el estado de la tarea")
+      console.error("[tasks] status update failed", error)
+      alert(error instanceof Error ? error.message : "Error al actualizar el estado de la tarea")
     } finally {
       setIsUpdating(false)
     }
@@ -53,14 +54,17 @@ export function TaskActionsPanel({ task, onTaskUpdated, onTaskDeleted }: TaskAct
   const updateTaskPriority = async (newPriority: string) => {
     setIsUpdating(true)
     try {
-      const { error } = await supabase.from("tasks").update({ priority: newPriority }).eq("id", task.id)
-
-      if (error) throw error
-      console.log("[v0] Task priority updated to:", newPriority)
+      const response = await fetch("/api/tasks/manage", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ taskId: task.id, priority: newPriority }),
+      })
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(body.error || "No se pudo actualizar la prioridad")
       onTaskUpdated()
     } catch (error) {
-      console.error("[v0] Error updating task priority:", error)
-      alert("Error al actualizar la prioridad de la tarea")
+      console.error("[tasks] priority update failed", error)
+      alert(error instanceof Error ? error.message : "Error al actualizar la prioridad de la tarea")
     } finally {
       setIsUpdating(false)
     }
@@ -75,14 +79,15 @@ export function TaskActionsPanel({ task, onTaskUpdated, onTaskDeleted }: TaskAct
 
     setIsUpdating(true)
     try {
-      const { error } = await supabase.from("tasks").delete().eq("id", task.id)
-
-      if (error) throw error
-      console.log("[v0] Task deleted:", task.id)
+      const response = await fetch(`/api/tasks/manage?taskId=${encodeURIComponent(task.id)}`, {
+        method: "DELETE",
+      })
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(body.error || "No se pudo eliminar la tarea")
       onTaskDeleted()
     } catch (error) {
-      console.error("[v0] Error deleting task:", error)
-      alert("Error al eliminar la tarea")
+      console.error("[tasks] delete failed", error)
+      alert(error instanceof Error ? error.message : "Error al eliminar la tarea")
     } finally {
       setIsUpdating(false)
     }
@@ -231,7 +236,30 @@ export function TaskActionsPanel({ task, onTaskUpdated, onTaskDeleted }: TaskAct
               onChange={(e) => setNotes(e.target.value)}
               className="min-h-[100px]"
             />
-            <Button className="w-full mt-2 bg-transparent" variant="outline" size="sm" disabled={!notes.trim()}>
+            <Button
+              className="w-full mt-2 bg-transparent"
+              variant="outline"
+              size="sm"
+              disabled={!notes.trim() || isUpdating}
+              onClick={async () => {
+                setIsUpdating(true)
+                try {
+                  const response = await fetch("/api/tasks/manage", {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ taskId: task.id, notes }),
+                  })
+                  const body = await response.json().catch(() => ({}))
+                  if (!response.ok) throw new Error(body.error || "No se pudo guardar la nota")
+                  setNotes("")
+                  onTaskUpdated()
+                } catch (error) {
+                  alert(error instanceof Error ? error.message : "No se pudo guardar la nota")
+                } finally {
+                  setIsUpdating(false)
+                }
+              }}
+            >
               Guardar Nota
             </Button>
           </div>
