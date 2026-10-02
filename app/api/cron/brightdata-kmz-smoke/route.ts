@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js"
 import {
   brightDataConfigStatus,
   brightDataMarkdown,
+  buildFieldEvidenceSearchUrl,
   buildPublicEvidenceSearchUrl,
   extractExternalLinks,
 } from "@/lib/kmz/brightdata-enrichment"
@@ -119,34 +120,95 @@ export async function GET(request: Request) {
   }
 
   const results = await Promise.all(selected.map(async (row) => {
+    let providerRequests = 0
+    let rolBody = ""
+
     try {
-      const markdown = await brightDataMarkdown(
+      providerRequests += 1
+      rolBody = await brightDataMarkdown(
         buildPublicEvidenceSearchUrl({ rol: row.rol, fileName: row.file_name, region: row.region }),
       )
-      const hits = extractExternalLinks(markdown, 8)
+    } catch (error) {
+      console.warn("[brightdata-kmz-smoke] rol-query-failed", JSON.stringify({
+        rol: row.rol,
+        error: error instanceof Error ? error.message : String(error),
+      }))
+    }
+
+    const rolHits = rolBody ? extractExternalLinks(rolBody, 8) : []
+    if (rolHits.length > 0) {
       const result = {
         rol: row.rol,
-        hitCount: hits.length,
-        exactRolVisible: markdown.includes(row.rol),
-        providerRequests: 1,
-        hits: hits.slice(0, 5),
+        fileName: row.file_name,
+        region: row.region,
+        discoveryBasis: "rol_exact",
+        hitCount: rolHits.length,
+        exactRolVisible: rolBody.includes(row.rol),
+        providerRequests,
+        hits: rolHits.slice(0, 5),
       }
-      console.info("[brightdata-kmz-smoke] rol", JSON.stringify({ rol: row.rol, hitCount: hits.length, exactRolVisible: result.exactRolVisible }))
+      console.info("[brightdata-kmz-smoke] rol", JSON.stringify({
+        rol: row.rol,
+        discoveryBasis: result.discoveryBasis,
+        hitCount: result.hitCount,
+        providerRequests,
+      }))
+      return result
+    }
+
+    const fieldUrl = buildFieldEvidenceSearchUrl({ fileName: row.file_name, region: row.region })
+    if (!fieldUrl) {
+      return {
+        rol: row.rol,
+        fileName: row.file_name,
+        region: row.region,
+        discoveryBasis: "none",
+        hitCount: 0,
+        providerRequests,
+        hits: [],
+      }
+    }
+
+    try {
+      providerRequests += 1
+      const fieldBody = await brightDataMarkdown(fieldUrl)
+      const fieldHits = extractExternalLinks(fieldBody, 8)
+      const result = {
+        rol: row.rol,
+        fileName: row.file_name,
+        region: row.region,
+        discoveryBasis: "field_name_fallback",
+        hitCount: fieldHits.length,
+        exactRolVisible: fieldBody.includes(row.rol),
+        providerRequests,
+        hits: fieldHits.slice(0, 5),
+      }
+      console.info("[brightdata-kmz-smoke] rol", JSON.stringify({
+        rol: row.rol,
+        discoveryBasis: result.discoveryBasis,
+        hitCount: result.hitCount,
+        providerRequests,
+      }))
       return result
     } catch (err) {
       const result = {
         rol: row.rol,
-        providerRequests: 1,
+        fileName: row.file_name,
+        region: row.region,
+        discoveryBasis: "field_name_fallback",
+        hitCount: 0,
+        providerRequests,
+        hits: [],
         error: err instanceof Error ? err.message : String(err),
       }
-      console.warn("[brightdata-kmz-smoke] rol-failed", JSON.stringify(result))
+      console.warn("[brightdata-kmz-smoke] field-query-failed", JSON.stringify(result))
       return result
     }
   }))
 
   console.info("[brightdata-kmz-smoke] complete", JSON.stringify({
     uniqueRolesTested: results.length,
-    providerRequests: results.length,
+    providerRequests: results.reduce((sum, row) => sum + Number(row.providerRequests || 0), 0),
     failures: results.filter((row) => "error" in row).length,
   }))
 
@@ -158,7 +220,7 @@ export async function GET(request: Request) {
       canonicalSource: "kmz_collection",
       evidenceTarget: "kmz_enrichment_evidence",
       uniqueRolesTested: results.length,
-      providerRequests: results.length,
+      providerRequests: results.reduce((sum, row) => sum + Number(row.providerRequests || 0), 0),
       results,
     },
     { headers: { "Cache-Control": "no-store" } },
