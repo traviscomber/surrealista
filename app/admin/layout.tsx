@@ -1,5 +1,5 @@
 import type React from "react"
-import { AdminSidebar } from "@/components/layout/admin-sidebar"
+import { ModuleOperatingShell } from "@/components/os/module-operating-shell"
 import { AdminHeader } from "@/components/layout/admin-header"
 
 export default function AdminLayout({
@@ -8,12 +8,11 @@ export default function AdminLayout({
   children: React.ReactNode
 }) {
   return (
-    <div className="min-h-screen bg-background lg:flex">
-      <AdminSidebar />
-      <div className="min-w-0 flex-1">
+    <ModuleOperatingShell>
+      <div className="min-h-full bg-background">
         <AdminHeader />
-        <main className="min-h-[calc(100vh-84px)] bg-background">{children}</main>
+        <main className="min-h-[calc(100dvh-124px)] bg-background">{children}</main>
       </div>
-    </div>
+    </ModuleOperatingShell>
   )
 }
