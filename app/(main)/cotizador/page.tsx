@@ -1,5 +1,7 @@
 'use client'
 
+import { OperatingWorkspace } from "@/components/os/operating-workspace"
+
 import { useEffect, useState } from 'react'
 import { AlertCircle, BarChart3, CheckCircle2, Eye, History, Loader2, MapPin, RotateCcw, Send } from 'lucide-react'
 import { WorkspaceHeading } from '@/components/ui/workspace-heading'
@@ -23,7 +25,7 @@ export default function CotizadorPage(){
  const saveWatch=async()=>{if(!result)return;setSaving(true);try{await fetch('/api/cotizador/watchlist',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...result,label:resolvedContext?.display_name||address})});await refreshSidebars()}finally{setSaving(false)}}
  const reset=()=>{setAddress('');setFollowUp('');setResolvedContext(null);setQuestion(null);setMissing([]);setOptions([]);setResult(null);setError(null)}
  const rec=result?.recommendation_sr; const nearby=result?.nearby_intelligence
- return <main className="container mx-auto space-y-8 px-4 py-8">
+ return <OperatingWorkspace><main className="container mx-auto space-y-8 px-4 py-8">
   <WorkspaceHeading eyebrow="Valorizador interno SR" title="Decisión de terreno" description="Dirección primero. Mercado, vecinos, KMZ, actualidad y recomendación para Juan en una sola ficha." outcome="Cada valorización queda registrada y puede pasar a seguimiento." />
   <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_360px]">
    <div className="space-y-6">
@@ -48,5 +50,5 @@ export default function CotizadorPage(){
     <Card><CardHeader><CardTitle className="flex items-center gap-2"><History className="h-4 w-4"/>Historial</CardTitle><CardDescription>Últimas valorizaciones canónicas.</CardDescription></CardHeader><CardContent className="space-y-3">{history.length?history.slice(0,8).map(h=><div key={h.id} className="border-b pb-3 text-sm"><p className="font-medium line-clamp-2">{h.resolved_address||h.commune}</p><p className="mt-1 text-xs text-muted-foreground">{formatClp(h.estimated_price)} · {Math.round(h.confidence||0)}% · {new Date(h.created_at).toLocaleDateString('es-CL')}</p></div>):<p className="text-sm text-muted-foreground">El historial comenzará con la próxima valorización.</p>}</CardContent></Card>
    </div>
   </div>
- </main>
+ </main></OperatingWorkspace>
 }
