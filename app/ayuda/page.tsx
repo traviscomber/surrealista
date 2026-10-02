@@ -70,7 +70,7 @@ const verifiedTools = [
     title: "Asistente de análisis",
     description: "Permite formular preguntas sobre las fuentes que estén disponibles para la sesión.",
     result: "Entrega una respuesta de apoyo que debe validarse contra los registros y documentos originales.",
-    href: "/asistente-ia",
+    href: "/asistente",
     action: "Abrir asistente",
   },
   {
