@@ -150,3 +150,72 @@ export async function POST(request: NextRequest) {
     )
   }
 }
+
+
+async function authorizedAdmin() {
+  const session = await createServerClient()
+  const { data: { user }, error } = await session.auth.getUser()
+  if (error || !user) return { user: null, admin: null }
+  return { user, admin: getAdminClient() }
+}
+
+export async function GET(request: NextRequest) {
+  const { user, admin } = await authorizedAdmin()
+  if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  if (!admin) return NextResponse.json({ error: "Conexión de datos no configurada" }, { status: 503 })
+
+  const moduleName = request.nextUrl.searchParams.get("module")?.trim() || ""
+  const activeOnly = request.nextUrl.searchParams.get("activeOnly") === "true"
+  const rawLimit = Number(request.nextUrl.searchParams.get("limit") || 100)
+  const limit = Number.isFinite(rawLimit) ? Math.min(200, Math.max(1, Math.floor(rawLimit))) : 100
+
+  let query = admin
+    .from("tasks")
+    .select("id,title,description,location,priority,status,due_date,created_at,created_by,assigned_to,related_to,related_id,tags,notes")
+    .order("created_at", { ascending: false })
+    .limit(limit)
+
+  if (moduleName) query = query.eq("related_to", moduleName)
+  if (activeOnly) query = query.neq("status", "completed")
+
+  const { data, error } = await query
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ tasks: data || [] })
+}
+
+export async function PATCH(request: NextRequest) {
+  const { user, admin } = await authorizedAdmin()
+  if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  if (!admin) return NextResponse.json({ error: "Conexión de datos no configurada" }, { status: 503 })
+
+  const body: Record<string, unknown> = await request.json().catch(() => ({}))
+  const taskId = asString(body.taskId, 80)
+  if (!taskId) return NextResponse.json({ error: "taskId requerido" }, { status: 400 })
+
+  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
+  const status = asString(body.status, 40)
+  const priority = asString(body.priority, 20)
+  const notes = asString(body.notes, 2000)
+  if (status && ["pending", "in_progress", "completed"].includes(status)) updates.status = status
+  if (priority && ["low", "medium", "high", "urgent"].includes(priority)) updates.priority = priority
+  if (Object.prototype.hasOwnProperty.call(body, "notes")) updates.notes = notes || null
+
+  const { error } = await admin.from("tasks").update(updates).eq("id", taskId)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
+}
+
+export async function DELETE(request: NextRequest) {
+  const { user, admin } = await authorizedAdmin()
+  if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  if (!admin) return NextResponse.json({ error: "Conexión de datos no configurada" }, { status: 503 })
+
+  const taskId = request.nextUrl.searchParams.get("taskId")?.trim() || ""
+  if (!taskId) return NextResponse.json({ error: "taskId requerido" }, { status: 400 })
+
+  await admin.from("task_notifications").delete().eq("task_id", taskId)
+  await admin.from("task_assignments").delete().eq("task_id", taskId)
+  const { error } = await admin.from("tasks").delete().eq("id", taskId)
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
+}
