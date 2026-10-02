@@ -6,6 +6,17 @@ import { buildSRPlan, collectSREvidence, evidenceSummary } from "@/lib/ai/sur-re
 
 export const maxDuration = 60
 
+type TaskDraft = {
+  title: string
+  description: string | null
+  module: "campos" | "clientes" | "multimedia" | "documentos" | "mercado"
+  priority: "low" | "medium" | "high" | "urgent"
+  dueDate: string | null
+  assigneeNames: string[]
+  relatedId: string | null
+  requiresConfirmation: true
+}
+
 function compactEvidence(evidence: Awaited<ReturnType<typeof collectSREvidence>>) {
   return evidence.map((item) => ({
     source: item.source,
@@ -27,6 +38,28 @@ function fallbackResponse(plan: ReturnType<typeof buildSRPlan>, evidence: Awaite
     ...lines,
     "No se generó una interpretación adicional porque el modelo de síntesis no está disponible.",
   ].join("\n")
+}
+
+function validTaskDraft(value: unknown): TaskDraft | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  const row = value as Record<string, unknown>
+  const modules = new Set(["campos", "clientes", "multimedia", "documentos", "mercado"])
+  const priorities = new Set(["low", "medium", "high", "urgent"])
+  if (typeof row.title !== "string" || !row.title.trim()) return null
+  if (typeof row.module !== "string" || !modules.has(row.module)) return null
+
+  return {
+    title: row.title.trim().slice(0, 255),
+    description: typeof row.description === "string" && row.description.trim() ? row.description.trim().slice(0, 4000) : null,
+    module: row.module as TaskDraft["module"],
+    priority: typeof row.priority === "string" && priorities.has(row.priority) ? row.priority as TaskDraft["priority"] : "medium",
+    dueDate: typeof row.dueDate === "string" && row.dueDate.trim() ? row.dueDate : null,
+    assigneeNames: Array.isArray(row.assigneeNames)
+      ? row.assigneeNames.filter((item): item is string => typeof item === "string" && item.trim().length > 0).slice(0, 10)
+      : [],
+    relatedId: typeof row.relatedId === "string" && row.relatedId.trim() ? row.relatedId : null,
+    requiresConfirmation: true,
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -55,43 +88,71 @@ export async function POST(request: NextRequest) {
     const groundedContext = compactEvidence(evidence)
 
     let responseText = fallbackResponse(plan, evidence)
+    let taskDraft: TaskDraft | null = null
 
     if (process.env.OPENAI_API_KEY) {
       const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
       const completion = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         temperature: 0.1,
+        response_format: { type: "json_object" },
         messages: [
           {
             role: "system",
             content: `Eres el asistente transversal de Sur Realista Operating System.
 
-Tu trabajo es responder consultas operativas usando EXCLUSIVAMENTE la evidencia entregada.
+Responde SIEMPRE como JSON válido:
+{
+  "answer": "texto en español",
+  "taskDraft": null | {
+    "title": "string",
+    "description": "string o null",
+    "module": "campos|clientes|multimedia|documentos|mercado",
+    "priority": "low|medium|high|urgent",
+    "dueDate": "ISO-8601 o null",
+    "assigneeNames": ["nombres mencionados explícitamente"],
+    "relatedId": "id explícito de evidencia o null",
+    "requiresConfirmation": true
+  }
+}
 
-REGLAS:
+REGLAS DE EVIDENCIA:
+- Responde usando EXCLUSIVAMENTE la evidencia entregada.
 - No inventes nombres, precios, relaciones, tendencias ni conclusiones.
-- Distingue hechos encontrados, cálculos simples e información faltante.
 - Si una relación entre cliente y campo no está explícita en la evidencia, di que no está acreditada.
-- Si una fuente falló, indícalo de forma breve.
-- Para informes, usa secciones compactas: Resumen, Evidencia, Vacíos, Próximo paso.
-- Para comparaciones, compara sólo atributos presentes en los registros.
-- Al mencionar un registro, agrega una referencia corta con formato [fuente:id].
+- Si una fuente falló, indícalo brevemente.
+- Para informes: Resumen, Evidencia, Vacíos, Próximo paso.
+- Para comparaciones, usa sólo atributos presentes.
+- Al mencionar registros, referencia [fuente:id].
 - No uses conocimiento externo para rellenar datos.
-- Responde en español, claro y ejecutivo.
-- El modo de ejecución es ${plan.mode}. Los dominios solicitados son: ${plan.domains.join(", ")}.`,
+
+REGLAS DE TAREAS:
+- Si el usuario pide crear, registrar, agregar, dejar o asignar una tarea/to-do/pendiente, prepara taskDraft.
+- NO escribas la tarea en base de datos desde esta respuesta.
+- taskDraft siempre requiere confirmación humana explícita en UI.
+- Asigna sólo personas nombradas explícitamente por el usuario. No adivines responsables.
+- El módulo debe ser el área operativa donde debe caer la tarea.
+- Si no hay fecha explícita, dueDate=null.
+- Si no hay prioridad explícita, usa medium.
+- El texto answer debe indicar claramente que la tarea está preparada y espera confirmación.
+
+El modo de ejecución es ${plan.mode}. Dominios: ${plan.domains.join(", ")}.`,
           },
           {
             role: "user",
-            content: JSON.stringify({
-              query: message,
-              plan,
-              evidence: groundedContext,
-            }),
+            content: JSON.stringify({ query: message, plan, evidence: groundedContext }),
           },
         ],
       })
 
-      responseText = completion.choices[0]?.message?.content?.trim() || responseText
+      const raw = completion.choices[0]?.message?.content || "{}"
+      try {
+        const parsed = JSON.parse(raw)
+        if (typeof parsed.answer === "string" && parsed.answer.trim()) responseText = parsed.answer.trim()
+        taskDraft = validTaskDraft(parsed.taskDraft)
+      } catch (error) {
+        console.warn("[sur-realista-os] invalid synthesis json", error)
+      }
     }
 
     return NextResponse.json({
@@ -104,6 +165,7 @@ REGLAS:
       failedSources: summary.failedSources,
       confidence: summary.confidence,
       evidenceCount: summary.recordCount,
+      taskDraft,
     })
   } catch (error) {
     console.error("[sur-realista-os] assistant error", error)
