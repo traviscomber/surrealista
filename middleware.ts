@@ -14,6 +14,7 @@ const CANONICAL_PRODUCT_ROUTES = [
   { prefix: "/asistente-ia", destination: "/asistente", preserveSuffix: false },
   { prefix: "/ai", destination: "/asistente", preserveSuffix: false },
   { prefix: "/properties", destination: "/propiedades", preserveSuffix: true },
+  { prefix: "/opportunities", destination: "/mercado/oportunidades", preserveSuffix: false },
   { prefix: "/home-spotter/opportunities", destination: "/mercado/oportunidades", preserveSuffix: true },
   { prefix: "/home-spotter", destination: "/mercado/oportunidades", preserveSuffix: false },
   { prefix: "/admin/clientes", destination: "/clientes", preserveSuffix: true },
