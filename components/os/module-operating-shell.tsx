@@ -28,7 +28,11 @@ function moduleLabel(pathname: string) {
 }
 
 function isMarketSubnavActive(pathname: string, href: string) {
-  if (href === "/mercado") return pathname === "/mercado"
+  if (href === "/mercado") return pathname === "/mercado" || pathname.startsWith("/quick-wins")
+  if (href === "/mercado/oportunidades") {
+    return pathname === href || pathname.startsWith(href + "/") || pathname.startsWith("/home-spotter") || pathname.startsWith("/opportunities")
+  }
+  if (href === "/propiedades") return pathname.startsWith("/propiedades") || pathname.startsWith("/properties")
   return pathname === href || pathname.startsWith(href + "/")
 }
 
