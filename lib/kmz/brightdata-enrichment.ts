@@ -149,6 +149,32 @@ export function extractExternalLinks(content: string, limit = 8): BrightDataSear
 
   return hits.slice(0, limit)
 }
+export function inspectGoogleResultStructure(content: string) {
+  const $ = load(content)
+  const h3 = $("h3").slice(0, 8).map((_, el) => {
+    const node = $(el)
+    const anchor = node.closest("a")
+    return {
+      text: node.text().replace(/\s+/g, " ").trim().slice(0, 180),
+      href: anchor.attr("href") || null,
+      parentTag: node.parent().prop("tagName") || null,
+      parentHref: node.parent().attr("href") || null,
+    }
+  }).get()
+
+  const anchors = $("a[href]").slice(0, 20).map((_, el) => ({
+    text: $(el).text().replace(/\s+/g, " ").trim().slice(0, 120),
+    href: ($(el).attr("href") || "").slice(0, 300),
+  })).get()
+
+  return {
+    h3Count: $("h3").length,
+    anchorCount: $("a[href]").length,
+    h3,
+    anchors,
+  }
+}
+
 export function buildPublicEvidenceSearchUrl(args: {
   rol: string
   fileName?: string | null
