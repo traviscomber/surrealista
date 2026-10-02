@@ -43,8 +43,13 @@ const canonicalRoutes = [
   ["/gestion-clientes", "/clientes"],
   ["/admin/mensajes", "/comunicaciones"],
   ["/nueva-tarea", "/gestion-tareas"],
+  ["/admin/agentes", "/asistente"],
+  ["/admin/ia-workspace", "/asistente"],
+  ["/admin/tags", "/campos"],
+  ["/admin/google-drive", "/documentacion"],
+  ["/admin/operaciones-comerciales", "/admin/dashboard"],
 ]
-const retiredRoutes = ["/admin/ia-workspace", "/admin/tags"]
+const retiredRoutes = []
 
 const browser = await chromium.launch({ headless: true })
 const failures = []
