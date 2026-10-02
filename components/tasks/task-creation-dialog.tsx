@@ -429,9 +429,11 @@ export function TaskCreationDialog({
           task_id: taskId,
           user_id: user.id,
           notification_type: "whatsapp",
-          status: "sent",
+          notification_event: "task_assigned",
+          delivery_status: "pending",
           sent_at: new Date().toISOString(),
           message: message,
+          metadata: { channel: "whatsapp_web", requires_user_send: true },
         })
       }
 
