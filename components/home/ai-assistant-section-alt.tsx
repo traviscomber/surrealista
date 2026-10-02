@@ -90,7 +90,7 @@ export function AIAssistantSectionAlt() {
                 </li>
               </ul>
               <Button asChild className="group mt-4">
-                <Link href="/asistente-ia" className="flex items-center">
+                <Link href="/asistente" className="flex items-center">
                   Probar Asistente IA
                   <ArrowRight className="ml-2 h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
                 </Link>
