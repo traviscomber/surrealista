@@ -64,6 +64,9 @@ jobs:
           node --test "$TEST_OUT/tests/prospeccion-sentinel-targeting.test.js"
           rm -rf "$TEST_OUT"
 
+      - name: Navigation contract
+        run: pnpm test:navigation
+
       - name: Production build
         run: pnpm build
 
