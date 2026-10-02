@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient as createAdminClient } from "@supabase/supabase-js"
-import { createClient as createServerClient } from "@/lib/supabase/server"
+import { INTERNAL_ACCESS_COOKIE, INTERNAL_OPERATOR, verifyInternalAccessToken } from "@/lib/auth/internal-access"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -27,9 +27,9 @@ function makeWhatsAppUrl(rawPhone: unknown, message: string): string | null {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await createServerClient()
-  const { data: { user }, error: authError } = await session.auth.getUser()
-  if (authError || !user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  const token = request.cookies.get(INTERNAL_ACCESS_COOKIE)?.value
+  const authorized = await verifyInternalAccessToken(token)
+  if (!authorized) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
 
   const admin = getAdminClient()
   if (!admin) return NextResponse.json({ error: "Conexión de datos no configurada" }, { status: 503 })
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     } else {
       const { data, error } = await admin
         .from("tasks")
-        .insert({ ...taskData, created_at: now, created_by: user.email || user.id })
+        .insert({ ...taskData, created_at: now, created_by: INTERNAL_OPERATOR.id })
         .select("id")
         .single()
       if (error) throw error
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
           task_id: id,
           user_id: candidate.id,
           assigned_at: now,
-          assigned_by: user.email || user.id,
+          assigned_by: INTERNAL_OPERATOR.id,
           role: "assignee",
         })),
       )
@@ -152,16 +152,16 @@ export async function POST(request: NextRequest) {
 }
 
 
-async function authorizedAdmin() {
-  const session = await createServerClient()
-  const { data: { user }, error } = await session.auth.getUser()
-  if (error || !user) return { user: null, admin: null }
-  return { user, admin: getAdminClient() }
+async function authorizedAdmin(request: NextRequest) {
+  const token = request.cookies.get(INTERNAL_ACCESS_COOKIE)?.value
+  const authorized = await verifyInternalAccessToken(token)
+  if (!authorized) return { operator: null, admin: null }
+  return { operator: INTERNAL_OPERATOR, admin: getAdminClient() }
 }
 
 export async function GET(request: NextRequest) {
-  const { user, admin } = await authorizedAdmin()
-  if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  const { operator, admin } = await authorizedAdmin(request)
+  if (!operator) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
   if (!admin) return NextResponse.json({ error: "Conexión de datos no configurada" }, { status: 503 })
 
   const moduleName = request.nextUrl.searchParams.get("module")?.trim() || ""
@@ -184,8 +184,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
-  const { user, admin } = await authorizedAdmin()
-  if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  const { operator, admin } = await authorizedAdmin(request)
+  if (!operator) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
   if (!admin) return NextResponse.json({ error: "Conexión de datos no configurada" }, { status: 503 })
 
   const body: Record<string, unknown> = await request.json().catch(() => ({}))
@@ -206,8 +206,8 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-  const { user, admin } = await authorizedAdmin()
-  if (!user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  const { operator, admin } = await authorizedAdmin(request)
+  if (!operator) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
   if (!admin) return NextResponse.json({ error: "Conexión de datos no configurada" }, { status: 503 })
 
   const taskId = request.nextUrl.searchParams.get("taskId")?.trim() || ""
