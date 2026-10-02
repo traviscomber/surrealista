@@ -25,7 +25,7 @@ type CampoResult = {
 
 const quickActions = [
   { label: "Abrir Campos", href: "/campos", icon: FolderOpen },
-  { label: "Buscar mercado", href: "/busqueda", icon: Search },
+  { label: "Buscar mercado", href: "/mercado", icon: Search },
   { label: "Inteligencia territorial", href: "/kmz-analisis", icon: MapPin },
   { label: "Valorización", href: "/cotizador", icon: Calculator },
   { label: "Clientes", href: "/clientes", icon: Users },
