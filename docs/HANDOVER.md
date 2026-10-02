@@ -307,3 +307,31 @@ La ruta `/busqueda` se mantiene operativa por compatibilidad, pero deja de ser u
 - footer, command palette, KMZ guide, documentos de campo y Analytics apuntan a destinos canónicos;
 - no se elimina el código porque todavía concentra utilidades legacy y puede servir para recuperación;
 - el OS nuevo reemplaza su función de navegación transversal.
+
+
+## 2026-10-02 — Auditoría Frida: navegación persistente
+
+Reglas canónicas:
+- Toda superficie interna debe conservar `ModuleOperatingShell` o `OperatingWorkspace`.
+- Desktop: Inicio y cinco módulos permanecen visibles en el sidebar; Tareas y Asistente permanecen en el header.
+- Mobile/tablet: hamburger abre el mismo árbol canónico; el drawer es scrollable y cierra al navegar.
+- Siempre debe existir una vuelta directa a Inicio. Desktop la tiene en `Inicio` y marca Sur Realista; mobile la tiene en el drawer y en la barra superior.
+- El estado colapsado del sidebar se persiste en `localStorage` entre cambios de route group.
+- Mercado mantiene subnav persistente: Resumen · Propiedades · Inteligencia de Oportunidades · Prospección · Valorización.
+- Administración ya no reemplaza la navegación OS con un sidebar paralelo. Usa la shell global + header/breadcrumb contextual.
+- Herramientas KMZ legacy (`/kmz`, `/kmz-map`, `/kmz-search`, `/kmz-search-advanced`, `/kmz-guide`) conservan la shell y se clasifican como Campos.
+- `/quick-wins` conserva la shell y contexto Mercado.
+- Portal legacy `/opportunities` conserva shell como fallback, aunque middleware lo redirige a Inteligencia de Oportunidades.
+- 404 incluye recuperación explícita a Inicio.
+- Layouts admin anidados no deben usar `min-h-screen`; deben permanecer dentro del viewport controlado por la shell.
+- No introducir nuevos Header/Footer/Sidebar globales fuera de `navigation-config.ts` y `ModuleOperatingShell`.
+
+Accesibilidad y QA:
+- skip link `Saltar al contenido`;
+- `aria-current=page` en navegación activa;
+- `SheetTitle` para drawer móvil;
+- smoke test exige navegación global + acceso a Inicio en rutas operativas;
+- smoke móvil abre drawer, verifica Inicio/Campos/Clientes/Multimedia/Documentos/Mercado y vuelve a Inicio;
+- smoke cubre también herramientas legacy directas.
+
+Gate pendiente: HEAD READY + QA visual autenticado en Opera antes de mergear PR #184.
