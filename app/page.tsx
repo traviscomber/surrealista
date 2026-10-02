@@ -35,7 +35,7 @@ export default async function HomePage() {
     <OperatingSystemDashboard
       metrics={[
         { label: "Campos activos", value: kmz, href: "/campos", note: "KMZ canónicos activos." },
-        { label: "Clientes", value: clients, href: "/gestion-clientes", note: "Registros de clientes." },
+        { label: "Clientes", value: clients, href: "/clientes", note: "Registros de clientes." },
         { label: "Tareas", value: tasks, href: "/gestion-tareas", note: "Tareas registradas." },
         { label: "Documentos", value: documents, href: "/documentacion", note: "Evidencia documental." },
         { label: "Mercado", value: externalProperties, href: "/mercado", note: "Propiedades externas." },
