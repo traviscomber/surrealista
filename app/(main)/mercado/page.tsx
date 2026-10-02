@@ -1,3 +1,4 @@
+import { OperatingWorkspace } from "@/components/os/operating-workspace"
 import Link from "next/link"
 import { ArrowRight, Calculator, Search } from "lucide-react"
 
@@ -10,7 +11,8 @@ export const dynamic = "force-dynamic"
 
 export default function MarketWorkspacePage() {
   return (
-    <main className="mx-auto w-full max-w-[1800px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+    <OperatingWorkspace>
+      <main className="mx-auto w-full max-w-[1800px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
       <div className="flex flex-col gap-4 border-b border-border pb-5 lg:flex-row lg:items-end lg:justify-between">
         <WorkspaceHeading
           eyebrow="Inteligencia comercial"
@@ -36,7 +38,8 @@ export default function MarketWorkspacePage() {
       </div>
 
       <ScrapedPropertiesDashboard mode="full" />
-      <ModuleTasksDock module="mercado" />
-    </main>
+        <ModuleTasksDock module="mercado" />
+      </main>
+    </OperatingWorkspace>
   )
 }
