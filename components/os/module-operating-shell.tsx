@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   Building2,
   ChevronLeft,
@@ -36,10 +36,25 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  useEffect(() => {
+    setCollapsed(window.localStorage.getItem("sr-os-nav-collapsed") === "1")
+  }, [])
+
+  const toggleCollapsed = () => {
+    setCollapsed((value) => {
+      const next = !value
+      window.localStorage.setItem("sr-os-nav-collapsed", next ? "1" : "0")
+      return next
+    })
+  }
   const currentModule = useMemo(() => moduleLabel(pathname), [pathname])
 
   return (
     <div className="flex h-dvh min-h-0 overflow-hidden bg-background text-foreground">
+      <a href="#sr-main-content" className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-[200] focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:shadow-lg">
+        Saltar al contenido
+      </a>
       <aside
         className={cn(
           "hidden shrink-0 border-r border-border/80 bg-card transition-[width] duration-200 lg:flex lg:flex-col",
@@ -106,7 +121,7 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
           })}
           <button
             type="button"
-            onClick={() => setCollapsed((value) => !value)}
+            onClick={toggleCollapsed}
             className="flex min-h-10 w-full items-center gap-3 rounded-md px-3 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
             aria-label={collapsed ? "Expandir navegación" : "Colapsar navegación"}
           >
@@ -125,7 +140,7 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
                   <Menu className="h-4 w-4" />
                 </button>
               </SheetTrigger>
-              <SheetContent side="left" className="w-[290px] p-0">
+              <SheetContent side="left" className="w-[290px] overflow-y-auto p-0">
                 <div className="flex h-16 items-center border-b border-border/80 px-4">
                   <Link href="/" onClick={() => setMobileOpen(false)} className="flex items-center gap-3">
                     <div className="grid h-9 w-9 place-items-center border border-border bg-background">
@@ -229,7 +244,7 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
           </nav>
         ) : null}
 
-        <main className="min-h-0 flex-1 overflow-auto">{children}</main>
+        <main id="sr-main-content" className="min-h-0 flex-1 overflow-auto" tabIndex={-1}>{children}</main>
       </div>
     </div>
   )
