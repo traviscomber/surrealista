@@ -34,9 +34,35 @@ export async function GET(request: Request) {
 
   const url = new URL(request.url)
   const config = brightDataConfigStatus()
+  const providerProbe = url.searchParams.get("probe") === "portal"
   const requested = Number(url.searchParams.get("limit") || "1")
   const limit = Math.max(1, Math.min(Number.isFinite(requested) ? requested : 1, 3))
   console.info("[brightdata-kmz-smoke] start", JSON.stringify({ configured: config.configured, zone: config.zone, limit }))
+  if (providerProbe) {
+    try {
+      const probeUrl = "https://www.portalinmobiliario.com/venta/casa/vitacura-metropolitana"
+      const body = await brightDataMarkdown(probeUrl)
+      console.info("[brightdata-kmz-smoke] provider-probe", JSON.stringify({ bytes: body.length, target: "portal_inmobiliario" }))
+      return NextResponse.json({
+        ok: body.length > 0,
+        dryRun: true,
+        writes: 0,
+        providerProbe: "portal_inmobiliario",
+        bytes: body.length,
+        containsPortal: /portalinmobiliario/i.test(body),
+      }, { headers: { "Cache-Control": "no-store" } })
+    } catch (error) {
+      console.warn("[brightdata-kmz-smoke] provider-probe-failed", error)
+      return NextResponse.json({
+        ok: false,
+        dryRun: true,
+        writes: 0,
+        providerProbe: "portal_inmobiliario",
+        error: error instanceof Error ? error.message : String(error),
+      }, { status: 503, headers: { "Cache-Control": "no-store" } })
+    }
+  }
+
   if (!config.configured) {
     return NextResponse.json(
       {
