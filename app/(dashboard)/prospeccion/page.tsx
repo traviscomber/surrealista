@@ -1,5 +1,7 @@
 "use client"
 
+import { OperatingWorkspace } from "@/components/os/operating-workspace"
+
 import { FormEvent, useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { ArrowRight, Check, Clock3, Loader2, MapPin, Play, Radar, RefreshCw, Save, Sprout, UserRound } from "lucide-react"
@@ -478,7 +480,7 @@ export default function ProspeccionPage() {
   }
 
   return (
-    <main className="mx-auto w-full max-w-[1800px] space-y-6">
+    <OperatingWorkspace><main className="mx-auto w-full max-w-[1800px] space-y-6">
       <WorkspaceHeading eyebrow="Prospección inteligente" title="Poner más campos sobre la mesa" description="Define comuna, sector, superficie y especie objetivo. Sur Realista rastrea mercado publicado y catastros oficiales para entregar opciones concretas, incluyendo ROL fuera de portales, y prioriza qué investigar primero." outcome="Resultado útil: 3 prioridades claras + cola secundaria + siguiente acción verificable." />
 
       <form onSubmit={runSearch} className="grid gap-4 border-y border-border bg-card px-4 py-5 md:grid-cols-2 xl:grid-cols-5 sm:px-6">
@@ -562,6 +564,6 @@ export default function ProspeccionPage() {
       {data?.candidates?.length ? <div className="space-y-4"><div className="flex flex-col gap-2 border-b border-border pb-4 md:flex-row md:items-end md:justify-between"><div><p className="text-xs uppercase tracking-[0.16em] text-muted-foreground">Mercado publicado</p><h2 className="mt-1 text-xl font-medium">Candidatos publicados</h2></div><Badge variant="outline">{data.count} candidatos</Badge></div><div className="space-y-3">{data.candidates.map((candidate) => { const taskCreated = taskCreatedCandidateIds.has(candidate.id); return <Card key={candidate.id} className="p-5"><div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between"><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><Badge>{candidate.prospecting_fit_score}/100 ajuste</Badge><Badge variant="outline">{candidate.opportunity_score}/100 mercado</Badge><span className="text-xs text-muted-foreground">confianza {candidate.confidence}%</span></div><h3 className="mt-3 text-lg font-medium">{candidate.title}</h3><p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground"><MapPin className="h-4 w-4" aria-hidden="true" />{[candidate.commune, candidate.region].filter(Boolean).join(" · ") || "Ubicación pendiente"}</p><div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm"><span><b>{candidate.area_ha.toLocaleString("es-CL")} ha</b></span><span>{candidate.discount_pct}% bajo benchmark</span><span>{candidate.benchmark.sample_count} comparables</span><span>{candidate.benchmark.source_count} fuentes</span></div></div><div className="flex shrink-0 flex-wrap gap-2">{activeMandateId && selectedClientId ? <Button type="button" onClick={() => void createFollowUpTask(candidate)} disabled={creatingTaskFor === candidate.id || taskCreated}>{creatingTaskFor === candidate.id ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : taskCreated ? <Check className="h-4 w-4" aria-hidden="true" /> : null}{taskCreated ? "Tarea creada" : "Crear seguimiento"}</Button> : null}<Button asChild variant="outline"><Link href={`/home-spotter/opportunities/${candidate.id}`}>Ver evidencia<ArrowRight className="h-4 w-4" aria-hidden="true" /></Link></Button></div></div></Card>})}</div></div> : data && !data.candidates.length && !data.offMarketProspects?.length ? <Card className="p-8 text-center text-sm text-muted-foreground">No encontramos opciones verificables con estos criterios en esta ejecución.</Card> : null}
 
       <Card className="p-5"><div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end"><div><label className="mb-2 block text-xs font-medium text-muted-foreground">Vincular cliente después de prospectar</label><select value={selectedClientId} onChange={(event) => applyClient(event.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"><option value="">Sin cliente vinculado</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.name}{client.mainInterest ? ` · ${client.mainInterest}` : ""}</option>)}</select></div><div className="text-sm text-muted-foreground">{selectedClient ? <span className="flex items-center gap-2"><UserRound className="h-4 w-4" aria-hidden="true" />{selectedClient.name} · {selectedClient.clientType}</span> : "Opcional. Sólo habilita seguimiento comercial."}</div></div></Card>
-    </main>
+    </main></OperatingWorkspace>
   )
 }
