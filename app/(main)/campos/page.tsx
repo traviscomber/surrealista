@@ -6,6 +6,7 @@ import { CAMPOSMapVisualBehavior } from "@/components/campos/campos-map-visual-b
 import { CAMPOSTagFilterBridge } from "@/components/campos/campos-tag-filter-bridge"
 import { CAMPOSDetailPanelSafeRedesign } from "@/components/campos/campos-detail-panel-safe-redesign"
 import { LeafletPopupBehavior } from "@/components/kmz/leaflet-popup-behavior"
+import { ModuleOperatingShell } from "@/components/os/module-operating-shell"
 import { ModuleTasksDock } from "@/components/tasks/module-tasks-dock"
 
 export const metadata: Metadata = {
@@ -15,15 +16,19 @@ export const metadata: Metadata = {
 
 export default function CAMPOSPage() {
   return (
-    <div className="fixed inset-x-0 bottom-0 top-16 min-h-0 overflow-hidden bg-background">
-      <LeafletPopupBehavior />
-      <CAMPOSMapVisualBehavior />
-      <CAMPOSTagFilterBridge />
-      <CAMPOSDesktopShellV2 />
-      <CAMPOSUniversalTagFilter />
-      <CAMPOSUnifiedVisualSystem />
-      <CAMPOSDetailPanelSafeRedesign />
-      <ModuleTasksDock module="campos" />
+    <div className="fixed inset-0 z-40 bg-background">
+      <ModuleOperatingShell>
+        <div className="relative h-full min-h-0 overflow-hidden bg-background">
+          <LeafletPopupBehavior />
+          <CAMPOSMapVisualBehavior />
+          <CAMPOSTagFilterBridge />
+          <CAMPOSDesktopShellV2 />
+          <CAMPOSUniversalTagFilter />
+          <CAMPOSUnifiedVisualSystem />
+          <CAMPOSDetailPanelSafeRedesign />
+          <ModuleTasksDock module="campos" />
+        </div>
+      </ModuleOperatingShell>
     </div>
   )
 }
