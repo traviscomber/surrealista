@@ -6,6 +6,7 @@ import {
   buildFieldEvidenceSearchUrl,
   buildPublicEvidenceSearchUrl,
   extractExternalLinks,
+  inspectGoogleResultStructure,
 } from "@/lib/kmz/brightdata-enrichment"
 
 export const runtime = "nodejs"
@@ -66,6 +67,7 @@ export async function GET(request: Request) {
         bytes: body.length,
         exactRolVisible: body.includes("10108-204-16"),
         links,
+        structure: providerProbe === "google" ? inspectGoogleResultStructure(body) : undefined,
       }, { headers: { "Cache-Control": "no-store" } })
     } catch (error) {
       console.warn("[brightdata-kmz-smoke] provider-probe-failed", JSON.stringify({
