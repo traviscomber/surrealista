@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { AlertCircle, BellRing, CheckSquare, Loader2, RefreshCw } from "lucide-react"
 
 import { TasksManager } from "@/components/tasks/tasks-manager"
@@ -8,7 +8,6 @@ import { UserContactManager } from "@/components/tasks/user-contact-manager"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { WorkspaceHeading } from "@/components/ui/workspace-heading"
-import { createBrowserClient } from "@/lib/supabase/client"
 
 interface Task {
   id: string
@@ -41,33 +40,29 @@ function normalizeTask(value: unknown): Task | null {
 }
 
 export default function GestionTareasPage() {
-  const supabase = useMemo(() => createBrowserClient(), [])
   const [tasks, setTasks] = useState<Task[]>([])
   const [state, setState] = useState<TasksState>("idle")
   const [refreshTrigger, setRefreshTrigger] = useState(0)
 
   const loadTasks = useCallback(async () => {
     setState("loading")
-    const { data, error } = await supabase
-      .from("tasks")
-      .select("id, title, description, location, priority, status, due_date, created_at")
-      .order("created_at", { ascending: false })
-      .limit(100)
+    const response = await fetch("/api/tasks/manage?limit=100", { cache: "no-store" })
+    const body = await response.json().catch(() => ({}))
 
-    if (error) {
-      console.error("[gestion-tareas] No se pudieron cargar las tareas", error)
+    if (!response.ok) {
+      console.error("[gestion-tareas] No se pudieron cargar las tareas", body)
       setState("error")
       return
     }
 
-    const normalized = (Array.isArray(data) ? data : [])
+    const normalized = (Array.isArray(body.tasks) ? body.tasks : [])
       .map(normalizeTask)
       .filter((task): task is Task => task !== null)
 
     setTasks(normalized)
     setRefreshTrigger((value) => value + 1)
     setState("ready")
-  }, [supabase])
+  }, []
 
   useEffect(() => {
     void loadTasks()
