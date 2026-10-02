@@ -11,7 +11,7 @@ import {
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import {
   SUR_REALISTA_HOME,
   SUR_REALISTA_MODULES,
@@ -141,6 +141,7 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
                 </button>
               </SheetTrigger>
               <SheetContent side="left" className="w-[290px] overflow-y-auto p-0">
+                <SheetTitle className="sr-only">Navegación Sur Realista</SheetTitle>
                 <div className="flex h-16 items-center border-b border-border/80 px-4">
                   <Link href="/" onClick={() => setMobileOpen(false)} className="flex items-center gap-3">
                     <div className="grid h-9 w-9 place-items-center border border-border bg-background">
@@ -181,6 +182,7 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
                       <Link
                         key={item.label}
                         href={item.href}
+                        aria-current={active ? "page" : undefined}
                         onClick={() => setMobileOpen(false)}
                         className={cn(
                           "flex min-h-11 items-center gap-3 rounded-md px-3 text-sm",
