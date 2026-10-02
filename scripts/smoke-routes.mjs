@@ -29,7 +29,7 @@ const canonicalRoutes = [
   ["/ai", "/asistente"],
   ["/properties", "/propiedades"],
   ["/home-spotter", "/mercado/oportunidades"],
-  ["/home-spotter/opportunities/smoke-id", "/mercado/oportunidades/opportunities/smoke-id"],
+  ["/home-spotter/opportunities/smoke-id", "/mercado/oportunidades/smoke-id"],
   ["/admin/clientes", "/clientes"],
   ["/admin/clientes/smoke-nonexistent", "/clientes/smoke-nonexistent"],
   ["/gestion-clientes", "/clientes"],
