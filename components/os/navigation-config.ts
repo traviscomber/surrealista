@@ -70,6 +70,34 @@ export const SUR_REALISTA_MODULES: SurRealistaNavItem[] = [
   },
 ]
 
+
+export const SUR_REALISTA_MARKET_SUBNAV: SurRealistaNavItem[] = [
+  {
+    label: "Resumen",
+    href: "/mercado",
+    icon: BriefcaseBusiness,
+    prefixes: ["/mercado"],
+  },
+  {
+    label: "Inteligencia de Oportunidades",
+    href: "/mercado/oportunidades",
+    icon: BriefcaseBusiness,
+    prefixes: ["/mercado/oportunidades"],
+  },
+  {
+    label: "Prospección",
+    href: "/prospeccion",
+    icon: BriefcaseBusiness,
+    prefixes: ["/prospeccion"],
+  },
+  {
+    label: "Valorización",
+    href: "/cotizador",
+    icon: BriefcaseBusiness,
+    prefixes: ["/cotizador"],
+  },
+]
+
 export const SUR_REALISTA_UTILITIES: SurRealistaNavItem[] = [
   {
     label: "Tareas",
