@@ -62,6 +62,7 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
               <Link
                 key={item.label}
                 href={item.href}
+                aria-current={active ? "page" : undefined}
                 title={collapsed ? item.label : undefined}
                 className={cn(
                   "flex min-h-11 items-center gap-3 rounded-md px-3 text-sm transition-colors",
@@ -85,6 +86,7 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
               <Link
                 key={item.label}
                 href={item.href}
+                aria-current={active ? "page" : undefined}
                 title={collapsed ? item.label : undefined}
                 className={cn(
                   "flex min-h-10 items-center gap-3 rounded-md px-3 text-sm",
@@ -137,6 +139,7 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
                       <Link
                         key={item.label}
                         href={item.href}
+                        aria-current={active ? "page" : undefined}
                         onClick={() => setMobileOpen(false)}
                         className={cn(
                           "flex min-h-11 items-center gap-3 rounded-md px-3 text-sm",
@@ -177,7 +180,7 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
             </div>
           </div>
 
-          <div className="flex items-center gap-1">
+          <div className="hidden items-center gap-1 sm:flex">
             {SUR_REALISTA_UTILITIES.filter((item) => item.label === "Tareas" || item.label === "Asistente").map((item) => {
               const Icon = item.icon
               const active = isSurRealistaNavActive(pathname, item)
@@ -185,6 +188,7 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
                 <Link
                   key={item.label}
                   href={item.href}
+                  aria-current={active ? "page" : undefined}
                   className={cn(
                     "flex min-h-9 items-center gap-2 rounded-md px-3 text-xs font-medium",
                     active ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground",
