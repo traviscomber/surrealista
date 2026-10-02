@@ -33,6 +33,9 @@ export async function GET(request: Request) {
   if (!allowed(request)) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 })
 
   const config = brightDataConfigStatus()
+  const requested = Number(url.searchParams.get("limit") || "1")
+  const limit = Math.max(1, Math.min(Number.isFinite(requested) ? requested : 1, 3))
+  console.info("[brightdata-kmz-smoke] start", JSON.stringify({ configured: config.configured, zone: config.zone, limit }))
   if (!config.configured) {
     return NextResponse.json(
       {
@@ -67,29 +70,40 @@ export async function GET(request: Request) {
     if (!rol || seen.has(rol)) continue
     seen.add(rol)
     selected.push({ ...row, rol })
-    if (selected.length >= 3) break
+    if (selected.length >= limit) break
   }
 
-  const results = []
-  for (const row of selected) {
+  const results = await Promise.all(selected.map(async (row) => {
     try {
       const markdown = await brightDataMarkdown(
         buildPublicEvidenceSearchUrl({ rol: row.rol, fileName: row.file_name, region: row.region }),
       )
-      results.push({
+      const hits = extractExternalLinks(markdown, 8)
+      const result = {
         rol: row.rol,
-        hitCount: extractExternalLinks(markdown, 8).length,
+        hitCount: hits.length,
         exactRolVisible: markdown.includes(row.rol),
         providerRequests: 1,
-      })
+        hits: hits.slice(0, 5),
+      }
+      console.info("[brightdata-kmz-smoke] rol", JSON.stringify({ rol: row.rol, hitCount: hits.length, exactRolVisible: result.exactRolVisible }))
+      return result
     } catch (err) {
-      results.push({
+      const result = {
         rol: row.rol,
         providerRequests: 1,
         error: err instanceof Error ? err.message : String(err),
-      })
+      }
+      console.warn("[brightdata-kmz-smoke] rol-failed", JSON.stringify(result))
+      return result
     }
-  }
+  }))
+
+  console.info("[brightdata-kmz-smoke] complete", JSON.stringify({
+    uniqueRolesTested: results.length,
+    providerRequests: results.length,
+    failures: results.filter((row) => "error" in row).length,
+  }))
 
   return NextResponse.json(
     {
