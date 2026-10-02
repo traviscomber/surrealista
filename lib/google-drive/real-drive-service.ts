@@ -116,6 +116,10 @@ export class RealGoogleDriveService {
     })
   }
 
+  async reauthorizeForEditing(): Promise<boolean> {
+    return this.startOAuthPopup()
+  }
+
   private async checkAuthenticationStatus(): Promise<boolean> {
     try {
       const response = await fetch("/api/drive/folders", { cache: "no-store" })
