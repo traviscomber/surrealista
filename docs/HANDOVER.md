@@ -298,3 +298,12 @@ Para evitar dos experiencias paralelas:
 - `/opportunities` y sus subrutas redirigen a `/mercado/oportunidades`.
 - El portal antiguo Feed / Map / Pipeline / Saved / Settings queda fuera de la navegación canónica.
 - La lógica vigente de oportunidades reales permanece en Inteligencia de Oportunidades.
+
+
+## 2026-10-02 — Centro operativo legacy fuera de navegación visible
+
+La ruta `/busqueda` se mantiene operativa por compatibilidad, pero deja de ser un destino visible:
+- se retira de la clasificación principal de Mercado;
+- footer, command palette, KMZ guide, documentos de campo y Analytics apuntan a destinos canónicos;
+- no se elimina el código porque todavía concentra utilidades legacy y puede servir para recuperación;
+- el OS nuevo reemplaza su función de navegación transversal.
