@@ -58,7 +58,7 @@ export default function AIAssistantSection() {
 
   const handleSendMessage = () => {
     if (userMessage.trim()) {
-      window.location.href = `/asistente-ia?q=${encodeURIComponent(userMessage)}`
+      window.location.href = `/asistente?q=${encodeURIComponent(userMessage)}`
     }
   }
 
@@ -213,7 +213,7 @@ export default function AIAssistantSection() {
                 size="lg"
                 className="bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 text-white px-12 py-4 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 text-lg font-bold"
               >
-                <Link href="/asistente-ia">
+                <Link href="/asistente">
                   <Brain className="mr-3 h-6 w-6" />
                   Probar Asistente IA Gratis
                 </Link>
