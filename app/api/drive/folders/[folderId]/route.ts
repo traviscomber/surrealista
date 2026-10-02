@@ -10,15 +10,20 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const { folderId } = await params
 
+    const query = new URLSearchParams({
+      q: `'${folderId}' in parents and trashed=false`,
+      fields: "files(id,name,mimeType,size,modifiedTime,parents,webViewLink)",
+      orderBy: "folder,name",
+      pageSize: "1000",
+    })
+
     const response = await fetch(
-      `https://www.googleapis.com/drive/v3/files?` +
-        `q=parents in "${folderId}"&` +
-        `fields=files(id,name,mimeType,size,modifiedTime,parents,webViewLink)&` +
-        `orderBy=folder,name`,
+      `https://www.googleapis.com/drive/v3/files?${query.toString()}`,
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
+        cache: "no-store",
       },
     )
 
