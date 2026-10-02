@@ -226,68 +226,34 @@ export function TaskCreationDialog({
     setLoading(true)
 
     try {
-      if (!title.trim()) {
-        alert("El título es requerido")
-        setLoading(false)
-        return
-      }
+      if (!title.trim()) throw new Error("El título es requerido")
 
-      const createdBy = currentUser?.email || currentUser?.id || "system"
+      const response = await fetch("/api/tasks/manage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          taskId: task?.id || null,
+          title: title.trim(),
+          description: description.trim() || null,
+          priority,
+          dueDate: dueDate ? new Date(dueDate).toISOString() : null,
+          location: location.trim() || null,
+          status: task?.status || "pending",
+          relatedTo: relatedTo || null,
+          relatedId: relatedId || null,
+          notes: locationName ? `Ubicación: ${locationName}` : null,
+          tags,
+          selectedUserIds: selectedUsers,
+        }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(data.error || "No se pudo guardar la tarea")
 
-      const taskData = {
-        title: title.trim().substring(0, 255),
-        description: description.trim() || null,
-        priority: priority || "medium",
-        due_date: dueDate ? new Date(dueDate).toISOString() : null,
-        location: location.trim().substring(0, 255) || null,
-        status: task?.status || "pending",
-        related_to: relatedTo?.substring(0, 255) || null,
-        related_id: relatedId || null,
-        notes: locationName ? `Ubicación: ${locationName}`.substring(0, 1000) : null,
-        updated_at: new Date().toISOString(),
-        ...(isEditMode ? {} : { created_at: new Date().toISOString(), created_by: createdBy }),
-        assigned_to: task?.assigned_to || null,
-        tags: tags.length > 0 ? tags : [],
-      }
-
-      let taskId: string
-
-      if (isEditMode) {
-        console.log("[v0] Updating task:", task.id, taskData)
-        const { error } = await supabase.from("tasks").update(taskData).eq("id", task.id)
-        if (error) throw error
-        taskId = task.id
-        console.log("[v0] Task updated successfully")
-      } else {
-        console.log("[v0] Creating task with data:", taskData)
-        const { data, error } = await supabase.from("tasks").insert([taskData]).select("id").limit(1)
-        if (error) throw error
-        const createdTaskId = getTaskId(data?.[0])
-        if (!createdTaskId) throw new Error("La tarea se creó sin un identificador válido")
-        taskId = createdTaskId
-        console.log("[v0] Task created successfully:", taskId)
-      }
-
-      if (selectedUsers.length > 0) {
-        if (isEditMode) {
-          await supabase.from("task_assignments").delete().eq("task_id", taskId)
-        }
-
-        const assignments = selectedUsers.map((userId) => ({
-          task_id: taskId,
-          user_id: userId,
-          assigned_by: createdBy,
-          assigned_at: new Date().toISOString(),
-        }))
-
-        const { error: assignError } = await supabase.from("task_assignments").insert(assignments)
-        if (assignError) {
-          console.error("[v0] Error creating task assignments:", assignError)
-        } else {
-          console.log("[v0] Task assignments created successfully")
-          await sendWhatsAppNotifications(taskId, selectedUsers, taskData)
-        }
-      }
+      const whatsappActions = Array.isArray(data.whatsappActions) ? data.whatsappActions : []
+      whatsappActions.forEach((action: { url?: string }, index: number) => {
+        if (!action?.url) return
+        window.setTimeout(() => window.open(action.url, "_blank"), index * 900)
+      })
 
       setTitle("")
       setDescription("")
@@ -296,151 +262,15 @@ export function TaskCreationDialog({
       setLocation("")
       setLocationName("")
       setSelectedUsers([])
-
+      setTags([])
       onOpenChange(false)
       onTaskCreated?.()
-    } catch (error: any) {
-      console.error(`[v0] Exception ${isEditMode ? "updating" : "creating"} task:`, error.message)
-      alert(`Error al ${isEditMode ? "actualizar" : "crear"} la tarea: ${error.message || "Error desconocido"}`)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Error desconocido"
+      console.error("[tasks] save failed", error)
+      alert(`Error al ${isEditMode ? "actualizar" : "crear"} la tarea: ${message}`)
     } finally {
       setLoading(false)
-    }
-  }
-
-  const sendWhatsAppNotifications = async (taskId: string, userIds: string[], taskData: any) => {
-    try {
-      const { data: usersData, error: usersError } = await supabase
-        .from("users")
-        .select("id, name, email, whatsapp, phone, notification_preferences")
-        .in("id", userIds)
-
-      if (usersError) {
-        console.error("[v0] Error fetching users:", usersError)
-        throw usersError
-      }
-
-      console.log("[v0] Fetched users for notifications:", usersData)
-
-      const usersWithWhatsApp = usersData?.filter((user) => {
-        const hasWhatsApp = user.whatsapp || user.phone
-        const notifyEnabled = !user.notification_preferences || user.notification_preferences?.whatsapp !== false
-        console.log(`[v0] User ${user.name}: hasWhatsApp=${!!hasWhatsApp}, notifyEnabled=${notifyEnabled}`)
-        return hasWhatsApp && notifyEnabled
-      })
-
-      if (!usersWithWhatsApp || usersWithWhatsApp.length === 0) {
-        console.log("[v0] No users with WhatsApp enabled for notifications")
-        alert("⚠️ Tarea creada, pero ningún usuario tiene WhatsApp configurado para recibir notificaciones.")
-        return
-      }
-
-      console.log(`[v0] Sending WhatsApp notifications to ${usersWithWhatsApp.length} users`)
-
-      const priorityLabels: Record<string, string> = {
-        urgent: "URGENTE",
-        high: "ALTA",
-        medium: "MEDIA",
-        low: "BAJA",
-      }
-      const priorityText = priorityLabels[typeof taskData.priority === "string" ? taskData.priority : "medium"] || "MEDIA"
-
-      const dueText = taskData.due_date
-        ? new Date(taskData.due_date).toLocaleDateString("es-CL", {
-            day: "2-digit",
-            month: "2-digit",
-            year: "numeric",
-          })
-        : "Sin fecha límite"
-
-      const locationText = taskData.notes || "Sin ubicación especificada"
-
-      const message =
-        `NUEVA TAREA ASIGNADA\n\n` +
-        `Titulo: ${taskData.title}\n\n` +
-        `Descripcion:\n${taskData.description || "Sin descripción"}\n\n` +
-        `Prioridad: ${priorityText}\n` +
-        `Fecha limite: ${dueText}\n` +
-        `Ubicacion: ${locationText}\n\n` +
-        `Enviado desde Sur-Realista`
-
-      console.log("[v0] WhatsApp message:", message)
-
-      for (let i = 0; i < usersWithWhatsApp.length; i++) {
-        const user = usersWithWhatsApp[i]
-        const rawPhone = user.whatsapp || user.phone
-
-        let phoneNumber = rawPhone.replace(/[\s\-()]/g, "").replace(/^\+/, "")
-
-        console.log(`[v0] User ${user.name}: raw="${rawPhone}", cleaned="${phoneNumber}"`)
-
-        if (phoneNumber.startsWith("56")) {
-          const afterCountryCode = phoneNumber.substring(2)
-          console.log(`[v0] After country code (56): "${afterCountryCode}"`)
-
-          if (afterCountryCode.startsWith("99")) {
-            phoneNumber = "56" + afterCountryCode.substring(1)
-            console.log(`[v0] Removed duplicate 9: "${phoneNumber}"`)
-          }
-
-          if (phoneNumber.length !== 11) {
-            console.error(
-              `[v0] Invalid Chilean phone length for ${user.name}: ${phoneNumber.length} digits (expected 11)`,
-            )
-            alert(`⚠️ Número inválido para ${user.name}: ${rawPhone}\nFormato esperado: +56 9 XXXX XXXX`)
-            continue
-          }
-
-          if (!phoneNumber.startsWith("569")) {
-            console.error(`[v0] Invalid Chilean mobile prefix for ${user.name}: ${phoneNumber}`)
-            alert(`⚠️ Número inválido para ${user.name}: ${rawPhone}\nLos móviles chilenos deben empezar con +56 9`)
-            continue
-          }
-        } else if (phoneNumber.startsWith("9")) {
-          phoneNumber = "56" + phoneNumber
-          console.log(`[v0] Added country code: "${phoneNumber}"`)
-
-          if (phoneNumber.length !== 11) {
-            console.error(`[v0] Invalid phone length after adding country code: ${phoneNumber.length}`)
-            alert(`⚠️ Número inválido para ${user.name}: ${rawPhone}`)
-            continue
-          }
-        } else {
-          console.error(`[v0] Invalid phone format for ${user.name}: ${phoneNumber}`)
-          alert(`⚠️ Número inválido para ${user.name}: ${rawPhone}\nFormato esperado: +56 9 XXXX XXXX`)
-          continue
-        }
-
-        console.log(`[v0] Final phone number for ${user.name}: "${phoneNumber}" (${phoneNumber.length} digits)`)
-        console.log(
-          `[v0] Breakdown: Country=${phoneNumber.substring(0, 2)}, Mobile=${phoneNumber.substring(2, 3)}, Number=${phoneNumber.substring(3)}`,
-        )
-
-        const encodedMessage = encodeURIComponent(message)
-        const whatsappUrl = `https://web.whatsapp.com/send?phone=${phoneNumber}&text=${encodedMessage}`
-
-        console.log(`[v0] WhatsApp URL for ${user.name}: ${whatsappUrl}`)
-
-        setTimeout(() => {
-          window.open(whatsappUrl, "_blank")
-          console.log(`[v0] Opened WhatsApp for ${user.name}`)
-        }, i * 1500)
-
-        await supabase.from("task_notifications").insert({
-          task_id: taskId,
-          user_id: user.id,
-          notification_type: "whatsapp",
-          notification_event: "task_assigned",
-          delivery_status: "pending",
-          sent_at: new Date().toISOString(),
-          message: message,
-          metadata: { channel: "whatsapp_web", requires_user_send: true },
-        })
-      }
-
-      alert(`✅ Tarea creada! Se abrirán ${usersWithWhatsApp.length} ventanas de WhatsApp para enviar notificaciones.`)
-    } catch (error) {
-      console.error("[v0] Error sending WhatsApp notifications:", error)
-      alert("⚠️ Tarea creada, pero hubo un error al enviar las notificaciones de WhatsApp.")
     }
   }
 
