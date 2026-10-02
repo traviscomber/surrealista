@@ -7,6 +7,7 @@ let authenticatedBaseURL = baseURL
 const signingSecret = process.env.SMOKE_SIGNING_SECRET
 const smokePassword = process.env.SMOKE_PASSWORD
 const operationalRoutes = [
+  { route: "/", expectedText: /Cinco módulos operativos|Todo Sur Realista/i },
   { route: "/campos", expectedText: /CAMPOS|Colección de campos/i },
   { route: "/prospeccion", expectedText: /Prospección inteligente|Poner más campos sobre la mesa/i },
   { route: "/prospeccion/demanda-mercado", expectedText: /Demanda detectada en mercado|Inteligencia competitiva/i },
@@ -18,17 +19,21 @@ const operationalRoutes = [
   { route: "/clientes/importar", expectedText: /Importar Clientes desde Excel/i },
   { route: "/gestion-tareas", expectedText: /Gestión operativa|Tareas/i },
   { route: "/comunicaciones", expectedText: /Comunicaciones/i },
+  { route: "/asistente", expectedText: /Asistente Sur Realista|Inteligencia transversal/i },
   { route: "/admin/dashboard", expectedText: /Centro operativo/i },
   { route: "/admin/kmz-collection", expectedText: /KMZ|Colección/i },
 ]
 const canonicalRoutes = [
+  ["/asistente-ia", "/asistente"],
+  ["/ai", "/asistente"],
+  ["/properties", "/propiedades"],
   ["/admin/clientes", "/clientes"],
   ["/admin/clientes/smoke-nonexistent", "/clientes/smoke-nonexistent"],
   ["/gestion-clientes", "/clientes"],
   ["/admin/mensajes", "/comunicaciones"],
   ["/nueva-tarea", "/gestion-tareas"],
 ]
-const retiredRoutes = ["/asistente-ia", "/admin/ia-workspace", "/admin/tags"]
+const retiredRoutes = ["/admin/ia-workspace", "/admin/tags"]
 
 const browser = await chromium.launch({ headless: true })
 const failures = []
@@ -128,12 +133,19 @@ try {
       await loginPage.locator("#password").waitFor({ state: "visible", timeout: 15_000 })
       await loginPage.locator("#password").fill(smokePassword)
       await loginPage.getByRole("button", { name: "Ingresar" }).click()
-      await loginPage.waitForURL("**/campos", { timeout: 30_000 })
+      await loginPage.waitForFunction(() => !document.querySelector("#password"), null, { timeout: 30_000 })
       authenticatedBaseURL = new URL(loginPage.url()).origin
+      if (new URL(loginPage.url()).pathname !== "/") {
+        failures.push({ route: "/", check: "direct login landing", final: loginPage.url() })
+        console.error(`FAIL direct login landing final=${loginPage.url()}`)
+      } else {
+        console.log("PASS direct login landing")
+      }
       authenticatedPage = loginPage
     }
 
     if (smokePassword && authenticatedPage) {
+      await authenticatedPage.goto(`${authenticatedBaseURL}/campos`, { waitUntil: "domcontentloaded", timeout: 30_000 })
       await authenticatedPage.getByText(/\d+ KMZ · \d+ regiones/).waitFor({ state: "visible", timeout: 30_000 })
       await authenticatedPage.waitForFunction(() => {
         const text = document.body.innerText || ""
