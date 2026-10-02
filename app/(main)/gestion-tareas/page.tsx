@@ -1,5 +1,7 @@
 "use client"
 
+import { OperatingWorkspace } from "@/components/os/operating-workspace"
+
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { AlertCircle, BellRing, CheckSquare, Loader2, RefreshCw } from "lucide-react"
 
@@ -74,7 +76,8 @@ export default function GestionTareasPage() {
   }, [loadTasks])
 
   return (
-    <main className="mx-auto w-full max-w-[1800px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+    <OperatingWorkspace>
+      <main className="mx-auto w-full max-w-[1800px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
       <WorkspaceHeading
         eyebrow="Gestión operativa"
         title="Tareas"
@@ -129,7 +132,8 @@ export default function GestionTareasPage() {
             <UserContactManager />
           </section>
         </TabsContent>
-      </Tabs>
-    </main>
+        </Tabs>
+      </main>
+    </OperatingWorkspace>
   )
 }
