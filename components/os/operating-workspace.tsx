@@ -1,3 +1,5 @@
+"use client"
+
 import { ModuleOperatingShell } from "@/components/os/module-operating-shell"
 
 export function OperatingWorkspace({ children }: { children: React.ReactNode }) {
