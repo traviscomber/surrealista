@@ -3,7 +3,6 @@ import { INTERNAL_ACCESS_COOKIE, verifyInternalAccessToken } from "@/lib/auth/in
 import { updateSession } from "@/lib/supabase/middleware"
 
 const RETIRED_PRODUCT_PREFIXES = [
-  "/asistente-ia",
   "/ai",
   "/admin/agentes",
   "/admin/ia-workspace",
@@ -13,6 +12,7 @@ const RETIRED_PRODUCT_PREFIXES = [
 ]
 
 const CANONICAL_PRODUCT_ROUTES = [
+  { prefix: "/asistente-ia", destination: "/asistente", preserveSuffix: false },
   { prefix: "/admin/clientes", destination: "/clientes", preserveSuffix: true },
   { prefix: "/gestion-clientes", destination: "/clientes", preserveSuffix: true },
   { prefix: "/admin/mensajes", destination: "/comunicaciones", preserveSuffix: false },
