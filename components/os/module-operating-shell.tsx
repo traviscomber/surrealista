@@ -16,6 +16,7 @@ import {
   SUR_REALISTA_HOME,
   SUR_REALISTA_MODULES,
   SUR_REALISTA_UTILITIES,
+  SUR_REALISTA_MARKET_SUBNAV,
   getSurRealistaSection,
   isSurRealistaNavActive,
 } from "@/components/os/navigation-config"
@@ -24,6 +25,11 @@ const NAV_ITEMS = [SUR_REALISTA_HOME, ...SUR_REALISTA_MODULES]
 
 function moduleLabel(pathname: string) {
   return getSurRealistaSection(pathname)?.label || "Operación"
+}
+
+function isMarketSubnavActive(pathname: string, href: string) {
+  if (href === "/mercado") return pathname === "/mercado"
+  return pathname === href || pathname.startsWith(href + "/")
 }
 
 export function ModuleOperatingShell({ children }: { children: React.ReactNode }) {
@@ -201,6 +207,27 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
             })}
           </div>
         </header>
+
+        {currentModule === "Mercado" ? (
+          <nav className="flex h-11 shrink-0 items-center gap-1 overflow-x-auto border-b border-border/80 bg-card/70 px-3 sm:px-5" aria-label="Navegación de Mercado">
+            {SUR_REALISTA_MARKET_SUBNAV.map((item) => {
+              const active = isMarketSubnavActive(pathname, item.href)
+              return (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  className={cn(
+                    "whitespace-nowrap rounded-md px-3 py-2 text-xs font-medium transition-colors",
+                    active ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  )}
+                >
+                  {item.label}
+                </Link>
+              )
+            })}
+          </nav>
+        ) : null}
 
         <main className="min-h-0 flex-1 overflow-auto">{children}</main>
       </div>
