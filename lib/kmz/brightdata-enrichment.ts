@@ -7,6 +7,7 @@ const REQUEST_TIMEOUT_MS = 45_000
 export type BrightDataSearchHit = {
   label: string
   url: string
+  via?: "direct" | "google_redirect"
 }
 
 function config() {
@@ -110,7 +111,17 @@ export function extractExternalLinks(content: string, limit = 8): BrightDataSear
       .replace(/\s+/g, " ")
       .trim()
 
-    hits.push({ label: label || host, url: normalized })
+    hits.push({ label: label || host, url: normalized, via: "direct" })
+  }
+
+  const acceptGoogleRedirect = (rawHref: string, rawLabel: string) => {
+    if (!rawHref.startsWith("/goto?url=")) return
+    const url = `https://www.google.com${rawHref.replace(/&amp;/gi, "&")}`
+    if (seen.has(url)) return
+    seen.add(url)
+    const label = rawLabel.replace(/\s+/g, " ").trim()
+    if (!label) return
+    hits.push({ label, url, via: "google_redirect" })
   }
 
   const $ = load(content)
@@ -122,6 +133,11 @@ export function extractExternalLinks(content: string, limit = 8): BrightDataSear
 
     if (/^https?:\/\//i.test(rawHref)) {
       accept(rawHref, label)
+      return
+    }
+
+    if (rawHref.startsWith("/goto?url=")) {
+      acceptGoogleRedirect(rawHref, label)
       return
     }
 
