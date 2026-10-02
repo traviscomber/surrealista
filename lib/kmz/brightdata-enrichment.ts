@@ -112,6 +112,25 @@ export function buildPublicEvidenceSearchUrl(args: {
   return `https://www.google.com/search?q=${encodeURIComponent(query)}&hl=es-419&gl=cl`
 }
 
+export function buildFieldEvidenceSearchUrl(args: {
+  fileName?: string | null
+  region?: string | null
+}) {
+  const cleanName = String(args.fileName || "")
+    .replace(/\.kmz$/i, "")
+    .replace(/\(\d+\)/g, " ")
+    .replace(/[_-]+/g, " ")
+    .replace(/\b(kmz|marca posicion googleearth|googleearth|tentativo|opcion|vta|cal)\b/gi, " ")
+    .replace(/\d+(?:[.,]\d+)?/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+
+  if (!cleanName) return null
+  const region = String(args.region || "").replace(/\s+/g, " ").trim()
+  const query = [`"${cleanName}"`, region ? `"${region}"` : "", "Chile terreno campo"].filter(Boolean).join(" ")
+  return `https://www.google.com/search?q=${encodeURIComponent(query)}&hl=es-419&gl=cl`
+}
+
 export function brightDataConfigStatus() {
   return {
     configured: Boolean(process.env.BRIGHTDATA_API_KEY),
