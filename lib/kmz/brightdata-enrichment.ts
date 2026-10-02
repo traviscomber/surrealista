@@ -217,6 +217,52 @@ function normalizeEvidenceText(value: string) {
     .trim()
 }
 
+export function classifyEvidenceUrl(rawUrl: string | null | undefined) {
+  if (!rawUrl) return "unknown"
+  let host = ""
+  try {
+    host = new URL(rawUrl).hostname.toLowerCase()
+  } catch {
+    return "unknown"
+  }
+
+  const officialHosts = [
+    "bcn.cl",
+    "leychile.cl",
+    "bienes.cl",
+    "patrimonio.bienes.cl",
+    "ciren.cl",
+    "bibliotecadigital.ciren.cl",
+    "conaf.cl",
+    "sii.cl",
+    "sea.gob.cl",
+    "sernageomin.cl",
+  ]
+  if (
+    host.endsWith(".gob.cl") ||
+    officialHosts.some((domain) => host === domain || host.endsWith(`.${domain}`))
+  ) return "official_public"
+
+  const marketHosts = [
+    "portalterreno.cl",
+    "portalinmobiliario.com",
+    "mercadolibre.cl",
+    "yapo.cl",
+    "chilesir.com",
+    "properstar.com",
+    "burotto.com",
+    "mitula.cl",
+    "fazwaz.cl",
+    "bienesonline.cl",
+  ]
+  if (marketHosts.some((domain) => host === domain || host.endsWith(`.${domain}`))) return "market_listing"
+
+  const socialHosts = ["facebook.com", "instagram.com", "youtube.com", "tiktok.com"]
+  if (socialHosts.some((domain) => host === domain || host.endsWith(`.${domain}`))) return "social"
+
+  return "other"
+}
+
 export function summarizeEvidencePage(content: string, expected: {
   rol?: string | null
   commune?: string | null
@@ -254,6 +300,7 @@ export function summarizeEvidencePage(content: string, expected: {
     title: title || null,
     description: description.replace(/\s+/g, " ").trim().slice(0, 600) || null,
     canonicalUrl,
+    sourceClass: classifyEvidenceUrl(canonicalUrl),
     textSample: bodyText.slice(0, 1800),
     matches: {
       fullRol: contains(expected.rol),
