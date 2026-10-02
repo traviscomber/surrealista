@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient as createAdminClient } from "@supabase/supabase-js"
-import { createClient as createServerClient } from "@/lib/supabase/server"
+import { INTERNAL_ACCESS_COOKIE, INTERNAL_OPERATOR, verifyInternalAccessToken } from "@/lib/auth/internal-access"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -45,9 +45,9 @@ function getAdminClient() {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await createServerClient()
-  const { data: { user }, error: authError } = await session.auth.getUser()
-  if (authError || !user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  const token = request.cookies.get(INTERNAL_ACCESS_COOKIE)?.value
+  const authorized = await verifyInternalAccessToken(token)
+  if (!authorized) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
 
   const admin = getAdminClient()
   if (!admin) return NextResponse.json({ error: "Conexión de datos no configurada" }, { status: 503 })
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
       .insert({
         title,
         description,
-        created_by: user.email || user.id,
+        created_by: INTERNAL_OPERATOR.id,
         assigned_to: matchedUsers.length === 1 ? String(matchedUsers[0].email || matchedUsers[0].name || "") : null,
         created_at: now,
         updated_at: now,
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
           task_id: task.id,
           user_id: candidate.id,
           assigned_at: now,
-          assigned_by: user.email || user.id,
+          assigned_by: INTERNAL_OPERATOR.id,
           role: "assignee",
         })),
       )
