@@ -571,7 +571,7 @@ export function AIPracticalExamples() {
 
               <div className="text-center">
                 <Button asChild size="lg">
-                  <Link href="/asistente-ia">
+                  <Link href="/asistente">
                     Conversar con ClientMatch-Bot
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Link>
