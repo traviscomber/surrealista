@@ -137,7 +137,7 @@ export function AIAssistantChat() {
     setIsLoading(true)
     try {
       const normalize = (value: string) =>
-        value.normalize("NFD").replace(/[\\u0300-\\u036f]/g, "").toLowerCase().trim()
+        value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim()
 
       const { data: users, error: usersError } = await supabase
         .from("users")
@@ -210,9 +210,9 @@ export function AIAssistantChat() {
         if (prefs.whatsapp === false) return []
 
         const raw = String(user.whatsapp || user.phone || "")
-        let phone = raw.replace(/[\\s\\-()]/g, "").replace(/^\\+/, "")
+        let phone = raw.replace(/[\s()\-]/g, "").replace(/^\+/, "")
         if (phone.startsWith("9")) phone = `56${phone}`
-        if (!/^569\\d{8}$/.test(phone)) return []
+        if (!/^569\d{8}$/.test(phone)) return []
 
         return [{
           name: String(user.name || user.email || "Responsable"),
