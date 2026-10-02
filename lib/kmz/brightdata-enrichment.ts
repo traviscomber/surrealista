@@ -93,6 +93,13 @@ export function extractExternalLinks(content: string, limit = 8): BrightDataSear
   const htmlRegex = /<a\b[^>]*href=["'](https?:\/\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi
   while ((match = htmlRegex.exec(content)) && hits.length < limit) accept(match[1], match[2])
 
+  const googleRedirectRegex = /<a\b[^>]*href=["']\/url\?([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi
+  while ((match = googleRedirectRegex.exec(content)) && hits.length < limit) {
+    const params = new URLSearchParams(match[1].replace(/&amp;/gi, "&"))
+    const target = params.get("q") || params.get("url")
+    if (target?.startsWith("http")) accept(target, match[2])
+  }
+
   return hits.slice(0, limit)
 }
 
