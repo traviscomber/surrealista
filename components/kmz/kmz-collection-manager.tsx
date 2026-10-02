@@ -24,6 +24,7 @@ import { createBrowserClient } from "@supabase/ssr"
 import { driveService } from "@/lib/google-drive/drive-service"
 import { kmzReader } from "@/lib/kmz/kmz-reader"
 import { NeighborhoodAnalysisModal } from "@/components/kmz/neighborhood-analysis-modal"
+import { KMZDetailModal } from "@/components/kmz/kmz-detail-modal"
 import { KMZOwnerEditModal } from "@/components/kmz/kmz-owner-edit-modal"
 import { InfoBox } from "@/components/educational/educational-components"
 
@@ -80,6 +81,8 @@ export function KMZCollectionManager() {
   const [settingUpTable, setSettingUpTable] = useState(false)
   const [tableExists, setTableExists] = useState<boolean | null>(null)
   const [selectedKmzForAnalysis, setSelectedKmzForAnalysis] = useState<KMZRecord | null>(null)
+  const [selectedKmzForDetail, setSelectedKmzForDetail] = useState<KMZRecord | null>(null)
+  const [showDetailModal, setShowDetailModal] = useState(false)
   const [showAnalysisModal, setShowAnalysisModal] = useState(false)
   const [sortBy, setSortBy] = useState<"date" | "placemarks">("date")
   const [stats, setStats] = useState({
@@ -540,6 +543,17 @@ export function KMZCollectionManager() {
 
   return (
     <div className="min-h-screen bg-background">
+      <KMZDetailModal
+        open={showDetailModal}
+        onOpenChange={setShowDetailModal}
+        kmz={selectedKmzForDetail}
+        onEdit={() => {
+          if (!selectedKmzForDetail) return
+          setShowDetailModal(false)
+          setSelectedKmzForOwnerEdit(selectedKmzForDetail)
+          setShowOwnerEditModal(true)
+        }}
+      />
       <NeighborhoodAnalysisModal
         open={showAnalysisModal}
         onOpenChange={setShowAnalysisModal}
@@ -897,12 +911,25 @@ export function KMZCollectionManager() {
             {sortedKMZ.map((kmz) => (
               <Card
                 key={kmz.id}
-                className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-card"
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                  setSelectedKmzForDetail(kmz)
+                  setShowDetailModal(true)
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault()
+                    setSelectedKmzForDetail(kmz)
+                    setShowDetailModal(true)
+                  }
+                }}
+                className="cursor-pointer border-0 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] bg-card"
               >
                 <CardHeader className="pb-3">
                   <div className="flex justify-between items-start mb-2">
                     <Badge className="bg-purple-100 text-purple-700 font-semibold">{kmz.category || "general"}</Badge>
-                    <Button variant="ghost" size="sm" onClick={() => deleteKMZ(kmz.id)} className="hover:bg-red-50">
+                    <Button variant="ghost" size="sm" onClick={(event) => { event.stopPropagation(); void deleteKMZ(kmz.id) }} className="hover:bg-red-50">
                       <Trash2 className="h-4 w-4 text-red-600" />
                     </Button>
                   </div>
@@ -986,14 +1013,15 @@ export function KMZCollectionManager() {
 
                   <div className="flex gap-2">
                     <Button
-                      onClick={() => loadToMap(kmz)}
+                      onClick={(event) => { event.stopPropagation(); loadToMap(kmz) }}
                       className="flex-1 bg-gradient-to-r from-primary to-accent hover:from-primary/80 hover:to-accent/80"
                     >
                       <Layers className="h-4 w-4 mr-2" />
                       Cargar en Mapa
                     </Button>
                     <Button
-                      onClick={() => {
+                      onClick={(event) => {
+                        event.stopPropagation()
                         setSelectedKmzForOwnerEdit(kmz)
                         setShowOwnerEditModal(true)
                       }}
