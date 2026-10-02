@@ -147,6 +147,22 @@ export function extractExternalLinks(content: string, limit = 8): BrightDataSear
     })
   }
 
+  if (hits.length < limit) {
+    const decoded = content
+      .replace(/\\u002F/gi, "/")
+      .replace(/\\u003A/gi, ":")
+      .replace(/\\u0026/gi, "&")
+      .replace(/\\u003D/gi, "=")
+      .replace(/\\\//g, "/")
+      .replace(/&amp;/gi, "&")
+
+    const genericUrlRegex = /https?:\/\/[^\s"'<>\\)]+/gi
+    let match: RegExpExecArray | null
+    while ((match = genericUrlRegex.exec(decoded)) && hits.length < limit) {
+      accept(match[0], "")
+    }
+  }
+
   return hits.slice(0, limit)
 }
 export function inspectGoogleResultStructure(content: string) {
