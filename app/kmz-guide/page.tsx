@@ -141,10 +141,10 @@ export default function KMZGuidePage() {
                   Estado Indexación
                 </Button>
               </Link>
-              <Link href="/busqueda" className="block">
+              <Link href="/campos" className="block">
                 <Button variant="outline" className="w-full">
                   <Search className="h-4 w-4 mr-2" />
-                  Búsqueda Unificada
+                  Abrir Campos
                 </Button>
               </Link>
             </div>
