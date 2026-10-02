@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { ChevronDown, ChevronRight, File, Folder, FolderOpen, Loader2, MapPin, RefreshCw, Search } from "lucide-react"
+import { ChevronDown, ChevronRight, File, Folder, FolderOpen, Loader2, MapPin, PanelRight, RefreshCw, Search, X } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -182,6 +182,9 @@ export function CAMPOSFolderViewIntegrated() {
   const [kmzFiles, setKmzFiles] = useState<any[]>([])
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null)
   const [search, setSearch] = useState("")
+  const [searchResults, setSearchResults] = useState<KmzInventoryRecord[]>([])
+  const [searching, setSearching] = useState(false)
+  const [detailOpen, setDetailOpen] = useState(true)
   const [loadingRegions, setLoadingRegions] = useState<Set<string>>(new Set())
   const [loadingInitial, setLoadingInitial] = useState(true)
   const [loadingMap, setLoadingMap] = useState(false)
@@ -318,6 +321,7 @@ export function CAMPOSFolderViewIntegrated() {
     setCirenError(false)
     setLoadingCiren(false)
     setSelectedRecord(record)
+    setDetailOpen(true)
     setSelectedRegion(record.region)
     setSelectedLayer(null)
     setLoadingMap(true)
@@ -390,11 +394,53 @@ export function CAMPOSFolderViewIntegrated() {
     if (record && String(record.id) !== String(selectedRecord?.id || "")) void loadSelectedKmz(record)
   }, [loadSelectedKmz, recordsByRegion, selectedRecord?.id, selectedRegion])
 
+  useEffect(() => {
+    const query = search.trim()
+    if (query.length < 2) {
+      setSearchResults([])
+      setSearching(false)
+      return
+    }
+
+    const timer = window.setTimeout(async () => {
+      setSearching(true)
+      const safeQuery = query.replace(/[%(),]/g, " ").trim()
+      const pattern = `%${safeQuery}%`
+
+      try {
+        const [textAttempt, rolAttempt] = await Promise.all([
+          supabase
+            .from("kmz_inventory_status")
+            .select("*")
+            .or(`file_name.ilike.${pattern},region.ilike.${pattern}`)
+            .limit(40),
+          supabase
+            .from("kmz_inventory_status")
+            .select("*")
+            .contains("rol_numbers", [query])
+            .limit(40),
+        ])
+
+        const merged = [...(textAttempt.data || []), ...(rolAttempt.data || [])] as KmzInventoryRecord[]
+        const unique = Array.from(new Map(merged.map((record) => [String(record.id), record])).values())
+        setSearchResults(unique.slice(0, 40))
+      } catch (error) {
+        console.warn("[CAMPOS] global search failed", error)
+        setSearchResults([])
+      } finally {
+        setSearching(false)
+      }
+    }, 220)
+
+    return () => window.clearTimeout(timer)
+  }, [search, supabase])
+
+  const hasGlobalSearch = search.trim().length >= 2
+
   const filteredSummaries = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase("es")
-    if (!query) return summaries
-    return summaries.filter((summary) => summary.region.toLocaleLowerCase("es").includes(query))
-  }, [search, summaries])
+    if (hasGlobalSearch) return summaries
+    return summaries
+  }, [hasGlobalSearch, summaries])
 
   const visibleRegionRecords = useCallback((region: string) => {
     const records = recordsByRegion[region] || []
@@ -444,7 +490,39 @@ export function CAMPOSFolderViewIntegrated() {
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
-          {loadingInitial ? (
+          {hasGlobalSearch ? (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between px-2 pb-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Resultados</p>
+                <span className="text-[11px] tabular-nums text-muted-foreground">{searchResults.length}</span>
+              </div>
+              {searching ? (
+                <div className="flex h-28 items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Buscando...</div>
+              ) : searchResults.length ? searchResults.map((record) => {
+                const badge = geometryBadge(record)
+                const active = selectedRecord?.id === record.id
+                return (
+                  <button
+                    key={record.id}
+                    type="button"
+                    onClick={() => void loadSelectedKmz(record)}
+                    className={`flex w-full items-start gap-3 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-secondary/70 ${active ? "bg-secondary" : ""}`}
+                  >
+                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium">{record.file_name}</span>
+                      <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
+                        {record.region}{record.rol_numbers?.[0] ? ` · ROL ${record.rol_numbers[0]}` : ""}
+                      </span>
+                    </span>
+                    <Badge variant="outline" className={`shrink-0 text-[10px] ${badge.className}`}>{badge.label}</Badge>
+                  </button>
+                )
+              }) : (
+                <div className="px-3 py-8 text-center text-sm text-muted-foreground">No encontramos un campo, región o ROL con esa búsqueda.</div>
+              )}
+            </div>
+          ) : loadingInitial ? (
             <div className="flex h-40 items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Cargando inventario...</div>
           ) : filteredSummaries.map((summary) => {
             const isOpen = openRegions.has(summary.region)
@@ -489,7 +567,7 @@ export function CAMPOSFolderViewIntegrated() {
         </div>
       </aside>
 
-      <main className="flex min-w-0 flex-1 flex-col bg-background">
+      <main className="relative flex min-w-0 flex-1 flex-col bg-background">
         <header className="flex h-14 items-center justify-between border-b bg-card px-5">
           <div className="min-w-0">
             <h1 className="truncate text-lg font-semibold tracking-tight">CAMPOS</h1>
@@ -497,7 +575,15 @@ export function CAMPOSFolderViewIntegrated() {
               {selectedRecord ? selectedRecord.file_name : selectedRegion ? `${selectedRegion} · ${kmzFiles.length} KMZ visibles` : "Selecciona una región"}
             </p>
           </div>
-          {selectedRecord ? <Badge variant="outline" className={geometryBadge(selectedRecord).className}>{geometryBadge(selectedRecord).label}</Badge> : null}
+          {selectedRecord ? (
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className={geometryBadge(selectedRecord).className}>{geometryBadge(selectedRecord).label}</Badge>
+              <Button type="button" variant="outline" size="sm" className="h-8 gap-2" onClick={() => setDetailOpen((value) => !value)}>
+                <PanelRight className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">{detailOpen ? "Ocultar ficha" : "Ver ficha"}</span>
+              </Button>
+            </div>
+          ) : null}
         </header>
 
         <div className="relative min-h-0 flex-1">
@@ -520,9 +606,12 @@ export function CAMPOSFolderViewIntegrated() {
           )}
         </div>
 
-        {selectedRecord ? (
-          <section className="max-h-[46vh] overflow-y-auto border-t bg-card px-5 py-4">
+        {selectedRecord && detailOpen ? (
+          <section className="absolute inset-x-0 bottom-0 z-30 max-h-[58%] overflow-y-auto border-t bg-card px-5 py-4 shadow-2xl lg:bottom-0 lg:left-auto lg:right-0 lg:top-14 lg:max-h-none lg:w-[400px] lg:border-l lg:border-t-0">
             <div className="flex items-start justify-between gap-6">
+              <Button type="button" variant="ghost" size="icon" className="absolute right-3 top-3 h-8 w-8" onClick={() => setDetailOpen(false)} aria-label="Cerrar ficha del campo">
+                <X className="h-4 w-4" />
+              </Button>
               <div className="min-w-0">
                 <p className="sr-meta">KMZ seleccionado</p>
                 <h2 className="mt-1 truncate text-base font-semibold">{selectedRecord.file_name}</h2>
