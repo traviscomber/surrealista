@@ -257,3 +257,26 @@ QA pendiente:
 - HEAD actual debe quedar READY en Vercel.
 - Después, QA visual autenticado en Opera: Inicio → cinco módulos → Prospección/Valorización → ficha cliente → documentos → Home Spotter → Tareas → Asistente, más drawer móvil.
 - No mergear PR #184 hasta completar ese recorrido.
+
+
+## 2026-10-02 — Home Spotter pasa a Inteligencia de Oportunidades
+
+Decisión de producto:
+- El nombre visible `Home Spotter` queda retirado.
+- Nombre corporativo canónico: `Inteligencia de Oportunidades`.
+- Jerarquía: `Mercado → Inteligencia de Oportunidades`.
+- Ruta canónica: `/mercado/oportunidades`.
+- Detalle: `/mercado/oportunidades/[id]`.
+
+Compatibilidad:
+- `/home-spotter` redirige a `/mercado/oportunidades`.
+- `/home-spotter/opportunities/[id]` redirige a `/mercado/oportunidades/[id]`.
+- Nombres internos legacy en librerías/APIs pueden mantenerse mientras no se expongan al usuario y sigan operativos.
+
+UI:
+- Mercado expone tres subflujos claros: Inteligencia de Oportunidades, Prospección y Valorización.
+- El feed y las fichas ya enlazan a las rutas corporativas.
+- Prospección abre evidencia en la nueva ruta corporativa.
+- Smoke tests cubren ruta canónica y aliases legacy.
+
+No separar Inteligencia de Oportunidades como módulo principal del OS.
