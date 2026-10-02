@@ -290,3 +290,11 @@ Para reducir saltos y evitar que Inteligencia de Oportunidades parezca otro prod
 - El subnav aparece sólo dentro del contexto Mercado.
 - En mobile es horizontal y desplazable; no agrega otro drawer.
 - Propiedades/comparables permanecen dentro del Resumen de Mercado por ahora.
+
+
+## 2026-10-02 — Portal legacy Opportunities retirado de navegación
+
+Para evitar dos experiencias paralelas:
+- `/opportunities` y sus subrutas redirigen a `/mercado/oportunidades`.
+- El portal antiguo Feed / Map / Pipeline / Saved / Settings queda fuera de la navegación canónica.
+- La lógica vigente de oportunidades reales permanece en Inteligencia de Oportunidades.
