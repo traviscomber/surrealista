@@ -58,8 +58,15 @@ export function extractExternalLinks(content: string, limit = 8): BrightDataSear
     if (!normalized) return
 
     const host = new URL(normalized).hostname.toLowerCase()
-    if (
+    const searchEngineHost =
+      host === "google.com" ||
+      host.endsWith(".google.com") ||
+      /^([^.]+\.)*google\.[a-z.]+$/i.test(host) ||
       host.endsWith("bing.com") ||
+      host.endsWith("duckduckgo.com")
+
+    if (
+      searchEngineHost ||
       host.endsWith("microsoft.com") ||
       host.endsWith("msn.com") ||
       host.endsWith("brightdata.com")
@@ -94,14 +101,8 @@ export function buildPublicEvidenceSearchUrl(args: {
   fileName?: string | null
   region?: string | null
 }) {
-  const cleanName = (args.fileName || "").replace(/\.kmz$/i, "").replace(/[()]/g, " ").replace(/\s+/g, " ").trim()
-  const terms = [
-    `"${args.rol}"`,
-    cleanName ? `"${cleanName}"` : "",
-    args.region ? `"${args.region}"` : "",
-    "propietario sociedad fundo predio",
-  ].filter(Boolean)
-  return `https://www.bing.com/search?q=${encodeURIComponent(terms.join(" "))}&setlang=es-CL`
+  const query = `"${args.rol}" Chile`
+  return `https://www.google.com/search?q=${encodeURIComponent(query)}&hl=es-419&gl=cl`
 }
 
 export function brightDataConfigStatus() {
