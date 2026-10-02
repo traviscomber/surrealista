@@ -207,6 +207,64 @@ export function inspectGoogleResultStructure(content: string) {
   }
 }
 
+function normalizeEvidenceText(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+export function summarizeEvidencePage(content: string, expected: {
+  rol?: string | null
+  commune?: string | null
+  address?: string | null
+  fileName?: string | null
+}) {
+  const $ = load(content)
+  const title = $("title").first().text().replace(/\s+/g, " ").trim()
+  const description =
+    $('meta[name="description"]').attr("content") ||
+    $('meta[property="og:description"]').attr("content") ||
+    ""
+  const canonicalUrl =
+    $('link[rel="canonical"]').attr("href") ||
+    $('meta[property="og:url"]').attr("content") ||
+    null
+  const bodyText = $("body").text().replace(/\s+/g, " ").trim()
+  const normalizedBody = normalizeEvidenceText(bodyText)
+
+  const rolParts = String(expected.rol || "").split("-").filter(Boolean)
+  const shortRol = rolParts.length >= 3 ? rolParts.slice(1).join("-") : String(expected.rol || "")
+  const cleanField = String(expected.fileName || "")
+    .replace(/\.kmz$/i, "")
+    .replace(/\(\d+\)/g, " ")
+    .replace(/\d+(?:[.,]\d+)?/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+
+  const contains = (value: string | null | undefined) => {
+    const normalized = normalizeEvidenceText(String(value || ""))
+    return Boolean(normalized && normalizedBody.includes(normalized))
+  }
+
+  return {
+    title: title || null,
+    description: description.replace(/\s+/g, " ").trim().slice(0, 600) || null,
+    canonicalUrl,
+    textSample: bodyText.slice(0, 1800),
+    matches: {
+      fullRol: contains(expected.rol),
+      shortRol: contains(shortRol),
+      commune: contains(expected.commune),
+      address: contains(expected.address),
+      fieldName: contains(cleanField),
+    },
+  }
+}
+
 export function buildPublicEvidenceSearchUrl(args: {
   rol: string
   fileName?: string | null
