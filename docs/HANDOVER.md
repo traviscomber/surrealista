@@ -235,3 +235,25 @@ Implementado:
 - dashboard, header legado y shell OS fueron alineados con la nueva IA.
 
 Gate: no continuar refinando mapa hasta completar QA visual de navegación en Opera y confirmar build READY del HEAD.
+
+
+## 2026-10-02 — Navegación OS consolidada en layouts
+
+Refactor posterior al primer handover de navegación:
+
+- `app/(main)/layout.tsx` usa directamente `ModuleOperatingShell`; se retiraron Header/Footer legacy de este route group.
+- `app/(dashboard)/layout.tsx` usa la misma shell OS, por lo que Prospección y sus subrutas conservan navegación global.
+- Campos, Mercado, Tareas, Comunicaciones y Valorización ya no montan shells anidadas ni overlays para ocultar chrome viejo.
+- `app/clientes/layout.tsx` y `app/documentacion/layout.tsx` mantienen la shell en fichas profundas e importación.
+- `app/home-spotter/layout.tsx` mantiene Mercado visible al revisar evidencia de oportunidades.
+- Inicio usa ahora la misma shell global que los módulos; el dashboard quedó como contenido operativo, eliminando el salto entre sidebars distintos.
+- `components/os/navigation-config.ts` es la única fuente canónica de módulos, utilidades, prefijos y estado activo.
+- Rutas legacy: `/asistente-ia` y `/ai` → `/asistente`; `/properties` → `/propiedades`.
+- Login directo en `/` vuelve a Inicio; sólo respeta otra ruta cuando existe un `?redirect=` válido.
+- CTAs internos del asistente fueron actualizados a `/asistente`.
+- Smoke test de rutas actualizado para validar Inicio, Asistente, aliases canónicos y login en Inicio.
+
+QA pendiente:
+- HEAD actual debe quedar READY en Vercel.
+- Después, QA visual autenticado en Opera: Inicio → cinco módulos → Prospección/Valorización → ficha cliente → documentos → Home Spotter → Tareas → Asistente, más drawer móvil.
+- No mergear PR #184 hasta completar ese recorrido.
