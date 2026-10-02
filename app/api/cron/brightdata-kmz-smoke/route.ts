@@ -7,6 +7,7 @@ import {
   buildPublicEvidenceSearchUrl,
   extractExternalLinks,
   inspectGoogleResultStructure,
+  summarizeEvidencePage,
 } from "@/lib/kmz/brightdata-enrichment"
 
 export const runtime = "nodejs"
@@ -37,6 +38,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url)
   const config = brightDataConfigStatus()
   const providerProbe = url.searchParams.get("probe")
+  const validateCandidates = url.searchParams.get("validate") === "1"
   const requested = Number(url.searchParams.get("limit") || "1")
   const limit = Math.max(1, Math.min(Number.isFinite(requested) ? requested : 1, 3))
   console.info("[brightdata-kmz-smoke] start", JSON.stringify({ configured: config.configured, zone: config.zone, limit }))
@@ -219,6 +221,31 @@ export async function GET(request: Request) {
       return result
     }
   }))
+
+  if (validateCandidates) {
+    for (const result of results) {
+      const candidate = Array.isArray(result.hits)
+        ? result.hits.find((hit: any) => hit?.via === "google_redirect") || result.hits[0]
+        : null
+      if (!candidate?.url) continue
+
+      try {
+        const body = await brightDataMarkdown(candidate.url)
+        const row = selected.find((item) => item.rol === result.rol)
+        const siiRecord = row?.metadata?.sii_point_resolution?.record || null
+        ;(result as any).validation = summarizeEvidencePage(body, {
+          rol: result.rol,
+          commune: siiRecord?.comuna || siiRecord?.raw?.nombreComuna || null,
+          address: siiRecord?.direccion || siiRecord?.raw?.direccion || null,
+          fileName: row?.file_name || null,
+        })
+        ;(result as any).providerRequests = Number((result as any).providerRequests || 0) + 1
+      } catch (error) {
+        ;(result as any).validationError = error instanceof Error ? error.message : String(error)
+        ;(result as any).providerRequests = Number((result as any).providerRequests || 0) + 1
+      }
+    }
+  }
 
   console.info("[brightdata-kmz-smoke] complete", JSON.stringify({
     uniqueRolesTested: results.length,
