@@ -20,25 +20,39 @@ function config() {
 
 export async function brightDataMarkdown(url: string) {
   const { apiKey, zone } = config()
-  const response = await fetch(BRIGHTDATA_ENDPOINT, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      zone,
-      url,
-      format: "raw",
-    }),
-    cache: "no-store",
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-  })
+  let lastError: Error | null = null
 
-  const body = await response.text()
-  if (!response.ok) throw new Error(`BRIGHTDATA_HTTP_${response.status}`)
-  if (!body.trim()) throw new Error("BRIGHTDATA_EMPTY_BODY")
-  return body
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      const response = await fetch(BRIGHTDATA_ENDPOINT, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          zone,
+          url,
+          format: "raw",
+        }),
+        cache: "no-store",
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      })
+
+      const body = await response.text()
+      if (!response.ok) throw new Error(`BRIGHTDATA_HTTP_${response.status}`)
+      if (!body.trim()) throw new Error("BRIGHTDATA_EMPTY_BODY")
+      return body
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error(String(error))
+      const retryable =
+        lastError.message === "BRIGHTDATA_EMPTY_BODY" ||
+        /^BRIGHTDATA_HTTP_5\d\d$/.test(lastError.message)
+      if (!retryable || attempt === 2) throw lastError
+    }
+  }
+
+  throw lastError || new Error("BRIGHTDATA_UNKNOWN_ERROR")
 }
 
 function normalizeUrl(raw: string) {
@@ -66,12 +80,20 @@ export function extractExternalLinks(content: string, limit = 8): BrightDataSear
       /^([^.]+\.)*google\.[a-z.]+$/i.test(host) ||
       host.endsWith("gstatic.com") ||
       host.endsWith("googleusercontent.com") ||
+      host.endsWith("googleadservices.com") ||
       host.endsWith("doubleclick.net") ||
       host.endsWith("bing.com") ||
       host.endsWith("duckduckgo.com")
 
+    const infrastructureHost =
+      host === "schema.org" ||
+      host === "www.schema.org" ||
+      host === "w3.org" ||
+      host === "www.w3.org"
+
     if (
       searchEngineHost ||
+      infrastructureHost ||
       host.endsWith("microsoft.com") ||
       host.endsWith("msn.com") ||
       host.endsWith("brightdata.com")
@@ -92,10 +114,11 @@ export function extractExternalLinks(content: string, limit = 8): BrightDataSear
   }
 
   const $ = load(content)
-  $("a[href]").each((_, element) => {
+
+  $("a:has(h3)").each((_, element) => {
     if (hits.length >= limit) return false
     const rawHref = $(element).attr("href") || ""
-    const label = $(element).text()
+    const label = $(element).find("h3").first().text() || $(element).text()
 
     if (/^https?:\/\//i.test(rawHref)) {
       accept(rawHref, label)
@@ -103,27 +126,25 @@ export function extractExternalLinks(content: string, limit = 8): BrightDataSear
     }
 
     if (rawHref.startsWith("/url?")) {
-      const query = rawHref.slice(rawHref.indexOf("?") + 1).replace(/&amp;/gi, "&")
-      const params = new URLSearchParams(query)
+      const params = new URLSearchParams(rawHref.slice(rawHref.indexOf("?") + 1).replace(/&amp;/gi, "&"))
       const target = params.get("q") || params.get("url")
       if (target?.startsWith("http")) accept(target, label)
     }
   })
 
   if (hits.length < limit) {
-    const decoded = content
-      .replace(/\\u002F/gi, "/")
-      .replace(/\\u003A/gi, ":")
-      .replace(/\\u0026/gi, "&")
-      .replace(/\\u003D/gi, "=")
-      .replace(/\\\//g, "/")
-      .replace(/&amp;/gi, "&")
+    $("a[href]").each((_, element) => {
+      if (hits.length >= limit) return false
+      const rawHref = $(element).attr("href") || ""
+      const label = $(element).text()
+      if (!label.trim()) return
 
-    const genericUrlRegex = /https?:\/\/[^\s"'<>\\)]+/gi
-    let match: RegExpExecArray | null
-    while ((match = genericUrlRegex.exec(decoded)) && hits.length < limit) {
-      accept(match[0], "")
-    }
+      if (rawHref.startsWith("/url?")) {
+        const params = new URLSearchParams(rawHref.slice(rawHref.indexOf("?") + 1).replace(/&amp;/gi, "&"))
+        const target = params.get("q") || params.get("url")
+        if (target?.startsWith("http")) accept(target, label)
+      }
+    })
   }
 
   return hits.slice(0, limit)
