@@ -79,6 +79,12 @@ export const SUR_REALISTA_MARKET_SUBNAV: SurRealistaNavItem[] = [
     prefixes: ["/mercado"],
   },
   {
+    label: "Propiedades",
+    href: "/propiedades",
+    icon: BriefcaseBusiness,
+    prefixes: ["/propiedades"],
+  },
+  {
     label: "Inteligencia de Oportunidades",
     href: "/mercado/oportunidades",
     icon: BriefcaseBusiness,
