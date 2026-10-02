@@ -230,7 +230,7 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
         </header>
 
         {currentModule === "Mercado" ? (
-          <nav className="flex h-11 shrink-0 items-center gap-1 overflow-x-auto border-b border-border/80 bg-card/70 px-3 sm:px-5" aria-label="Navegación de Mercado">
+          <nav className="flex h-11 shrink-0 items-center gap-1 overflow-x-auto border-b border-border/80 bg-card/70 px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:px-5" aria-label="Navegación de Mercado">
             {SUR_REALISTA_MARKET_SUBNAV.map((item) => {
               const active = isMarketSubnavActive(pathname, item.href)
               return (
