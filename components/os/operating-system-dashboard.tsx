@@ -45,7 +45,7 @@ const modules = [
   {
     name: "Clientes",
     description: "Personas, empresas, intereses, relaciones, seguimiento y contexto comercial.",
-    href: "/gestion-clientes",
+    href: "/clientes",
     icon: Users,
     agent: "Agente Clientes",
   },
@@ -76,7 +76,7 @@ const quickActions = [
   { label: "Tareas", href: "/gestion-tareas", icon: CheckSquare2 },
   { label: "Prospección", href: "/prospeccion", icon: Search },
   { label: "Analíticas", href: "/admin/analytics", icon: BarChart3 },
-  { label: "Asistente IA", href: "/asistente-ia", icon: Bot },
+  { label: "Asistente IA", href: "/asistente", icon: Bot },
 ]
 
 export function OperatingSystemDashboard({ metrics }: OperatingSystemDashboardProps) {
