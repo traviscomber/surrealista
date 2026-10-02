@@ -18,7 +18,8 @@
     "scrape:surealista": "node scripts/run-scrapers.mjs --source=surealista",
     "scrape:camposchile": "node scripts/run-scrapers.mjs --source=camposchile",
     "scrape:terrachiloe": "node scripts/run-scrapers.mjs --source=terrachiloe",
-    "scrape:portalterreno": "node scripts/run-scrapers.mjs --source=portalterreno"
+    "scrape:portalterreno": "node scripts/run-scrapers.mjs --source=portalterreno",
+    "test:navigation": "node scripts/check-navigation-contract.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai": "latest",
