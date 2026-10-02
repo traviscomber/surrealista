@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 
 export default function CAMPOSPage() {
   return (
-    <div className="fixed inset-0 z-40 bg-background">
+    <div className="fixed inset-0 z-[100] bg-background">
       <ModuleOperatingShell>
         <div className="relative h-full min-h-0 overflow-hidden bg-background">
           <LeafletPopupBehavior />
