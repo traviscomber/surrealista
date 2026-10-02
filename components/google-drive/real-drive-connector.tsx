@@ -131,10 +131,19 @@ export default function RealDriveConnector() {
                 <CheckCircle2 className="h-5 w-5 text-primary" />
                 Conexión con escritura habilitada
               </div>
-              <Button variant="outline" onClick={() => void loadFolders()} disabled={loading || writing}>
-                <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-                Actualizar
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => void realDriveService.reauthorizeForEditing().then((ok) => ok && loadFolders())}
+                  disabled={loading || writing}
+                >
+                  Autorizar edición
+                </Button>
+                <Button variant="outline" onClick={() => void loadFolders()} disabled={loading || writing}>
+                  <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                  Actualizar
+                </Button>
+              </div>
             </div>
           ) : (
             <Button onClick={() => void connect()} disabled={connecting}>
