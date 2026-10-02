@@ -3,24 +3,16 @@
 import Link from "next/link"
 import { useMemo, useState } from "react"
 import {
-  BarChart3,
-  Bot,
-  BriefcaseBusiness,
   Building2,
-  CheckSquare2,
   ChevronLeft,
   ChevronRight,
-  Files,
   FolderOpen,
-  ImageIcon,
   LayoutDashboard,
-  MapPinned,
-  Search,
   Sparkles,
-  Users,
 } from "lucide-react"
 
 import { AIAssistantChat } from "@/components/ai-assistant/ai-assistant-chat"
+import { SUR_REALISTA_MODULES, SUR_REALISTA_UTILITIES } from "@/components/os/navigation-config"
 import { cn } from "@/lib/utils"
 
 type Metric = {
@@ -34,50 +26,21 @@ type OperatingSystemDashboardProps = {
   metrics: Metric[]
 }
 
-const modules = [
-  {
-    name: "Campos",
-    description: "Inventario territorial, ROL, mapas, inteligencia y análisis de cada campo.",
-    href: "/campos",
-    icon: MapPinned,
-    agent: "Agente Campos",
-  },
-  {
-    name: "Clientes",
-    description: "Personas, empresas, intereses, relaciones, seguimiento y contexto comercial.",
-    href: "/clientes",
-    icon: Users,
-    agent: "Agente Clientes",
-  },
-  {
-    name: "Multimedia",
-    description: "Contenido, redes sociales, packs de publicaciones y activos de comunicación.",
-    href: "/comunicaciones",
-    icon: ImageIcon,
-    agent: "Agente Contenido",
-  },
-  {
-    name: "Documentos",
-    description: "Repositorio documental, preparación y generación de informes con evidencia.",
-    href: "/documentacion",
-    icon: Files,
-    agent: "Agente Documental",
-  },
-  {
-    name: "Mercado",
-    description: "Propiedades, comparables, prospección y señales de oportunidad.",
-    href: "/mercado",
-    icon: BriefcaseBusiness,
-    agent: "Agente Mercado",
-  },
-]
+const modules = SUR_REALISTA_MODULES.map((item) => ({
+  name: item.label,
+  description: item.description || "",
+  href: item.href,
+  icon: item.icon,
+  agent: item.agent || "",
+}))
 
-const quickActions = [
-  { label: "Tareas", href: "/gestion-tareas", icon: CheckSquare2 },
-  { label: "Prospección", href: "/prospeccion", icon: Search },
-  { label: "Analíticas", href: "/admin/analytics", icon: BarChart3 },
-  { label: "Asistente IA", href: "/asistente", icon: Bot },
-]
+const quickActions = SUR_REALISTA_UTILITIES
+  .filter((item) => item.label === "Tareas" || item.label === "Asistente")
+  .map((item) => ({
+    label: item.label === "Asistente" ? "Asistente IA" : item.label,
+    href: item.href,
+    icon: item.icon,
+  }))
 
 export function OperatingSystemDashboard({ metrics }: OperatingSystemDashboardProps) {
   const [leftCollapsed, setLeftCollapsed] = useState(false)
