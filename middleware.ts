@@ -98,7 +98,6 @@ export async function middleware(request: NextRequest) {
   if (canonicalProductPath) {
     const url = request.nextUrl.clone()
     url.pathname = canonicalProductPath
-    url.search = ""
     return NextResponse.redirect(url)
   }
 
