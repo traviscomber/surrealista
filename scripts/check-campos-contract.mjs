@@ -11,6 +11,7 @@ const contracts = [
   ["components/campos/campo-intelligence-panel-v2.tsx", [
     "01 · Identidad",
     "02 · Uso y actividad",
+    "Uso SII",
     "04 · Entorno y POIs",
     "05 · Documentos",
     "07 · Siguiente acción",
