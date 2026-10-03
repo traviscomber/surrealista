@@ -65,7 +65,7 @@ export function OperatingSystemDashboard({ metrics }: OperatingSystemDashboardPr
                   index < SUR_REALISTA_MODULES.length - 1 && "border-b border-border/70",
                 )}
               >
-                <span className="font-mono text-[10px] text-muted-foreground">0{index + 1}</span>
+                <span className="font-mono text-[10px] text-muted-foreground">{module.code || `M0${index + 1}`}</span>
                 <div className="flex items-center gap-3">
                   <Icon className="h-4 w-4 text-primary" aria-hidden="true" />
                   <h3 className="text-[15px] font-semibold">{module.label}</h3>
