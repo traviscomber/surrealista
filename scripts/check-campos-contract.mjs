@@ -28,6 +28,10 @@ const contracts = [
     "Google Docs",
     "/api/kmz/profile/",
   ]],
+  ["components/kmz/kmz-collection-manager.tsx", [
+    "@/lib/supabase/client",
+    "createBrowserClient()",
+  ]],
   ["app/api/kmz/search/route.ts", [
     "owner.ilike",
     "rol_numbers",
@@ -49,6 +53,11 @@ const contracts = [
 
 const failures = []
 
+const forbiddenContracts = [
+  ["components/kmz/kmz-owner-edit-modal.tsx", ["@supabase/ssr"]],
+  ["components/kmz/kmz-collection-manager.tsx", ["@supabase/ssr"]],
+]
+
 for (const [path, required] of contracts) {
   let content = ""
   try {
@@ -60,6 +69,18 @@ for (const [path, required] of contracts) {
 
   for (const token of required) {
     if (!content.includes(token)) failures.push(`${path}: falta contrato ${JSON.stringify(token)}`)
+  }
+}
+
+for (const [path, forbidden] of forbiddenContracts) {
+  let content = ""
+  try {
+    content = await readFile(path, "utf8")
+  } catch {
+    continue
+  }
+  for (const token of forbidden) {
+    if (content.includes(token)) failures.push(`${path}: contrato prohibido presente ${JSON.stringify(token)}`)
   }
 }
 
