@@ -85,7 +85,7 @@ export function KMZOwnerEditModal({
       }
 
       if (displayName.trim()) currentMetadata.manual_display_name = displayName.trim()
-      else delete currentMetadata.manual_display_name
+      else if (currentDisplayName !== undefined) delete currentMetadata.manual_display_name
 
       const { error: updateError } = await supabase
         .from('kmz_collection')
