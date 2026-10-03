@@ -327,9 +327,9 @@ try {
     const mobileMenuButton = authenticatedPage.getByRole("button", { name: "Abrir navegación" })
     await mobileMenuButton.waitFor({ state: "visible", timeout: 15_000 })
     await mobileMenuButton.click()
-    await authenticatedPage.screenshot({ path: `${evidenceDir}/navigation-mobile-open.png`, fullPage: false })
     const mobileNav = authenticatedPage.locator('nav[aria-label="Módulos de Sur Realista"]:visible')
     await mobileNav.getByRole("link", { name: "Inicio", exact: true }).waitFor({ state: "visible", timeout: 15_000 })
+    await authenticatedPage.screenshot({ path: `${evidenceDir}/navigation-mobile-open.png`, fullPage: false })
     for (const label of ["Campos", "Clientes", "Multimedia", "Documentos", "Mercado"]) {
       await mobileNav.getByRole("link", { name: label, exact: true }).waitFor({ state: "visible", timeout: 15_000 })
     }
