@@ -62,11 +62,11 @@ export function KMZOwnerEditModal({
       setError(null)
 
       const payload: Record<string, string> = {
-        displayName,
         owner,
         google_docs_link: googleDocsLink,
       }
 
+      if (currentDisplayName !== undefined || displayName.trim()) payload.displayName = displayName
       if (currentPic !== undefined || pic.trim()) payload.pic = pic
       if (currentPicPhone !== undefined || picPhone.trim()) payload.pic_phone = picPhone
       if (currentPicEmail !== undefined || picEmail.trim()) payload.pic_email = picEmail
