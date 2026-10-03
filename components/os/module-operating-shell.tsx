@@ -239,7 +239,7 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
             </Sheet>
             <Link
               href="/"
-              aria-label="Ir a Inicio"
+              aria-label="Volver a Inicio"
               title="Inicio"
               className="grid h-9 w-9 shrink-0 place-items-center text-muted-foreground transition-colors hover:bg-secondary/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
