@@ -19,6 +19,14 @@ type Health = {
   legacyExcluded: number
 }
 
+const HEALTH_CACHE_KEY = "sr_market_geocode_health_v1"
+const HEALTH_CACHE_TTL_MS = 5 * 60 * 1000
+
+type CachedHealth = {
+  health: Health
+  refreshedAt: string
+}
+
 const EMPTY: Health = {
   active: 0,
   geocoded: 0,
@@ -49,7 +57,25 @@ export function MarketGeocodeHealth() {
   const [error, setError] = useState<string | null>(null)
   const [refreshedAt, setRefreshedAt] = useState<Date | null>(null)
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (force = false) => {
+    if (!force) {
+      try {
+        const cached = sessionStorage.getItem(HEALTH_CACHE_KEY)
+        if (cached) {
+          const parsed = JSON.parse(cached) as CachedHealth
+          const refreshed = new Date(parsed.refreshedAt)
+          if (Number.isFinite(refreshed.getTime()) && Date.now() - refreshed.getTime() < HEALTH_CACHE_TTL_MS) {
+            setHealth(parsed.health)
+            setRefreshedAt(refreshed)
+            setLoading(false)
+            return
+          }
+        }
+      } catch {
+        sessionStorage.removeItem(HEALTH_CACHE_KEY)
+      }
+    }
+
     setLoading(true)
     setError(null)
     const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
@@ -73,7 +99,7 @@ export function MarketGeocodeHealth() {
       const firstError = [active, geocoded, point, territorial, neverAttempted, noMatch, errors, recent, retryReady, legacyExcluded].find((result) => result.error)?.error
       if (firstError) throw firstError
 
-      setHealth({
+      const nextHealth = {
         active: active.count ?? 0,
         geocoded: geocoded.count ?? 0,
         point: point.count ?? 0,
@@ -84,8 +110,18 @@ export function MarketGeocodeHealth() {
         attemptedLastHour: recent.count ?? 0,
         retryReady: retryReady.count ?? 0,
         legacyExcluded: legacyExcluded.count ?? 0,
-      })
-      setRefreshedAt(new Date())
+      }
+      const nextRefreshedAt = new Date()
+      setHealth(nextHealth)
+      setRefreshedAt(nextRefreshedAt)
+      try {
+        sessionStorage.setItem(
+          HEALTH_CACHE_KEY,
+          JSON.stringify({ health: nextHealth, refreshedAt: nextRefreshedAt.toISOString() } satisfies CachedHealth),
+        )
+      } catch {
+        // Session storage is an optimization only; live data remains canonical.
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "No se pudo leer el estado de geocodificación")
     } finally {
@@ -111,7 +147,7 @@ export function MarketGeocodeHealth() {
               Distingue ubicación puntual de contexto territorial aproximado. Solo los puntos confiables se usan para distancias y vecinos exactos.
             </p>
           </div>
-          <Button size="sm" variant="outline" className="gap-2" onClick={() => void refresh()} disabled={loading}>
+          <Button size="sm" variant="outline" className="gap-2" onClick={() => void refresh(true)} disabled={loading}>
             <RefreshCw className={`h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
             Actualizar
           </Button>
