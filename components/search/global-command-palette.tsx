@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Calculator, CheckSquare, FolderOpen, MapPin, MessageSquare, Search, Users } from "lucide-react"
+import { Bot, Calculator, CheckSquare, Files, FolderOpen, Home, MapPin, MessageSquare, Search, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   CommandDialog,
@@ -24,13 +24,16 @@ type CampoResult = {
 }
 
 const quickActions = [
-  { label: "Abrir Campos", href: "/campos", icon: FolderOpen },
-  { label: "Buscar mercado", href: "/mercado", icon: Search },
+  { label: "Inicio", href: "/", icon: Home },
+  { label: "Campos", href: "/campos", icon: FolderOpen },
+  { label: "Clientes", href: "/clientes", icon: Users },
+  { label: "Multimedia", href: "/comunicaciones", icon: MessageSquare },
+  { label: "Documentos", href: "/documentacion", icon: Files },
+  { label: "Mercado", href: "/mercado", icon: Search },
   { label: "Inteligencia territorial", href: "/kmz-analisis", icon: MapPin },
   { label: "Valorización", href: "/cotizador", icon: Calculator },
-  { label: "Clientes", href: "/clientes", icon: Users },
   { label: "Tareas", href: "/gestion-tareas", icon: CheckSquare },
-  { label: "Comunicaciones", href: "/comunicaciones", icon: MessageSquare },
+  { label: "Asistente IA", href: "/asistente", icon: Bot },
 ]
 
 export function GlobalCommandPalette() {
