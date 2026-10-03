@@ -144,19 +144,15 @@ export default function CampoDocumentationPage() {
     return colors[category] || "bg-gray-500/10 text-gray-700 border-gray-300"
   }
 
-  const openDocument = (url: string | null) => {
-    if (url) window.open(url, "_blank", "noopener,noreferrer")
-  }
-
   return (
     <div className="container mx-auto py-6 px-4">
       <div className="mb-6">
-        <Link href="/campos">
-          <Button variant="ghost" size="sm" className="mb-4">
+        <Button asChild variant="ghost" size="sm" className="mb-4">
+          <Link href="/campos">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Volver a CAMPOS
-          </Button>
-        </Link>
+            Volver a Campos
+          </Link>
+        </Button>
 
         <div className="flex items-center justify-between">
           <div>
@@ -167,9 +163,11 @@ export default function CampoDocumentationPage() {
             <p className="text-muted-foreground mt-1">{kmzName || campoName.replace(/_/g, " ")}</p>
           </div>
 
-          <Button className="bg-sage hover:bg-sage-dark text-white">
-            <Upload className="h-4 w-4 mr-2" />
-            Subir Documento
+          <Button asChild>
+            <Link href="/documentacion">
+              <Upload className="h-4 w-4 mr-2" />
+              Gestionar documentos
+            </Link>
           </Button>
         </div>
       </div>
@@ -185,9 +183,11 @@ export default function CampoDocumentationPage() {
           <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
           <h3 className="text-lg font-semibold mb-2">No hay documentos</h3>
           <p className="text-muted-foreground mb-4">Aún no se han agregado documentos para este campo.</p>
-          <Button className="bg-sage hover:bg-sage-dark text-white">
-            <Upload className="h-4 w-4 mr-2" />
-            Subir Primer Documento
+          <Button asChild>
+            <Link href="/documentacion">
+              <Upload className="h-4 w-4 mr-2" />
+              Gestionar documentos
+            </Link>
           </Button>
         </Card>
       )}
@@ -230,14 +230,22 @@ export default function CampoDocumentationPage() {
                     </div>
 
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" disabled={!doc.file_url} onClick={() => openDocument(doc.file_url)}>
-                        <Eye className="h-4 w-4 mr-2" />
-                        Ver
-                      </Button>
-                      <Button variant="outline" size="sm" disabled={!doc.file_url} onClick={() => openDocument(doc.file_url)}>
-                        <Download className="h-4 w-4 mr-2" />
-                        Descargar
-                      </Button>
+                      {doc.file_url ? (
+                        <>
+                          <Button asChild variant="outline" size="sm">
+                            <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
+                              <Eye className="h-4 w-4 mr-2" />
+                              Ver
+                            </a>
+                          </Button>
+                          <Button asChild variant="outline" size="sm">
+                            <a href={doc.file_url} download>
+                              <Download className="h-4 w-4 mr-2" />
+                              Descargar
+                            </a>
+                          </Button>
+                        </>
+                      ) : null}
                     </div>
                   </div>
 
