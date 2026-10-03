@@ -19,7 +19,8 @@
     "scrape:camposchile": "node scripts/run-scrapers.mjs --source=camposchile",
     "scrape:terrachiloe": "node scripts/run-scrapers.mjs --source=terrachiloe",
     "scrape:portalterreno": "node scripts/run-scrapers.mjs --source=portalterreno",
-    "test:navigation": "node scripts/check-navigation-contract.mjs"
+    "test:navigation": "node scripts/check-navigation-contract.mjs",
+    "test:campos": "node scripts/check-campos-contract.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai": "latest",
