@@ -41,15 +41,17 @@ type NavItem = {
 
 const primaryItems: NavItem[] = [
   { title: "Campos", href: "/campos", icon: FolderOpen },
-  { title: "Prospección", href: "/prospeccion", icon: Sprout },
-  { title: "Mercado", href: "/mercado", icon: Search },
   { title: "Clientes", href: "/clientes", icon: Users },
+  { title: "Multimedia", href: "/comunicaciones", icon: MessageSquare },
+  { title: "Documentos", href: "/documentacion", icon: BookOpen },
+  { title: "Mercado", href: "/mercado", icon: Search },
 ]
 
 const moreItems: NavItem[] = [
-  { title: "Valorización", href: "/cotizador", icon: Calculator, description: "Estimar valor con comparables y contexto." },
-  { title: "Tareas", href: "/gestion-tareas", icon: CheckSquare, description: "Seguimientos y trabajo operativo." },
-  { title: "Comunicaciones", href: "/comunicaciones", icon: MessageSquare, description: "Historial comercial y trazabilidad." },
+  { title: "Tareas", href: "/gestion-tareas", icon: CheckSquare, description: "Pendientes y responsables de todos los módulos." },
+  { title: "Asistente", href: "/asistente", icon: Sprout, description: "Consulta transversal sobre toda la operación." },
+  { title: "Prospección", href: "/prospeccion", icon: Search, description: "Oportunidades y búsqueda dentro de Mercado." },
+  { title: "Valorización", href: "/cotizador", icon: Calculator, description: "Comparables y valorización dentro de Mercado." },
 ]
 
 const supportItems: NavItem[] = [
@@ -59,11 +61,11 @@ const supportItems: NavItem[] = [
 ]
 
 function sectionLabel(pathname: string) {
-  if (pathname.startsWith("/prospeccion")) return "Prospección"
   if (pathname.startsWith("/campos")) return "Campos"
-  if (pathname.startsWith("/mercado") || pathname.startsWith("/busqueda")) return "Mercado"
   if (pathname.startsWith("/clientes")) return "Clientes"
-  if (pathname.startsWith("/cotizador")) return "Valorización"
+  if (pathname.startsWith("/comunicaciones")) return "Multimedia"
+  if (pathname.startsWith("/documentacion")) return "Documentos"
+  if (pathname.startsWith("/mercado") || pathname.startsWith("/busqueda") || pathname.startsWith("/prospeccion") || pathname.startsWith("/cotizador")) return "Mercado"
   if (pathname.startsWith("/admin")) return "Centro operativo"
   return "Sur Realista"
 }

@@ -8,7 +8,7 @@ export function FloatingChat() {
   const router = useRouter()
 
   const handleChatClick = () => {
-    router.push("/asistente-ia")
+    router.push("/asistente")
   }
 
   return (

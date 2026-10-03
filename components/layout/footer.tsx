@@ -2,7 +2,7 @@ import Link from "next/link"
 import { Building2, BookOpen, Search, Shield, MapPin } from "lucide-react"
 
 const footerLinks = [
-  { href: "/busqueda", label: "Operación", icon: Search },
+  { href: "/", label: "Operación", icon: Search },
   { href: "/admin/dashboard", label: "Admin", icon: Shield },
   { href: "/docs/usuario", label: "Docs", icon: BookOpen },
   { href: "/kmz-analisis", label: "KMZ", icon: MapPin },

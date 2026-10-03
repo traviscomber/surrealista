@@ -15,6 +15,34 @@ function sanitizeSearchTerm(value: string) {
     .trim()
 }
 
+function extractOwnerEvidence(metadata: unknown): string | null {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return null
+  const record = metadata as Record<string, unknown>
+
+  const confirmedRaw = typeof record.confirmed_owner === "string" ? record.confirmed_owner.trim() : ""
+  if (confirmedRaw) {
+    if (confirmedRaw.startsWith("{")) {
+      try {
+        const parsed = JSON.parse(confirmedRaw) as Record<string, unknown>
+        const owner = typeof parsed.owner === "string" ? parsed.owner.trim() : ""
+        const source = typeof parsed.sourceType === "string" ? parsed.sourceType.trim() : ""
+        const documentUrl = typeof parsed.documentUrl === "string" ? parsed.documentUrl.trim() : ""
+        if (owner && (source || documentUrl)) return owner
+      } catch {
+        // Ignore malformed legacy evidence and keep searching.
+      }
+    } else {
+      const source = typeof record.owner_source === "string" ? record.owner_source.trim() : ""
+      const evidenceUrl = typeof record.web_owner_evidence_url === "string" ? record.web_owner_evidence_url.trim() : ""
+      if (source || evidenceUrl) return confirmedRaw
+    }
+  }
+
+  const webOwner = typeof record.web_owner === "string" ? record.web_owner.trim() : ""
+  const evidenceUrl = typeof record.web_owner_evidence_url === "string" ? record.web_owner_evidence_url.trim() : ""
+  return webOwner && evidenceUrl ? webOwner : null
+}
+
 function uniqueById<T extends { id: string | number }>(rows: T[]) {
   const seen = new Set<string>()
   return rows.filter((row) => {
@@ -57,14 +85,32 @@ export async function GET(request: NextRequest) {
     )
 
     const collectionAttempts = await Promise.all(
-      terms.map((term) => {
+      terms.map(async (term) => {
         const pattern = `%${term}%`
-        return supabase
+        const textAttempt = await supabase
           .from("kmz_collection")
-          .select("id, file_name, region, category, created_at, is_active")
+          .select("id, file_name, region, category, rol_numbers, owner, created_at, is_active")
           .eq("is_active", true)
-          .or(`file_name.ilike.${pattern},region.ilike.${pattern},category.ilike.${pattern}`)
+          .or(`file_name.ilike.${pattern},region.ilike.${pattern},category.ilike.${pattern},owner.ilike.${pattern}`)
           .limit(100)
+
+        const ownerEvidenceAttempt = await supabase
+          .from("kmz_collection")
+          .select("id, file_name, region, category, rol_numbers, owner, metadata, created_at, is_active")
+          .eq("is_active", true)
+          .or(`metadata->>confirmed_owner.ilike.${pattern},metadata->>web_owner.ilike.${pattern}`)
+          .limit(50)
+
+        if (!/^\d{1,8}-\d{1,8}$/.test(term)) return [textAttempt, ownerEvidenceAttempt]
+
+        const rolAttempt = await supabase
+          .from("kmz_collection")
+          .select("id, file_name, region, category, rol_numbers, owner, created_at, is_active")
+          .eq("is_active", true)
+          .contains("rol_numbers", [term])
+          .limit(100)
+
+        return [textAttempt, ownerEvidenceAttempt, rolAttempt]
       }),
     )
 
@@ -80,16 +126,24 @@ export async function GET(request: NextRequest) {
     ).slice(0, 500)
 
     const kmzCollectionResults = uniqueById(
-      collectionAttempts.flatMap((attempt) => {
-        if (attempt.error) {
-          warnings.push(`kmz_collection: ${attempt.error.message}`)
-          return []
-        }
-        return attempt.data || []
-      }),
+      collectionAttempts.flatMap((attemptGroup) =>
+        attemptGroup.flatMap((attempt) => {
+          if (attempt.error) {
+            warnings.push(`kmz_collection: ${attempt.error.message}`)
+            return []
+          }
+          return (attempt.data || []).map((row: any) => {
+            const ownerEvidence = extractOwnerEvidence(row.metadata)
+            const { metadata: _metadata, ...safeRow } = row
+            return { ...safeRow, ownerEvidence }
+          })
+        }),
+      ),
     ).slice(0, 100)
 
-    if (!locations.length && !kmzCollectionResults.length && warnings.length === locationAttempts.length + collectionAttempts.length) {
+    const totalCollectionAttempts = collectionAttempts.reduce((sum, group) => sum + group.length, 0)
+
+    if (!locations.length && !kmzCollectionResults.length && warnings.length === locationAttempts.length + totalCollectionAttempts) {
       console.error(requestId, "[KMZ search] all canonical queries failed", warnings)
       return NextResponse.json({ error: "KMZ search unavailable" }, { status: 503 })
     }

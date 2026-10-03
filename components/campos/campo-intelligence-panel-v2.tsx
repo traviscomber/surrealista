@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState, type ReactNode } from "react"
-import { Loader2, MapPin, Route, ShieldCheck, TrendingUp, UserRound } from "lucide-react"
+import { FileText, Loader2, MapPin, Route, ShieldCheck, Sprout, TrendingUp, UserRound } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import type { KmzInventoryRecord } from "@/lib/kmz/kmz-inventory-service"
 
@@ -45,10 +45,20 @@ type ContactRow = {
   updated_at: string | null
 }
 
+type FieldEvidence = {
+  field_name: string
+  value_json: unknown
+  confidence: number | null
+  status: string | null
+  source: string | null
+  observed_at: string | null
+}
+
 type EvidenceResponse = {
   nearby?: NearbyFeature[]
   comparables?: MarketComparable[]
   publicMetrics?: PublicMetric[]
+  fieldEvidence?: FieldEvidence[]
   contact?: ContactRow | null
   partial?: boolean
   error?: string
@@ -62,6 +72,16 @@ type ScoreBreakdown = {
   commercial: number
   label: string
 }
+
+const ACTIVITY_KEYS = [
+  "activity", "activity_type", "actividad", "actividad_predio", "giro",
+  "land_use", "uso", "uso_actual", "uso_predio", "uso_suelo", "productive_use",
+]
+
+const CROP_KEYS = [
+  "crop", "crops", "cultivo", "cultivos", "especie", "especies",
+  "produccion", "produccion_agricola", "agricultural_use",
+]
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
@@ -78,6 +98,143 @@ function nearest(features: NearbyFeature[], group: string) {
   return features
     .filter((item) => item.feature_group === group && Number.isFinite(Number(item.distance_m)))
     .sort((a, b) => Number(a.distance_m) - Number(b.distance_m))[0] || null
+}
+
+function safeExternalUrl(value?: string | null) {
+  if (!value) return null
+  try {
+    const parsed = new URL(value)
+    return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.toString() : null
+  } catch {
+    return null
+  }
+}
+
+function normalizeMetadataKey(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+}
+
+function evidenceValues(rows: FieldEvidence[], acceptedKeys: string[]) {
+  const accepted = new Set(acceptedKeys.map(normalizeMetadataKey))
+  const values: string[] = []
+
+  for (const row of rows) {
+    const status = String(row.status || "").toLowerCase()
+    if (["rejected", "discarded", "invalid"].includes(status)) continue
+    if (!accepted.has(normalizeMetadataKey(row.field_name))) continue
+
+    const value = row.value_json
+    if (typeof value === "string") values.push(value.trim())
+    else if (typeof value === "number" || typeof value === "boolean") values.push(String(value))
+    else if (Array.isArray(value)) {
+      for (const item of value) if (typeof item === "string") values.push(item.trim())
+    } else if (value && typeof value === "object") {
+      for (const candidate of ["value", "label", "name", "text"]) {
+        const nested = (value as Record<string, unknown>)[candidate]
+        if (typeof nested === "string") values.push(nested.trim())
+      }
+    }
+  }
+
+  return Array.from(new Set(values.filter((value) => value && value.length <= 80))).slice(0, 6)
+}
+
+type OwnerEvidenceSignal = {
+  owner: string
+  source: string | null
+  confidence: string | null
+  url: string | null
+  note: string | null
+}
+
+function ownerEvidence(metadata: Record<string, unknown> | null): OwnerEvidenceSignal | null {
+  if (!metadata) return null
+
+  const confirmedRaw = metadata.confirmed_owner
+  let confirmedOwner = typeof confirmedRaw === "string" ? confirmedRaw.trim() : ""
+  let source = typeof metadata.owner_source === "string" ? metadata.owner_source.trim() : ""
+  let confidence =
+    typeof metadata.owner_confidence === "string" || typeof metadata.owner_confidence === "number"
+      ? String(metadata.owner_confidence)
+      : ""
+  let url = typeof metadata.web_owner_evidence_url === "string" ? metadata.web_owner_evidence_url.trim() : ""
+  let note = typeof metadata.web_owner_reasoning === "string" ? metadata.web_owner_reasoning.trim() : ""
+
+  if (confirmedOwner.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(confirmedOwner) as Record<string, unknown>
+      confirmedOwner = typeof parsed.owner === "string" ? parsed.owner.trim() : ""
+      source = typeof parsed.sourceType === "string" ? parsed.sourceType.trim() : source
+      confidence =
+        typeof parsed.confidence === "string" || typeof parsed.confidence === "number"
+          ? String(parsed.confidence)
+          : confidence
+      url = typeof parsed.documentUrl === "string" ? parsed.documentUrl.trim() : url
+      note = typeof parsed.notes === "string" ? parsed.notes.trim() : note
+    } catch {
+      return null
+    }
+  }
+
+  const webOwner = typeof metadata.web_owner === "string" ? metadata.web_owner.trim() : ""
+  const candidate = confirmedOwner || webOwner
+  const hasExplicitSource = Boolean(source || url)
+  if (!candidate || !hasExplicitSource) return null
+
+  return {
+    owner: candidate,
+    source: source || null,
+    confidence: confidence || null,
+    url: safeExternalUrl(url),
+    note: note || null,
+  }
+}
+
+function siiDestination(metadata: Record<string, unknown> | null) {
+  if (!metadata) return null
+  const resolution = metadata.sii_point_resolution
+  if (!resolution || typeof resolution !== "object" || Array.isArray(resolution)) return null
+  const record = (resolution as Record<string, unknown>).record
+  if (!record || typeof record !== "object" || Array.isArray(record)) return null
+  const value = (record as Record<string, unknown>).destino
+  return typeof value === "string" && value.trim() ? value.trim() : null
+}
+
+function metadataTagValues(metadata: Record<string, unknown> | null, acceptedKeys: string[]) {
+  if (!metadata) return [] as string[]
+  const accepted = new Set(acceptedKeys.map(normalizeMetadataKey))
+  const values: string[] = []
+
+  const visit = (value: unknown, depth: number, key?: string) => {
+    if (depth > 3 || value == null) return
+    if (key && accepted.has(normalizeMetadataKey(key))) {
+      if (typeof value === "string") {
+        values.push(...value.split(/[,;|]/g).map((item) => item.trim()))
+        return
+      }
+      if (Array.isArray(value)) {
+        for (const item of value) if (typeof item === "string") values.push(item.trim())
+        return
+      }
+    }
+    if (Array.isArray(value)) {
+      for (const item of value) visit(item, depth + 1)
+      return
+    }
+    if (typeof value === "object") {
+      for (const [childKey, childValue] of Object.entries(value as Record<string, unknown>)) {
+        visit(childValue, depth + 1, childKey)
+      }
+    }
+  }
+
+  visit(metadata, 0)
+  return Array.from(new Set(values.filter((value) => value && value.length <= 80))).slice(0, 6)
 }
 
 function formatDistance(value?: number | null) {
@@ -104,6 +261,7 @@ export function CampoIntelligencePanelV2({ record, ciren }: { record: KmzInvento
   const [nearby, setNearby] = useState<NearbyFeature[]>([])
   const [comparables, setComparables] = useState<MarketComparable[]>([])
   const [publicMetrics, setPublicMetrics] = useState<PublicMetric[]>([])
+  const [fieldEvidence, setFieldEvidence] = useState<FieldEvidence[]>([])
   const [contact, setContact] = useState<ContactRow | null>(null)
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
@@ -123,6 +281,7 @@ export function CampoIntelligencePanelV2({ record, ciren }: { record: KmzInvento
         setNearby(payload.nearby || [])
         setComparables(payload.comparables || [])
         setPublicMetrics(payload.publicMetrics || [])
+        setFieldEvidence(payload.fieldEvidence || [])
         setContact(payload.contact || null)
         setFailed(Boolean(payload.partial))
       })
@@ -132,6 +291,7 @@ export function CampoIntelligencePanelV2({ record, ciren }: { record: KmzInvento
         setNearby([])
         setComparables([])
         setPublicMetrics([])
+        setFieldEvidence([])
         setContact(null)
         setFailed(true)
       })
@@ -146,6 +306,23 @@ export function CampoIntelligencePanelV2({ record, ciren }: { record: KmzInvento
   const place = useMemo(() => nearest(nearby, "place"), [nearby])
   const water = useMemo(() => nearest(nearby, "water"), [nearby])
   const protectedArea = useMemo(() => nearest(nearby, "protected_area"), [nearby])
+  const siiUse = useMemo(() => siiDestination(record.metadata), [record.metadata])
+  const ownerSignal = useMemo(() => ownerEvidence(record.metadata), [record.metadata])
+
+  const activityTags = useMemo(
+    () => Array.from(new Set([
+      ...evidenceValues(fieldEvidence, ACTIVITY_KEYS),
+      ...metadataTagValues(record.metadata, ACTIVITY_KEYS),
+    ])).slice(0, 6),
+    [fieldEvidence, record.metadata],
+  )
+  const cropTags = useMemo(
+    () => Array.from(new Set([
+      ...evidenceValues(fieldEvidence, CROP_KEYS),
+      ...metadataTagValues(record.metadata, CROP_KEYS),
+    ])).slice(0, 6),
+    [fieldEvidence, record.metadata],
+  )
 
   const marketEvidence = useMemo(() => {
     const freshest = comparables[0] || null
@@ -189,12 +366,13 @@ export function CampoIntelligencePanelV2({ record, ciren }: { record: KmzInvento
 
   const nextAction = useMemo(() => {
     if (!record.rol_numbers?.length) return "Resolver ROL antes de análisis comercial profundo."
+    if (!record.owner && ownerSignal) return "Revisar la evidencia de propietario y, si corresponde, promoverla como propietario operativo."
     if (!record.owner) return "Identificar propietario y validar contacto."
     if (!contact?.pic && !contact?.pic_phone && !contact?.pic_email) return "Completar contacto responsable del campo."
     if (!road) return "Revisar acceso vial y conectividad territorial."
     if (marketEvidence.maxSample === 0 && publicMetrics.length === 0) return "Falta evidencia de mercado regional actualizada."
     return "Base suficiente para revisión comercial priorizada."
-  }, [contact, marketEvidence.maxSample, publicMetrics.length, record.owner, record.rol_numbers, road])
+  }, [contact, marketEvidence.maxSample, ownerSignal, publicMetrics.length, record.owner, record.rol_numbers, road])
 
   const cirenSummary = ciren.samePropertyRol
     ? `Referencia complementaria: ROL ${ciren.samePropertyRol}`
@@ -232,41 +410,60 @@ export function CampoIntelligencePanelV2({ record, ciren }: { record: KmzInvento
         ))}
       </div>
 
-      <div className="mt-4 grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
-        <Evidence icon={<UserRound className="h-4 w-4" />} title="Identidad">
-          <Fact label="Propietario" value={record.owner || "Pendiente"} />
+      <div className="mt-4 space-y-3">
+        <Evidence icon={<UserRound className="h-4 w-4" />} title="01 · Identidad">
+          <Fact label="Propietario operativo" value={record.owner || "Pendiente"} />
+          {ownerSignal ? (
+            <>
+              <Fact label="Evidencia de propietario" value={ownerSignal.owner} />
+              <Fact label="Fuente" value={ownerSignal.source || "Fuente documental"} />
+              {ownerSignal.confidence ? <Fact label="Confianza" value={ownerSignal.confidence} /> : null}
+              {ownerSignal.url ? <ExternalLinkFact label="Documento fuente" href={ownerSignal.url} /> : null}
+              {ownerSignal.note ? <NoteFact label="Nota" value={ownerSignal.note} /> : null}
+            </>
+          ) : null}
           <Fact label="ROL" value={record.rol_numbers?.length ? record.rol_numbers.join(", ") : "Pendiente"} />
           <Fact label="Responsable" value={contact?.pic || "Pendiente"} />
           <Fact label="Contacto" value={contact?.pic_phone || contact?.pic_email || "Pendiente"} />
         </Evidence>
 
-        <Evidence icon={<MapPin className="h-4 w-4" />} title="Territorio">
+        <Evidence icon={<Sprout className="h-4 w-4" />} title="02 · Uso y actividad">
+          <Fact label="Uso SII" value={siiUse || "Sin dato SII"} />
+          <TagFact label="Actividad adicional" values={activityTags} />
+          <TagFact label="Cultivo / especie" values={cropTags} />
+        </Evidence>
+
+        <Evidence icon={<MapPin className="h-4 w-4" />} title="03 · Territorio">
           <Fact label="Región" value={record.region} />
           <Fact label="Geometría" value={record.geometry_label || record.geometry_status} />
           <Fact label="Ubicación" value={Number.isFinite(Number(record.latitude)) && Number.isFinite(Number(record.longitude)) ? `${Number(record.latitude).toFixed(5)}, ${Number(record.longitude).toFixed(5)}` : "Sin coordenadas"} />
+          {cirenSummary ? <Fact label="CIREN" value={cirenSummary} /> : null}
         </Evidence>
 
-        <Evidence icon={<Route className="h-4 w-4" />} title="Entorno próximo">
+        <Evidence icon={<Route className="h-4 w-4" />} title="04 · Entorno y POIs">
           <Fact label="Vía" value={road ? `${road.feature_name || road.feature_type || "Vía"} · ${formatDistance(road.distance_m)}` : "Sin evidencia"} />
           <Fact label="Localidad" value={place ? `${place.feature_name || place.feature_type || "Lugar"} · ${formatDistance(place.distance_m)}` : "Sin evidencia"} />
           <Fact label="Agua" value={water ? `${water.feature_name || water.feature_type || "Cuerpo de agua"} · ${formatDistance(water.distance_m)}` : "Sin evidencia"} />
           <Fact label="Área protegida" value={protectedArea ? `${protectedArea.feature_name || "Referencia"} · ${formatDistance(protectedArea.distance_m)}` : "Sin evidencia cercana"} />
         </Evidence>
 
-        <Evidence icon={<TrendingUp className="h-4 w-4" />} title="Mercado">
+        <Evidence icon={<FileText className="h-4 w-4" />} title="05 · Documentos">
+          <LinkFact label="Google Docs" href={record.google_docs_link} />
+          <Fact label="Archivo KMZ" value={record.file_name} />
+        </Evidence>
+
+        <Evidence icon={<TrendingUp className="h-4 w-4" />} title="06 · Mercado">
           <Fact label="Muestra máxima" value={marketEvidence.maxSample ? `${marketEvidence.maxSample} comparables` : "Sin muestra"} />
-          <Fact label="Mediana m²" value={marketEvidence.freshest?.median_price_m2_clp ? `$${Number(marketEvidence.freshest.median_price_m2_clp).toLocaleString("es-CL")}` : "Sin dato"} />
+          <Fact label="Mediana m²" value={marketEvidence.freshest?.median_price_m2_clp ? `${Number(marketEvidence.freshest.median_price_m2_clp).toLocaleString("es-CL")}` : "Sin dato"} />
           <Fact label="Tendencia 30d" value={marketEvidence.freshest?.price_trend_30d != null ? `${Number(marketEvidence.freshest.price_trend_30d).toFixed(1)}%` : "Sin dato"} />
           <Fact label="Fuentes" value={marketEvidence.sources.length ? marketEvidence.sources.join(", ") : "Sin métricas públicas"} />
         </Evidence>
       </div>
 
-      {cirenSummary ? <p className="mt-3 text-[11px] text-muted-foreground">CIREN · {cirenSummary}</p> : null}
-
       <div className="mt-3 flex items-start gap-3 rounded-lg border border-border/70 bg-secondary/25 px-4 py-3">
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
         <div className="min-w-0">
-          <p className="text-xs font-medium">Siguiente acción sugerida</p>
+          <p className="text-xs font-medium">07 · Siguiente acción</p>
           <p className="mt-1 text-xs text-muted-foreground">{nextAction}</p>
           {failed ? <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-300">Parte de la evidencia complementaria no estuvo disponible; el score se calculó solo con datos recuperados.</p> : null}
         </div>
@@ -281,4 +478,66 @@ function Evidence({ icon, title, children }: { icon: ReactNode; title: string; c
 
 function Fact({ label, value }: { label: string; value: string }) {
   return <div className="flex items-start justify-between gap-3 text-[11px]"><span className="shrink-0 text-muted-foreground">{label}</span><span className="min-w-0 text-right font-medium text-foreground">{value}</span></div>
+}
+
+
+function ExternalLinkFact({ label, href }: { label: string; href: string }) {
+  const safeHref = safeExternalUrl(href)
+  if (!safeHref) return <Fact label={label} value="Fuente no navegable" />
+  return (
+    <div className="flex items-start justify-between gap-3 text-[11px]">
+      <span className="shrink-0 text-muted-foreground">{label}</span>
+      <a
+        href={safeHref}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="min-w-0 text-right font-medium text-primary hover:underline"
+      >
+        Abrir fuente
+      </a>
+    </div>
+  )
+}
+
+function NoteFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="pt-1 text-[11px]">
+      <span className="text-muted-foreground">{label}</span>
+      <p className="mt-1 leading-relaxed text-foreground">{value}</p>
+    </div>
+  )
+}
+
+function LinkFact({ label, href }: { label: string; href?: string | null }) {
+  const safeHref = safeExternalUrl(href)
+  return (
+    <div className="flex items-start justify-between gap-3 text-[11px]">
+      <span className="shrink-0 text-muted-foreground">{label}</span>
+      {safeHref ? (
+        <a
+          href={safeHref}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="min-w-0 text-right font-medium text-primary hover:underline"
+        >
+          Abrir Google Docs
+        </a>
+      ) : <span className="min-w-0 text-right font-medium text-foreground">{href ? "Vínculo inválido" : "Sin vínculo"}</span>}
+    </div>
+  )
+}
+
+function TagFact({ label, values }: { label: string; values: string[] }) {
+  return (
+    <div className="pt-1">
+      <span className="text-[11px] text-muted-foreground">{label}</span>
+      <div className="mt-1 flex flex-wrap gap-1">
+        {values.length ? values.map((value) => (
+          <Badge key={value} variant="outline" className="h-5 max-w-full truncate px-1.5 text-[10px] font-medium">
+            {value}
+          </Badge>
+        )) : <span className="text-[11px] font-medium text-foreground">Sin evidencia confirmada</span>}
+      </div>
+    </div>
+  )
 }

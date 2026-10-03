@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { Bot, Database, HelpCircle, Send, User } from "lucide-react"
+import { Bot, CheckSquare2, Database, ExternalLink, HelpCircle, Send, User } from "lucide-react"
 import { v4 as uuidv4 } from "uuid"
 
 import { Badge } from "@/components/ui/badge"
@@ -17,6 +17,21 @@ interface Message {
   metadata?: {
     type?: string
     confidence?: number
+    mode?: string
+    agent?: string
+    sources?: string[]
+    taskDraft?: {
+      title: string
+      description: string | null
+      module: "campos" | "clientes" | "multimedia" | "documentos" | "mercado"
+      priority: "low" | "medium" | "high" | "urgent"
+      dueDate: string | null
+      assigneeNames: string[]
+      relatedId: string | null
+      requiresConfirmation: true
+    } | null
+    whatsappActions?: Array<{ name: string; url: string }>
+    taskCreated?: boolean
   }
 }
 
@@ -71,7 +86,14 @@ export function AIAssistantChat() {
           data.response ||
           "No encontré una respuesta verificable con las fuentes disponibles. Revisa el módulo correspondiente o reformula la consulta.",
         timestamp: new Date(),
-        metadata: { type: data.type || "general", confidence: data.confidence },
+        metadata: {
+          type: data.type || "general",
+          confidence: data.confidence,
+          mode: data.mode,
+          agent: data.agent,
+          sources: Array.isArray(data.sources) ? data.sources : [],
+          taskDraft: data.taskDraft || null,
+        },
       }
     } catch (error) {
       console.error("[assistant] request failed", error)
@@ -106,6 +128,49 @@ export function AIAssistantChat() {
     setMessages((current) => [...current, assistantMessage])
     void recordInteraction(assistantMessage)
     setIsLoading(false)
+  }
+
+  const confirmTask = async (message: Message) => {
+    const draft = message.metadata?.taskDraft
+    if (!draft || message.metadata?.taskCreated || isLoading) return
+
+    setIsLoading(true)
+    try {
+      const response = await fetch("/api/tasks/router", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...draft, explicitConfirm: true }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        const missing = Array.isArray(data.missingAssignees) ? ` No encontré: ${data.missingAssignees.join(", ")}.` : ""
+        throw new Error((data.error || "No se pudo crear la tarea.") + missing)
+      }
+
+      setMessages((current) => current.map((item) =>
+        item.id === message.id
+          ? {
+              ...item,
+              content: `${item.content}\n\nTarea creada en ${draft.module}.`,
+              metadata: {
+                ...item.metadata,
+                taskCreated: true,
+                whatsappActions: Array.isArray(data.whatsappActions) ? data.whatsappActions : [],
+              },
+            }
+          : item,
+      ))
+    } catch (error) {
+      setMessages((current) => [...current, {
+        id: uuidv4(),
+        role: "assistant",
+        content: error instanceof Error ? error.message : "No se pudo crear la tarea.",
+        timestamp: new Date(),
+        metadata: { type: "error" },
+      }])
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -153,6 +218,39 @@ export function AIAssistantChat() {
                   }`}
                 >
                   <div className="whitespace-pre-wrap break-words">{message.content}</div>
+                  {!isUser && message.metadata?.taskDraft ? (
+                    <div className="mt-3 border-t border-border/70 pt-3">
+                      <div className="flex items-start gap-2">
+                        <CheckSquare2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-semibold">To do · {message.metadata.taskDraft.module}</p>
+                          <p className="mt-1 text-xs text-muted-foreground">{message.metadata.taskDraft.title}</p>
+                          {message.metadata.taskDraft.assigneeNames.length ? (
+                            <p className="mt-1 text-[11px] text-muted-foreground">
+                              Responsable: {message.metadata.taskDraft.assigneeNames.join(", ")}
+                            </p>
+                          ) : null}
+                        </div>
+                      </div>
+                      {!message.metadata.taskCreated ? (
+                        <Button type="button" size="sm" className="mt-3" onClick={() => void confirmTask(message)} disabled={isLoading}>
+                          Confirmar y crear
+                        </Button>
+                      ) : (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <Badge variant="secondary">Creada</Badge>
+                          {message.metadata.whatsappActions?.map((action) => (
+                            <Button key={action.url} asChild type="button" size="sm" variant="outline">
+                              <a href={action.url} target="_blank" rel="noreferrer">
+                                WhatsApp · {action.name}
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </a>
+                            </Button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : null}
                   <div className={`mt-2 flex items-center gap-3 text-[11px] ${isUser ? "text-primary-foreground/70" : "text-muted-foreground"}`}>
                     <time>
                       {message.timestamp.toLocaleTimeString("es-CL", {
@@ -160,9 +258,17 @@ export function AIAssistantChat() {
                         minute: "2-digit",
                       })}
                     </time>
+                    {!isUser && message.metadata?.mode ? (
+                      <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-normal">
+                        {message.metadata.mode === "fullagentic" ? "FullAgentic" : "FastTrack"}
+                      </Badge>
+                    ) : null}
+                    {!isUser && message.metadata?.agent ? (
+                      <span>{message.metadata.agent}</span>
+                    ) : null}
                     {!isUser && typeof message.metadata?.confidence === "number" ? (
                       <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-normal">
-                        Confianza informada: {Math.round(message.metadata.confidence * 100)}%
+                        Evidencia: {Math.round(message.metadata.confidence * 100)}%
                       </Badge>
                     ) : null}
                   </div>

@@ -7,28 +7,50 @@ let authenticatedBaseURL = baseURL
 const signingSecret = process.env.SMOKE_SIGNING_SECRET
 const smokePassword = process.env.SMOKE_PASSWORD
 const operationalRoutes = [
+  { route: "/", expectedText: /Cinco módulos operativos|Todo Sur Realista/i },
   { route: "/campos", expectedText: /CAMPOS|Colección de campos/i },
   { route: "/prospeccion", expectedText: /Prospección inteligente|Poner más campos sobre la mesa/i },
   { route: "/prospeccion/demanda-mercado", expectedText: /Demanda detectada en mercado|Inteligencia competitiva/i },
   { route: "/kmz-analisis", expectedText: /KMZ|Inteligencia territorial/i },
+  { route: "/kmz" },
+  { route: "/kmz-map" },
+  { route: "/kmz-search" },
+  { route: "/kmz-search-advanced" },
+  { route: "/kmz-guide" },
+  { route: "/quick-wins" },
   { route: "/mercado", expectedText: /Mercado y comparables/i },
+  { route: "/mercado/oportunidades", expectedText: /Inteligencia de Oportunidades/i },
+  { route: "/propiedades", expectedText: /Propiedades disponibles|Inventario comercial/i },
   { route: "/busqueda", expectedText: /Explorador de campos|Centro operativo/i },
   { route: "/cotizador", expectedText: /Valorizador interno SR|Decisión de terreno/i },
   { route: "/clientes", expectedText: /Relaciones comerciales|Clientes/i },
   { route: "/clientes/importar", expectedText: /Importar Clientes desde Excel/i },
   { route: "/gestion-tareas", expectedText: /Gestión operativa|Tareas/i },
   { route: "/comunicaciones", expectedText: /Comunicaciones/i },
+  { route: "/asistente", expectedText: /Asistente Sur Realista|Inteligencia transversal/i },
   { route: "/admin/dashboard", expectedText: /Centro operativo/i },
   { route: "/admin/kmz-collection", expectedText: /KMZ|Colección/i },
 ]
 const canonicalRoutes = [
+  ["/asistente-ia", "/asistente"],
+  ["/ai", "/asistente"],
+  ["/properties", "/propiedades"],
+  ["/opportunities", "/mercado/oportunidades"],
+  ["/opportunities/map", "/mercado/oportunidades"],
+  ["/home-spotter", "/mercado/oportunidades"],
+  ["/home-spotter/opportunities/smoke-id", "/mercado/oportunidades/smoke-id"],
   ["/admin/clientes", "/clientes"],
   ["/admin/clientes/smoke-nonexistent", "/clientes/smoke-nonexistent"],
   ["/gestion-clientes", "/clientes"],
   ["/admin/mensajes", "/comunicaciones"],
   ["/nueva-tarea", "/gestion-tareas"],
+  ["/admin/agentes", "/asistente"],
+  ["/admin/ia-workspace", "/asistente"],
+  ["/admin/tags", "/campos"],
+  ["/admin/google-drive", "/documentacion"],
+  ["/admin/operaciones-comerciales", "/admin/dashboard"],
 ]
-const retiredRoutes = ["/asistente-ia", "/admin/ia-workspace", "/admin/tags"]
+const retiredRoutes = []
 
 const browser = await chromium.launch({ headless: true })
 const failures = []
@@ -44,7 +66,7 @@ function createSmokeToken(secret) {
   return `v6.${issuedAt}.${expiresAt}.${nonce}.${signature}`
 }
 
-async function inspectRoute(page, route, expectedPath, expectedText) {
+async function inspectRoute(page, route, expectedPath, expectedText, options = {}) {
   const pageErrors = []
   const capturePageError = (error) => pageErrors.push(error.message)
   page.on("pageerror", capturePageError)
@@ -62,6 +84,26 @@ async function inspectRoute(page, route, expectedPath, expectedText) {
     const hasAccessForm = await page.locator("#password").isVisible().catch(() => false)
     const hasExpectedText = expectedText ? expectedText.test(body) : true
 
+    if (!hasAccessForm && !hasFatalUI && options.requireNavigation !== false) {
+      const navigationWaitSelector = options.requireVisibleNavigation === false
+        ? 'nav[aria-label="Módulos de Sur Realista"]'
+        : 'nav[aria-label="Módulos de Sur Realista"]:visible'
+      await page.locator(navigationWaitSelector).first()
+        .waitFor({ state: "attached", timeout: 5_000 })
+        .catch(() => null)
+      await page.getByRole("link", { name: /Sur Realista · Inicio|Volver a Inicio/i }).first()
+        .waitFor({ state: "visible", timeout: 5_000 })
+        .catch(() => null)
+    }
+
+    const navigationSelector = options.requireVisibleNavigation === false
+      ? 'nav[aria-label="Módulos de Sur Realista"]'
+      : 'nav[aria-label="Módulos de Sur Realista"]:visible'
+    const hasGlobalNavigation = options.requireNavigation === false
+      ? true
+      : await page.locator(navigationSelector).count().then((count) => count > 0).catch(() => false)
+    const hasHomeAffordance = await page.getByRole("link", { name: /Sur Realista · Inicio|Volver a Inicio/i }).first().isVisible().catch(() => false)
+
     if (route === "/campos" && finalPath === "/campos" && !hasAccessForm) {
       await page.screenshot({ path: `${evidenceDir}/campos-authenticated-desktop.png`, fullPage: false })
     }
@@ -78,9 +120,9 @@ async function inspectRoute(page, route, expectedPath, expectedText) {
       await page.screenshot({ path: `${evidenceDir}/tareas-authenticated-desktop.png`, fullPage: false })
     }
 
-    if (!response || status >= 500 || finalPath !== expectedPath || hasFatalUI || hasAccessForm || pageErrors.length > 0 || !hasExpectedText) {
-      failures.push({ route, expectedPath, finalPath, status, pageErrors, hasFatalUI, hasAccessForm, hasExpectedText })
-      console.error(`FAIL ${route} status=${status} expected=${expectedPath} final=${finalPath} gate=${hasAccessForm} text=${hasExpectedText} pageErrors=${pageErrors.length}`)
+    if (!response || status >= 500 || finalPath !== expectedPath || hasFatalUI || hasAccessForm || pageErrors.length > 0 || !hasExpectedText || !hasGlobalNavigation || !hasHomeAffordance) {
+      failures.push({ route, expectedPath, finalPath, status, pageErrors, hasFatalUI, hasAccessForm, hasExpectedText, hasGlobalNavigation, hasHomeAffordance })
+      console.error(`FAIL ${route} status=${status} expected=${expectedPath} final=${finalPath} gate=${hasAccessForm} text=${hasExpectedText} nav=${hasGlobalNavigation} home=${hasHomeAffordance} pageErrors=${pageErrors.length}`)
     } else {
       console.log(`PASS ${route} status=${status} final=${finalPath}`)
     }
@@ -128,12 +170,19 @@ try {
       await loginPage.locator("#password").waitFor({ state: "visible", timeout: 15_000 })
       await loginPage.locator("#password").fill(smokePassword)
       await loginPage.getByRole("button", { name: "Ingresar" }).click()
-      await loginPage.waitForURL("**/campos", { timeout: 30_000 })
+      await loginPage.waitForFunction(() => !document.querySelector("#password"), null, { timeout: 30_000 })
       authenticatedBaseURL = new URL(loginPage.url()).origin
+      if (new URL(loginPage.url()).pathname !== "/") {
+        failures.push({ route: "/", check: "direct login landing", final: loginPage.url() })
+        console.error(`FAIL direct login landing final=${loginPage.url()}`)
+      } else {
+        console.log("PASS direct login landing")
+      }
       authenticatedPage = loginPage
     }
 
     if (smokePassword && authenticatedPage) {
+      await authenticatedPage.goto(`${authenticatedBaseURL}/campos`, { waitUntil: "domcontentloaded", timeout: 30_000 })
       await authenticatedPage.getByText(/\d+ KMZ · \d+ regiones/).waitFor({ state: "visible", timeout: 30_000 })
       await authenticatedPage.waitForFunction(() => {
         const text = document.body.innerText || ""
@@ -233,8 +282,26 @@ try {
     for (const { route, expectedText } of operationalRoutes) {
       await inspectRoute(authenticatedPage, route, route, expectedText)
     }
-    for (const [route, expectedPath] of canonicalRoutes) await inspectRoute(authenticatedPage, route, expectedPath)
+    for (const [route, expectedPath] of canonicalRoutes) {
+      await inspectRoute(authenticatedPage, route, expectedPath, undefined, { requireNavigation: false })
+    }
     for (const route of retiredRoutes) await inspectRoute(authenticatedPage, route, "/campos")
+
+    await authenticatedPage.setViewportSize({ width: 390, height: 844 })
+    await authenticatedPage.goto(`${authenticatedBaseURL}/mercado/oportunidades`, { waitUntil: "domcontentloaded", timeout: 30_000 })
+    const mobileMenuButton = authenticatedPage.getByRole("button", { name: "Abrir navegación" })
+    await mobileMenuButton.waitFor({ state: "visible", timeout: 15_000 })
+    await mobileMenuButton.click()
+    const mobileNav = authenticatedPage.locator('nav[aria-label="Módulos de Sur Realista"]:visible')
+    await mobileNav.getByRole("link", { name: "Inicio", exact: true }).waitFor({ state: "visible", timeout: 15_000 })
+    for (const label of ["Campos", "Clientes", "Multimedia", "Documentos", "Mercado"]) {
+      await mobileNav.getByRole("link", { name: label, exact: true }).waitFor({ state: "visible", timeout: 15_000 })
+    }
+    await mobileNav.getByRole("link", { name: "Inicio", exact: true }).click()
+    await authenticatedPage.waitForURL((url) => url.pathname === "/", { timeout: 15_000 })
+    console.log("PASS mobile navigation and home recovery")
+
+    await authenticatedPage.setViewportSize({ width: 1440, height: 900 })
     await authenticatedPage.close()
     await context.close()
   }

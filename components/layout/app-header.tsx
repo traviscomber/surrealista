@@ -7,7 +7,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 
 const NAV_ITEMS = [
   { href: "/", label: "Explorador de Campos", icon: Map },
-  { href: "/home-spotter", label: "Oportunidades", icon: Radar },
+  { href: "/mercado/oportunidades", label: "Inteligencia de Oportunidades", icon: Radar },
   { href: "/nueva-tarea", label: "Nueva búsqueda", icon: Plus },
   { href: "/admin/dashboard", label: "Panel de datos", icon: LayoutDashboard },
   { href: "/admin/surealista", label: "Inventario Sur Realista", icon: Store },

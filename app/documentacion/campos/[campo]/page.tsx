@@ -151,7 +151,7 @@ export default function CampoDocumentationPage() {
   return (
     <div className="container mx-auto py-6 px-4">
       <div className="mb-6">
-        <Link href="/busqueda">
+        <Link href="/campos">
           <Button variant="ghost" size="sm" className="mb-4">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Volver a CAMPOS

@@ -44,24 +44,37 @@ export async function GET(request: NextRequest) {
     if (collectionError) throw collectionError
     if (!collection) return NextResponse.json({ error: "KMZ no encontrado" }, { status: 404 })
 
+    const enrichmentQuery = admin
+      .from("kmz_enrichment_evidence")
+      .select("field_name,value_json,confidence,status,source,observed_at")
+      .eq("kmz_id", kmzId)
+      .order("observed_at", { ascending: false })
+      .limit(50)
+
     const canonicalRegion = String(collection.region || "").trim()
     if (!canonicalRegion) {
+      const enrichmentResult = await enrichmentQuery
+      if (enrichmentResult.error) {
+        console.warn("[CAMPOS field intelligence] enrichment evidence failure", enrichmentResult.error.message)
+      }
       return NextResponse.json({
         kmzId,
         region: null,
         nearby: [],
         comparables: [],
         publicMetrics: [],
+        fieldEvidence: enrichmentResult.data || [],
         contact: {
           pic: collection.pic,
           pic_phone: collection.pic_phone,
           pic_email: collection.pic_email,
           updated_at: collection.updated_at,
         },
+        partial: Boolean(enrichmentResult.error),
       })
     }
 
-    const [nearbyResult, marketResult, publicResult] = await Promise.all([
+    const [nearbyResult, marketResult, publicResult, enrichmentResult] = await Promise.all([
       admin
         .from("kmz_nearby_features")
         .select("feature_group,feature_type,feature_name,distance_m,proximity_class")
@@ -80,9 +93,10 @@ export async function GET(request: NextRequest) {
         .eq("region", canonicalRegion)
         .order("scraped_at", { ascending: false })
         .limit(20),
+      enrichmentQuery,
     ])
 
-    const errors = [nearbyResult.error, marketResult.error, publicResult.error].filter(Boolean)
+    const errors = [nearbyResult.error, marketResult.error, publicResult.error, enrichmentResult.error].filter(Boolean)
     if (errors.length) {
       console.warn("[CAMPOS field intelligence] partial evidence failure", errors.map((error) => error?.message))
     }
@@ -93,6 +107,7 @@ export async function GET(request: NextRequest) {
       nearby: nearbyResult.data || [],
       comparables: marketResult.data || [],
       publicMetrics: publicResult.data || [],
+      fieldEvidence: enrichmentResult.data || [],
       contact: {
         pic: collection.pic,
         pic_phone: collection.pic_phone,

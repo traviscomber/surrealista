@@ -6,9 +6,8 @@ import { createClient } from "@/lib/supabase/server"
 export const dynamic = "force-dynamic"
 
 async function getProperties() {
-  const supabase = await createClient()
-
   try {
+    const supabase = await createClient()
     const { data: externalProperties, error } = await supabase
       .from("properties_external")
       .select(

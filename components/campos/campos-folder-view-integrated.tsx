@@ -1,12 +1,13 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { ChevronDown, ChevronRight, File, Folder, FolderOpen, Loader2, MapPin, RefreshCw, Search } from "lucide-react"
+import { ChevronDown, ChevronRight, File, Folder, FolderOpen, Loader2, MapPin, PanelRight, Pencil, RefreshCw, Search, X } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { CampoIntelligencePanelV2 } from "@/components/campos/campo-intelligence-panel-v2"
 import { KMZMapDisplay, type LayerInfo } from "@/components/kmz/kmz-map-display"
+import { KMZOwnerEditModal } from "@/components/kmz/kmz-owner-edit-modal"
 import { createBrowserClient } from "@/lib/supabase/client"
 import {
   loadKmzInventory,
@@ -54,6 +55,15 @@ type CirenContext = {
   polygonCount?: number
   properties: (CirenDatasetContext & { neighbors?: CirenNeighbor[] }) | null
   soils: (CirenDatasetContext & { classes?: string[]; featureCount?: number }) | null
+}
+
+type KmzSearchHit = {
+  id: string
+  file_name: string
+  region: string | null
+  rol_numbers: string[] | null
+  owner?: string | null
+  ownerEvidence?: string | null
 }
 
 function geometryBadge(record: KmzInventoryRecord) {
@@ -110,6 +120,12 @@ function asRecord(value: unknown): Record<string, unknown> {
 
 function asString(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback
+}
+
+function fieldDisplayName(record: KmzInventoryRecord | null) {
+  if (!record) return ""
+  const metadata = asRecord(record.metadata)
+  return asString(metadata.manual_display_name).trim() || record.file_name
 }
 
 function centerFromBounds(bounds: unknown, fallback: { lat: number; lng: number }) {
@@ -182,6 +198,10 @@ export function CAMPOSFolderViewIntegrated() {
   const [kmzFiles, setKmzFiles] = useState<any[]>([])
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null)
   const [search, setSearch] = useState("")
+  const [searchResults, setSearchResults] = useState<KmzSearchHit[]>([])
+  const [searching, setSearching] = useState(false)
+  const [detailOpen, setDetailOpen] = useState(true)
+  const [editOpen, setEditOpen] = useState(false)
   const [loadingRegions, setLoadingRegions] = useState<Set<string>>(new Set())
   const [loadingInitial, setLoadingInitial] = useState(true)
   const [loadingMap, setLoadingMap] = useState(false)
@@ -318,6 +338,7 @@ export function CAMPOSFolderViewIntegrated() {
     setCirenError(false)
     setLoadingCiren(false)
     setSelectedRecord(record)
+    setDetailOpen(true)
     setSelectedRegion(record.region)
     setSelectedLayer(null)
     setLoadingMap(true)
@@ -390,18 +411,68 @@ export function CAMPOSFolderViewIntegrated() {
     if (record && String(record.id) !== String(selectedRecord?.id || "")) void loadSelectedKmz(record)
   }, [loadSelectedKmz, recordsByRegion, selectedRecord?.id, selectedRegion])
 
-  const filteredSummaries = useMemo(() => {
-    const query = search.trim().toLocaleLowerCase("es")
-    if (!query) return summaries
-    return summaries.filter((summary) => summary.region.toLocaleLowerCase("es").includes(query))
-  }, [search, summaries])
+  useEffect(() => {
+    const query = search.trim()
+    if (query.length < 2) {
+      setSearchResults([])
+      setSearching(false)
+      return
+    }
+
+    const timer = window.setTimeout(async () => {
+      setSearching(true)
+      try {
+        const response = await fetch("/api/kmz/search?q=" + encodeURIComponent(query), { cache: "no-store" })
+        const body = await response.json().catch(() => ({}))
+        const hits = Array.isArray(body?.results?.kmzCollection) ? body.results.kmzCollection : []
+        setSearchResults(hits.slice(0, 40) as KmzSearchHit[])
+      } catch (error) {
+        console.warn("[CAMPOS] search failed", error)
+        setSearchResults([])
+      } finally {
+        setSearching(false)
+      }
+    }, 220)
+
+    return () => window.clearTimeout(timer)
+  }, [search])
+
+  const openSearchHit = useCallback(async (hit: KmzSearchHit) => {
+    try {
+      const records = await loadKmzInventory(supabase, { ids: [String(hit.id)] })
+      const record = records[0]
+      if (record) await loadSelectedKmz(record)
+    } catch (error) {
+      console.warn("[CAMPOS] search hit failed", error)
+    }
+  }, [loadSelectedKmz, supabase])
+
+
+  const refreshSelectedRecord = useCallback(async () => {
+    if (!selectedRecord) return
+    const records = await loadKmzInventory(supabase, { ids: [String(selectedRecord.id)] })
+    const fresh = records[0]
+    if (!fresh) return
+    setSelectedRecord(fresh)
+    setRecordsByRegion((current) => {
+      const regionRows = current[fresh.region] || []
+      return {
+        ...current,
+        [fresh.region]: regionRows.map((item) => String(item.id) === String(fresh.id) ? fresh : item),
+      }
+    })
+  }, [selectedRecord, supabase])
+
+  const hasGlobalSearch = search.trim().length >= 2
+
+  const filteredSummaries = useMemo(() => summaries, [summaries])
 
   const visibleRegionRecords = useCallback((region: string) => {
     const records = recordsByRegion[region] || []
     const query = search.trim().toLocaleLowerCase("es")
     if (!query) return records
     return records.filter((record) =>
-      [record.file_name, record.region, ...(record.rol_numbers || [])]
+      [fieldDisplayName(record), record.file_name, record.owner, record.region, ...(record.rol_numbers || [])]
         .filter(Boolean)
         .some((value) => String(value).toLocaleLowerCase("es").includes(query)),
     )
@@ -439,12 +510,39 @@ export function CAMPOSFolderViewIntegrated() {
           </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar región, KMZ o ROL" className="pl-9" />
+            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar campo, propietario, región o ROL" className="pl-9" />
           </div>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
-          {loadingInitial ? (
+          {hasGlobalSearch ? (
+            <div className="space-y-1">
+              <div className="flex items-center justify-between px-2 pb-2">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">Resultados</p>
+                <span className="text-[11px] tabular-nums text-muted-foreground">{searchResults.length}</span>
+              </div>
+              {searching ? (
+                <div className="flex h-28 items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Buscando...</div>
+              ) : searchResults.length ? searchResults.map((hit) => (
+                <button
+                  key={hit.id}
+                  type="button"
+                  onClick={() => void openSearchHit(hit)}
+                  className="flex w-full items-start gap-3 rounded-md px-3 py-2.5 text-left transition-colors hover:bg-secondary/70"
+                >
+                  <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">{hit.file_name}</span>
+                    <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
+                      {hit.owner ? `${hit.owner} · ` : hit.ownerEvidence ? `Evidencia: ${hit.ownerEvidence} · ` : ""}{hit.region || "Sin región"}{hit.rol_numbers?.[0] ? ` · ROL ${hit.rol_numbers[0]}` : ""}
+                    </span>
+                  </span>
+                </button>
+              )) : (
+                <div className="px-3 py-8 text-center text-sm text-muted-foreground">No encontramos un campo, propietario, región o ROL con esa búsqueda.</div>
+              )}
+            </div>
+          ) : loadingInitial ? (
             <div className="flex h-40 items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Cargando inventario...</div>
           ) : filteredSummaries.map((summary) => {
             const isOpen = openRegions.has(summary.region)
@@ -476,7 +574,7 @@ export function CAMPOSFolderViewIntegrated() {
                           className={`mb-0.5 flex w-full items-center gap-2 rounded-md px-2 py-2 text-left transition-colors hover:bg-secondary/70 ${active ? "bg-secondary text-foreground" : "text-foreground"}`}
                         >
                           <File className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                          <span className="min-w-0 flex-1 truncate text-xs">{record.file_name}</span>
+                          <span className="min-w-0 flex-1 truncate text-xs" title={record.file_name}>{fieldDisplayName(record)}</span>
                           <Badge variant="outline" className={`shrink-0 text-[11px] ${badge.className}`}>{badge.label}</Badge>
                         </button>
                       )
@@ -489,15 +587,27 @@ export function CAMPOSFolderViewIntegrated() {
         </div>
       </aside>
 
-      <main className="flex min-w-0 flex-1 flex-col bg-background">
+      <main className="relative flex min-w-0 flex-1 flex-col bg-background">
         <header className="flex h-14 items-center justify-between border-b bg-card px-5">
           <div className="min-w-0">
             <h1 className="truncate text-lg font-semibold tracking-tight">CAMPOS</h1>
             <p className="truncate text-xs text-muted-foreground">
-              {selectedRecord ? selectedRecord.file_name : selectedRegion ? `${selectedRegion} · ${kmzFiles.length} KMZ visibles` : "Selecciona una región"}
+              {selectedRecord ? fieldDisplayName(selectedRecord) : selectedRegion ? `${selectedRegion} · ${kmzFiles.length} KMZ visibles` : "Selecciona una región"}
             </p>
           </div>
-          {selectedRecord ? <Badge variant="outline" className={geometryBadge(selectedRecord).className}>{geometryBadge(selectedRecord).label}</Badge> : null}
+          {selectedRecord ? (
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className={geometryBadge(selectedRecord).className}>{geometryBadge(selectedRecord).label}</Badge>
+              <Button type="button" variant="outline" size="sm" className="h-8 gap-2" onClick={() => setEditOpen(true)}>
+                <Pencil className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Editar</span>
+              </Button>
+              <Button type="button" variant="outline" size="sm" className="h-8 gap-2" onClick={() => setDetailOpen((value) => !value)}>
+                <PanelRight className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">{detailOpen ? "Ocultar ficha" : "Ver ficha"}</span>
+              </Button>
+            </div>
+          ) : null}
         </header>
 
         <div className="relative min-h-0 flex-1">
@@ -520,12 +630,18 @@ export function CAMPOSFolderViewIntegrated() {
           )}
         </div>
 
-        {selectedRecord ? (
-          <section className="max-h-[46vh] overflow-y-auto border-t bg-card px-5 py-4">
+        {selectedRecord && detailOpen ? (
+          <section className="absolute inset-x-0 bottom-0 z-30 max-h-[58%] overflow-y-auto border-t bg-card px-5 py-4 shadow-2xl lg:bottom-0 lg:left-auto lg:right-0 lg:top-14 lg:max-h-none lg:w-[400px] lg:border-l lg:border-t-0">
             <div className="flex items-start justify-between gap-6">
+              <Button type="button" variant="ghost" size="icon" className="absolute right-3 top-3 h-8 w-8" onClick={() => setDetailOpen(false)} aria-label="Cerrar ficha del campo">
+                <X className="h-4 w-4" />
+              </Button>
               <div className="min-w-0">
                 <p className="sr-meta">KMZ seleccionado</p>
-                <h2 className="mt-1 truncate text-base font-semibold">{selectedRecord.file_name}</h2>
+                <h2 className="mt-1 truncate text-base font-semibold">{fieldDisplayName(selectedRecord)}</h2>
+                {fieldDisplayName(selectedRecord) !== selectedRecord.file_name ? (
+                  <p className="mt-1 truncate text-[11px] text-muted-foreground">Fuente KMZ: {selectedRecord.file_name}</p>
+                ) : null}
                 <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                   <span>{selectedRecord.region}</span>
                   {selectedRecord.rol_numbers?.[0] ? <><span aria-hidden="true">·</span><span>ROL {selectedRecord.rol_numbers[0]}</span></> : null}
@@ -546,6 +662,19 @@ export function CAMPOSFolderViewIntegrated() {
               }}
             />
           </section>
+        ) : null}
+
+        {selectedRecord ? (
+          <KMZOwnerEditModal
+            open={editOpen}
+            onOpenChange={setEditOpen}
+            kmzId={String(selectedRecord.id)}
+            kmzFileName={selectedRecord.file_name}
+            currentDisplayName={fieldDisplayName(selectedRecord) !== selectedRecord.file_name ? fieldDisplayName(selectedRecord) : ""}
+            currentOwner={selectedRecord.owner ?? undefined}
+            currentGoogleDocsLink={selectedRecord.google_docs_link ?? undefined}
+            onSave={() => void refreshSelectedRecord()}
+          />
         ) : null}
       </main>
     </div>

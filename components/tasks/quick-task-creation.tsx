@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { createClient } from "@/lib/supabase/client"
 import { toast } from "sonner"
 import { Loader2, Mic, MicOff, Zap, MoreHorizontal } from 'lucide-react'
 import { useSpeechToText } from "@/lib/hooks/use-speech-to-text"
@@ -94,43 +93,29 @@ export function QuickTaskCreation({
     }
 
     setIsSubmitting(true)
-    const supabase = createClient()
-
     try {
-      let createdBy = "system"
-      try {
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser()
-
-        if (user) {
-          createdBy = user.email || user.id || "system"
-          console.log("[v0] Creating task as user:", createdBy)
-        } else {
-          console.log("[v0] No user logged in, creating task as system")
-        }
-      } catch (authError) {
-        console.log("[v0] Auth check failed, using system as creator:", authError)
-      }
-
-      const { error } = await supabase.from("tasks").insert({
-        title: formData.title,
-        description: formData.description || null,
-        priority: formData.priority,
-        status: "pending",
-        created_by: createdBy, // Use createdBy instead of null
-        // assigned_to is NOT set for quick tasks
+      const response = await fetch("/api/tasks/manage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: formData.title.trim(),
+          description: formData.description.trim() || null,
+          priority: formData.priority,
+          status: "pending",
+          selectedUserIds: [],
+          tags: [],
+        }),
       })
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(body.error || "No se pudo crear la tarea")
 
-      if (error) throw error
-
-      toast.success("Tarea rápida creada exitosamente")
+      toast.success("Tarea rápida creada")
       setFormData({ title: "", description: "", priority: "medium" })
       onTaskCreated()
-    } catch (error: any) {
-      console.error("Error creating task:", error)
-      toast.error("Error al crear la tarea: " + error.message)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Error desconocido"
+      console.error("[quick-task] create failed", error)
+      toast.error("Error al crear la tarea: " + message)
     } finally {
       setIsSubmitting(false)
     }

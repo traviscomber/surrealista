@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RefreshCw } from 'lucide-react'
-import { createBrowserClient } from '@supabase/ssr'
 
 interface KMZOwnerEditModalProps {
   open: boolean
@@ -18,6 +17,7 @@ interface KMZOwnerEditModalProps {
   currentPicPhone?: string
   currentPicEmail?: string
   currentGoogleDocsLink?: string
+  currentDisplayName?: string
   onSave?: () => void
 }
 
@@ -31,8 +31,10 @@ export function KMZOwnerEditModal({
   currentPicPhone,
   currentPicEmail,
   currentGoogleDocsLink,
+  currentDisplayName,
   onSave,
 }: KMZOwnerEditModalProps) {
+  const [displayName, setDisplayName] = useState('')
   const [owner, setOwner] = useState('')
   const [pic, setPic] = useState('')
   const [picPhone, setPicPhone] = useState('')
@@ -44,6 +46,7 @@ export function KMZOwnerEditModal({
   // Update form fields when modal opens or data changes
   useEffect(() => {
     if (open) {
+      setDisplayName(currentDisplayName || '')
       setOwner(currentOwner || '')
       setPic(currentPic || '')
       setPicPhone(currentPicPhone || '')
@@ -51,30 +54,30 @@ export function KMZOwnerEditModal({
       setGoogleDocsLink(currentGoogleDocsLink || '')
       setError(null)
     }
-  }, [open, currentOwner, currentPic, currentPicPhone, currentPicEmail, currentGoogleDocsLink])
+  }, [open, currentDisplayName, currentOwner, currentPic, currentPicPhone, currentPicEmail, currentGoogleDocsLink])
 
   const handleSave = async () => {
     try {
       setSaving(true)
       setError(null)
 
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      )
+      const payload: Record<string, string> = {
+        owner,
+        google_docs_link: googleDocsLink,
+      }
 
-      const { error: updateError } = await supabase
-        .from('kmz_collection')
-        .update({
-          owner: owner || null,
-          pic: pic || null,
-          pic_phone: picPhone || null,
-          pic_email: picEmail || null,
-          google_docs_link: googleDocsLink || null,
-        })
-        .eq('id', kmzId)
+      if (currentDisplayName !== undefined || displayName.trim()) payload.displayName = displayName
+      if (currentPic !== undefined || pic.trim()) payload.pic = pic
+      if (currentPicPhone !== undefined || picPhone.trim()) payload.pic_phone = picPhone
+      if (currentPicEmail !== undefined || picEmail.trim()) payload.pic_email = picEmail
 
-      if (updateError) throw updateError
+      const response = await fetch(`/api/kmz/profile/${encodeURIComponent(kmzId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(result.error || 'Error al guardar')
 
       onOpenChange(false)
       onSave?.()
@@ -89,11 +92,11 @@ export function KMZOwnerEditModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Editar Dueño y Documentación del Campo</DialogTitle>
+          <DialogTitle>Editar ficha del campo</DialogTitle>
           {kmzFileName && (
-            <div className="mt-3 p-2 bg-blue-50 rounded border border-blue-200">
-              <p className="text-xs text-gray-600">Editando:</p>
-              <p className="text-sm font-mono font-semibold text-blue-900 break-all">{kmzFileName}</p>
+            <div className="mt-3 rounded-md border border-border/70 bg-secondary/30 p-3">
+              <p className="text-xs text-muted-foreground">Archivo fuente KMZ</p>
+              <p className="mt-1 break-all font-mono text-xs font-medium text-foreground">{kmzFileName}</p>
             </div>
           )}
         </DialogHeader>
@@ -106,7 +109,20 @@ export function KMZOwnerEditModal({
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="owner">Dueño del Campo</Label>
+            <Label htmlFor="displayName">Nombre operativo del campo</Label>
+            <Input
+              id="displayName"
+              placeholder={kmzFileName || "Nombre visible"}
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Cambia sólo el nombre visible. El nombre original del archivo KMZ se conserva como fuente.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="owner">Propietario</Label>
             <Input
               id="owner"
               placeholder="Nombre del propietario"
@@ -116,7 +132,7 @@ export function KMZOwnerEditModal({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="pic">Person In Charge (PIC)</Label>
+            <Label htmlFor="pic">Responsable</Label>
             <Input
               id="pic"
               placeholder="Nombre del contacto principal"
@@ -126,7 +142,7 @@ export function KMZOwnerEditModal({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="picPhone">Teléfono PIC</Label>
+            <Label htmlFor="picPhone">Teléfono</Label>
             <Input
               id="picPhone"
               placeholder="+56 9 1234 5678"
@@ -136,7 +152,7 @@ export function KMZOwnerEditModal({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="picEmail">Email PIC</Label>
+            <Label htmlFor="picEmail">Email</Label>
             <Input
               id="picEmail"
               type="email"
@@ -147,7 +163,7 @@ export function KMZOwnerEditModal({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="googleDocsLink">Link Google Docs</Label>
+            <Label htmlFor="googleDocsLink">Google Docs</Label>
             <Input
               id="googleDocsLink"
               placeholder="https://docs.google.com/..."
@@ -169,7 +185,7 @@ export function KMZOwnerEditModal({
             <Button
               onClick={handleSave}
               disabled={saving}
-              className="flex-1 bg-purple-600 hover:bg-purple-700"
+              className="flex-1"
             >
               {saving ? (
                 <>

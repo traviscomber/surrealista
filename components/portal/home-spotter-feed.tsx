@@ -60,7 +60,7 @@ export function HomeSpotterFeed() {
     {!error && !visible.length ? <Card className="p-8 text-center text-sm text-muted-foreground">No hay avisos con evidencia suficiente y al menos 3% bajo su benchmark actual.</Card> : null}
 
     <div className="space-y-3">
-      {visible.map(opp => <Link key={opp.id} href={`/home-spotter/opportunities/${opp.id}`} className="block">
+      {visible.map(opp => <Link key={opp.id} href={`/mercado/oportunidades/${opp.id}`} className="block">
         <Card className="p-5 transition-colors hover:bg-muted/30">
           <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
             <div className="min-w-0 flex-1">
@@ -85,6 +85,6 @@ export function HomeSpotterFeed() {
         </Card>
       </Link>)}
     </div>
-    <p className="text-xs text-muted-foreground">Home Spotter usa avisos reales de mercado. El score combina descuento frente al benchmark, cantidad y diversidad de comparables, frescura y calidad del dato. La ficha de cada oportunidad agrega vecinos y KMZ.</p>
+    <p className="text-xs text-muted-foreground">Inteligencia de Oportunidades usa avisos reales de mercado. El score combina descuento frente al benchmark, cantidad y diversidad de comparables, frescura y calidad del dato. La ficha de cada oportunidad agrega vecinos y KMZ.</p>
   </div>
 }

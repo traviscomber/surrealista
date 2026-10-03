@@ -13,9 +13,9 @@ export default function HomeSpotterFeedPage() {
     <div className="space-y-6">
       <div>
         <p className="text-xs uppercase tracking-wide text-muted-foreground">Oportunidades · Inteligencia comercial</p>
-        <h1 className="mt-2 text-3xl font-medium">Oportunidades reales de terrenos</h1>
+        <h1 className="mt-2 text-3xl font-medium">Inteligencia de Oportunidades</h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-muted-foreground">
-          Detecta avisos publicados bajo su benchmark de mercado y prioriza dónde conviene revisar primero. El detalle cruza mercado, vecinos y KMZ.
+          Detecta publicaciones con brechas relevantes frente a su benchmark de mercado y prioriza cuáles revisar primero con evidencia territorial.
         </p>
       </div>
       <Suspense fallback={<div className="py-8 text-center">Calculando oportunidades...</div>}>

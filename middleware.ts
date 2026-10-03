@@ -2,21 +2,24 @@ import { NextRequest, NextResponse } from "next/server"
 import { INTERNAL_ACCESS_COOKIE, verifyInternalAccessToken } from "@/lib/auth/internal-access"
 import { updateSession } from "@/lib/supabase/middleware"
 
-const RETIRED_PRODUCT_PREFIXES = [
-  "/asistente-ia",
-  "/ai",
-  "/admin/agentes",
-  "/admin/ia-workspace",
-  "/admin/tags",
-  "/admin/google-drive",
-  "/admin/operaciones-comerciales",
-]
+const RETIRED_PRODUCT_PREFIXES: string[] = []
 
 const CANONICAL_PRODUCT_ROUTES = [
+  { prefix: "/asistente-ia", destination: "/asistente", preserveSuffix: false },
+  { prefix: "/ai", destination: "/asistente", preserveSuffix: false },
+  { prefix: "/properties", destination: "/propiedades", preserveSuffix: true },
+  { prefix: "/opportunities", destination: "/mercado/oportunidades", preserveSuffix: false },
+  { prefix: "/home-spotter/opportunities", destination: "/mercado/oportunidades", preserveSuffix: true },
+  { prefix: "/home-spotter", destination: "/mercado/oportunidades", preserveSuffix: false },
   { prefix: "/admin/clientes", destination: "/clientes", preserveSuffix: true },
   { prefix: "/gestion-clientes", destination: "/clientes", preserveSuffix: true },
   { prefix: "/admin/mensajes", destination: "/comunicaciones", preserveSuffix: false },
   { prefix: "/nueva-tarea", destination: "/gestion-tareas", preserveSuffix: false },
+  { prefix: "/admin/agentes", destination: "/asistente", preserveSuffix: false },
+  { prefix: "/admin/ia-workspace", destination: "/asistente", preserveSuffix: false },
+  { prefix: "/admin/tags", destination: "/campos", preserveSuffix: false },
+  { prefix: "/admin/google-drive", destination: "/documentacion", preserveSuffix: false },
+  { prefix: "/admin/operaciones-comerciales", destination: "/admin/dashboard", preserveSuffix: false },
 ]
 
 const NODE_AUTH_API_PATHS = new Set([
@@ -95,7 +98,6 @@ export async function middleware(request: NextRequest) {
   if (canonicalProductPath) {
     const url = request.nextUrl.clone()
     url.pathname = canonicalProductPath
-    url.search = ""
     return NextResponse.redirect(url)
   }
 

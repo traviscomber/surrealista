@@ -49,8 +49,8 @@ export function AdminHeader() {
   return (
     <header className="border-b border-border bg-card">
       <div className="flex min-h-16 items-center gap-4 px-5 py-3 lg:px-8">
-        <Button asChild variant="ghost" size="icon" aria-label="Volver a Campos">
-          <Link href="/campos">
+        <Button asChild variant="ghost" size="icon" aria-label="Volver a Inicio">
+          <Link href="/">
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           </Link>
         </Button>
