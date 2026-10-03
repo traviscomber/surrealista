@@ -235,11 +235,24 @@ export function ScrapedPropertiesDashboard({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Card><CardContent className="flex items-center gap-3 p-5"><Building2 className="h-5 w-5 text-primary" /><div><p className="text-2xl font-semibold">{filteredProperties.length}</p><p className="text-sm text-muted-foreground">Propiedades encontradas</p></div></CardContent></Card>
-        <Card><CardContent className="flex items-center gap-3 p-5"><Database className="h-5 w-5 text-primary" /><div><p className="text-2xl font-semibold">{sources}</p><p className="text-sm text-muted-foreground">Fuentes con datos</p></div></CardContent></Card>
-        <Card><CardContent className="flex items-center gap-3 p-5"><MapPin className="h-5 w-5 text-primary" /><div><p className="text-2xl font-semibold">{regions}</p><p className="text-sm text-muted-foreground">Regiones cubiertas</p></div></CardContent></Card>
-        <Card><CardContent className="flex items-center gap-3 p-5"><CircleDollarSign className="h-5 w-5 text-primary" /><div><p className="text-lg font-semibold">{averageUF ? `UF ${new Intl.NumberFormat("es-CL").format(averageUF)}` : "Sin datos"}</p><p className="text-sm text-muted-foreground">Precio promedio UF</p></div></CardContent></Card>
+      <div className="grid border-y border-border/70 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          { label: "Propiedades", value: new Intl.NumberFormat("es-CL").format(filteredProperties.length), icon: Building2 },
+          { label: "Fuentes", value: new Intl.NumberFormat("es-CL").format(sources), icon: Database },
+          { label: "Regiones", value: new Intl.NumberFormat("es-CL").format(regions), icon: MapPin },
+          { label: "Precio promedio", value: averageUF ? `UF ${new Intl.NumberFormat("es-CL").format(averageUF)}` : "—", icon: CircleDollarSign },
+        ].map((metric, index) => {
+          const Icon = metric.icon
+          return (
+            <div key={metric.label} className={`min-h-[104px] px-4 py-4 ${index > 0 ? "border-t border-border/70 sm:border-l lg:border-t-0" : ""} ${index === 2 ? "lg:border-l" : ""}`}>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Icon className="h-4 w-4 text-primary" aria-hidden="true" />
+                <p className="text-[9px] font-semibold uppercase tracking-[0.16em]">{metric.label}</p>
+              </div>
+              <p className="mt-3 text-2xl font-medium tracking-[-0.02em] tabular-nums">{metric.value}</p>
+            </div>
+          )
+        })}
       </div>
 
       <Card>
