@@ -89,9 +89,9 @@ export async function GET(request: NextRequest) {
         const pattern = `%${term}%`
         const textAttempt = await supabase
           .from("kmz_collection")
-          .select("id, file_name, region, category, rol_numbers, owner, created_at, is_active")
+          .select("id, file_name, region, category, rol_numbers, owner, metadata, created_at, is_active")
           .eq("is_active", true)
-          .or(`file_name.ilike.${pattern},region.ilike.${pattern},category.ilike.${pattern},owner.ilike.${pattern}`)
+          .or(`file_name.ilike.${pattern},metadata->>manual_display_name.ilike.${pattern},region.ilike.${pattern},category.ilike.${pattern},owner.ilike.${pattern}`)
           .limit(100)
 
         const ownerEvidenceAttempt = await supabase
@@ -134,8 +134,14 @@ export async function GET(request: NextRequest) {
           }
           return (attempt.data || []).map((row: any) => {
             const ownerEvidence = extractOwnerEvidence(row.metadata)
+            const metadata = row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+              ? row.metadata as Record<string, unknown>
+              : {}
+            const displayName = typeof metadata.manual_display_name === "string" && metadata.manual_display_name.trim()
+              ? metadata.manual_display_name.trim()
+              : row.file_name
             const { metadata: _metadata, ...safeRow } = row
-            return { ...safeRow, ownerEvidence }
+            return { ...safeRow, display_name: displayName, ownerEvidence }
           })
         }),
       ),
