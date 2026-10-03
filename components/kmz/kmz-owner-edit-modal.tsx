@@ -18,6 +18,7 @@ interface KMZOwnerEditModalProps {
   currentPicPhone?: string
   currentPicEmail?: string
   currentGoogleDocsLink?: string
+  currentDisplayName?: string
   onSave?: () => void
 }
 
@@ -31,8 +32,10 @@ export function KMZOwnerEditModal({
   currentPicPhone,
   currentPicEmail,
   currentGoogleDocsLink,
+  currentDisplayName,
   onSave,
 }: KMZOwnerEditModalProps) {
+  const [displayName, setDisplayName] = useState('')
   const [owner, setOwner] = useState('')
   const [pic, setPic] = useState('')
   const [picPhone, setPicPhone] = useState('')
@@ -44,6 +47,7 @@ export function KMZOwnerEditModal({
   // Update form fields when modal opens or data changes
   useEffect(() => {
     if (open) {
+      setDisplayName(currentDisplayName || '')
       setOwner(currentOwner || '')
       setPic(currentPic || '')
       setPicPhone(currentPicPhone || '')
@@ -51,7 +55,7 @@ export function KMZOwnerEditModal({
       setGoogleDocsLink(currentGoogleDocsLink || '')
       setError(null)
     }
-  }, [open, currentOwner, currentPic, currentPicPhone, currentPicEmail, currentGoogleDocsLink])
+  }, [open, currentDisplayName, currentOwner, currentPic, currentPicPhone, currentPicEmail, currentGoogleDocsLink])
 
   const handleSave = async () => {
     try {
@@ -63,6 +67,26 @@ export function KMZOwnerEditModal({
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       )
 
+      const { data: currentRow, error: readError } = await supabase
+        .from('kmz_collection')
+        .select('file_name, metadata')
+        .eq('id', kmzId)
+        .single()
+
+      if (readError) throw readError
+
+      const currentMetadata =
+        currentRow?.metadata && typeof currentRow.metadata === 'object' && !Array.isArray(currentRow.metadata)
+          ? { ...currentRow.metadata as Record<string, unknown> }
+          : {}
+
+      if (!currentMetadata.original_file_name && currentRow?.file_name) {
+        currentMetadata.original_file_name = currentRow.file_name
+      }
+
+      if (displayName.trim()) currentMetadata.manual_display_name = displayName.trim()
+      else delete currentMetadata.manual_display_name
+
       const { error: updateError } = await supabase
         .from('kmz_collection')
         .update({
@@ -71,6 +95,7 @@ export function KMZOwnerEditModal({
           pic_phone: picPhone || null,
           pic_email: picEmail || null,
           google_docs_link: googleDocsLink || null,
+          metadata: currentMetadata,
         })
         .eq('id', kmzId)
 
@@ -104,6 +129,19 @@ export function KMZOwnerEditModal({
               {error}
             </div>
           )}
+
+          <div className="space-y-2">
+            <Label htmlFor="displayName">Nombre operativo del campo</Label>
+            <Input
+              id="displayName"
+              placeholder={kmzFileName || "Nombre visible"}
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Cambia sólo el nombre visible. El nombre original del archivo KMZ se conserva como fuente.
+            </p>
+          </div>
 
           <div className="space-y-2">
             <Label htmlFor="owner">Dueño del Campo</Label>
