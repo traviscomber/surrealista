@@ -1,165 +1,78 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { MapPin, Search, Database, Zap, FileText, Map } from "lucide-react"
+import { ArrowRight, Database, Map, Search, Zap } from "lucide-react"
+
+import { WorkspaceHeading } from "@/components/ui/workspace-heading"
+
+const actions = [
+  {
+    href: "/kmz-search",
+    title: "Buscar KMZ",
+    description: "Encuentra campos y elementos por nombre, región o descripción.",
+    icon: Search,
+  },
+  {
+    href: "/kmz-search-advanced",
+    title: "Búsqueda avanzada",
+    description: "Combina filtros cuando necesitas acotar un universo grande.",
+    icon: Zap,
+  },
+  {
+    href: "/kmz-map",
+    title: "Mapa territorial",
+    description: "Abre las geometrías y revisa contexto espacial.",
+    icon: Map,
+  },
+  {
+    href: "/admin/kmz-collection",
+    title: "Colección KMZ",
+    description: "Revisa inventario, procedencia y estado de los archivos.",
+    icon: Database,
+  },
+]
 
 export default function KMZGuidePage() {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-slate-50 to-indigo-50 p-8">
-      <div className="max-w-6xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <div className="flex justify-center mb-4">
-            <div className="bg-blue-100 p-4 rounded-full">
-              <MapPin className="h-12 w-12 text-blue-600" />
-            </div>
-          </div>
-          <h1 className="text-5xl font-bold text-slate-900 mb-3">Sistema de Búsqueda de KMZ</h1>
-          <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-            Busca ubicaciones en más de 180 archivos KMZ y encuentra exactamente lo que necesitas
-          </p>
+    <main className="mx-auto w-full max-w-[1500px] space-y-8 px-4 py-6 sm:px-6 lg:px-8">
+      <WorkspaceHeading
+        eyebrow="Campos · Guía"
+        title="Trabajar con KMZ"
+        description="Usa estas vistas como apoyo para localizar, revisar y entender archivos territoriales sin perder el contexto de Campos."
+        outcome="Encuentra el archivo correcto, valida su geometría y continúa desde la ficha canónica."
+      />
+
+      <section aria-labelledby="kmz-guide-heading">
+        <div className="mb-4">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">01 · Flujo</p>
+          <h2 id="kmz-guide-heading" className="mt-1 text-xl font-semibold">Herramientas disponibles</h2>
         </div>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
-          <Card className="bg-white/80 backdrop-blur border-blue-100">
-            <CardContent className="pt-6 text-center">
-              <Database className="h-8 w-8 mx-auto mb-2 text-blue-600" />
-              <p className="text-3xl font-bold text-slate-900">180+</p>
-              <p className="text-sm text-slate-600">Archivos KMZ</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-white/80 backdrop-blur border-green-100">
-            <CardContent className="pt-6 text-center">
-              <Zap className="h-8 w-8 mx-auto mb-2 text-green-600" />
-              <p className="text-3xl font-bold text-slate-900">Automático</p>
-              <p className="text-sm text-slate-600">Indexación cada hora</p>
-            </CardContent>
-          </Card>
-          <Card className="bg-white/80 backdrop-blur border-purple-100">
-            <CardContent className="pt-6 text-center">
-              <Search className="h-8 w-8 mx-auto mb-2 text-purple-600" />
-              <p className="text-3xl font-bold text-slate-900">Rápido</p>
-              <p className="text-sm text-slate-600">Resultados instantáneos</p>
-            </CardContent>
-          </Card>
+        <div className="border-y border-border/70">
+          {actions.map((action, index) => {
+            const Icon = action.icon
+            return (
+              <Link
+                key={action.href}
+                href={action.href}
+                className="group grid min-h-[88px] items-center gap-4 border-b border-border/70 px-1 py-4 transition-colors last:border-b-0 hover:bg-secondary/45 sm:grid-cols-[38px_180px_minmax(0,1fr)_24px] sm:px-3"
+              >
+                <span aria-hidden="true" className="font-mono text-[10px] text-muted-foreground">0{index + 1}</span>
+                <div className="flex items-center gap-3">
+                  <Icon className="h-4 w-4 text-primary" aria-hidden="true" />
+                  <h3 className="text-[15px] font-semibold">{action.title}</h3>
+                </div>
+                <p className="text-[13px] leading-5 text-muted-foreground">{action.description}</p>
+                <ArrowRight className="hidden h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 sm:block" aria-hidden="true" />
+              </Link>
+            )
+          })}
         </div>
+      </section>
 
-        {/* Main Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-          {/* Search Card */}
-          <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100/50">
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <div className="bg-blue-600 p-2 rounded-lg">
-                  <Search className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <CardTitle>Buscar Ubicaciones</CardTitle>
-                  <CardDescription>Encuentra ubicaciones en tus KMZ</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <ul className="space-y-2 text-sm text-slate-700">
-                <li className="flex items-start gap-3">
-                  <span className="font-bold text-blue-600 mt-0.5">1.</span>
-                  <span>Ingresa el nombre de la ubicación que buscas</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="font-bold text-blue-600 mt-0.5">2.</span>
-                  <span>Selecciona si buscas por Ubicación, Región o Archivo</span>
-                </li>
-                <li className="flex items-start gap-3">
-                  <span className="font-bold text-blue-600 mt-0.5">3.</span>
-                  <span>Haz clic en Buscar y obtén resultados instantáneos</span>
-                </li>
-              </ul>
-              <Link href="/kmz-search" className="block">
-                <Button className="w-full bg-blue-600 hover:bg-blue-700">
-                  <Search className="h-4 w-4 mr-2" />
-                  Ir a Búsqueda de KMZ
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-
-          {/* Examples Card */}
-          <Card className="border-2 border-indigo-200 bg-gradient-to-br from-indigo-50 to-indigo-100/50">
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <div className="bg-indigo-600 p-2 rounded-lg">
-                  <FileText className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <CardTitle>Ejemplos de Búsqueda</CardTitle>
-                  <CardDescription>Qué puedes buscar</CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="bg-white/50 p-3 rounded border border-indigo-200">
-                <p className="font-semibold text-slate-900 text-sm">Por Ubicación:</p>
-                <p className="text-slate-600 text-xs">Centro, Parque, Mercado, Calle Principal</p>
-              </div>
-              <div className="bg-white/50 p-3 rounded border border-indigo-200">
-                <p className="font-semibold text-slate-900 text-sm">Por Región:</p>
-                <p className="text-slate-600 text-xs">Metropolitana, Valparaíso, Antofagasta</p>
-              </div>
-              <div className="bg-white/50 p-3 rounded border border-indigo-200">
-                <p className="font-semibold text-slate-900 text-sm">Por Archivo:</p>
-                <p className="text-slate-600 text-xs">nombre_del_kmz.kmz</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Admin Actions */}
-        <Card className="border-2 border-slate-200">
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <div className="bg-slate-600 p-2 rounded-lg">
-                <Map className="h-6 w-6 text-white" />
-              </div>
-              <div>
-                <CardTitle>Gestión de Archivos</CardTitle>
-                <CardDescription>Administra tu colección de KMZ</CardDescription>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Link href="/admin/kmz-collection" className="block">
-                <Button variant="outline" className="w-full">
-                  <Database className="h-4 w-4 mr-2" />
-                  Ver Colección KMZ
-                </Button>
-              </Link>
-              <Link href="/admin/kmz" className="block">
-                <Button variant="outline" className="w-full">
-                  <Zap className="h-4 w-4 mr-2" />
-                  Estado Indexación
-                </Button>
-              </Link>
-              <Link href="/campos" className="block">
-                <Button variant="outline" className="w-full">
-                  <Search className="h-4 w-4 mr-2" />
-                  Abrir Campos
-                </Button>
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Info Box */}
-        <div className="mt-12 p-6 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-slate-700">
-            <span className="font-semibold text-slate-900">💡 Tip:</span> El sistema indexa automáticamente todos los KMZ cada hora. 
-            Los nuevos archivos se indexan inmediatamente después de cargarlos. Si no encuentras resultados, 
-            espera a que se complete la indexación o visita el panel de administración.
-          </p>
-        </div>
-      </div>
-    </div>
+      <section className="grid gap-4 border-y border-border/70 py-5 text-sm leading-6 text-muted-foreground md:grid-cols-3">
+        <div><span className="font-mono text-[10px] text-muted-foreground">01</span><p className="mt-1 text-foreground">Busca primero por nombre, región o ROL.</p></div>
+        <div><span className="font-mono text-[10px] text-muted-foreground">02</span><p className="mt-1 text-foreground">Abre el mapa sólo cuando necesites contexto espacial.</p></div>
+        <div><span className="font-mono text-[10px] text-muted-foreground">03</span><p className="mt-1 text-foreground">Vuelve a <Link href="/campos" className="font-medium hover:underline">Campos</Link> para operar sobre la ficha canónica.</p></div>
+      </section>
+    </main>
   )
 }
