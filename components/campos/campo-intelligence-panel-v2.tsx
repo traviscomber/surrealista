@@ -80,6 +80,47 @@ function nearest(features: NearbyFeature[], group: string) {
     .sort((a, b) => Number(a.distance_m) - Number(b.distance_m))[0] || null
 }
 
+function normalizeMetadataKey(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+}
+
+function metadataTagValues(metadata: Record<string, unknown> | null, acceptedKeys: string[]) {
+  if (!metadata) return [] as string[]
+  const accepted = new Set(acceptedKeys.map(normalizeMetadataKey))
+  const values: string[] = []
+
+  const visit = (value: unknown, depth: number, key?: string) => {
+    if (depth > 3 || value == null) return
+    if (key && accepted.has(normalizeMetadataKey(key))) {
+      if (typeof value === "string") {
+        values.push(...value.split(/[,;|]/g).map((item) => item.trim()))
+        return
+      }
+      if (Array.isArray(value)) {
+        for (const item of value) if (typeof item === "string") values.push(item.trim())
+        return
+      }
+    }
+    if (Array.isArray(value)) {
+      for (const item of value) visit(item, depth + 1)
+      return
+    }
+    if (typeof value === "object") {
+      for (const [childKey, childValue] of Object.entries(value as Record<string, unknown>)) {
+        visit(childValue, depth + 1, childKey)
+      }
+    }
+  }
+
+  visit(metadata, 0)
+  return Array.from(new Set(values.filter((value) => value && value.length <= 80))).slice(0, 6)
+}
+
 function formatDistance(value?: number | null) {
   if (!Number.isFinite(Number(value))) return "Sin dato"
   const meters = Number(value)
@@ -146,6 +187,21 @@ export function CampoIntelligencePanelV2({ record, ciren }: { record: KmzInvento
   const place = useMemo(() => nearest(nearby, "place"), [nearby])
   const water = useMemo(() => nearest(nearby, "water"), [nearby])
   const protectedArea = useMemo(() => nearest(nearby, "protected_area"), [nearby])
+
+  const activityTags = useMemo(
+    () => metadataTagValues(record.metadata, [
+      "activity", "activity_type", "actividad", "actividad_predio", "giro",
+      "land_use", "uso", "uso_actual", "uso_predio", "uso_suelo", "productive_use",
+    ]),
+    [record.metadata],
+  )
+  const cropTags = useMemo(
+    () => metadataTagValues(record.metadata, [
+      "crop", "crops", "cultivo", "cultivos", "especie", "especies",
+      "produccion", "produccion_agricola", "agricultural_use",
+    ]),
+    [record.metadata],
+  )
 
   const marketEvidence = useMemo(() => {
     const freshest = comparables[0] || null
@@ -238,12 +294,17 @@ export function CampoIntelligencePanelV2({ record, ciren }: { record: KmzInvento
           <Fact label="ROL" value={record.rol_numbers?.length ? record.rol_numbers.join(", ") : "Pendiente"} />
           <Fact label="Responsable" value={contact?.pic || "Pendiente"} />
           <Fact label="Contacto" value={contact?.pic_phone || contact?.pic_email || "Pendiente"} />
+
+          <LinkFact label="Documentos" href={record.google_docs_link} />
         </Evidence>
 
         <Evidence icon={<MapPin className="h-4 w-4" />} title="Territorio">
           <Fact label="Región" value={record.region} />
           <Fact label="Geometría" value={record.geometry_label || record.geometry_status} />
           <Fact label="Ubicación" value={Number.isFinite(Number(record.latitude)) && Number.isFinite(Number(record.longitude)) ? `${Number(record.latitude).toFixed(5)}, ${Number(record.longitude).toFixed(5)}` : "Sin coordenadas"} />
+
+          <TagFact label="Actividad" values={activityTags} />
+          <TagFact label="Cultivo" values={cropTags} />
         </Evidence>
 
         <Evidence icon={<Route className="h-4 w-4" />} title="Entorno próximo">
@@ -281,4 +342,38 @@ function Evidence({ icon, title, children }: { icon: ReactNode; title: string; c
 
 function Fact({ label, value }: { label: string; value: string }) {
   return <div className="flex items-start justify-between gap-3 text-[11px]"><span className="shrink-0 text-muted-foreground">{label}</span><span className="min-w-0 text-right font-medium text-foreground">{value}</span></div>
+}
+
+
+function LinkFact({ label, href }: { label: string; href?: string | null }) {
+  return (
+    <div className="flex items-start justify-between gap-3 text-[11px]">
+      <span className="shrink-0 text-muted-foreground">{label}</span>
+      {href ? (
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="min-w-0 text-right font-medium text-primary hover:underline"
+        >
+          Abrir Google Docs
+        </a>
+      ) : <span className="min-w-0 text-right font-medium text-foreground">Sin vínculo</span>}
+    </div>
+  )
+}
+
+function TagFact({ label, values }: { label: string; values: string[] }) {
+  return (
+    <div className="pt-1">
+      <span className="text-[11px] text-muted-foreground">{label}</span>
+      <div className="mt-1 flex flex-wrap gap-1">
+        {values.length ? values.map((value) => (
+          <Badge key={value} variant="outline" className="h-5 max-w-full truncate px-1.5 text-[10px] font-medium">
+            {value}
+          </Badge>
+        )) : <span className="text-[11px] font-medium text-foreground">Sin evidencia confirmada</span>}
+      </div>
+    </div>
+  )
 }
