@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { FileText, ListChecks, MessageSquare, Presentation, Sparkles } from "lucide-react"
 
 import { CommunicationsTracking } from "./communications-tracking"
@@ -20,11 +20,6 @@ export function CommunicationsManager() {
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   const [activeTab, setActiveTab] = useState("documents")
 
-  const activeSection = useMemo(
-    () => sections.find((section) => section.value === activeTab) || sections[0],
-    [activeTab],
-  )
-
   return (
     <section className="space-y-5 py-2">
       <div className="flex flex-col gap-4 border-b border-border pb-5 lg:flex-row lg:items-end lg:justify-between">
@@ -32,10 +27,10 @@ export function CommunicationsManager() {
           <p className="sr-meta">Centro documental y comercial</p>
           <div className="mt-1 flex items-center gap-2">
             <MessageSquare className="h-5 w-5 text-primary" aria-hidden="true" />
-            <h2 className="sr-section-title">Comunicaciones</h2>
+            <h2 className="sr-section-title">Multimedia</h2>
           </div>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-            Organiza documentos, seguimiento, plantillas y presentaciones comerciales desde un único flujo operativo.
+            Organiza contenido, seguimiento, plantillas, documentos y presentaciones desde un único flujo operativo.
           </p>
         </div>
       </div>
@@ -53,11 +48,6 @@ export function CommunicationsManager() {
               )
             })}
           </TabsList>
-        </div>
-
-        <div className="border-b border-border py-4">
-          <p className="sr-meta">Sección activa</p>
-          <p className="mt-1 text-sm font-medium text-foreground">{activeSection.label}</p>
         </div>
 
         <TabsContent value="documents" className="mt-5">
