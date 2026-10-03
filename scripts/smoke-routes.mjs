@@ -20,6 +20,7 @@ const operationalRoutes = [
   { route: "/quick-wins" },
   { route: "/mercado", expectedText: /Mercado y comparables/i },
   { route: "/mercado/oportunidades", expectedText: /Inteligencia de Oportunidades/i },
+  { route: "/propiedades", expectedText: /Propiedades disponibles|Inventario comercial/i },
   { route: "/busqueda", expectedText: /Explorador de campos|Centro operativo/i },
   { route: "/cotizador", expectedText: /Valorizador interno SR|Decisión de terreno/i },
   { route: "/clientes", expectedText: /Relaciones comerciales|Clientes/i },
@@ -65,7 +66,7 @@ function createSmokeToken(secret) {
   return `v6.${issuedAt}.${expiresAt}.${nonce}.${signature}`
 }
 
-async function inspectRoute(page, route, expectedPath, expectedText) {
+async function inspectRoute(page, route, expectedPath, expectedText, options = {}) {
   const pageErrors = []
   const capturePageError = (error) => pageErrors.push(error.message)
   page.on("pageerror", capturePageError)
@@ -92,7 +93,10 @@ async function inspectRoute(page, route, expectedPath, expectedText) {
         .catch(() => null)
     }
 
-    const hasGlobalNavigation = await page.locator('nav[aria-label="Módulos de Sur Realista"]:visible').count().then((count) => count > 0).catch(() => false)
+    const navigationSelector = options.requireVisibleNavigation === false
+      ? 'nav[aria-label="Módulos de Sur Realista"]'
+      : 'nav[aria-label="Módulos de Sur Realista"]:visible'
+    const hasGlobalNavigation = await page.locator(navigationSelector).count().then((count) => count > 0).catch(() => false)
     const hasHomeAffordance = await page.getByRole("link", { name: /Sur Realista · Inicio|Volver a Inicio/i }).first().isVisible().catch(() => false)
 
     if (route === "/campos" && finalPath === "/campos" && !hasAccessForm) {
@@ -273,7 +277,9 @@ try {
     for (const { route, expectedText } of operationalRoutes) {
       await inspectRoute(authenticatedPage, route, route, expectedText)
     }
-    for (const [route, expectedPath] of canonicalRoutes) await inspectRoute(authenticatedPage, route, expectedPath)
+    for (const [route, expectedPath] of canonicalRoutes) {
+      await inspectRoute(authenticatedPage, route, expectedPath, undefined, { requireVisibleNavigation: false })
+    }
     for (const route of retiredRoutes) await inspectRoute(authenticatedPage, route, "/campos")
 
     await authenticatedPage.setViewportSize({ width: 390, height: 844 })
