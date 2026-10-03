@@ -18,6 +18,11 @@ const contracts = [
   ["components/os/module-operating-shell.tsx", ["href=\"/\"", "aria-label=\"Ir a Inicio\"", "Módulos de Sur Realista", "Saltar al contenido"]],
   ["components/os/navigation-config.ts", ["Inicio", "Campos", "Clientes", "Multimedia", "Documentos", "Mercado"]],
   ["components/search/global-command-palette.tsx", ["Inicio", "Campos", "Clientes", "Multimedia", "Documentos", "Mercado", "Tareas", "Asistente IA"]],
+  ["app/admin/surealista/page.tsx", [], ["AppHeader"]],
+  ["app/admin/inciti-market/page.tsx", [], ["AppHeader"]],
+  ["app/admin/operaciones-comerciales/page.tsx", [], ["AppHeader"]],
+  ["app/admin/inteligencia-territorial/page.tsx", [], ["AppHeader"]],
+  ["app/admin/notifications/page.tsx", [], ["AppHeader"]],
 ]
 
 const failures = []
