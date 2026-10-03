@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RefreshCw } from 'lucide-react'
-import { createBrowserClient } from '@supabase/ssr'
 
 interface KMZOwnerEditModalProps {
   open: boolean
@@ -62,47 +61,23 @@ export function KMZOwnerEditModal({
       setSaving(true)
       setError(null)
 
-      const supabase = createBrowserClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      )
-
-      const { data: currentRow, error: readError } = await supabase
-        .from('kmz_collection')
-        .select('file_name, metadata, owner, pic, pic_phone, pic_email, google_docs_link')
-        .eq('id', kmzId)
-        .single()
-
-      if (readError) throw readError
-
-      const currentMetadata =
-        currentRow?.metadata && typeof currentRow.metadata === 'object' && !Array.isArray(currentRow.metadata)
-          ? { ...currentRow.metadata as Record<string, unknown> }
-          : {}
-
-      if (!currentMetadata.original_file_name && currentRow?.file_name) {
-        currentMetadata.original_file_name = currentRow.file_name
+      const payload: Record<string, string> = {
+        displayName,
+        owner,
+        google_docs_link: googleDocsLink,
       }
 
-      if (displayName.trim()) currentMetadata.manual_display_name = displayName.trim()
-      else if (currentDisplayName !== undefined) delete currentMetadata.manual_display_name
+      if (currentPic !== undefined || pic.trim()) payload.pic = pic
+      if (currentPicPhone !== undefined || picPhone.trim()) payload.pic_phone = picPhone
+      if (currentPicEmail !== undefined || picEmail.trim()) payload.pic_email = picEmail
 
-      const { error: updateError } = await supabase
-        .from('kmz_collection')
-        .update({
-          owner: currentOwner === undefined && !owner.trim() ? currentRow?.owner ?? null : owner || null,
-          pic: currentPic === undefined ? currentRow?.pic ?? null : pic || null,
-          pic_phone: currentPicPhone === undefined ? currentRow?.pic_phone ?? null : picPhone || null,
-          pic_email: currentPicEmail === undefined ? currentRow?.pic_email ?? null : picEmail || null,
-          google_docs_link:
-            currentGoogleDocsLink === undefined && !googleDocsLink.trim()
-              ? currentRow?.google_docs_link ?? null
-              : googleDocsLink || null,
-          metadata: currentMetadata,
-        })
-        .eq('id', kmzId)
-
-      if (updateError) throw updateError
+      const response = await fetch(`/api/kmz/profile/${encodeURIComponent(kmzId)}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      const result = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(result.error || 'Error al guardar')
 
       onOpenChange(false)
       onSave?.()
