@@ -61,7 +61,7 @@ export function OperatingSystemDashboard({ metrics }: OperatingSystemDashboardPr
                 href={module.href}
                 key={module.label}
                 className={cn(
-                  "group grid min-h-[92px] items-center gap-4 py-4 transition-colors hover:bg-secondary/45 sm:grid-cols-[40px_150px_minmax(0,1fr)_140px_24px] sm:px-3",
+                  "group grid min-h-[88px] items-center gap-4 py-4 transition-colors hover:bg-secondary/45 sm:grid-cols-[40px_150px_minmax(0,1fr)_170px_24px] sm:px-3",
                   index < SUR_REALISTA_MODULES.length - 1 && "border-b border-border/70",
                 )}
               >
@@ -71,7 +71,7 @@ export function OperatingSystemDashboard({ metrics }: OperatingSystemDashboardPr
                   <h3 className="text-[15px] font-semibold">{module.label}</h3>
                 </div>
                 <p className="text-[13px] leading-5 text-muted-foreground">{module.description}</p>
-                <p className="hidden text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground sm:block">{module.agent}</p>
+                <p className="hidden whitespace-nowrap text-[9px] font-medium uppercase tracking-[0.16em] text-muted-foreground lg:block">{module.agent}</p>
                 <ChevronRight className="hidden h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 sm:block" aria-hidden="true" />
               </Link>
             )
