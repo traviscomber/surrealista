@@ -117,11 +117,11 @@ export function KMZOwnerEditModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Editar Dueño y Documentación del Campo</DialogTitle>
+          <DialogTitle>Editar ficha del campo</DialogTitle>
           {kmzFileName && (
-            <div className="mt-3 p-2 bg-blue-50 rounded border border-blue-200">
-              <p className="text-xs text-gray-600">Editando:</p>
-              <p className="text-sm font-mono font-semibold text-blue-900 break-all">{kmzFileName}</p>
+            <div className="mt-3 rounded-md border border-border/70 bg-secondary/30 p-3">
+              <p className="text-xs text-muted-foreground">Archivo fuente KMZ</p>
+              <p className="mt-1 break-all font-mono text-xs font-medium text-foreground">{kmzFileName}</p>
             </div>
           )}
         </DialogHeader>
@@ -147,7 +147,7 @@ export function KMZOwnerEditModal({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="owner">Dueño del Campo</Label>
+            <Label htmlFor="owner">Propietario</Label>
             <Input
               id="owner"
               placeholder="Nombre del propietario"
@@ -157,7 +157,7 @@ export function KMZOwnerEditModal({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="pic">Person In Charge (PIC)</Label>
+            <Label htmlFor="pic">Responsable</Label>
             <Input
               id="pic"
               placeholder="Nombre del contacto principal"
@@ -167,7 +167,7 @@ export function KMZOwnerEditModal({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="picPhone">Teléfono PIC</Label>
+            <Label htmlFor="picPhone">Teléfono</Label>
             <Input
               id="picPhone"
               placeholder="+56 9 1234 5678"
@@ -177,7 +177,7 @@ export function KMZOwnerEditModal({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="picEmail">Email PIC</Label>
+            <Label htmlFor="picEmail">Email</Label>
             <Input
               id="picEmail"
               type="email"
@@ -188,7 +188,7 @@ export function KMZOwnerEditModal({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="googleDocsLink">Link Google Docs</Label>
+            <Label htmlFor="googleDocsLink">Google Docs</Label>
             <Input
               id="googleDocsLink"
               placeholder="https://docs.google.com/..."
@@ -210,7 +210,7 @@ export function KMZOwnerEditModal({
             <Button
               onClick={handleSave}
               disabled={saving}
-              className="flex-1 bg-purple-600 hover:bg-purple-700"
+              className="flex-1"
             >
               {saving ? (
                 <>
