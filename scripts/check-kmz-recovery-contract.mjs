@@ -32,6 +32,8 @@ const required = [
     "kmlHierarchy",
     "kmz_placemarks",
     ".limit(500)",
+    "verifyInternalAccessToken",
+    "INTERNAL_ACCESS_COOKIE",
   ]],
   ["components/campos/campo-intelligence-panel-v2.tsx", [
     "Jerarquía KML",
