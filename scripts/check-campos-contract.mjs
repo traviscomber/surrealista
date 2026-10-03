@@ -7,6 +7,7 @@ const contracts = [
     "currentOwner",
     "currentGoogleDocsLink",
     "Buscar campo, propietario, región o ROL",
+    "ownerEvidence",
   ]],
   ["components/campos/campo-intelligence-panel-v2.tsx", [
     "01 · Identidad",
@@ -34,6 +35,8 @@ const contracts = [
   ]],
   ["app/api/kmz/search/route.ts", [
     "owner.ilike",
+    "metadata->>confirmed_owner.ilike",
+    "extractOwnerEvidence",
     "rol_numbers",
   ]],
   ["app/api/kmz/field-intelligence/route.ts", [
