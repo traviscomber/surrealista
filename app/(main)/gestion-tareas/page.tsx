@@ -83,12 +83,12 @@ export default function GestionTareasPage() {
       />
 
       <Tabs defaultValue="tareas" className="w-full">
-        <TabsList className="grid h-auto w-full max-w-md grid-cols-2 bg-secondary/60 p-1">
-          <TabsTrigger value="tareas" className="gap-2 py-2.5">
+        <TabsList className="grid h-11 w-full max-w-md grid-cols-2 rounded-none border-b border-border/70 bg-transparent p-0">
+          <TabsTrigger value="tareas" className="relative h-11 gap-2 rounded-none bg-transparent py-0 shadow-none after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-transparent data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none data-[state=active]:after:bg-primary">
             <CheckSquare className="h-4 w-4" aria-hidden="true" />
             Tareas
           </TabsTrigger>
-          <TabsTrigger value="alertas" className="gap-2 py-2.5">
+          <TabsTrigger value="alertas" className="relative h-11 gap-2 rounded-none bg-transparent py-0 shadow-none after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-transparent data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none data-[state=active]:after:bg-primary">
             <BellRing className="h-4 w-4" aria-hidden="true" />
             Alertas y contactos
           </TabsTrigger>
@@ -101,16 +101,23 @@ export default function GestionTareasPage() {
               Cargando tareas…
             </div>
           ) : state === "error" ? (
-            <section className="flex min-h-[360px] flex-col items-center justify-center gap-4 border-y border-destructive/30 bg-destructive/5 px-6 text-center">
-              <AlertCircle className="h-9 w-9 text-destructive" aria-hidden="true" />
-              <div>
-                <h2 className="font-semibold">No se pudieron cargar las tareas</h2>
-                <p className="mt-1 text-sm text-muted-foreground">Revisa la conexión y permisos antes de continuar.</p>
+            <section className="border-y border-border/70 py-6" aria-live="polite">
+              <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-destructive" aria-hidden="true" />
+                  <div>
+                    <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Cola operativa</p>
+                    <h2 className="mt-1 text-base font-semibold">No se pudieron cargar las tareas</h2>
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                      La cola permanece vacía hasta recuperar la fuente. No se muestran pendientes incompletos o simulados.
+                    </p>
+                  </div>
+                </div>
+                <Button size="sm" variant="outline" onClick={() => void loadTasks()}>
+                  <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                  Reintentar
+                </Button>
               </div>
-              <Button variant="outline" onClick={() => void loadTasks()}>
-                <RefreshCw className="h-4 w-4" aria-hidden="true" />
-                Reintentar
-              </Button>
             </section>
           ) : (
             <TasksManager tasks={tasks} refreshTrigger={refreshTrigger} onTasksUpdate={loadTasks} />
