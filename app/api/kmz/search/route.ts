@@ -61,16 +61,16 @@ export async function GET(request: NextRequest) {
         const pattern = `%${term}%`
         const textAttempt = await supabase
           .from("kmz_collection")
-          .select("id, file_name, region, category, rol_numbers, created_at, is_active")
+          .select("id, file_name, region, category, rol_numbers, owner, created_at, is_active")
           .eq("is_active", true)
-          .or(`file_name.ilike.${pattern},region.ilike.${pattern},category.ilike.${pattern}`)
+          .or(`file_name.ilike.${pattern},region.ilike.${pattern},category.ilike.${pattern},owner.ilike.${pattern}`)
           .limit(100)
 
         if (!/^\d{1,8}-\d{1,8}$/.test(term)) return [textAttempt]
 
         const rolAttempt = await supabase
           .from("kmz_collection")
-          .select("id, file_name, region, category, rol_numbers, created_at, is_active")
+          .select("id, file_name, region, category, rol_numbers, owner, created_at, is_active")
           .eq("is_active", true)
           .contains("rol_numbers", [term])
           .limit(100)
