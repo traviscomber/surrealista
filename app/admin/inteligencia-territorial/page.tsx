@@ -1,12 +1,9 @@
-import { AppHeader } from "@/components/layout/app-header"
 import { TerritorialCoverageSummary } from "@/components/admin/territorial-coverage-summary"
 import { TerritorialIntelligencePanel } from "@/components/admin/territorial-intelligence-panel"
 import { WorkspaceHeading } from "@/components/ui/workspace-heading"
 
 export default function TerritorialIntelligencePage() {
   return (
-    <>
-      <AppHeader />
       <main className="container mx-auto space-y-8 px-4 py-8 md:py-10">
         <WorkspaceHeading
           eyebrow="Uso interno · Sur Realista"
@@ -17,6 +14,5 @@ export default function TerritorialIntelligencePage() {
         <TerritorialCoverageSummary />
         <TerritorialIntelligencePanel />
       </main>
-    </>
   )
 }
