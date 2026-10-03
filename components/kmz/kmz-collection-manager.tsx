@@ -132,7 +132,7 @@ export function KMZCollectionManager() {
       }
 
       setTableExists(true)
-      setKmzFiles(results as KMZRecord[])
+      setKmzFiles(results as unknown as KMZRecord[])
 
       const totalPlacemarks = results.reduce((sum: number, kmz: any) => sum + (kmz.placemarks_count || 0), 0)
       const allRoles = new Set(results.flatMap((kmz: any) => kmz.rol_numbers || []))
