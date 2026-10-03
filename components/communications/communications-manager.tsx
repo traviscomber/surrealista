@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { ListChecks, MessageSquare, Presentation, Sparkles } from "lucide-react"
+import { ListChecks, Presentation, Sparkles } from "lucide-react"
 
 import { CommunicationsTracking } from "./communications-tracking"
 import { CommercialPresentations } from "./commercial-presentations"
@@ -19,20 +19,7 @@ export function CommunicationsManager() {
   const [activeTab, setActiveTab] = useState("templates")
 
   return (
-    <section className="space-y-5 py-2">
-      <div className="flex flex-col gap-4 border-b border-border pb-5 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="sr-meta">Centro documental y comercial</p>
-          <div className="mt-1 flex items-center gap-2">
-            <MessageSquare className="h-5 w-5 text-primary" aria-hidden="true" />
-            <h2 className="sr-section-title">Multimedia</h2>
-          </div>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-            Prepara contenido, packs de publicaciones, seguimiento y presentaciones desde un único flujo operativo.
-          </p>
-        </div>
-      </div>
-
+    <section className="space-y-5">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="overflow-x-auto border-b border-border [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <TabsList className="h-11 min-w-max justify-start gap-5 rounded-none bg-transparent p-0">
