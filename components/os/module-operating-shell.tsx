@@ -13,6 +13,7 @@ import {
 
 import { cn } from "@/lib/utils"
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+import { GlobalCommandPalette } from "@/components/search/global-command-palette"
 import {
   SUR_REALISTA_HOME,
   SUR_REALISTA_MODULES,
@@ -251,6 +252,7 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
           </div>
 
           <div className="hidden items-center gap-1 sm:flex">
+            <GlobalCommandPalette />
             {SUR_REALISTA_UTILITIES.filter((item) => item.label === "Tareas" || item.label === "Asistente").map((item) => {
               const Icon = item.icon
               const active = isSurRealistaNavActive(pathname, item)
