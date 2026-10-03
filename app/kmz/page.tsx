@@ -1,95 +1,77 @@
 'use client'
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Search, MapPin, BarChart3 } from 'lucide-react'
 import Link from 'next/link'
+import { ArrowRight, BarChart3, MapPin, Search } from 'lucide-react'
+
+import { ModuleTasksDock } from '@/components/tasks/module-tasks-dock'
+import { WorkspaceHeading } from '@/components/ui/workspace-heading'
+
+const features = [
+  {
+    title: 'Búsqueda simple',
+    description: 'Encuentra campos y elementos KMZ por nombre o término.',
+    icon: Search,
+    href: '/kmz-search',
+  },
+  {
+    title: 'Búsqueda avanzada',
+    description: 'Refina resultados por región, categoría y otros criterios disponibles.',
+    icon: BarChart3,
+    href: '/kmz-search-advanced',
+  },
+  {
+    title: 'Mapa KMZ',
+    description: 'Revisa geometrías y ubicaciones en una vista territorial dedicada.',
+    icon: MapPin,
+    href: '/kmz-map',
+  },
+]
 
 export default function KMZHome() {
-  const features = [
-    {
-      title: 'Búsqueda Simple',
-      description: 'Busca ubicaciones por palabra clave',
-      icon: Search,
-      href: '/kmz-search',
-      color: 'from-blue-500 to-blue-600',
-    },
-    {
-      title: 'Búsqueda Avanzada',
-      description: 'Busca con filtros por región, categoría y fecha',
-      icon: BarChart3,
-      href: '/kmz-search-advanced',
-      color: 'from-purple-500 to-purple-600',
-    },
-    {
-      title: 'Mapa Interactivo',
-      description: 'Visualiza todas las ubicaciones en un mapa',
-      icon: MapPin,
-      href: '/kmz-map',
-      color: 'from-green-500 to-green-600',
-    },
-  ]
-
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white py-16 px-4">
-        <div className="max-w-6xl mx-auto text-center">
-          <h1 className="text-5xl font-bold mb-4">Sistema de Búsqueda KMZ</h1>
-          <p className="text-xl text-blue-100">
-            Busca, visualiza y gestiona tus archivos KMZ con múltiples opciones de búsqueda
-          </p>
-        </div>
-      </div>
+    <main className="mx-auto w-full max-w-[1500px] space-y-8 px-4 py-6 sm:px-6 lg:px-8">
+      <WorkspaceHeading
+        eyebrow="Campos · Herramientas"
+        title="Herramientas KMZ"
+        description="Accede a búsqueda, filtros y mapa sin salir del contexto operativo de Campos."
+        outcome="Localiza el campo correcto y vuelve a la ficha canónica para continuar la operación."
+      />
 
-      {/* Features Grid */}
-      <div className="max-w-6xl mx-auto px-4 py-16">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {features.map((feature) => {
+      <section aria-labelledby="kmz-tools-heading">
+        <div className="mb-4">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">01 · Accesos</p>
+          <h2 id="kmz-tools-heading" className="mt-1 text-xl font-semibold">Explorar inventario KMZ</h2>
+        </div>
+
+        <div className="border-y border-border/70">
+          {features.map((feature, index) => {
             const Icon = feature.icon
             return (
-              <Link key={feature.href} href={feature.href}>
-                <Card className="h-full hover:shadow-lg transition-shadow cursor-pointer">
-                  <CardHeader>
-                    <div className={`bg-gradient-to-br ${feature.color} w-12 h-12 rounded-lg flex items-center justify-center mb-4`}>
-                      <Icon className="h-6 w-6 text-white" />
-                    </div>
-                    <CardTitle>{feature.title}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-slate-600">{feature.description}</p>
-                    <Button className="mt-4 w-full" variant="outline">
-                      Ir a {feature.title}
-                    </Button>
-                  </CardContent>
-                </Card>
+              <Link
+                key={feature.href}
+                href={feature.href}
+                className="group grid min-h-[88px] items-center gap-4 border-b border-border/70 px-1 py-4 transition-colors last:border-b-0 hover:bg-secondary/45 sm:grid-cols-[38px_180px_minmax(0,1fr)_24px] sm:px-3"
+              >
+                <span aria-hidden="true" className="font-mono text-[10px] text-muted-foreground">
+                  0{index + 1}
+                </span>
+                <div className="flex items-center gap-3">
+                  <Icon className="h-4 w-4 text-primary" aria-hidden="true" />
+                  <h3 className="text-[15px] font-semibold">{feature.title}</h3>
+                </div>
+                <p className="text-[13px] leading-5 text-muted-foreground">{feature.description}</p>
+                <ArrowRight className="hidden h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 sm:block" aria-hidden="true" />
               </Link>
             )
           })}
         </div>
-      </div>
+      </section>
 
-      {/* Info Section */}
-      <div className="max-w-6xl mx-auto px-4 pb-16">
-        <Card className="bg-blue-50 border-blue-200">
-          <CardHeader>
-            <CardTitle>¿Cómo funciona?</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 text-slate-700">
-            <p>
-              El sistema está diseñado para ayudarte a encontrar ubicaciones dentro de tus archivos KMZ de manera rápida y eficiente.
-            </p>
-            <ul className="list-disc list-inside space-y-2 text-sm">
-              <li><strong>Búsqueda Simple:</strong> Ideal para búsquedas rápidas por nombre o término</li>
-              <li><strong>Búsqueda Avanzada:</strong> Usa filtros específicos para resultados más precisos</li>
-              <li><strong>Mapa Interactivo:</strong> Visualiza las ubicaciones geográficamente y obtén más contexto</li>
-            </ul>
-            <p className="mt-4 text-sm text-slate-600">
-              Todas las ubicaciones se indexan automáticamente cuando cargas archivos KMZ, por lo que están disponibles para buscar inmediatamente.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <section className="border-l border-border/70 pl-5 text-sm leading-6 text-muted-foreground">
+        Las herramientas KMZ son vistas de apoyo. La fuente operativa sigue siendo <Link href="/campos" className="font-medium text-foreground hover:underline">Campos</Link>.
+      </section>
+
+      <ModuleTasksDock module="campos" />
     </main>
   )
 }
