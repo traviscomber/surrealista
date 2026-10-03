@@ -318,11 +318,16 @@ try {
     }
     for (const route of retiredRoutes) await inspectRoute(authenticatedPage, route, "/campos")
 
+    await authenticatedPage.setViewportSize({ width: 1440, height: 900 })
+    await authenticatedPage.goto(`${authenticatedBaseURL}/`, { waitUntil: "domcontentloaded", timeout: 30_000 })
+    await authenticatedPage.screenshot({ path: `${evidenceDir}/home-authenticated-desktop.png`, fullPage: false })
+
     await authenticatedPage.setViewportSize({ width: 390, height: 844 })
     await authenticatedPage.goto(`${authenticatedBaseURL}/mercado/oportunidades`, { waitUntil: "domcontentloaded", timeout: 30_000 })
     const mobileMenuButton = authenticatedPage.getByRole("button", { name: "Abrir navegación" })
     await mobileMenuButton.waitFor({ state: "visible", timeout: 15_000 })
     await mobileMenuButton.click()
+    await authenticatedPage.screenshot({ path: `${evidenceDir}/navigation-mobile-open.png`, fullPage: false })
     const mobileNav = authenticatedPage.locator('nav[aria-label="Módulos de Sur Realista"]:visible')
     await mobileNav.getByRole("link", { name: "Inicio", exact: true }).waitFor({ state: "visible", timeout: 15_000 })
     for (const label of ["Campos", "Clientes", "Multimedia", "Documentos", "Mercado"]) {
