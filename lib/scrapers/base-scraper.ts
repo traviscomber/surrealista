@@ -99,6 +99,7 @@ export interface ScrapeResult {
 }
 
 let _ufCache: { value: number; fetchedAt: number } | null = null
+let _ufInFlight: Promise<number> | null = null
 
 // Match the precision of the corresponding Postgres columns. Invalid source
 // values are omitted instead of aborting persistence or polluting comparables.
@@ -123,16 +124,25 @@ export async function getUFValue(): Promise<number> {
   if (_ufCache && Date.now() - _ufCache.fetchedAt < 3_600_000) {
     return _ufCache.value
   }
-  try {
-    const res = await fetch('https://mindicador.cl/api/uf', { signal: AbortSignal.timeout(5000) })
-    if (!res.ok) throw new Error(`mindicador.cl returned ${res.status}`)
-    const json = await res.json()
-    const value = json?.serie?.[0]?.valor ?? 39_000
-    _ufCache = { value, fetchedAt: Date.now() }
-    return value
-  } catch {
-    return _ufCache?.value ?? 39_000
-  }
+
+  if (_ufInFlight) return _ufInFlight
+
+  _ufInFlight = (async () => {
+    try {
+      const res = await fetch('https://mindicador.cl/api/uf', { signal: AbortSignal.timeout(5000) })
+      if (!res.ok) throw new Error(`mindicador.cl returned ${res.status}`)
+      const json = await res.json()
+      const value = json?.serie?.[0]?.valor ?? 39_000
+      _ufCache = { value, fetchedAt: Date.now() }
+      return value
+    } catch {
+      return _ufCache?.value ?? 39_000
+    } finally {
+      _ufInFlight = null
+    }
+  })()
+
+  return _ufInFlight
 }
 
 export function parseChileanPrice(raw: string | number | null | undefined): {
