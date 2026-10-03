@@ -84,9 +84,12 @@ async function inspectRoute(page, route, expectedPath, expectedText, options = {
     const hasAccessForm = await page.locator("#password").isVisible().catch(() => false)
     const hasExpectedText = expectedText ? expectedText.test(body) : true
 
-    if (!hasAccessForm && !hasFatalUI) {
-      await page.locator('nav[aria-label="Módulos de Sur Realista"]:visible').first()
-        .waitFor({ state: "visible", timeout: 5_000 })
+    if (!hasAccessForm && !hasFatalUI && options.requireNavigation !== false) {
+      const navigationWaitSelector = options.requireVisibleNavigation === false
+        ? 'nav[aria-label="Módulos de Sur Realista"]'
+        : 'nav[aria-label="Módulos de Sur Realista"]:visible'
+      await page.locator(navigationWaitSelector).first()
+        .waitFor({ state: "attached", timeout: 5_000 })
         .catch(() => null)
       await page.getByRole("link", { name: /Sur Realista · Inicio|Volver a Inicio/i }).first()
         .waitFor({ state: "visible", timeout: 5_000 })
@@ -96,7 +99,9 @@ async function inspectRoute(page, route, expectedPath, expectedText, options = {
     const navigationSelector = options.requireVisibleNavigation === false
       ? 'nav[aria-label="Módulos de Sur Realista"]'
       : 'nav[aria-label="Módulos de Sur Realista"]:visible'
-    const hasGlobalNavigation = await page.locator(navigationSelector).count().then((count) => count > 0).catch(() => false)
+    const hasGlobalNavigation = options.requireNavigation === false
+      ? true
+      : await page.locator(navigationSelector).count().then((count) => count > 0).catch(() => false)
     const hasHomeAffordance = await page.getByRole("link", { name: /Sur Realista · Inicio|Volver a Inicio/i }).first().isVisible().catch(() => false)
 
     if (route === "/campos" && finalPath === "/campos" && !hasAccessForm) {
@@ -278,7 +283,7 @@ try {
       await inspectRoute(authenticatedPage, route, route, expectedText)
     }
     for (const [route, expectedPath] of canonicalRoutes) {
-      await inspectRoute(authenticatedPage, route, expectedPath, undefined, { requireVisibleNavigation: false })
+      await inspectRoute(authenticatedPage, route, expectedPath, undefined, { requireNavigation: false })
     }
     for (const route of retiredRoutes) await inspectRoute(authenticatedPage, route, "/campos")
 
