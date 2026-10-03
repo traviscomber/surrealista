@@ -15,7 +15,7 @@ const contracts = [
   ["app/kmz-search-advanced/layout.tsx", ["OperatingWorkspace"]],
   ["app/kmz-guide/layout.tsx", ["OperatingWorkspace"]],
   ["app/quick-wins/layout.tsx", ["OperatingWorkspace"]],
-  ["components/os/module-operating-shell.tsx", ["href=\"/\"", "aria-label=\"Ir a Inicio\"", "Módulos de Sur Realista", "Saltar al contenido"]],
+  ["components/os/module-operating-shell.tsx", ["href=\"/\"", "aria-label=\"Volver a Inicio\"", "Módulos de Sur Realista", "Saltar al contenido"]],
   ["components/os/navigation-config.ts", ["Inicio", "Campos", "Clientes", "Multimedia", "Documentos", "Mercado"]],
   ["components/search/global-command-palette.tsx", ["Inicio", "Campos", "Clientes", "Multimedia", "Documentos", "Mercado", "Tareas", "Asistente IA"]],
   ["app/admin/surealista/page.tsx", [], ["AppHeader"]],
