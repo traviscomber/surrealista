@@ -14,11 +14,44 @@ type Metric = {
   note: string
 }
 
-type OperatingSystemDashboardProps = {
-  metrics: Metric[]
+type OperatingTask = {
+  id: string
+  title: string
+  priority: string | null
+  status: string | null
+  due_date: string | null
+  related_to: string | null
 }
 
-export function OperatingSystemDashboard({ metrics }: OperatingSystemDashboardProps) {
+type OperatingSystemDashboardProps = {
+  metrics: Metric[]
+  activeTasks: OperatingTask[]
+}
+
+const taskModuleHref: Record<string, string> = {
+  campos: "/campos",
+  clientes: "/clientes",
+  multimedia: "/comunicaciones",
+  documentos: "/documentacion",
+  mercado: "/mercado",
+}
+
+const taskModuleLabel: Record<string, string> = {
+  campos: "Campos",
+  clientes: "Clientes",
+  multimedia: "Multimedia",
+  documentos: "Documentos",
+  mercado: "Mercado",
+}
+
+function taskPriorityLabel(priority: string | null) {
+  if (priority === "urgent") return "Urgente"
+  if (priority === "high") return "Alta"
+  if (priority === "low") return "Baja"
+  return "Media"
+}
+
+export function OperatingSystemDashboard({ metrics, activeTasks }: OperatingSystemDashboardProps) {
   const availableMetrics = metrics.filter((metric) => metric.value !== null)
 
   return (
@@ -111,12 +144,54 @@ export function OperatingSystemDashboard({ metrics }: OperatingSystemDashboardPr
         ) : null}
       </section>
 
+      <section aria-labelledby="tareas-heading">
+        <div className="mb-4 flex items-end justify-between gap-4">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">03 · Operación</p>
+            <h2 id="tareas-heading" className="mt-1 text-xl font-semibold">Pendientes operativos</h2>
+          </div>
+          <Link href="/gestion-tareas" className="text-xs font-medium text-primary hover:underline">
+            Ver todas las tareas
+          </Link>
+        </div>
+
+        <div className="border-y border-border/70">
+          {activeTasks.length ? activeTasks.map((task, index) => {
+            const moduleKey = task.related_to || ""
+            const href = taskModuleHref[moduleKey] || "/gestion-tareas"
+            const moduleLabel = taskModuleLabel[moduleKey] || "General"
+            return (
+              <Link
+                key={task.id}
+                href={href}
+                className={cn(
+                  "grid min-h-[64px] items-center gap-3 py-3 transition-colors hover:bg-secondary/45 sm:grid-cols-[110px_minmax(0,1fr)_90px_110px_20px] sm:px-3",
+                  index < activeTasks.length - 1 && "border-b border-border/70",
+                )}
+              >
+                <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-muted-foreground">{moduleLabel}</span>
+                <span className="min-w-0 truncate text-[13px] font-medium">{task.title}</span>
+                <span className="text-[11px] text-muted-foreground">{taskPriorityLabel(task.priority)}</span>
+                <span className="text-[11px] tabular-nums text-muted-foreground">
+                  {task.due_date ? new Date(task.due_date).toLocaleDateString("es-CL") : "Sin fecha"}
+                </span>
+                <ChevronRight className="hidden h-3.5 w-3.5 text-muted-foreground sm:block" aria-hidden="true" />
+              </Link>
+            )
+          }) : (
+            <div className="px-4 py-8 text-sm text-muted-foreground">
+              No hay tareas activas registradas.
+            </div>
+          )}
+        </div>
+      </section>
+
       <section aria-labelledby="assistant-heading" className="overflow-hidden border border-border/70 bg-card">
         <div className="grid xl:grid-cols-[300px_minmax(0,1fr)]">
           <div className="border-b border-border/70 p-5 xl:border-b-0 xl:border-r">
             <div className="flex items-center gap-2">
               <Bot className="h-4 w-4 text-primary" aria-hidden="true" />
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">03 · IA transversal</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">04 · IA transversal</p>
             </div>
             <h2 id="assistant-heading" className="mt-4 text-xl font-semibold">Asistente Sur Realista</h2>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
