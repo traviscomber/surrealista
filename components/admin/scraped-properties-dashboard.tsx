@@ -15,7 +15,6 @@ import {
   Star,
   X,
 } from "lucide-react"
-import { createBrowserClient } from "@/lib/supabase/client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -59,15 +58,10 @@ const SOURCE_OPTIONS = [
 const UF_RATE = 38_500
 
 async function fetchScrapedProperties(): Promise<ScrapedProperty[]> {
-  const supabase = createBrowserClient()
-  const { data, error } = await supabase
-    .from("properties_external")
-    .select("id, external_id, title, description, location, address, city, region, price, price_clp, price_uf, area, area_m2, property_type, images, source, source_url, scraped_at, is_active")
-    .eq("is_active", true)
-    .order("scraped_at", { ascending: false })
-
-  if (error) throw error
-  return (data ?? []) as ScrapedProperty[]
+  const response = await fetch("/api/market/properties?limit=1000", { cache: "no-store" })
+  const body = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`)
+  return (Array.isArray(body.properties) ? body.properties : []) as ScrapedProperty[]
 }
 
 function toUF(property: ScrapedProperty): number | null {
