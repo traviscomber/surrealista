@@ -45,10 +45,20 @@ type ContactRow = {
   updated_at: string | null
 }
 
+type FieldEvidence = {
+  field_name: string
+  value_json: unknown
+  confidence: number | null
+  status: string | null
+  source: string | null
+  observed_at: string | null
+}
+
 type EvidenceResponse = {
   nearby?: NearbyFeature[]
   comparables?: MarketComparable[]
   publicMetrics?: PublicMetric[]
+  fieldEvidence?: FieldEvidence[]
   contact?: ContactRow | null
   partial?: boolean
   error?: string
@@ -87,6 +97,31 @@ function normalizeMetadataKey(value: string) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "")
+}
+
+function evidenceValues(rows: FieldEvidence[], acceptedKeys: string[]) {
+  const accepted = new Set(acceptedKeys.map(normalizeMetadataKey))
+  const values: string[] = []
+
+  for (const row of rows) {
+    const status = String(row.status || "").toLowerCase()
+    if (["rejected", "discarded", "invalid"].includes(status)) continue
+    if (!accepted.has(normalizeMetadataKey(row.field_name))) continue
+
+    const value = row.value_json
+    if (typeof value === "string") values.push(value.trim())
+    else if (typeof value === "number" || typeof value === "boolean") values.push(String(value))
+    else if (Array.isArray(value)) {
+      for (const item of value) if (typeof item === "string") values.push(item.trim())
+    } else if (value && typeof value === "object") {
+      for (const candidate of ["value", "label", "name", "text"]) {
+        const nested = (value as Record<string, unknown>)[candidate]
+        if (typeof nested === "string") values.push(nested.trim())
+      }
+    }
+  }
+
+  return Array.from(new Set(values.filter((value) => value && value.length <= 80))).slice(0, 6)
 }
 
 function metadataTagValues(metadata: Record<string, unknown> | null, acceptedKeys: string[]) {
@@ -145,6 +180,7 @@ export function CampoIntelligencePanelV2({ record, ciren }: { record: KmzInvento
   const [nearby, setNearby] = useState<NearbyFeature[]>([])
   const [comparables, setComparables] = useState<MarketComparable[]>([])
   const [publicMetrics, setPublicMetrics] = useState<PublicMetric[]>([])
+  const [fieldEvidence, setFieldEvidence] = useState<FieldEvidence[]>([])
   const [contact, setContact] = useState<ContactRow | null>(null)
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
@@ -164,6 +200,7 @@ export function CampoIntelligencePanelV2({ record, ciren }: { record: KmzInvento
         setNearby(payload.nearby || [])
         setComparables(payload.comparables || [])
         setPublicMetrics(payload.publicMetrics || [])
+        setFieldEvidence(payload.fieldEvidence || [])
         setContact(payload.contact || null)
         setFailed(Boolean(payload.partial))
       })
@@ -173,6 +210,7 @@ export function CampoIntelligencePanelV2({ record, ciren }: { record: KmzInvento
         setNearby([])
         setComparables([])
         setPublicMetrics([])
+        setFieldEvidence([])
         setContact(null)
         setFailed(true)
       })
@@ -188,19 +226,27 @@ export function CampoIntelligencePanelV2({ record, ciren }: { record: KmzInvento
   const water = useMemo(() => nearest(nearby, "water"), [nearby])
   const protectedArea = useMemo(() => nearest(nearby, "protected_area"), [nearby])
 
+  const activityKeys = [
+    "activity", "activity_type", "actividad", "actividad_predio", "giro",
+    "land_use", "uso", "uso_actual", "uso_predio", "uso_suelo", "productive_use",
+  ]
+  const cropKeys = [
+    "crop", "crops", "cultivo", "cultivos", "especie", "especies",
+    "produccion", "produccion_agricola", "agricultural_use",
+  ]
   const activityTags = useMemo(
-    () => metadataTagValues(record.metadata, [
-      "activity", "activity_type", "actividad", "actividad_predio", "giro",
-      "land_use", "uso", "uso_actual", "uso_predio", "uso_suelo", "productive_use",
-    ]),
-    [record.metadata],
+    () => Array.from(new Set([
+      ...evidenceValues(fieldEvidence, activityKeys),
+      ...metadataTagValues(record.metadata, activityKeys),
+    ])).slice(0, 6),
+    [fieldEvidence, record.metadata],
   )
   const cropTags = useMemo(
-    () => metadataTagValues(record.metadata, [
-      "crop", "crops", "cultivo", "cultivos", "especie", "especies",
-      "produccion", "produccion_agricola", "agricultural_use",
-    ]),
-    [record.metadata],
+    () => Array.from(new Set([
+      ...evidenceValues(fieldEvidence, cropKeys),
+      ...metadataTagValues(record.metadata, cropKeys),
+    ])).slice(0, 6),
+    [fieldEvidence, record.metadata],
   )
 
   const marketEvidence = useMemo(() => {
