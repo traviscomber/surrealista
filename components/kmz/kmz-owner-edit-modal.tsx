@@ -69,7 +69,7 @@ export function KMZOwnerEditModal({
 
       const { data: currentRow, error: readError } = await supabase
         .from('kmz_collection')
-        .select('file_name, metadata')
+        .select('file_name, metadata, owner, pic, pic_phone, pic_email, google_docs_link')
         .eq('id', kmzId)
         .single()
 
@@ -90,11 +90,14 @@ export function KMZOwnerEditModal({
       const { error: updateError } = await supabase
         .from('kmz_collection')
         .update({
-          owner: owner || null,
-          pic: pic || null,
-          pic_phone: picPhone || null,
-          pic_email: picEmail || null,
-          google_docs_link: googleDocsLink || null,
+          owner: currentOwner === undefined && !owner.trim() ? currentRow?.owner ?? null : owner || null,
+          pic: currentPic === undefined ? currentRow?.pic ?? null : pic || null,
+          pic_phone: currentPicPhone === undefined ? currentRow?.pic_phone ?? null : picPhone || null,
+          pic_email: currentPicEmail === undefined ? currentRow?.pic_email ?? null : picEmail || null,
+          google_docs_link:
+            currentGoogleDocsLink === undefined && !googleDocsLink.trim()
+              ? currentRow?.google_docs_link ?? null
+              : googleDocsLink || null,
           metadata: currentMetadata,
         })
         .eq('id', kmzId)
