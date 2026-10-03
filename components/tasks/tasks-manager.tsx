@@ -17,7 +17,7 @@ interface Task {
   status: string
   due_date: string
   created_at: string
-  related_to: string
+  related_to?: string
 }
 
 interface TasksManagerProps {
