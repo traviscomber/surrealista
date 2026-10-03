@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient as createAdminClient } from "@supabase/supabase-js"
 import { INTERNAL_ACCESS_COOKIE, verifyInternalAccessToken } from "@/lib/auth/internal-access"
+import { recordOperatorAudit } from "@/lib/audit/operator-audit"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -105,6 +106,31 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       .single()
 
     if (updateError) throw updateError
+
+    try {
+      await recordOperatorAudit(admin, {
+        action: "kmz_profile_update",
+        entityType: "kmz_collection",
+        entityId: kmzId,
+        requestPath: request.nextUrl.pathname,
+        before: {
+          owner: current.owner,
+          pic: current.pic,
+          pic_phone: current.pic_phone,
+          pic_email: current.pic_email,
+          google_docs_link: current.google_docs_link,
+          metadata: current.metadata,
+        },
+        after: saved,
+        metadata: {
+          editableFields: Object.keys(update).filter((key) => key !== "metadata"),
+          aliasChanged: Object.prototype.hasOwnProperty.call(body, "displayName"),
+        },
+      })
+    } catch (auditError) {
+      console.error("[KMZ profile] audit write failed", auditError)
+      return NextResponse.json({ error: "La ficha se guardó, pero falló la auditoría" }, { status: 500 })
+    }
 
     return NextResponse.json({ ok: true, kmz: saved }, { headers: { "Cache-Control": "no-store" } })
   } catch (error) {
