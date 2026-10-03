@@ -82,6 +82,16 @@ async function inspectRoute(page, route, expectedPath, expectedText) {
     const hasFatalUI = /Application error|Internal Server Error|Unhandled Runtime Error|This page could not be found/i.test(body)
     const hasAccessForm = await page.locator("#password").isVisible().catch(() => false)
     const hasExpectedText = expectedText ? expectedText.test(body) : true
+
+    if (!hasAccessForm && !hasFatalUI) {
+      await page.locator('nav[aria-label="Módulos de Sur Realista"]:visible').first()
+        .waitFor({ state: "visible", timeout: 5_000 })
+        .catch(() => null)
+      await page.getByRole("link", { name: /Sur Realista · Inicio|Volver a Inicio/i }).first()
+        .waitFor({ state: "visible", timeout: 5_000 })
+        .catch(() => null)
+    }
+
     const hasGlobalNavigation = await page.locator('nav[aria-label="Módulos de Sur Realista"]:visible').count().then((count) => count > 0).catch(() => false)
     const hasHomeAffordance = await page.getByRole("link", { name: /Sur Realista · Inicio|Volver a Inicio/i }).first().isVisible().catch(() => false)
 
