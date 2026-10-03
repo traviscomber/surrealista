@@ -25,10 +25,6 @@ import {
 
 const NAV_ITEMS = [SUR_REALISTA_HOME, ...SUR_REALISTA_MODULES]
 
-function moduleLabel(pathname: string) {
-  return getSurRealistaSection(pathname)?.label || "Operación"
-}
-
 function isMarketSubnavActive(pathname: string, href: string) {
   if (href === "/mercado") return pathname === "/mercado" || pathname.startsWith("/quick-wins")
   if (href === "/mercado/oportunidades") {
@@ -54,7 +50,10 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
       return next
     })
   }
-  const currentModule = useMemo(() => moduleLabel(pathname), [pathname])
+  const currentSection = useMemo(() => getSurRealistaSection(pathname), [pathname])
+  const currentModule = currentSection?.label || "Operación"
+  const currentCode = currentSection?.code || "SYS"
+  const currentAgent = currentSection?.agent || null
 
   return (
     <div className="flex h-dvh min-h-0 overflow-hidden bg-background text-foreground">
@@ -117,7 +116,7 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
                     <>
                       <span className="min-w-0 flex-1 truncate">{item.label}</span>
                       <span aria-hidden="true" className="font-mono text-[9px] tabular-nums text-muted-foreground/70">
-                        {String(index).padStart(2, "0")}
+                        {item.code || String(index).padStart(2, "0")}
                       </span>
                     </>
                   ) : null}
@@ -208,7 +207,7 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
                         <span className={cn("absolute inset-y-2 left-0 w-px bg-transparent", active && "bg-primary")} aria-hidden="true" />
                         <Icon className={cn("h-4 w-4", active && "text-primary")} />
                         <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                        <span aria-hidden="true" className="font-mono text-[9px] text-muted-foreground/70">{String(index).padStart(2, "0")}</span>
+                        <span aria-hidden="true" className="font-mono text-[9px] text-muted-foreground/70">{item.code || String(index).padStart(2, "0")}</span>
                       </Link>
                     )
                   })}
@@ -248,12 +247,17 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
               <Home className="h-4 w-4" aria-hidden="true" />
             </Link>
             <div className="min-w-0">
-              <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Sur Realista / Módulo</p>
+              <p className="font-mono text-[9px] font-medium uppercase tracking-[0.16em] text-muted-foreground">SR-OS / {currentCode}</p>
               <h1 className="truncate text-[15px] font-semibold tracking-[-0.015em]">{currentModule}</h1>
             </div>
           </div>
 
           <div className="hidden items-center gap-1 sm:flex">
+            {currentAgent ? (
+              <span className="hidden border-r border-border/70 pr-3 font-mono text-[9px] uppercase tracking-[0.12em] text-muted-foreground xl:inline">
+                {currentAgent}
+              </span>
+            ) : null}
             <GlobalCommandPalette />
             {SUR_REALISTA_UTILITIES.filter((item) => item.label === "Tareas" || item.label === "Asistente").map((item) => {
               const Icon = item.icon
