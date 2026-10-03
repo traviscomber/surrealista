@@ -1,11 +1,8 @@
-import { AppHeader } from "@/components/layout/app-header"
 import { IncitiMarketPanel } from "@/components/admin/inciti-market-panel"
 import { WorkspaceHeading } from "@/components/ui/workspace-heading"
 
 export default function IncitiMarketPage() {
   return (
-    <>
-      <AppHeader />
       <main className="container mx-auto space-y-8 px-4 py-8 md:py-10">
         <WorkspaceHeading
           eyebrow="Fuentes públicas"
@@ -15,6 +12,5 @@ export default function IncitiMarketPage() {
         />
         <IncitiMarketPanel />
       </main>
-    </>
   )
 }
