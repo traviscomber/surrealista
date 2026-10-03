@@ -49,6 +49,8 @@ const canonicalRoutes = [
   ["/admin/tags", "/campos"],
   ["/admin/google-drive", "/documentacion"],
   ["/admin/operaciones-comerciales", "/admin/dashboard"],
+  ["/admin/users", "/admin/usuarios"],
+  ["/admin/seed", "/admin/dashboard"],
 ]
 const retiredRoutes = []
 
