@@ -37,11 +37,15 @@ export function CommunicationsManager() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="overflow-x-auto border-b border-border [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <TabsList className="min-w-max justify-start">
+          <TabsList className="h-11 min-w-max justify-start gap-5 rounded-none bg-transparent p-0">
             {sections.map((section) => {
               const Icon = section.icon
               return (
-                <TabsTrigger key={section.value} value={section.value} className="gap-2 px-4 py-3">
+                <TabsTrigger
+                  key={section.value}
+                  value={section.value}
+                  className="relative h-11 gap-2 rounded-none border-0 bg-transparent px-0 text-[11px] font-medium text-muted-foreground shadow-none after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-transparent data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none data-[state=active]:after:bg-primary"
+                >
                   <Icon className="h-4 w-4" aria-hidden="true" />
                   {section.label}
                 </TabsTrigger>
