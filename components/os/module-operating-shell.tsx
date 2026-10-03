@@ -61,49 +61,75 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
       </a>
       <aside
         className={cn(
-          "hidden shrink-0 border-r border-border/80 bg-card transition-[width] duration-200 lg:flex lg:flex-col",
-          collapsed ? "w-[68px]" : "w-[244px]",
+          "hidden shrink-0 border-r border-border/70 bg-card/95 transition-[width] duration-200 lg:flex lg:flex-col",
+          collapsed ? "w-[72px]" : "w-[232px]",
         )}
       >
-        <div className="flex h-[60px] items-center border-b border-border/80 px-3">
+        <div className="flex h-[64px] items-center border-b border-border/70 px-3">
           <Link href="/" className="flex min-w-0 flex-1 items-center gap-3" aria-label="Sur Realista · Inicio">
-            <div className="grid h-9 w-9 shrink-0 place-items-center border border-border bg-background">
+            <div className="grid h-9 w-9 shrink-0 place-items-center border border-border/80 bg-background">
               <Building2 className="h-4 w-4 text-primary" aria-hidden="true" />
             </div>
             {!collapsed ? (
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">Sur Realista</p>
-                <p className="truncate text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Operating System</p>
+                <p className="truncate text-[13px] font-semibold tracking-[-0.01em]">Sur Realista</p>
+                <p className="truncate text-[9px] uppercase tracking-[0.2em] text-muted-foreground">Operating System</p>
               </div>
             ) : null}
           </Link>
         </div>
 
-        <nav className="flex-1 space-y-1 overflow-y-auto p-3" aria-label="Módulos de Sur Realista">
-          {NAV_ITEMS.map((item) => {
-            const Icon = item.icon
-            const active = isSurRealistaNavActive(pathname, item)
-            return (
-              <Link
-                key={item.label}
-                href={item.href}
-                aria-current={active ? "page" : undefined}
-                title={collapsed ? item.label : undefined}
-                className={cn(
-                  "flex min-h-11 items-center gap-3 rounded-md px-3 text-sm transition-colors",
-                  active
-                    ? "bg-accent font-medium text-accent-foreground"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                )}
-              >
-                <Icon className={cn("h-4 w-4 shrink-0", active && "text-primary")} aria-hidden="true" />
-                {!collapsed ? <span className="truncate">{item.label}</span> : null}
-              </Link>
-            )
-          })}
+        <nav className="flex-1 overflow-y-auto px-2.5 py-4" aria-label="Módulos de Sur Realista">
+          {!collapsed ? (
+            <p className="mb-2 px-2.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+              Operación
+            </p>
+          ) : null}
+          <div className="space-y-0.5">
+            {NAV_ITEMS.map((item, index) => {
+              const Icon = item.icon
+              const active = isSurRealistaNavActive(pathname, item)
+              return (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  aria-current={active ? "page" : undefined}
+                  title={collapsed ? item.label : undefined}
+                  className={cn(
+                    "group relative flex min-h-10 items-center gap-3 px-2.5 text-[13px] transition-colors",
+                    active
+                      ? "bg-secondary/80 font-medium text-foreground"
+                      : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground",
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "absolute inset-y-2 left-0 w-px bg-transparent",
+                      active && "bg-primary",
+                    )}
+                    aria-hidden="true"
+                  />
+                  <Icon className={cn("h-4 w-4 shrink-0 transition-colors", active ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} aria-hidden="true" />
+                  {!collapsed ? (
+                    <>
+                      <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                      <span className="font-mono text-[9px] tabular-nums text-muted-foreground/70">
+                        {String(index).padStart(2, "0")}
+                      </span>
+                    </>
+                  ) : null}
+                </Link>
+              )
+            })}
+          </div>
         </nav>
 
-        <div className="space-y-1 border-t border-border/80 p-3">
+        <div className="border-t border-border/70 px-2.5 py-3">
+          {!collapsed ? (
+            <p className="mb-2 px-2.5 text-[9px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+              Sistema
+            </p>
+          ) : null}
           {SUR_REALISTA_UTILITIES.filter((item) => item.label === "Administración").map((item) => {
             const Icon = item.icon
             const active = isSurRealistaNavActive(pathname, item)
@@ -114,7 +140,7 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
                 aria-current={active ? "page" : undefined}
                 title={collapsed ? item.label : undefined}
                 className={cn(
-                  "flex min-h-10 items-center gap-3 rounded-md px-3 text-sm",
+                  "flex min-h-10 items-center gap-3 px-2.5 text-[13px]",
                   active ? "bg-accent font-medium text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground",
                 )}
               >
@@ -126,7 +152,7 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
           <button
             type="button"
             onClick={toggleCollapsed}
-            className="flex min-h-10 w-full items-center gap-3 rounded-md px-3 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="mt-1 flex min-h-10 w-full items-center gap-3 px-2.5 text-[13px] text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
             aria-label={collapsed ? "Expandir navegación" : "Colapsar navegación"}
           >
             {collapsed ? <ChevronRight className="h-4 w-4 shrink-0" /> : <ChevronLeft className="h-4 w-4 shrink-0" />}
@@ -136,7 +162,7 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-[60px] shrink-0 items-center justify-between border-b border-border/80 bg-background/95 px-3 backdrop-blur sm:px-5">
+        <header className="flex h-[64px] shrink-0 items-center justify-between border-b border-border/70 bg-background/95 px-3 backdrop-blur sm:px-5">
           <div className="flex min-w-0 items-center gap-2">
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
               <SheetTrigger asChild>
@@ -202,8 +228,8 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
               </SheetContent>
             </Sheet>
             <Link href="/" className="min-w-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Volver a Inicio">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Sur Realista OS</p>
-              <h1 className="truncate text-base font-semibold tracking-tight">{currentModule}</h1>
+              <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Sur Realista / Módulo</p>
+              <h1 className="truncate text-[15px] font-semibold tracking-[-0.015em]">{currentModule}</h1>
             </Link>
           </div>
 
@@ -217,8 +243,8 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
                   href={item.href}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "flex min-h-9 items-center gap-2 rounded-md px-3 text-xs font-medium",
-                    active ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    "flex min-h-9 items-center gap-2 border-l border-transparent px-3 text-[11px] font-medium transition-colors",
+                    active ? "border-primary bg-secondary/70 text-foreground" : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground",
                   )}
                 >
                   <Icon className={cn("h-3.5 w-3.5", active && "text-primary")} aria-hidden="true" />
@@ -230,7 +256,7 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
         </header>
 
         {currentModule === "Mercado" ? (
-          <nav className="flex h-11 shrink-0 items-center gap-1 overflow-x-auto border-b border-border/80 bg-card/70 px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:px-5" aria-label="Navegación de Mercado">
+          <nav className="flex h-11 shrink-0 items-center gap-5 overflow-x-auto border-b border-border/70 bg-card/60 px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:px-5" aria-label="Navegación de Mercado">
             {SUR_REALISTA_MARKET_SUBNAV.map((item) => {
               const active = isMarketSubnavActive(pathname, item.href)
               return (
@@ -239,8 +265,8 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
                   href={item.href}
                   aria-current={active ? "page" : undefined}
                   className={cn(
-                    "whitespace-nowrap rounded-md px-3 py-2 text-xs font-medium transition-colors",
-                    active ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                    "relative flex h-11 items-center whitespace-nowrap px-0 text-[11px] font-medium transition-colors after:absolute after:inset-x-0 after:bottom-0 after:h-px",
+                    active ? "text-foreground after:bg-primary" : "text-muted-foreground after:bg-transparent hover:text-foreground",
                   )}
                 >
                   {item.label}
