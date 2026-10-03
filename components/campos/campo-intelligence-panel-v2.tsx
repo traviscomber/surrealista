@@ -134,6 +134,57 @@ function evidenceValues(rows: FieldEvidence[], acceptedKeys: string[]) {
   return Array.from(new Set(values.filter((value) => value && value.length <= 80))).slice(0, 6)
 }
 
+type OwnerEvidenceSignal = {
+  owner: string
+  source: string | null
+  confidence: string | null
+  url: string | null
+  note: string | null
+}
+
+function ownerEvidence(metadata: Record<string, unknown> | null): OwnerEvidenceSignal | null {
+  if (!metadata) return null
+
+  const confirmedRaw = metadata.confirmed_owner
+  let confirmedOwner = typeof confirmedRaw === "string" ? confirmedRaw.trim() : ""
+  let source = typeof metadata.owner_source === "string" ? metadata.owner_source.trim() : ""
+  let confidence =
+    typeof metadata.owner_confidence === "string" || typeof metadata.owner_confidence === "number"
+      ? String(metadata.owner_confidence)
+      : ""
+  let url = typeof metadata.web_owner_evidence_url === "string" ? metadata.web_owner_evidence_url.trim() : ""
+  let note = typeof metadata.web_owner_reasoning === "string" ? metadata.web_owner_reasoning.trim() : ""
+
+  if (confirmedOwner.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(confirmedOwner) as Record<string, unknown>
+      confirmedOwner = typeof parsed.owner === "string" ? parsed.owner.trim() : ""
+      source = typeof parsed.sourceType === "string" ? parsed.sourceType.trim() : source
+      confidence =
+        typeof parsed.confidence === "string" || typeof parsed.confidence === "number"
+          ? String(parsed.confidence)
+          : confidence
+      url = typeof parsed.documentUrl === "string" ? parsed.documentUrl.trim() : url
+      note = typeof parsed.notes === "string" ? parsed.notes.trim() : note
+    } catch {
+      return null
+    }
+  }
+
+  const webOwner = typeof metadata.web_owner === "string" ? metadata.web_owner.trim() : ""
+  const candidate = confirmedOwner || webOwner
+  const hasExplicitSource = Boolean(source || url)
+  if (!candidate || !hasExplicitSource) return null
+
+  return {
+    owner: candidate,
+    source: source || null,
+    confidence: confidence || null,
+    url: url || null,
+    note: note || null,
+  }
+}
+
 function siiDestination(metadata: Record<string, unknown> | null) {
   if (!metadata) return null
   const resolution = metadata.sii_point_resolution
@@ -246,6 +297,7 @@ export function CampoIntelligencePanelV2({ record, ciren }: { record: KmzInvento
   const water = useMemo(() => nearest(nearby, "water"), [nearby])
   const protectedArea = useMemo(() => nearest(nearby, "protected_area"), [nearby])
   const siiUse = useMemo(() => siiDestination(record.metadata), [record.metadata])
+  const ownerSignal = useMemo(() => ownerEvidence(record.metadata), [record.metadata])
 
   const activityTags = useMemo(
     () => Array.from(new Set([
@@ -349,7 +401,16 @@ export function CampoIntelligencePanelV2({ record, ciren }: { record: KmzInvento
 
       <div className="mt-4 space-y-3">
         <Evidence icon={<UserRound className="h-4 w-4" />} title="01 · Identidad">
-          <Fact label="Propietario" value={record.owner || "Pendiente"} />
+          <Fact label="Propietario operativo" value={record.owner || "Pendiente"} />
+          {ownerSignal ? (
+            <>
+              <Fact label="Evidencia de propietario" value={ownerSignal.owner} />
+              <Fact label="Fuente" value={ownerSignal.source || "Fuente documental"} />
+              {ownerSignal.confidence ? <Fact label="Confianza" value={ownerSignal.confidence} /> : null}
+              {ownerSignal.url ? <ExternalLinkFact label="Documento fuente" href={ownerSignal.url} /> : null}
+              {ownerSignal.note ? <NoteFact label="Nota" value={ownerSignal.note} /> : null}
+            </>
+          ) : null}
           <Fact label="ROL" value={record.rol_numbers?.length ? record.rol_numbers.join(", ") : "Pendiente"} />
           <Fact label="Responsable" value={contact?.pic || "Pendiente"} />
           <Fact label="Contacto" value={contact?.pic_phone || contact?.pic_email || "Pendiente"} />
@@ -408,6 +469,31 @@ function Fact({ label, value }: { label: string; value: string }) {
   return <div className="flex items-start justify-between gap-3 text-[11px]"><span className="shrink-0 text-muted-foreground">{label}</span><span className="min-w-0 text-right font-medium text-foreground">{value}</span></div>
 }
 
+
+function ExternalLinkFact({ label, href }: { label: string; href: string }) {
+  return (
+    <div className="flex items-start justify-between gap-3 text-[11px]">
+      <span className="shrink-0 text-muted-foreground">{label}</span>
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="min-w-0 text-right font-medium text-primary hover:underline"
+      >
+        Abrir fuente
+      </a>
+    </div>
+  )
+}
+
+function NoteFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="pt-1 text-[11px]">
+      <span className="text-muted-foreground">{label}</span>
+      <p className="mt-1 leading-relaxed text-foreground">{value}</p>
+    </div>
+  )
+}
 
 function LinkFact({ label, href }: { label: string; href?: string | null }) {
   return (
