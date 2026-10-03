@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Menu,
+  Home,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -234,10 +235,18 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
                 </div>
               </SheetContent>
             </Sheet>
-            <Link href="/" className="min-w-0 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="Volver a Inicio">
+            <Link
+              href="/"
+              aria-label="Ir a Inicio"
+              title="Inicio"
+              className="grid h-9 w-9 shrink-0 place-items-center text-muted-foreground transition-colors hover:bg-secondary/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <Home className="h-4 w-4" aria-hidden="true" />
+            </Link>
+            <div className="min-w-0">
               <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Sur Realista / Módulo</p>
               <h1 className="truncate text-[15px] font-semibold tracking-[-0.015em]">{currentModule}</h1>
-            </Link>
+            </div>
           </div>
 
           <div className="hidden items-center gap-1 sm:flex">
