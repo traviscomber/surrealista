@@ -170,9 +170,9 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
                   <Menu className="h-4 w-4" />
                 </button>
               </SheetTrigger>
-              <SheetContent side="left" className="w-[290px] overflow-y-auto p-0">
+              <SheetContent side="left" className="w-[286px] overflow-y-auto border-r border-border/70 p-0">
                 <SheetTitle className="sr-only">Navegación Sur Realista</SheetTitle>
-                <div className="flex h-16 items-center border-b border-border/80 px-4">
+                <div className="flex h-16 items-center border-b border-border/70 px-4">
                   <Link href="/" onClick={() => setMobileOpen(false)} className="flex items-center gap-3">
                     <div className="grid h-9 w-9 place-items-center border border-border bg-background">
                       <Building2 className="h-4 w-4 text-primary" />
@@ -183,8 +183,10 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
                     </div>
                   </Link>
                 </div>
-                <nav className="space-y-1 p-3" aria-label="Módulos de Sur Realista">
-                  {NAV_ITEMS.map((item) => {
+                <nav className="px-3 py-4" aria-label="Módulos de Sur Realista">
+                  <p className="mb-2 px-2 text-[9px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Operación</p>
+                  <div className="space-y-0.5">
+                  {NAV_ITEMS.map((item, index) => {
                     const Icon = item.icon
                     const active = isSurRealistaNavActive(pathname, item)
                     return (
@@ -194,17 +196,21 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
                         aria-current={active ? "page" : undefined}
                         onClick={() => setMobileOpen(false)}
                         className={cn(
-                          "flex min-h-11 items-center gap-3 rounded-md px-3 text-sm",
-                          active ? "bg-accent font-medium text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                          "relative flex min-h-10 items-center gap-3 px-2 text-[13px]",
+                          active ? "bg-secondary/80 font-medium text-foreground" : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground",
                         )}
                       >
+                        <span className={cn("absolute inset-y-2 left-0 w-px bg-transparent", active && "bg-primary")} aria-hidden="true" />
                         <Icon className={cn("h-4 w-4", active && "text-primary")} />
-                        <span>{item.label}</span>
+                        <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                        <span className="font-mono text-[9px] text-muted-foreground/70">{String(index).padStart(2, "0")}</span>
                       </Link>
                     )
                   })}
+                  </div>
                 </nav>
-                <div className="border-t border-border/80 p-3">
+                <div className="border-t border-border/70 px-3 py-4">
+                  <p className="mb-2 px-2 text-[9px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Sistema</p>
                   {SUR_REALISTA_UTILITIES.map((item) => {
                     const Icon = item.icon
                     const active = isSurRealistaNavActive(pathname, item)
@@ -215,8 +221,8 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
                         aria-current={active ? "page" : undefined}
                         onClick={() => setMobileOpen(false)}
                         className={cn(
-                          "flex min-h-11 items-center gap-3 rounded-md px-3 text-sm",
-                          active ? "bg-accent font-medium text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                          "flex min-h-10 items-center gap-3 px-2 text-[13px]",
+                          active ? "bg-secondary/80 font-medium text-foreground" : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground",
                         )}
                       >
                         <Icon className={cn("h-4 w-4", active && "text-primary")} />
