@@ -60,6 +60,7 @@ type CirenContext = {
 type KmzSearchHit = {
   id: string
   file_name: string
+  display_name?: string | null
   region: string | null
   rol_numbers: string[] | null
   owner?: string | null
@@ -541,7 +542,7 @@ export function CAMPOSFolderViewIntegrated() {
                 >
                   <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium">{hit.file_name}</span>
+                    <span className="block truncate text-sm font-medium">{hit.display_name || hit.file_name}</span>
                     <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
                       {hit.owner ? `${hit.owner} · ` : hit.ownerEvidence ? `Evidencia: ${hit.ownerEvidence} · ` : ""}{hit.region || "Sin región"}{hit.rol_numbers?.[0] ? ` · ROL ${hit.rol_numbers[0]}` : ""}
                     </span>
