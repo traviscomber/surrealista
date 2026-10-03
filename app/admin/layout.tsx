@@ -11,7 +11,7 @@ export default function AdminLayout({
     <ModuleOperatingShell>
       <div className="min-h-full bg-background">
         <AdminHeader />
-        <main className="min-h-[calc(100dvh-124px)] bg-background">{children}</main>
+        <main className="min-h-[calc(100dvh-100px)] bg-background">{children}</main>
       </div>
     </ModuleOperatingShell>
   )

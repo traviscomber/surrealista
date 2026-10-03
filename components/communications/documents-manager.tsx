@@ -306,10 +306,11 @@ export default function DocumentsManager() {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+      <div className="flex flex-col gap-3 border-b border-border/70 pb-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h3 className="text-lg font-semibold">Documentación real</h3>
-          <p className="text-sm text-muted-foreground">Documentos y carpetas persistidos en Supabase. Sin registros demo.</p>
+          <p className="font-mono text-[9px] font-medium uppercase tracking-[0.16em] text-muted-foreground">Repositorio canónico</p>
+          <h3 className="mt-1 text-base font-semibold">Archivos y carpetas</h3>
+          <p className="mt-1 text-sm text-muted-foreground">Sólo documentos persistidos; sin registros demo.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button variant="outline" size="sm" onClick={() => setShowNewFolderDialog(true)}>
@@ -333,19 +334,23 @@ export default function DocumentsManager() {
         </Select>
       </div>
 
-      {errorMessage && <p className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">{errorMessage}</p>}
+      {errorMessage && (
+        <div className="border-y border-destructive/30 py-3 text-sm text-destructive" role="alert">
+          {errorMessage}
+        </div>
+      )}
       {loading && <p className="text-sm text-muted-foreground">Cargando documentos...</p>}
 
       {!loading && visibleFolders.length === 0 && (
-        <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+        <div className="border-y border-border/70 py-10 text-center text-sm text-muted-foreground">
           No hay documentos que coincidan con la búsqueda.
         </div>
       )}
 
       <div className="space-y-4">
         {visibleFolders.map(({ name, records, databaseFolder }) => (
-          <section key={name} className="rounded-xl border border-border bg-card">
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border p-4">
+          <section key={name} className="border-y border-border/70 bg-card/40">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 px-4 py-3">
               <div className="flex items-center gap-2">
                 <Folder className="h-4 w-4 text-primary" />
                 <span className="font-medium">{name}</span>
@@ -369,7 +374,7 @@ export default function DocumentsManager() {
             ) : (
               <div className="divide-y divide-border">
                 {records.map((doc) => (
-                  <div key={doc.id} className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+                  <div key={doc.id} className="flex flex-col gap-3 px-4 py-3 transition-colors hover:bg-secondary/35 md:flex-row md:items-center md:justify-between">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="truncate font-medium">{doc.title}</p>

@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import { createPortal } from "react-dom"
 import { CheckSquare2, Plus, RefreshCw, X } from "lucide-react"
 
 import { TaskCreationDialog } from "@/components/tasks/task-creation-dialog"
@@ -36,6 +37,7 @@ export function ModuleTasksDock({
   const [createOpen, setCreateOpen] = useState(false)
   const [tasks, setTasks] = useState<ModuleTask[]>([])
   const [loading, setLoading] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -53,29 +55,35 @@ export function ModuleTasksDock({
   }, [module, relatedId])
 
   useEffect(() => {
+    setMounted(true)
     void load()
   }, [load])
 
-  return (
+  const dock = (
     <>
-      <div className="pointer-events-none fixed bottom-5 right-5 z-[80] flex items-center gap-2">
+      <div className="pointer-events-none fixed bottom-4 right-4 z-[120] flex items-center gap-1.5">
         <Button
           type="button"
           variant="outline"
           onClick={() => setOpen((value) => !value)}
-          className="pointer-events-auto h-10 gap-2 border-border bg-card shadow-sm"
+          className="pointer-events-auto h-9 gap-2 rounded-sm border-border/80 bg-background/95 px-3 text-[11px] font-medium shadow-sm backdrop-blur"
         >
-          <CheckSquare2 className="h-4 w-4" />
+          <CheckSquare2 className="h-3.5 w-3.5" />
           Tareas · {MODULE_LABELS[module]}
-          <Badge variant="secondary" className="ml-1 min-w-6 justify-center">{tasks.length}</Badge>
+          <Badge variant="secondary" className="ml-1 h-5 min-w-5 justify-center rounded-sm px-1.5 text-[10px]">{tasks.length}</Badge>
         </Button>
-        <Button type="button" size="icon" onClick={() => setCreateOpen(true)} aria-label="Nueva tarea del módulo" className="pointer-events-auto">
-          <Plus className="h-4 w-4" />
+        <Button
+          type="button"
+          size="icon"
+          onClick={() => setCreateOpen(true)}
+          aria-label="Nueva tarea del módulo"
+          className="pointer-events-auto h-9 w-9 rounded-sm"
+        >
+          <Plus className="h-3.5 w-3.5" />
         </Button>
       </div>
-
       {open ? (
-        <aside className="fixed bottom-16 right-5 z-[79] w-[min(420px,calc(100vw-2rem))] border border-border bg-card shadow-xl">
+        <aside className="fixed bottom-14 right-4 z-[119] w-[min(400px,calc(100vw-2rem))] border border-border/80 bg-card shadow-xl">
           <header className="flex items-center justify-between border-b border-border px-4 py-3">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">To do del módulo</p>
@@ -121,6 +129,12 @@ export function ModuleTasksDock({
         </aside>
       ) : null}
 
+    </>
+  )
+
+  return (
+    <>
+      {mounted ? createPortal(dock, document.body) : null}
       <TaskCreationDialog
         open={createOpen}
         onOpenChange={setCreateOpen}

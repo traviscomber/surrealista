@@ -105,13 +105,16 @@ export async function updateClient(id: string, clientData: Partial<ClientData>) 
 export async function deleteClient(id: string) {
   try {
     const supabase = await createSupabaseClient()
-    const { error } = await supabase.from("clients").delete().eq("id", id)
+    const { error } = await supabase
+      .from("clients")
+      .update({ status: "archived", updated_at: new Date().toISOString() })
+      .eq("id", id)
     if (error) return { success: false, error: error.message }
     revalidateClients()
     return { success: true }
   } catch (error) {
-    console.error("[clients] deleteClient failed", error)
-    return { success: false, error: "Error al eliminar cliente" }
+    console.error("[clients] archiveClient failed", error)
+    return { success: false, error: "Error al archivar cliente" }
   }
 }
 
@@ -463,6 +466,7 @@ export async function getClientsPaginated(
       }
     }
     if (filters?.status) query = query.eq("status", filters.status)
+    else query = query.neq("status", "archived")
     if (filters?.industry) query = query.eq("industry", filters.industry)
     if (filters?.clientType) query = query.eq("client_type", filters.clientType)
 
@@ -609,9 +613,9 @@ export async function getClientStatistics() {
   try {
     const supabase = await createSupabaseClient()
     const [totalResult, statusResult, industryResult] = await Promise.all([
-      supabase.from("clients").select("*", { count: "exact", head: true }),
-      supabase.from("clients").select("status"),
-      supabase.from("clients").select("industry"),
+      supabase.from("clients").select("*", { count: "exact", head: true }).neq("status", "archived"),
+      supabase.from("clients").select("status").neq("status", "archived"),
+      supabase.from("clients").select("industry").neq("status", "archived"),
     ])
 
     const byStatus: Record<string, number> = {}

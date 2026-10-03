@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Calculator, CheckSquare, FolderOpen, MapPin, MessageSquare, Search, Users } from "lucide-react"
+import { Bot, Calculator, CheckSquare, Files, FolderOpen, Home, MapPin, MessageSquare, Search, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   CommandDialog,
@@ -21,16 +21,20 @@ type CampoResult = {
   region: string | null
   description: string | null
   placemarks_count: number | null
+  metadata?: Record<string, unknown> | null
 }
 
 const quickActions = [
-  { label: "Abrir Campos", href: "/campos", icon: FolderOpen },
-  { label: "Buscar mercado", href: "/mercado", icon: Search },
+  { label: "Inicio", href: "/", icon: Home },
+  { label: "Campos", href: "/campos", icon: FolderOpen },
+  { label: "Clientes", href: "/clientes", icon: Users },
+  { label: "Multimedia", href: "/comunicaciones", icon: MessageSquare },
+  { label: "Documentos", href: "/documentacion", icon: Files },
+  { label: "Mercado", href: "/mercado", icon: Search },
   { label: "Inteligencia territorial", href: "/kmz-analisis", icon: MapPin },
   { label: "Valorización", href: "/cotizador", icon: Calculator },
-  { label: "Clientes", href: "/clientes", icon: Users },
   { label: "Tareas", href: "/gestion-tareas", icon: CheckSquare },
-  { label: "Comunicaciones", href: "/comunicaciones", icon: MessageSquare },
+  { label: "Asistente IA", href: "/asistente", icon: Bot },
 ]
 
 export function GlobalCommandPalette() {
@@ -69,8 +73,8 @@ export function GlobalCommandPalette() {
         const escaped = searchQuery.replace(/[%_,]/g, " ").trim()
         const { data, error } = await supabase
           .from("kmz_collection")
-          .select("id,file_name,region,description,placemarks_count")
-          .or(`file_name.ilike.%${escaped}%,description.ilike.%${escaped}%,region.ilike.%${escaped}%`)
+          .select("id,file_name,region,description,placemarks_count,metadata")
+          .or(`file_name.ilike.%${escaped}%,metadata->>manual_display_name.ilike.%${escaped}%,description.ilike.%${escaped}%,region.ilike.%${escaped}%`)
           .limit(20)
 
         if (error) throw error
@@ -100,10 +104,15 @@ export function GlobalCommandPalette() {
 
   return (
     <>
-      <Button variant="ghost" className="h-10 gap-2 px-3" onClick={() => setOpen(true)} aria-label="Buscar campos y abrir funciones">
-        <Search className="h-4 w-4" />
-        <span className="hidden 2xl:inline">Buscar</span>
-        <span className="hidden rounded border px-1.5 py-0.5 text-[10px] text-muted-foreground 2xl:inline">⌘K</span>
+      <Button
+        variant="ghost"
+        className="h-9 gap-2 rounded-none px-3 text-[11px] font-medium text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+        onClick={() => setOpen(true)}
+        aria-label="Buscar campos y abrir funciones"
+      >
+        <Search className="h-3.5 w-3.5" />
+        <span className="hidden lg:inline">Buscar</span>
+        <span className="hidden border-l border-border/70 pl-2 font-mono text-[9px] text-muted-foreground xl:inline">⌘K</span>
       </Button>
 
       <CommandDialog open={open} onOpenChange={setOpen}>
@@ -127,7 +136,7 @@ export function GlobalCommandPalette() {
               >
                 <MapPin className="mr-2 h-4 w-4" />
                 <div className="min-w-0">
-                  <div className="truncate text-sm font-medium">{campo.file_name}</div>
+                  <div className="truncate text-sm font-medium">{typeof campo.metadata?.manual_display_name === "string" && campo.metadata.manual_display_name.trim() ? campo.metadata.manual_display_name : campo.file_name}</div>
                   <div className="truncate text-xs text-muted-foreground">{campo.region || "Sin región"}{campo.placemarks_count ? ` · ${campo.placemarks_count} elementos` : ""}</div>
                 </div>
               </CommandItem>

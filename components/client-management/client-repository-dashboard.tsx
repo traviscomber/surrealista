@@ -84,6 +84,7 @@ const statusLabels: Record<string, string> = {
   warm: "Tibio",
   cold: "Frío",
   inactive: "Inactivo",
+  archived: "Archivado",
 }
 
 function fullName(client: Client) {
@@ -144,7 +145,7 @@ export function ClientRepositoryDashboard() {
   )
 
   const handleDelete = async (client: Client) => {
-    if (!window.confirm(`¿Eliminar a ${fullName(client)}?`)) return
+    if (!window.confirm(`¿Archivar a ${fullName(client)}? El registro se conservará en la base canónica.`)) return
     const result = await deleteClient(client.id)
     if (result.success) await load()
   }
@@ -154,26 +155,19 @@ export function ClientRepositoryDashboard() {
   }
 
   return (
-    <section className="space-y-6 py-2">
-      <div className="flex flex-col gap-4 border-b border-border pb-5 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="sr-meta">Relaciones comerciales</p>
-          <h2 className="sr-section-title mt-1">Clientes</h2>
-          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">Consulta contactos, estado comercial, presupuesto y actividad reciente desde una vista única.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            Actualizar
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => router.push("/clientes/importar")}>
-            <Upload className="h-4 w-4" />
-            Importar
-          </Button>
-        </div>
+    <section className="space-y-6">
+      <div className="flex flex-wrap items-center justify-end gap-2 border-b border-border/70 pb-4">
+        <Button variant="ghost" size="sm" onClick={() => void load()} disabled={loading}>
+          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+          Actualizar
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => router.push("/clientes/importar")}>
+          <Upload className="h-4 w-4" />
+          Importar
+        </Button>
       </div>
 
-      <div className="grid border-y border-border md:grid-cols-4">
+      <div className="grid border-y border-border/70 md:grid-cols-4">
         {[
           ["Total", totalClients || statistics?.total || 0],
           ["Calientes", statistics?.byStatus?.hot || 0],
@@ -198,7 +192,7 @@ export function ClientRepositoryDashboard() {
         </Select>
         <Select value={statusFilter} onValueChange={(value) => { setStatusFilter(value); setCurrentPage(1) }}>
           <SelectTrigger className="w-full xl:w-44"><SelectValue placeholder="Estado" /></SelectTrigger>
-          <SelectContent><SelectItem value="all">Todos los estados</SelectItem><SelectItem value="hot">Calientes</SelectItem><SelectItem value="warm">Tibios</SelectItem><SelectItem value="cold">Fríos</SelectItem><SelectItem value="inactive">Inactivos</SelectItem></SelectContent>
+          <SelectContent><SelectItem value="all">Todos los estados</SelectItem><SelectItem value="hot">Calientes</SelectItem><SelectItem value="warm">Tibios</SelectItem><SelectItem value="cold">Fríos</SelectItem><SelectItem value="inactive">Inactivos</SelectItem><SelectItem value="archived">Archivados</SelectItem></SelectContent>
         </Select>
         <Select value={industryFilter} onValueChange={(value) => { setIndustryFilter(value); setCurrentPage(1) }}>
           <SelectTrigger className="w-full xl:w-44"><SelectValue placeholder="Industria" /></SelectTrigger>
@@ -221,11 +215,11 @@ export function ClientRepositoryDashboard() {
                 <TableCell>{formatCurrency(client.budget_max)}</TableCell>
                 <TableCell onClick={(event) => event.stopPropagation()}>
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Acciones de ${fullName(client)}`}><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => router.push(`/clientes/${client.id}`)}>Abrir ficha</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setEmailClient(client)}><Mail className="h-4 w-4" />Enviar correo</DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive" onClick={() => void handleDelete(client)}><Trash2 className="h-4 w-4" />Eliminar</DropdownMenuItem>
+                      <DropdownMenuItem className="text-destructive" onClick={() => void handleDelete(client)}><Trash2 className="h-4 w-4" />Archivar</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>

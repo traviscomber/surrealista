@@ -16,6 +16,7 @@ export type SurRealistaNavItem = {
   href: string
   icon: LucideIcon
   prefixes: string[]
+  code?: string
   description?: string
   agent?: string
 }
@@ -25,6 +26,7 @@ export const SUR_REALISTA_HOME: SurRealistaNavItem = {
   href: "/",
   icon: LayoutDashboard,
   prefixes: ["/"],
+  code: "SYS",
 }
 
 export const SUR_REALISTA_MODULES: SurRealistaNavItem[] = [
@@ -32,6 +34,7 @@ export const SUR_REALISTA_MODULES: SurRealistaNavItem[] = [
     label: "Campos",
     href: "/campos",
     icon: MapPinned,
+    code: "M01",
     prefixes: ["/campos", "/kmz", "/kmz-map", "/kmz-search", "/kmz-search-advanced", "/kmz-guide", "/kmz-analisis", "/mapas"],
     description: "Inventario territorial, ROL, mapas, inteligencia y análisis de cada campo.",
     agent: "Agente Campos",
@@ -40,6 +43,7 @@ export const SUR_REALISTA_MODULES: SurRealistaNavItem[] = [
     label: "Clientes",
     href: "/clientes",
     icon: Users,
+    code: "M02",
     prefixes: ["/clientes", "/gestion-clientes"],
     description: "Personas, empresas, intereses, relaciones, seguimiento y contexto comercial.",
     agent: "Agente Clientes",
@@ -48,6 +52,7 @@ export const SUR_REALISTA_MODULES: SurRealistaNavItem[] = [
     label: "Multimedia",
     href: "/comunicaciones",
     icon: ImageIcon,
+    code: "M03",
     prefixes: ["/comunicaciones"],
     description: "Contenido, redes sociales, packs de publicaciones y activos de comunicación.",
     agent: "Agente Contenido",
@@ -56,6 +61,7 @@ export const SUR_REALISTA_MODULES: SurRealistaNavItem[] = [
     label: "Documentos",
     href: "/documentacion",
     icon: Files,
+    code: "M04",
     prefixes: ["/documentacion"],
     description: "Repositorio documental, preparación y generación de informes con evidencia.",
     agent: "Agente Documental",
@@ -64,6 +70,7 @@ export const SUR_REALISTA_MODULES: SurRealistaNavItem[] = [
     label: "Mercado",
     href: "/mercado",
     icon: BriefcaseBusiness,
+    code: "M05",
     prefixes: ["/mercado", "/prospeccion", "/propiedades", "/cotizador", "/opportunities", "/home-spotter", "/quick-wins"],
     description: "Propiedades, comparables, prospección, valorización y señales de oportunidad.",
     agent: "Agente Mercado",
@@ -109,6 +116,7 @@ export const SUR_REALISTA_UTILITIES: SurRealistaNavItem[] = [
     label: "Tareas",
     href: "/gestion-tareas",
     icon: CheckSquare2,
+    code: "OPS",
     prefixes: ["/gestion-tareas", "/nueva-tarea"],
     description: "Pendientes, responsables y próximos pasos de todos los módulos.",
   },
@@ -116,6 +124,7 @@ export const SUR_REALISTA_UTILITIES: SurRealistaNavItem[] = [
     label: "Asistente",
     href: "/asistente",
     icon: Bot,
+    code: "AI",
     prefixes: ["/asistente", "/asistente-ia", "/ai"],
     description: "Consulta transversal sobre Campos, Clientes, Multimedia, Documentos y Mercado.",
   },
@@ -123,6 +132,7 @@ export const SUR_REALISTA_UTILITIES: SurRealistaNavItem[] = [
     label: "Administración",
     href: "/admin/dashboard",
     icon: Settings,
+    code: "ADM",
     prefixes: ["/admin"],
     description: "Control operativo, fuentes, usuarios y configuración.",
   },

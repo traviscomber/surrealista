@@ -3,8 +3,6 @@
 import React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { ArrowLeft } from "lucide-react"
-import { Button } from "@/components/ui/button"
 
 const getPageTitle = (pathname: string): string => {
   const routes: Record<string, string> = {
@@ -36,43 +34,31 @@ const getPageTitle = (pathname: string): string => {
 }
 
 const getBreadcrumbs = (pathname: string): Array<{ label: string; href?: string }> => {
-  const breadcrumbs: Array<{ label: string; href?: string }> = [{ label: "Administración", href: "/admin" }]
+  const breadcrumbs: Array<{ label: string; href?: string }> = [{ label: "Administración", href: "/admin/dashboard" }]
   if (pathname !== "/admin") breadcrumbs.push({ label: getPageTitle(pathname) })
   return breadcrumbs
 }
 
 export function AdminHeader() {
   const pathname = usePathname()
-  const pageTitle = getPageTitle(pathname)
   const breadcrumbs = getBreadcrumbs(pathname)
 
   return (
-    <header className="border-b border-border bg-card">
-      <div className="flex min-h-16 items-center gap-4 px-5 py-3 lg:px-8">
-        <Button asChild variant="ghost" size="icon" aria-label="Volver a Inicio">
-          <Link href="/">
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          </Link>
-        </Button>
-
-        <div className="min-w-0">
-          <div className="mb-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            {breadcrumbs.map((crumb, index) => (
-              <React.Fragment key={`${crumb.label}-${index}`}>
-                {index > 0 && <span aria-hidden="true">/</span>}
-                {crumb.href ? (
-                  <Link href={crumb.href} className="transition-colors hover:text-foreground">
-                    {crumb.label}
-                  </Link>
-                ) : (
-                  <span className="font-medium text-foreground">{crumb.label}</span>
-                )}
-              </React.Fragment>
-            ))}
-          </div>
-          <h1 className="sr-page-title truncate">{pageTitle}</h1>
-        </div>
-      </div>
+    <header className="border-b border-border/70 bg-card/60">
+      <nav aria-label="Ruta de administración" className="flex min-h-9 items-center gap-2 px-5 text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground lg:px-8">
+        {breadcrumbs.map((crumb, index) => (
+          <React.Fragment key={`${crumb.label}-${index}`}>
+            {index > 0 && <span aria-hidden="true">/</span>}
+            {crumb.href ? (
+              <Link href={crumb.href} className="transition-colors hover:text-foreground">
+                {crumb.label}
+              </Link>
+            ) : (
+              <span className="text-foreground">{crumb.label}</span>
+            )}
+          </React.Fragment>
+        ))}
+      </nav>
     </header>
   )
 }

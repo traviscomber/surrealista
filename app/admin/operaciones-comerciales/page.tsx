@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import { AppHeader } from '@/components/layout/app-header'
 import { CommercialOperationsCenter } from '@/components/admin/commercial-operations-center'
 import { WorkspaceHeading } from '@/components/ui/workspace-heading'
 
@@ -10,8 +9,6 @@ export default async function CommercialOperationsPage() {
   const operations = await CommercialOperationsCenter()
 
   return (
-    <>
-      <AppHeader />
       <main className="container mx-auto space-y-8 px-4 py-8 md:py-10">
         <WorkspaceHeading
           eyebrow="Centro de operaciones"
@@ -21,6 +18,5 @@ export default async function CommercialOperationsPage() {
         />
         {operations}
       </main>
-    </>
   )
 }

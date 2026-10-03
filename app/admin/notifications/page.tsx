@@ -2,11 +2,11 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { NotificationList } from "@/components/notifications/notification-list"
-import { AppHeader } from "@/components/layout/app-header"
 import { useNotificationSettings } from "@/lib/hooks/use-notifications"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Bell, Mail, Smartphone } from "lucide-react"
+import { WorkspaceHeading } from "@/components/ui/workspace-heading"
 
 export default function NotificationsPage() {
   const { settings, updateSettings, loading } = useNotificationSettings()
@@ -30,15 +30,15 @@ export default function NotificationsPage() {
   }
 
   return (
-    <>
-      <AppHeader />
-      <div className="container mx-auto py-8 px-4">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">Notificaciones</h1>
-          <p className="text-muted-foreground">Gestiona tus notificaciones y preferencias</p>
-        </div>
+      <main className="container mx-auto space-y-8 px-4 py-8">
+        <WorkspaceHeading
+          eyebrow="Administración"
+          title="Notificaciones"
+          description="Revisa avisos operativos y ajusta los canales disponibles sin salir del sistema."
+          outcome="Mantén sólo las notificaciones que requieren atención o seguimiento."
+        />
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <Card>
               <CardHeader>
@@ -141,7 +141,6 @@ export default function NotificationsPage() {
             </Card>
           </div>
         </div>
-      </div>
-    </>
+      </main>
   )
 }

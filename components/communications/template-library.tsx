@@ -290,10 +290,10 @@ Saludos,
       <CardHeader>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-purple-600" />
+            <Sparkles className="h-5 w-5 text-primary" />
             <h3 className="text-lg font-semibold">Templates Disponibles</h3>
           </div>
-          <Badge variant="outline" className="bg-purple-50 text-purple-700">
+          <Badge variant="outline">
             {templates.length} plantillas
           </Badge>
         </div>
@@ -303,27 +303,26 @@ Saludos,
           {templates.map((template) => (
             <Dialog key={template.id} open={dialogOpen && selectedTemplate?.id === template.id}>
               <DialogTrigger asChild>
-                <Card
-                  className="cursor-pointer hover:shadow-lg transition-all hover:border-purple-300 group"
+                <button
+                  type="button"
+                  className="group w-full border border-border/70 bg-card p-5 text-left transition-colors hover:bg-secondary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={() => {
                     setSelectedTemplate(template)
                     setDialogOpen(true)
                   }}
                 >
-                  <CardContent className="p-6">
-                    <div className="flex items-start gap-3">
-                      <div className="p-3 rounded-lg bg-purple-50 group-hover:bg-purple-100 transition-colors">
-                        <template.icon className="h-6 w-6 text-purple-600" />
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-gray-900 mb-1">{template.name}</h4>
-                        <Badge variant="outline" className="text-xs">
-                          {template.category}
-                        </Badge>
-                      </div>
+                  <div className="flex items-start gap-3">
+                    <div className="grid h-10 w-10 shrink-0 place-items-center border border-border/70 bg-secondary/40">
+                      <template.icon className="h-4 w-4 text-primary" aria-hidden="true" />
                     </div>
-                  </CardContent>
-                </Card>
+                    <div className="min-w-0 flex-1">
+                      <h4 className="mb-1 text-sm font-semibold text-foreground">{template.name}</h4>
+                      <Badge variant="outline" className="text-[10px]">
+                        {template.category}
+                      </Badge>
+                    </div>
+                  </div>
+                </button>
               </DialogTrigger>
               {selectedTemplate?.id === template.id && (
                 <TemplateDialog

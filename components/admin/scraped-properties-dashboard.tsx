@@ -15,7 +15,6 @@ import {
   Star,
   X,
 } from "lucide-react"
-import { createBrowserClient } from "@/lib/supabase/client"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -59,15 +58,10 @@ const SOURCE_OPTIONS = [
 const UF_RATE = 38_500
 
 async function fetchScrapedProperties(): Promise<ScrapedProperty[]> {
-  const supabase = createBrowserClient()
-  const { data, error } = await supabase
-    .from("properties_external")
-    .select("id, external_id, title, description, location, address, city, region, price, price_clp, price_uf, area, area_m2, property_type, images, source, source_url, scraped_at, is_active")
-    .eq("is_active", true)
-    .order("scraped_at", { ascending: false })
-
-  if (error) throw error
-  return (data ?? []) as ScrapedProperty[]
+  const response = await fetch("/api/market/properties?limit=1000", { cache: "no-store" })
+  const body = await response.json().catch(() => ({}))
+  if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`)
+  return (Array.isArray(body.properties) ? body.properties : []) as ScrapedProperty[]
 }
 
 function toUF(property: ScrapedProperty): number | null {
@@ -212,26 +206,53 @@ export function ScrapedPropertiesDashboard({
 
   if (error) {
     return (
-      <Card>
-        <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
-          <Database className="h-10 w-10 text-destructive" />
-          <div>
-            <p className="font-medium">No se pudieron cargar las propiedades</p>
-            <p className="text-sm text-muted-foreground">{error.message}</p>
+      <section className="border-y border-border/70 py-6" aria-live="polite">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex min-w-0 items-start gap-3">
+            <Database className="mt-0.5 h-5 w-5 shrink-0 text-destructive" aria-hidden="true" />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold">No se pudieron cargar las propiedades</p>
+              <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
+                La vista queda vacía hasta recuperar la fuente; no se muestran registros parciales ni simulados.
+              </p>
+              <p className="mt-1 truncate font-mono text-[10px] text-muted-foreground/80">{error.message}</p>
+            </div>
           </div>
-          <Button variant="outline" onClick={() => mutate()}><RefreshCw className="mr-2 h-4 w-4" />Reintentar</Button>
-        </CardContent>
-      </Card>
+          <Button variant="outline" size="sm" onClick={() => mutate()}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Reintentar
+          </Button>
+        </div>
+      </section>
     )
   }
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Card><CardContent className="flex items-center gap-3 p-5"><Building2 className="h-5 w-5 text-primary" /><div><p className="text-2xl font-semibold">{filteredProperties.length}</p><p className="text-sm text-muted-foreground">Propiedades encontradas</p></div></CardContent></Card>
-        <Card><CardContent className="flex items-center gap-3 p-5"><Database className="h-5 w-5 text-primary" /><div><p className="text-2xl font-semibold">{sources}</p><p className="text-sm text-muted-foreground">Fuentes con datos</p></div></CardContent></Card>
-        <Card><CardContent className="flex items-center gap-3 p-5"><MapPin className="h-5 w-5 text-primary" /><div><p className="text-2xl font-semibold">{regions}</p><p className="text-sm text-muted-foreground">Regiones cubiertas</p></div></CardContent></Card>
-        <Card><CardContent className="flex items-center gap-3 p-5"><CircleDollarSign className="h-5 w-5 text-primary" /><div><p className="text-lg font-semibold">{averageUF ? `UF ${new Intl.NumberFormat("es-CL").format(averageUF)}` : "Sin datos"}</p><p className="text-sm text-muted-foreground">Precio promedio UF</p></div></CardContent></Card>
+      <div className="grid border-y border-border/70 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          { label: "Propiedades", value: new Intl.NumberFormat("es-CL").format(filteredProperties.length), icon: Building2 },
+          { label: "Fuentes", value: new Intl.NumberFormat("es-CL").format(sources), icon: Database },
+          { label: "Regiones", value: new Intl.NumberFormat("es-CL").format(regions), icon: MapPin },
+          { label: "Precio promedio", value: averageUF ? `UF ${new Intl.NumberFormat("es-CL").format(averageUF)}` : "—", icon: CircleDollarSign },
+        ].map((metric, index) => {
+          const Icon = metric.icon
+          const divider = [
+            "",
+            "border-t border-border/70 sm:border-l sm:border-t-0",
+            "border-t border-border/70 lg:border-l lg:border-t-0",
+            "border-t border-border/70 sm:border-l lg:border-t-0",
+          ][index]
+          return (
+            <div key={metric.label} className={`min-h-[104px] px-4 py-4 ${divider}`}>
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Icon className="h-4 w-4 text-primary" aria-hidden="true" />
+                <p className="text-[9px] font-semibold uppercase tracking-[0.16em]">{metric.label}</p>
+              </div>
+              <p className="mt-3 text-2xl font-medium tracking-[-0.02em] tabular-nums">{metric.value}</p>
+            </div>
+          )
+        })}
       </div>
 
       <Card>

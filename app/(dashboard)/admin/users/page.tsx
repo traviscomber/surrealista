@@ -1,5 +1,5 @@
-import { UserManagement } from "@/components/admin/user-management"
+import { redirect } from "next/navigation"
 
 export default function UsersPage() {
-  return <UserManagement />
+  redirect("/admin/usuarios")
 }

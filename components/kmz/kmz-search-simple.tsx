@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { MapPin, Search, ExternalLink, Loader2, FileText, Folder } from "lucide-react"
 import { toast } from "sonner"
 import useSWR from "swr"
+import { WorkspaceHeading } from "@/components/ui/workspace-heading"
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json())
 
@@ -62,24 +63,17 @@ export default function KMZSearchSimple() {
   const isIndexed = (diagnostic?.indexedLocations || 0) > 0
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white py-12 px-4">
-        <div className="max-w-5xl mx-auto">
-          <div className="flex items-center gap-3 mb-4">
-            <MapPin className="h-8 w-8" />
-            <h1 className="text-4xl font-bold">Búsqueda de Ubicaciones KMZ</h1>
-          </div>
-          <p className="text-blue-100 text-lg">
-            Busca en todos tus archivos KMZ: colección, documentos y ubicaciones indexadas
-          </p>
-        </div>
-      </div>
+    <main className="mx-auto w-full max-w-[1500px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+      <WorkspaceHeading
+        eyebrow="Campos · Herramientas"
+        title="Búsqueda KMZ"
+        description="Busca en la colección, documentos y ubicaciones indexadas desde una sola vista."
+        outcome="Encuentra el registro correcto y continúa desde Campos."
+      />
 
-      {/* Main Content */}
-      <div className="max-w-5xl mx-auto px-4 py-12">
+      <div className="max-w-5xl space-y-6">
         {/* Search Box */}
-        <Card className="mb-8 shadow-lg border-0">
+        <Card className="border-border/70 shadow-none">
           <CardContent className="pt-6">
             <form onSubmit={handleSearch} className="space-y-4">
               <div className="relative">
@@ -93,13 +87,14 @@ export default function KMZSearchSimple() {
                 />
                 <Button
                   type="submit"
+                  aria-label="Buscar KMZ"
                   disabled={loading || !searchTerm.trim()}
                   className="absolute right-1 top-1/2 -translate-y-1/2 h-10 w-10 p-0"
                 >
                   {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
                 </Button>
               </div>
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-muted-foreground">
                 Indexadas: <strong>{diagnostic?.indexedLocations || 0}</strong> ubicaciones en <strong>{diagnostic?.kmzCount || 0}</strong> archivos
               </p>
             </form>
@@ -114,20 +109,20 @@ export default function KMZSearchSimple() {
               <div className="grid grid-cols-3 gap-4">
                 <Card>
                   <CardContent className="pt-6 text-center">
-                    <p className="text-3xl font-bold text-blue-600">{results.summary?.locationsFound || 0}</p>
-                    <p className="text-sm text-slate-600 mt-2">Ubicaciones Encontradas</p>
+                    <p className="text-3xl font-bold text-primary">{results.summary?.locationsFound || 0}</p>
+                    <p className="text-sm text-muted-foreground mt-2">Ubicaciones Encontradas</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="pt-6 text-center">
-                    <p className="text-3xl font-bold text-green-600">{results.summary?.kmzCollectionFound || 0}</p>
-                    <p className="text-sm text-slate-600 mt-2">En Colección KMZ</p>
+                    <p className="text-3xl font-bold text-primary">{results.summary?.kmzCollectionFound || 0}</p>
+                    <p className="text-sm text-muted-foreground mt-2">En Colección KMZ</p>
                   </CardContent>
                 </Card>
                 <Card>
                   <CardContent className="pt-6 text-center">
-                    <p className="text-3xl font-bold text-purple-600">{results.summary?.propertyDocsFound || 0}</p>
-                    <p className="text-sm text-slate-600 mt-2">En Documentos</p>
+                    <p className="text-3xl font-bold text-primary">{results.summary?.propertyDocsFound || 0}</p>
+                    <p className="text-sm text-muted-foreground mt-2">En Documentos</p>
                   </CardContent>
                 </Card>
               </div>
@@ -137,11 +132,11 @@ export default function KMZSearchSimple() {
             {results.results?.locations && results.results.locations.length > 0 && (
               <div className="space-y-3">
                 <h2 className="text-xl font-bold flex items-center gap-2">
-                  <MapPin className="h-5 w-5 text-blue-600" />
+                  <MapPin className="h-5 w-5 text-primary" />
                   Ubicaciones Encontradas ({results.results.locations.length})
                 </h2>
                 {results.results.locations.map((location: any) => (
-                  <Card key={location.id} className="hover:shadow-md transition-shadow">
+                  <Card key={location.id} className="border-border/70 shadow-none transition-colors hover:bg-secondary/35">
                     <CardContent className="pt-6">
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1">
@@ -152,10 +147,10 @@ export default function KMZSearchSimple() {
                             {location.type && <Badge>{location.type}</Badge>}
                           </div>
                           {location.address && (
-                            <p className="text-sm text-slate-600 mt-2">{location.address}</p>
+                            <p className="text-sm text-muted-foreground mt-2">{location.address}</p>
                           )}
                           {location.latitude && location.longitude && (
-                            <p className="text-xs text-slate-500 mt-1">
+                            <p className="text-xs text-muted-foreground mt-1">
                               📍 {location.latitude.toFixed(4)}, {location.longitude.toFixed(4)}
                             </p>
                           )}
@@ -163,18 +158,18 @@ export default function KMZSearchSimple() {
                         <div className="text-right space-y-2">
                           {location.kmz_file && (
                             <div>
-                              <p className="text-xs text-slate-600 mb-2">En archivo:</p>
-                              <p className="text-sm font-medium text-slate-700">{location.kmz_file.file_name}</p>
+                              <p className="text-xs text-muted-foreground mb-2">En archivo:</p>
+                              <p className="text-sm font-medium text-foreground">{location.kmz_file.file_name}</p>
                             </div>
                           )}
                           <div className="flex gap-2 justify-end">
                             {location.kmz_id && (
-                              <Link href={`/campos?kmz=${location.kmz_id}`}>
-                                <Button size="sm" variant="outline" className="gap-2">
+                              <Button asChild size="sm" variant="outline" className="gap-2">
+                                <Link href={`/campos?kmz=${location.kmz_id}`}>
                                   <MapPin className="h-4 w-4" />
-                                  Ver en Mapa
-                                </Button>
-                              </Link>
+                                  Abrir en Campos
+                                </Link>
+                              </Button>
                             )}
                           </div>
                         </div>
@@ -189,31 +184,31 @@ export default function KMZSearchSimple() {
             {results.results?.kmzCollection && results.results.kmzCollection.length > 0 && (
               <div className="space-y-3">
                 <h2 className="text-xl font-bold flex items-center gap-2">
-                  <Folder className="h-5 w-5 text-green-600" />
+                  <Folder className="h-5 w-5 text-primary" />
                   Archivos en Colección KMZ ({results.results.kmzCollection.length})
                 </h2>
                 <div className="grid gap-3">
                   {results.results.kmzCollection.map((kmz: any) => (
-                    <Card key={kmz.id} className="hover:shadow-md transition-shadow">
+                    <Card key={kmz.id} className="border-border/70 shadow-none transition-colors hover:bg-secondary/35">
                       <CardContent className="pt-4">
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1">
-                            <h3 className="font-semibold">{kmz.file_name}</h3>
+                            <h3 className="font-semibold">{kmz.display_name || kmz.file_name}</h3>
                             <div className="flex gap-2 mt-2 flex-wrap">
                               {kmz.region && <Badge variant="secondary">{kmz.region}</Badge>}
                               {kmz.category && <Badge>{kmz.category}</Badge>}
                             </div>
-                            <p className="text-xs text-slate-500 mt-2">
+                            <p className="text-xs text-muted-foreground mt-2">
                               Creado: {new Date(kmz.created_at).toLocaleDateString('es-CL')}
                             </p>
                           </div>
                           <div className="flex gap-2 justify-end">
-                            <Link href={`/campos?kmz=${kmz.id}`}>
-                              <Button size="sm" variant="outline" className="gap-2">
+                            <Button asChild size="sm" variant="outline" className="gap-2">
+                              <Link href={`/campos?kmz=${kmz.id}`}>
                                 <MapPin className="h-4 w-4" />
-                                Ver en Mapa
-                              </Button>
-                            </Link>
+                                Abrir en Campos
+                              </Link>
+                            </Button>
                           </div>
                         </div>
                       </CardContent>
@@ -227,12 +222,12 @@ export default function KMZSearchSimple() {
             {results.results?.propertyDocuments && results.results.propertyDocuments.length > 0 && (
               <div className="space-y-3">
                 <h2 className="text-xl font-bold flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-purple-600" />
+                  <FileText className="h-5 w-5 text-primary" />
                   Archivos en Documentos ({results.results.propertyDocuments.length})
                 </h2>
                 <div className="grid gap-3">
                   {results.results.propertyDocuments.map((doc: any) => (
-                    <Card key={doc.id} className="hover:shadow-md transition-shadow">
+                    <Card key={doc.id} className="border-border/70 shadow-none transition-colors hover:bg-secondary/35">
                       <CardContent className="pt-4">
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1">
@@ -240,17 +235,15 @@ export default function KMZSearchSimple() {
                             <div className="flex gap-2 mt-2 flex-wrap">
                               <Badge variant="secondary">{doc.category}</Badge>
                             </div>
-                            <p className="text-xs text-slate-500 mt-2">
+                            <p className="text-xs text-muted-foreground mt-2">
                               Creado: {new Date(doc.created_at).toLocaleDateString('es-CL')}
                             </p>
                           </div>
                           {doc.file_url && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => window.open(doc.file_url, "_blank")}
-                            >
-                              <ExternalLink className="h-4 w-4" />
+                            <Button asChild size="icon" variant="outline">
+                              <a href={doc.file_url} target="_blank" rel="noopener noreferrer" aria-label={`Abrir ${doc.title || doc.file_name}`}>
+                                <ExternalLink className="h-4 w-4" />
+                              </a>
                             </Button>
                           )}
                         </div>
@@ -263,11 +256,11 @@ export default function KMZSearchSimple() {
 
             {/* No Results */}
             {!results.results?.locations?.length && !results.results?.kmzCollection?.length && !results.results?.propertyDocuments?.length && (
-              <Card className="bg-amber-50 border-amber-200">
+              <Card className="border-border/70 bg-secondary/25 shadow-none">
                 <CardContent className="pt-6 text-center">
-                  <MapPin className="h-12 w-12 mx-auto mb-3 opacity-30 text-amber-600" />
-                  <p className="text-slate-900 font-semibold">No se encontraron resultados</p>
-                  <p className="text-sm text-slate-600 mt-2">
+                  <MapPin className="h-12 w-12 mx-auto mb-3 opacity-30 text-muted-foreground" />
+                  <p className="text-foreground font-semibold">No se encontraron resultados</p>
+                  <p className="text-sm text-muted-foreground mt-2">
                     Intenta con otro término de búsqueda
                   </p>
                 </CardContent>
@@ -279,11 +272,11 @@ export default function KMZSearchSimple() {
         {/* Empty State */}
         {!hasSearched && (
           <div className="space-y-4">
-            <Card className="bg-blue-50 border-blue-200">
+            <Card className="border-border/70 bg-card shadow-none">
               <CardHeader>
-                <CardTitle className="text-blue-900">Busca en Tres Fuentes</CardTitle>
+                <CardTitle className="text-foreground">Busca en Tres Fuentes</CardTitle>
               </CardHeader>
-              <CardContent className="text-sm text-blue-900 space-y-3">
+              <CardContent className="text-sm text-foreground space-y-3">
                 <p>✓ <strong>Ubicaciones Indexadas:</strong> Placemarks dentro de archivos KMZ</p>
                 <p>✓ <strong>Colección KMZ:</strong> Archivos principales de la colección</p>
                 <p>✓ <strong>Documentos:</strong> Archivos KMZ en comunicaciones y documentación</p>
@@ -291,14 +284,14 @@ export default function KMZSearchSimple() {
             </Card>
 
             {!isIndexed && (
-              <Card className="bg-orange-50 border-orange-200">
+              <Card className="border-border/70 bg-secondary/25 shadow-none">
                 <CardHeader>
-                  <CardTitle className="text-orange-900 flex items-center gap-2">
+                  <CardTitle className="text-foreground flex items-center gap-2">
                     <MapPin className="h-5 w-5" />
                     Indexación en Progreso
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="text-sm text-orange-900">
+                <CardContent className="text-sm text-foreground">
                   <p>El sistema está indexando tus archivos KMZ.</p>
                   <p className="mt-2">Progreso: {diagnostic?.indexedLocations || 0} ubicaciones indexadas</p>
                   <p className="mt-2">Vuelve en unos minutos para comenzar a buscar.</p>
