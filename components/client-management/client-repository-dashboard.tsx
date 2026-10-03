@@ -84,6 +84,7 @@ const statusLabels: Record<string, string> = {
   warm: "Tibio",
   cold: "Frío",
   inactive: "Inactivo",
+  archived: "Archivado",
 }
 
 function fullName(client: Client) {
@@ -144,7 +145,7 @@ export function ClientRepositoryDashboard() {
   )
 
   const handleDelete = async (client: Client) => {
-    if (!window.confirm(`¿Eliminar a ${fullName(client)}?`)) return
+    if (!window.confirm(`¿Archivar a ${fullName(client)}? El registro se conservará en la base canónica.`)) return
     const result = await deleteClient(client.id)
     if (result.success) await load()
   }
@@ -198,7 +199,7 @@ export function ClientRepositoryDashboard() {
         </Select>
         <Select value={statusFilter} onValueChange={(value) => { setStatusFilter(value); setCurrentPage(1) }}>
           <SelectTrigger className="w-full xl:w-44"><SelectValue placeholder="Estado" /></SelectTrigger>
-          <SelectContent><SelectItem value="all">Todos los estados</SelectItem><SelectItem value="hot">Calientes</SelectItem><SelectItem value="warm">Tibios</SelectItem><SelectItem value="cold">Fríos</SelectItem><SelectItem value="inactive">Inactivos</SelectItem></SelectContent>
+          <SelectContent><SelectItem value="all">Todos los estados</SelectItem><SelectItem value="hot">Calientes</SelectItem><SelectItem value="warm">Tibios</SelectItem><SelectItem value="cold">Fríos</SelectItem><SelectItem value="inactive">Inactivos</SelectItem><SelectItem value="archived">Archivados</SelectItem></SelectContent>
         </Select>
         <Select value={industryFilter} onValueChange={(value) => { setIndustryFilter(value); setCurrentPage(1) }}>
           <SelectTrigger className="w-full xl:w-44"><SelectValue placeholder="Industria" /></SelectTrigger>
@@ -225,7 +226,7 @@ export function ClientRepositoryDashboard() {
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => router.push(`/clientes/${client.id}`)}>Abrir ficha</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setEmailClient(client)}><Mail className="h-4 w-4" />Enviar correo</DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive" onClick={() => void handleDelete(client)}><Trash2 className="h-4 w-4" />Eliminar</DropdownMenuItem>
+                      <DropdownMenuItem className="text-destructive" onClick={() => void handleDelete(client)}><Trash2 className="h-4 w-4" />Archivar</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
