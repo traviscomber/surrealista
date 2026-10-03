@@ -19,6 +19,7 @@ interface Task {
   status: string
   due_date: string
   created_at: string
+  related_to: string
 }
 
 type TasksState = "idle" | "loading" | "ready" | "error"
@@ -37,6 +38,7 @@ function normalizeTask(value: unknown): Task | null {
     status: typeof row.status === "string" ? row.status : "pending",
     due_date: typeof row.due_date === "string" ? row.due_date : "",
     created_at: typeof row.created_at === "string" ? row.created_at : "",
+    related_to: typeof row.related_to === "string" ? row.related_to : "",
   }
 }
 
@@ -50,7 +52,7 @@ export default function GestionTareasPage() {
     setState("loading")
     const { data, error } = await supabase
       .from("tasks")
-      .select("id, title, description, location, priority, status, due_date, created_at")
+      .select("id, title, description, location, priority, status, due_date, created_at, related_to")
       .order("created_at", { ascending: false })
       .limit(100)
 
