@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { CheckSquare, Plus, AlertCircle, Clock, MapPin, Calendar, Zap } from "lucide-react"
@@ -17,6 +17,7 @@ interface Task {
   status: string
   due_date: string
   created_at: string
+  related_to: string
 }
 
 interface TasksManagerProps {
@@ -42,6 +43,16 @@ const statusLabel = (status: string) => {
   return "Pendiente"
 }
 
+type TaskFilter = "all" | "urgent" | "today" | "location"
+
+const moduleLabel: Record<string, string> = {
+  campos: "Campos",
+  clientes: "Clientes",
+  multimedia: "Multimedia",
+  documentos: "Documentos",
+  mercado: "Mercado",
+}
+
 export function TasksManager({
   tasks,
   onTasksUpdate,
@@ -54,6 +65,20 @@ export function TasksManager({
   const [taskDialogOpen, setTaskDialogOpen] = useState(false)
   const [quickTaskOpen, setQuickTaskOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState<Task | null>(initialSelectedTask || null)
+  const [filter, setFilter] = useState<TaskFilter>("all")
+
+  const filteredTasks = useMemo(() => {
+    if (filter === "urgent") {
+      return tasks.filter((task) => task.priority === "urgent" || task.priority === "high")
+    }
+    if (filter === "today") {
+      const today = new Date()
+      const localToday = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`
+      return tasks.filter((task) => task.due_date?.slice(0, 10) === localToday)
+    }
+    if (filter === "location") return tasks.filter((task) => Boolean(task.location))
+    return tasks
+  }, [filter, tasks])
 
   const handleTaskClick = (task: Task) => {
     setSelectedTask(task)
@@ -77,7 +102,7 @@ export function TasksManager({
           <div>
             <p className="sr-meta">Gestión operativa</p>
             <h2 className="sr-panel-title mt-1">Tareas</h2>
-            <p className="mt-1 text-sm text-muted-foreground">{tasks.length} tareas disponibles</p>
+            <p className="mt-1 text-sm text-muted-foreground">{filteredTasks.length} de {tasks.length} tareas</p>
           </div>
           <div className="flex gap-2">
             <Button size="sm" variant="outline" onClick={() => setQuickTaskOpen(true)}>
@@ -91,23 +116,26 @@ export function TasksManager({
           </div>
         </header>
 
-        <div className="flex items-center gap-1 overflow-x-auto border-b border-border/70 px-4 py-2">
-          <Button size="sm" variant="ghost" className="shrink-0 text-xs">
+        <div className="flex items-center gap-1 overflow-x-auto border-b border-border/70 px-4 py-2" aria-label="Filtros de tareas">
+          <Button size="sm" variant={filter === "all" ? "secondary" : "ghost"} className="shrink-0 text-xs" onClick={() => setFilter("all")}>
+            Todas
+          </Button>
+          <Button size="sm" variant={filter === "urgent" ? "secondary" : "ghost"} className="shrink-0 text-xs" onClick={() => setFilter("urgent")}>
             <AlertCircle className="h-3.5 w-3.5 text-destructive" />
             Urgentes
           </Button>
-          <Button size="sm" variant="ghost" className="shrink-0 text-xs">
+          <Button size="sm" variant={filter === "today" ? "secondary" : "ghost"} className="shrink-0 text-xs" onClick={() => setFilter("today")}>
             <Clock className="h-3.5 w-3.5 text-muted-foreground" />
             Hoy
           </Button>
-          <Button size="sm" variant="ghost" className="shrink-0 text-xs">
+          <Button size="sm" variant={filter === "location" ? "secondary" : "ghost"} className="shrink-0 text-xs" onClick={() => setFilter("location")}>
             <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
             Con ubicación
           </Button>
         </div>
 
         <div className="max-h-[620px] overflow-y-auto">
-          {tasks.map((task) => {
+          {filteredTasks.map((task) => {
             const isSelected = selectedTask?.id === task.id
             return (
               <button
@@ -132,6 +160,11 @@ export function TasksManager({
 
                 <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-muted-foreground">
                   <Badge variant="secondary">{statusLabel(task.status)}</Badge>
+                  {task.related_to ? (
+                    <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-muted-foreground">
+                      {moduleLabel[task.related_to] || task.related_to}
+                    </span>
+                  ) : null}
                   {task.location ? (
                     <span className="inline-flex items-center gap-1">
                       <MapPin className="h-3.5 w-3.5" />
@@ -149,12 +182,14 @@ export function TasksManager({
             )
           })}
 
-          {tasks.length === 0 ? (
+          {filteredTasks.length === 0 ? (
             <div className="flex min-h-[360px] flex-col items-center justify-center px-8 text-center">
               <CheckSquare className="h-10 w-10 text-muted-foreground/45" />
-              <h3 className="mt-4 text-base font-semibold text-foreground">No hay tareas</h3>
+              <h3 className="mt-4 text-base font-semibold text-foreground">{tasks.length === 0 ? "No hay tareas" : "Sin resultados para este filtro"}</h3>
               <p className="mt-2 max-w-sm text-sm leading-6 text-muted-foreground">
-                Crea una tarea rápida o abre el formulario completo para registrar el próximo paso.
+                {tasks.length === 0
+                  ? "Crea una tarea rápida o abre el formulario completo para registrar el próximo paso."
+                  : "Cambia el filtro para volver a la cola operativa completa."}
               </p>
             </div>
           ) : null}
