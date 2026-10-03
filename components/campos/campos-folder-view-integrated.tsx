@@ -572,7 +572,7 @@ export function CAMPOSFolderViewIntegrated() {
                           className={`mb-0.5 flex w-full items-center gap-2 rounded-md px-2 py-2 text-left transition-colors hover:bg-secondary/70 ${active ? "bg-secondary text-foreground" : "text-foreground"}`}
                         >
                           <File className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                          <span className="min-w-0 flex-1 truncate text-xs">{record.file_name}</span>
+                          <span className="min-w-0 flex-1 truncate text-xs" title={record.file_name}>{fieldDisplayName(record)}</span>
                           <Badge variant="outline" className={`shrink-0 text-[11px] ${badge.className}`}>{badge.label}</Badge>
                         </button>
                       )
