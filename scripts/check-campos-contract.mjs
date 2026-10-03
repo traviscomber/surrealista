@@ -25,6 +25,7 @@ const contracts = [
     "Archivo fuente KMZ",
     "Propietario",
     "Google Docs",
+    "/api/kmz/profile/",
   ]],
   ["app/api/kmz/search/route.ts", [
     "owner.ilike",
@@ -34,6 +35,13 @@ const contracts = [
     "kmz_enrichment_evidence",
     "fieldEvidence",
     ".limit(50)",
+  ]],
+  ["app/api/kmz/profile/[kmzId]/route.ts", [
+    "verifyInternalAccessToken",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "sameOrigin",
+    "manual_display_name",
+    "original_file_name",
   ]],
 ]
 
