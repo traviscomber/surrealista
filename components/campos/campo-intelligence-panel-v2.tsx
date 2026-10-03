@@ -100,6 +100,16 @@ function nearest(features: NearbyFeature[], group: string) {
     .sort((a, b) => Number(a.distance_m) - Number(b.distance_m))[0] || null
 }
 
+function safeExternalUrl(value?: string | null) {
+  if (!value) return null
+  try {
+    const parsed = new URL(value)
+    return parsed.protocol === "https:" || parsed.protocol === "http:" ? parsed.toString() : null
+  } catch {
+    return null
+  }
+}
+
 function normalizeMetadataKey(value: string) {
   return value
     .normalize("NFD")
@@ -180,7 +190,7 @@ function ownerEvidence(metadata: Record<string, unknown> | null): OwnerEvidenceS
     owner: candidate,
     source: source || null,
     confidence: confidence || null,
-    url: url || null,
+    url: safeExternalUrl(url),
     note: note || null,
   }
 }
@@ -472,11 +482,13 @@ function Fact({ label, value }: { label: string; value: string }) {
 
 
 function ExternalLinkFact({ label, href }: { label: string; href: string }) {
+  const safeHref = safeExternalUrl(href)
+  if (!safeHref) return <Fact label={label} value="Fuente no navegable" />
   return (
     <div className="flex items-start justify-between gap-3 text-[11px]">
       <span className="shrink-0 text-muted-foreground">{label}</span>
       <a
-        href={href}
+        href={safeHref}
         target="_blank"
         rel="noopener noreferrer"
         className="min-w-0 text-right font-medium text-primary hover:underline"
@@ -497,19 +509,20 @@ function NoteFact({ label, value }: { label: string; value: string }) {
 }
 
 function LinkFact({ label, href }: { label: string; href?: string | null }) {
+  const safeHref = safeExternalUrl(href)
   return (
     <div className="flex items-start justify-between gap-3 text-[11px]">
       <span className="shrink-0 text-muted-foreground">{label}</span>
-      {href ? (
+      {safeHref ? (
         <a
-          href={href}
+          href={safeHref}
           target="_blank"
           rel="noopener noreferrer"
           className="min-w-0 text-right font-medium text-primary hover:underline"
         >
           Abrir Google Docs
         </a>
-      ) : <span className="min-w-0 text-right font-medium text-foreground">Sin vínculo</span>}
+      ) : <span className="min-w-0 text-right font-medium text-foreground">{href ? "Vínculo inválido" : "Sin vínculo"}</span>}
     </div>
   )
 }
