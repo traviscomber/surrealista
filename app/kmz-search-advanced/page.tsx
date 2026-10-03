@@ -115,7 +115,7 @@ export default function KMZSearchAdvanced() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {/* Main Search */}
               <div className="md:col-span-2">
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                <label className="block text-sm font-semibold text-foreground mb-2">
                   Término de búsqueda
                 </label>
                 <div className="flex gap-2">
@@ -136,7 +136,7 @@ export default function KMZSearchAdvanced() {
 
               {/* Region Filter */}
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                <label className="block text-sm font-semibold text-foreground mb-2">
                   Región
                 </label>
                 <Input
@@ -148,7 +148,7 @@ export default function KMZSearchAdvanced() {
 
               {/* Category Filter */}
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                <label className="block text-sm font-semibold text-foreground mb-2">
                   Categoría
                 </label>
                 <select
@@ -165,7 +165,7 @@ export default function KMZSearchAdvanced() {
 
               {/* Date Range */}
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                <label className="block text-sm font-semibold text-foreground mb-2">
                   Desde
                 </label>
                 <Input
@@ -176,7 +176,7 @@ export default function KMZSearchAdvanced() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
+                <label className="block text-sm font-semibold text-foreground mb-2">
                   Hasta
                 </label>
                 <Input
@@ -195,24 +195,24 @@ export default function KMZSearchAdvanced() {
             <Card className="border-border/70 bg-card shadow-none">
               <CardContent className="pt-6">
                 <div className="text-center">
-                  <p className="text-sm text-slate-600">Total</p>
-                  <p className="text-3xl font-bold text-blue-600">{stats.total}</p>
+                  <p className="text-sm text-muted-foreground">Total</p>
+                  <p className="text-3xl font-bold text-primary">{stats.total}</p>
                 </div>
               </CardContent>
             </Card>
             <Card className="border-border/70 bg-card shadow-none">
               <CardContent className="pt-6">
                 <div className="text-center">
-                  <p className="text-sm text-slate-600">Ubicaciones</p>
-                  <p className="text-3xl font-bold text-green-600">{stats.locations}</p>
+                  <p className="text-sm text-muted-foreground">Ubicaciones</p>
+                  <p className="text-3xl font-bold text-primary">{stats.locations}</p>
                 </div>
               </CardContent>
             </Card>
             <Card className="border-border/70 bg-card shadow-none">
               <CardContent className="pt-6">
                 <div className="text-center">
-                  <p className="text-sm text-slate-600">Archivos</p>
-                  <p className="text-3xl font-bold text-purple-600">{stats.kmzFiles}</p>
+                  <p className="text-sm text-muted-foreground">Archivos</p>
+                  <p className="text-3xl font-bold text-primary">{stats.kmzFiles}</p>
                 </div>
               </CardContent>
             </Card>
@@ -222,15 +222,15 @@ export default function KMZSearchAdvanced() {
         {/* Results */}
         <div className="space-y-3">
           {results.length === 0 && !loading && (
-            <Card className="bg-slate-50 border-dashed">
-              <CardContent className="pt-6 text-center text-slate-600">
+            <Card className="bg-secondary/25 border-dashed">
+              <CardContent className="pt-6 text-center text-muted-foreground">
                 Realiza una búsqueda para ver resultados
               </CardContent>
             </Card>
           )}
 
           {loading && (
-            <Card className="bg-slate-50">
+            <Card className="bg-secondary/25">
               <CardContent className="pt-6 text-center">
                 <div className="animate-spin inline-block">
                   <Search className="h-6 w-6" />
@@ -250,23 +250,23 @@ export default function KMZSearchAdvanced() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       {result.type === 'location' ? (
-                        <MapPin className="h-5 w-5 text-green-600" />
+                        <MapPin className="h-5 w-5 text-primary" />
                       ) : (
-                        <FileText className="h-5 w-5 text-blue-600" />
+                        <FileText className="h-5 w-5 text-primary" />
                       )}
-                      <h3 className="text-lg font-semibold text-slate-900">
+                      <h3 className="text-lg font-semibold text-foreground">
                         {result.name}
                       </h3>
-                      <span className="text-xs bg-slate-200 px-2 py-1 rounded">
+                      <span className="text-xs bg-secondary px-2 py-1 rounded">
                         {result.type === 'location' ? 'Ubicación' : 'Archivo'}
                       </span>
                     </div>
 
                     {result.description && (
-                      <p className="text-sm text-slate-600 mb-2">{result.description}</p>
+                      <p className="text-sm text-muted-foreground mb-2">{result.description}</p>
                     )}
 
-                    <div className="flex gap-4 text-xs text-slate-600 flex-wrap">
+                    <div className="flex gap-4 text-xs text-muted-foreground flex-wrap">
                       {result.region && (
                         <div className="flex items-center gap-1">
                           <MapPin className="h-3 w-3" />
