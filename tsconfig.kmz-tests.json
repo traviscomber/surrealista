@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "rootDir": ".",
+    "outDir": ".tmp-kmz-tests",
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"]
+    },
+    "noEmitOnError": true
+  },
+  "include": [
+    "lib/kmz/rol-verification.ts",
+    "lib/kmz/kmz-hierarchy.ts",
+    "lib/sii/sii-comuna-code-resolver.ts",
+    "tests/kmz-recovery.test.ts"
+  ]
+}
