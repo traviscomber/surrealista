@@ -1,24 +1,22 @@
 "use client"
 
 import { useState } from "react"
-import { FileText, ListChecks, MessageSquare, Presentation, Sparkles } from "lucide-react"
+import { ListChecks, MessageSquare, Presentation, Sparkles } from "lucide-react"
 
 import { CommunicationsTracking } from "./communications-tracking"
 import { CommercialPresentations } from "./commercial-presentations"
-import DocumentsManager from "./documents-manager"
 import { TemplateLibrary } from "./template-library"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
 const sections = [
-  { value: "documents", label: "Documentación", icon: FileText },
+  { value: "templates", label: "Packs y plantillas", icon: Sparkles },
   { value: "tracking", label: "Seguimiento", icon: ListChecks },
-  { value: "templates", label: "Plantillas", icon: Sparkles },
-  { value: "presentations", label: "Presentaciones comerciales", icon: Presentation },
+  { value: "presentations", label: "Presentaciones", icon: Presentation },
 ] as const
 
 export function CommunicationsManager() {
   const [refreshTrigger, setRefreshTrigger] = useState(0)
-  const [activeTab, setActiveTab] = useState("documents")
+  const [activeTab, setActiveTab] = useState("templates")
 
   return (
     <section className="space-y-5 py-2">
@@ -30,7 +28,7 @@ export function CommunicationsManager() {
             <h2 className="sr-section-title">Multimedia</h2>
           </div>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
-            Organiza contenido, seguimiento, plantillas, documentos y presentaciones desde un único flujo operativo.
+            Prepara contenido, packs de publicaciones, seguimiento y presentaciones desde un único flujo operativo.
           </p>
         </div>
       </div>
@@ -53,10 +51,6 @@ export function CommunicationsManager() {
             })}
           </TabsList>
         </div>
-
-        <TabsContent value="documents" className="mt-5">
-          <DocumentsManager />
-        </TabsContent>
 
         <TabsContent value="tracking" className="mt-5">
           <CommunicationsTracking refreshTrigger={refreshTrigger} />
