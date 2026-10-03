@@ -7,9 +7,13 @@ const required = [
     "resolveSiiCommuneCode",
     "parsed.size < 300",
   ]],
+  ["lib/kmz/rol-verification.ts", [
+    "verifiedSiiRol",
+    "\\d{5}",
+  ]],
   ["lib/kmz/sii-verification-worker.ts", [
     "resolveSiiCommuneCode",
-    "isVerifiedSiiRol",
+    "verifiedSiiRol",
     "official_role_recovery",
     "kmz-sii-role-recovery-v1",
     "sii_no_record_requires_external_evidence",
