@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { createClient as createAdminClient } from "@supabase/supabase-js"
 import { createClient as createServerClient } from "@/lib/supabase/server"
 import { buildKmlHierarchySummary } from "@/lib/kmz/kmz-hierarchy"
+import { INTERNAL_ACCESS_COOKIE, verifyInternalAccessToken } from "@/lib/auth/internal-access"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -23,10 +24,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "kmzId inválido" }, { status: 400 })
   }
 
-  const sessionClient = await createServerClient()
-  const { data: { user }, error: userError } = await sessionClient.auth.getUser()
-  if (userError || !user) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  const internalToken = request.cookies.get(INTERNAL_ACCESS_COOKIE)?.value
+  const hasInternalAccess = await verifyInternalAccessToken(internalToken)
+
+  if (!hasInternalAccess) {
+    const sessionClient = await createServerClient()
+    const { data: { user }, error: userError } = await sessionClient.auth.getUser()
+    if (userError || !user) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    }
   }
 
   const admin = getSupabaseAdmin()
