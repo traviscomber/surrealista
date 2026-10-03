@@ -1,4 +1,5 @@
 import { ClientRepositoryDashboard } from '@/components/client-management/client-repository-dashboard'
+import { ModuleTasksDock } from '@/components/tasks/module-tasks-dock'
 
 export default function ClientesPage() {
   return (
@@ -6,6 +7,7 @@ export default function ClientesPage() {
       <div className="mx-auto max-w-7xl">
         <ClientRepositoryDashboard />
       </div>
+      <ModuleTasksDock module="clientes" />
     </div>
   )
 }
