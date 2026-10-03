@@ -1,6 +1,7 @@
 import JSZip from "jszip"
 import { DOMParser } from "@xmldom/xmldom"
 import { extractRolNumbersFromTargets } from "./rol-extraction"
+import { buildKmlHierarchySummary, type KmlHierarchySummary } from "./kmz-hierarchy"
 
 export interface KMZPlacemark {
   name: string
@@ -25,6 +26,7 @@ export interface KMZData {
     description?: string
     author?: string
     styles?: Record<string, Record<string, string>>
+    kmlHierarchy?: KmlHierarchySummary
   }
   fileSize?: number
   skipped?: boolean
@@ -116,7 +118,10 @@ export class KMZReader {
 
     // Extraer metadatos del documento
     const documentNode = doc.getElementsByTagName("Document")[0]
-    const metadata = this.extractMetadata(documentNode)
+    const metadata = {
+      ...this.extractMetadata(documentNode),
+      kmlHierarchy: buildKmlHierarchySummary(placemarks),
+    }
 
     // Calcular bounds
     const bounds = this.calculateBounds(placemarks)
@@ -204,10 +209,24 @@ export class KMZReader {
 
     while (parent && parent.nodeType === 1) {
       const element = parent as Element
-      if (element.tagName === "Folder") {
-        const folderName = element.getElementsByTagName("name")[0]?.textContent?.trim()
+      const tagName = element.localName || element.tagName
+
+      if (tagName === "Folder") {
+        let folderName = ""
+
+        for (let index = 0; index < element.childNodes.length; index += 1) {
+          const child = element.childNodes[index]
+          if (child.nodeType !== 1) continue
+          const childElement = child as Element
+          const childName = childElement.localName || childElement.tagName
+          if (childName !== "name") continue
+          folderName = childElement.textContent?.trim() || ""
+          break
+        }
+
         if (folderName) path.unshift(folderName)
       }
+
       parent = parent.parentNode
     }
 

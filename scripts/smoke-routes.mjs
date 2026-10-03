@@ -279,6 +279,37 @@ try {
     }
 
     authenticatedPage ??= await context.newPage()
+    await authenticatedPage.goto(`${authenticatedBaseURL}/campos`, { waitUntil: "domcontentloaded", timeout: 30_000 })
+
+    const fieldIntelligenceCheck = await authenticatedPage.evaluate(async () => {
+      const response = await fetch("/api/kmz/field-intelligence?kmzId=72d17396-ce29-4b8f-bd1c-984801d88e42", {
+        cache: "no-store",
+      })
+      const payload = await response.json().catch(() => ({}))
+      return {
+        status: response.status,
+        hasHierarchy: Boolean(payload?.kmlHierarchy?.hasHierarchy),
+        folderCount: Number(payload?.kmlHierarchy?.folderCount || 0),
+      }
+    })
+
+    const fieldIntelligencePass =
+      fieldIntelligenceCheck.status === 503 ||
+      (
+        fieldIntelligenceCheck.status === 200 &&
+        fieldIntelligenceCheck.hasHierarchy &&
+        fieldIntelligenceCheck.folderCount >= 1
+      )
+
+    if (!fieldIntelligencePass || fieldIntelligenceCheck.status === 401) {
+      failures.push({ check: "field intelligence internal auth + KML hierarchy", ...fieldIntelligenceCheck })
+      console.error(`FAIL field intelligence internal auth + KML hierarchy ${JSON.stringify(fieldIntelligenceCheck)}`)
+    } else if (fieldIntelligenceCheck.status === 503) {
+      console.log("PASS field intelligence internal auth boundary; CI database admin env unavailable")
+    } else {
+      console.log(`PASS field intelligence internal auth + KML hierarchy folders=${fieldIntelligenceCheck.folderCount}`)
+    }
+
     for (const { route, expectedText } of operationalRoutes) {
       await inspectRoute(authenticatedPage, route, route, expectedText)
     }

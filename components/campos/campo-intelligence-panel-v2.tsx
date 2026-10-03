@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react"
 import { FileText, Loader2, MapPin, Route, ShieldCheck, Sprout, TrendingUp, UserRound } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import type { KmzInventoryRecord } from "@/lib/kmz/kmz-inventory-service"
+import { hierarchyPathLabel, type KmlHierarchySummary } from "@/lib/kmz/kmz-hierarchy"
 
 type CirenSignal = {
   samePropertyRol?: string | null
@@ -59,6 +60,7 @@ type EvidenceResponse = {
   comparables?: MarketComparable[]
   publicMetrics?: PublicMetric[]
   fieldEvidence?: FieldEvidence[]
+  kmlHierarchy?: KmlHierarchySummary
   contact?: ContactRow | null
   partial?: boolean
   error?: string
@@ -262,6 +264,7 @@ export function CampoIntelligencePanelV2({ record, ciren }: { record: KmzInvento
   const [comparables, setComparables] = useState<MarketComparable[]>([])
   const [publicMetrics, setPublicMetrics] = useState<PublicMetric[]>([])
   const [fieldEvidence, setFieldEvidence] = useState<FieldEvidence[]>([])
+  const [kmlHierarchy, setKmlHierarchy] = useState<KmlHierarchySummary | null>(null)
   const [contact, setContact] = useState<ContactRow | null>(null)
   const [loading, setLoading] = useState(true)
   const [failed, setFailed] = useState(false)
@@ -282,6 +285,7 @@ export function CampoIntelligencePanelV2({ record, ciren }: { record: KmzInvento
         setComparables(payload.comparables || [])
         setPublicMetrics(payload.publicMetrics || [])
         setFieldEvidence(payload.fieldEvidence || [])
+        setKmlHierarchy(payload.kmlHierarchy || null)
         setContact(payload.contact || null)
         setFailed(Boolean(payload.partial))
       })
@@ -292,6 +296,7 @@ export function CampoIntelligencePanelV2({ record, ciren }: { record: KmzInvento
         setComparables([])
         setPublicMetrics([])
         setFieldEvidence([])
+        setKmlHierarchy(null)
         setContact(null)
         setFailed(true)
       })
@@ -450,6 +455,23 @@ export function CampoIntelligencePanelV2({ record, ciren }: { record: KmzInvento
         <Evidence icon={<FileText className="h-4 w-4" />} title="05 · Documentos">
           <LinkFact label="Google Docs" href={record.google_docs_link} />
           <Fact label="Archivo KMZ" value={record.file_name} />
+          <Fact
+            label="Jerarquía KML"
+            value={
+              kmlHierarchy?.hasHierarchy
+                ? `${kmlHierarchy.folderCount} carpetas · profundidad ${kmlHierarchy.maxDepth}`
+                : "Sin estructura Folder preservada"
+            }
+          />
+          {kmlHierarchy?.hasHierarchy && kmlHierarchy.rootFolders.length ? (
+            <TagFact label="Carpetas raíz" values={kmlHierarchy.rootFolders.slice(0, 6)} />
+          ) : null}
+          {kmlHierarchy?.hasHierarchy && kmlHierarchy.paths.length ? (
+            <TagFact
+              label="Rutas KML"
+              values={kmlHierarchy.paths.slice(0, 5).map((item) => hierarchyPathLabel(item.path))}
+            />
+          ) : null}
         </Evidence>
 
         <Evidence icon={<TrendingUp className="h-4 w-4" />} title="06 · Mercado">

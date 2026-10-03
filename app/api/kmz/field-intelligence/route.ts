@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createClient as createAdminClient } from "@supabase/supabase-js"
 import { createClient as createServerClient } from "@/lib/supabase/server"
+import { buildKmlHierarchySummary } from "@/lib/kmz/kmz-hierarchy"
+import { INTERNAL_ACCESS_COOKIE, verifyInternalAccessToken } from "@/lib/auth/internal-access"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -22,10 +24,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "kmzId inválido" }, { status: 400 })
   }
 
-  const sessionClient = await createServerClient()
-  const { data: { user }, error: userError } = await sessionClient.auth.getUser()
-  if (userError || !user) {
-    return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  const internalToken = request.cookies.get(INTERNAL_ACCESS_COOKIE)?.value
+  const hasInternalAccess = await verifyInternalAccessToken(internalToken)
+
+  if (!hasInternalAccess) {
+    const sessionClient = await createServerClient()
+    const { data: { user }, error: userError } = await sessionClient.auth.getUser()
+    if (userError || !user) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+    }
   }
 
   const admin = getSupabaseAdmin()
@@ -51,11 +58,21 @@ export async function GET(request: NextRequest) {
       .order("observed_at", { ascending: false })
       .limit(50)
 
+    const hierarchyQuery = admin
+      .from("kmz_placemarks")
+      .select("properties")
+      .eq("kmz_id", kmzId)
+      .limit(500)
+
     const canonicalRegion = String(collection.region || "").trim()
     if (!canonicalRegion) {
-      const enrichmentResult = await enrichmentQuery
-      if (enrichmentResult.error) {
-        console.warn("[CAMPOS field intelligence] enrichment evidence failure", enrichmentResult.error.message)
+      const [enrichmentResult, hierarchyResult] = await Promise.all([enrichmentQuery, hierarchyQuery])
+      const hierarchy = buildKmlHierarchySummary(
+        (hierarchyResult.data || []).map((row) => ({ properties: row.properties || {} })),
+      )
+      const errors = [enrichmentResult.error, hierarchyResult.error].filter(Boolean)
+      if (errors.length) {
+        console.warn("[CAMPOS field intelligence] partial evidence failure", errors.map((error) => error?.message))
       }
       return NextResponse.json({
         kmzId,
@@ -64,17 +81,18 @@ export async function GET(request: NextRequest) {
         comparables: [],
         publicMetrics: [],
         fieldEvidence: enrichmentResult.data || [],
+        kmlHierarchy: hierarchy,
         contact: {
           pic: collection.pic,
           pic_phone: collection.pic_phone,
           pic_email: collection.pic_email,
           updated_at: collection.updated_at,
         },
-        partial: Boolean(enrichmentResult.error),
+        partial: errors.length > 0,
       })
     }
 
-    const [nearbyResult, marketResult, publicResult, enrichmentResult] = await Promise.all([
+    const [nearbyResult, marketResult, publicResult, enrichmentResult, hierarchyResult] = await Promise.all([
       admin
         .from("kmz_nearby_features")
         .select("feature_group,feature_type,feature_name,distance_m,proximity_class")
@@ -94,9 +112,19 @@ export async function GET(request: NextRequest) {
         .order("scraped_at", { ascending: false })
         .limit(20),
       enrichmentQuery,
+      hierarchyQuery,
     ])
 
-    const errors = [nearbyResult.error, marketResult.error, publicResult.error, enrichmentResult.error].filter(Boolean)
+    const hierarchy = buildKmlHierarchySummary(
+      (hierarchyResult.data || []).map((row) => ({ properties: row.properties || {} })),
+    )
+    const errors = [
+      nearbyResult.error,
+      marketResult.error,
+      publicResult.error,
+      enrichmentResult.error,
+      hierarchyResult.error,
+    ].filter(Boolean)
     if (errors.length) {
       console.warn("[CAMPOS field intelligence] partial evidence failure", errors.map((error) => error?.message))
     }
@@ -108,6 +136,7 @@ export async function GET(request: NextRequest) {
       comparables: marketResult.data || [],
       publicMetrics: publicResult.data || [],
       fieldEvidence: enrichmentResult.data || [],
+      kmlHierarchy: hierarchy,
       contact: {
         pic: collection.pic,
         pic_phone: collection.pic_phone,
