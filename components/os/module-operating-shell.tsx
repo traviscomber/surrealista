@@ -96,6 +96,7 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
                   key={item.label}
                   href={item.href}
                   aria-current={active ? "page" : undefined}
+                  aria-label={collapsed ? item.label : undefined}
                   title={collapsed ? item.label : undefined}
                   className={cn(
                     "group relative flex min-h-10 items-center gap-3 px-2.5 text-[13px] transition-colors",
@@ -140,6 +141,7 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
                 key={item.label}
                 href={item.href}
                 aria-current={active ? "page" : undefined}
+                aria-label={collapsed ? item.label : undefined}
                 title={collapsed ? item.label : undefined}
                 className={cn(
                   "group relative flex min-h-10 items-center gap-3 px-2.5 text-[13px]",
