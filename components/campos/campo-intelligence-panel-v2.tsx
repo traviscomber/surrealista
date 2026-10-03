@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState, type ReactNode } from "react"
-import { Loader2, MapPin, Route, ShieldCheck, TrendingUp, UserRound } from "lucide-react"
+import { FileText, Loader2, MapPin, Route, ShieldCheck, Sprout, TrendingUp, UserRound } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import type { KmzInventoryRecord } from "@/lib/kmz/kmz-inventory-service"
 
@@ -288,46 +288,50 @@ export function CampoIntelligencePanelV2({ record, ciren }: { record: KmzInvento
         ))}
       </div>
 
-      <div className="mt-4 grid gap-3 lg:grid-cols-2 xl:grid-cols-4">
-        <Evidence icon={<UserRound className="h-4 w-4" />} title="Identidad">
+      <div className="mt-4 space-y-3">
+        <Evidence icon={<UserRound className="h-4 w-4" />} title="01 · Identidad">
           <Fact label="Propietario" value={record.owner || "Pendiente"} />
           <Fact label="ROL" value={record.rol_numbers?.length ? record.rol_numbers.join(", ") : "Pendiente"} />
           <Fact label="Responsable" value={contact?.pic || "Pendiente"} />
           <Fact label="Contacto" value={contact?.pic_phone || contact?.pic_email || "Pendiente"} />
-
-          <LinkFact label="Documentos" href={record.google_docs_link} />
         </Evidence>
 
-        <Evidence icon={<MapPin className="h-4 w-4" />} title="Territorio">
+        <Evidence icon={<Sprout className="h-4 w-4" />} title="02 · Uso y actividad">
+          <TagFact label="Actividad" values={activityTags} />
+          <TagFact label="Cultivo / especie" values={cropTags} />
+        </Evidence>
+
+        <Evidence icon={<MapPin className="h-4 w-4" />} title="03 · Territorio">
           <Fact label="Región" value={record.region} />
           <Fact label="Geometría" value={record.geometry_label || record.geometry_status} />
           <Fact label="Ubicación" value={Number.isFinite(Number(record.latitude)) && Number.isFinite(Number(record.longitude)) ? `${Number(record.latitude).toFixed(5)}, ${Number(record.longitude).toFixed(5)}` : "Sin coordenadas"} />
-
-          <TagFact label="Actividad" values={activityTags} />
-          <TagFact label="Cultivo" values={cropTags} />
+          {cirenSummary ? <Fact label="CIREN" value={cirenSummary} /> : null}
         </Evidence>
 
-        <Evidence icon={<Route className="h-4 w-4" />} title="Entorno próximo">
+        <Evidence icon={<Route className="h-4 w-4" />} title="04 · Entorno y POIs">
           <Fact label="Vía" value={road ? `${road.feature_name || road.feature_type || "Vía"} · ${formatDistance(road.distance_m)}` : "Sin evidencia"} />
           <Fact label="Localidad" value={place ? `${place.feature_name || place.feature_type || "Lugar"} · ${formatDistance(place.distance_m)}` : "Sin evidencia"} />
           <Fact label="Agua" value={water ? `${water.feature_name || water.feature_type || "Cuerpo de agua"} · ${formatDistance(water.distance_m)}` : "Sin evidencia"} />
           <Fact label="Área protegida" value={protectedArea ? `${protectedArea.feature_name || "Referencia"} · ${formatDistance(protectedArea.distance_m)}` : "Sin evidencia cercana"} />
         </Evidence>
 
-        <Evidence icon={<TrendingUp className="h-4 w-4" />} title="Mercado">
+        <Evidence icon={<FileText className="h-4 w-4" />} title="05 · Documentos">
+          <LinkFact label="Google Docs" href={record.google_docs_link} />
+          <Fact label="Archivo KMZ" value={record.file_name} />
+        </Evidence>
+
+        <Evidence icon={<TrendingUp className="h-4 w-4" />} title="06 · Mercado">
           <Fact label="Muestra máxima" value={marketEvidence.maxSample ? `${marketEvidence.maxSample} comparables` : "Sin muestra"} />
-          <Fact label="Mediana m²" value={marketEvidence.freshest?.median_price_m2_clp ? `$${Number(marketEvidence.freshest.median_price_m2_clp).toLocaleString("es-CL")}` : "Sin dato"} />
+          <Fact label="Mediana m²" value={marketEvidence.freshest?.median_price_m2_clp ? `${Number(marketEvidence.freshest.median_price_m2_clp).toLocaleString("es-CL")}` : "Sin dato"} />
           <Fact label="Tendencia 30d" value={marketEvidence.freshest?.price_trend_30d != null ? `${Number(marketEvidence.freshest.price_trend_30d).toFixed(1)}%` : "Sin dato"} />
           <Fact label="Fuentes" value={marketEvidence.sources.length ? marketEvidence.sources.join(", ") : "Sin métricas públicas"} />
         </Evidence>
       </div>
 
-      {cirenSummary ? <p className="mt-3 text-[11px] text-muted-foreground">CIREN · {cirenSummary}</p> : null}
-
       <div className="mt-3 flex items-start gap-3 rounded-lg border border-border/70 bg-secondary/25 px-4 py-3">
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
         <div className="min-w-0">
-          <p className="text-xs font-medium">Siguiente acción sugerida</p>
+          <p className="text-xs font-medium">07 · Siguiente acción</p>
           <p className="mt-1 text-xs text-muted-foreground">{nextAction}</p>
           {failed ? <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-300">Parte de la evidencia complementaria no estuvo disponible; el score se calculó solo con datos recuperados.</p> : null}
         </div>
