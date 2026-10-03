@@ -356,12 +356,13 @@ export function CampoIntelligencePanelV2({ record, ciren }: { record: KmzInvento
 
   const nextAction = useMemo(() => {
     if (!record.rol_numbers?.length) return "Resolver ROL antes de análisis comercial profundo."
+    if (!record.owner && ownerSignal) return "Revisar la evidencia de propietario y, si corresponde, promoverla como propietario operativo."
     if (!record.owner) return "Identificar propietario y validar contacto."
     if (!contact?.pic && !contact?.pic_phone && !contact?.pic_email) return "Completar contacto responsable del campo."
     if (!road) return "Revisar acceso vial y conectividad territorial."
     if (marketEvidence.maxSample === 0 && publicMetrics.length === 0) return "Falta evidencia de mercado regional actualizada."
     return "Base suficiente para revisión comercial priorizada."
-  }, [contact, marketEvidence.maxSample, publicMetrics.length, record.owner, record.rol_numbers, road])
+  }, [contact, marketEvidence.maxSample, ownerSignal, publicMetrics.length, record.owner, record.rol_numbers, road])
 
   const cirenSummary = ciren.samePropertyRol
     ? `Referencia complementaria: ROL ${ciren.samePropertyRol}`
