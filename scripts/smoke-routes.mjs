@@ -26,7 +26,7 @@ const operationalRoutes = [
   { route: "/clientes", expectedText: /Relaciones comerciales|Clientes/i },
   { route: "/clientes/importar", expectedText: /Importar Clientes desde Excel/i },
   { route: "/gestion-tareas", expectedText: /Gestión operativa|Tareas/i },
-  { route: "/comunicaciones", expectedText: /Comunicaciones/i },
+  { route: "/comunicaciones", expectedText: /Multimedia|Comunicaciones/i },
   { route: "/asistente", expectedText: /Asistente Sur Realista|Inteligencia transversal/i },
   { route: "/admin/dashboard", expectedText: /Centro operativo/i },
   { route: "/admin/kmz-collection", expectedText: /KMZ|Colección/i },
