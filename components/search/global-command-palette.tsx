@@ -21,6 +21,7 @@ type CampoResult = {
   region: string | null
   description: string | null
   placemarks_count: number | null
+  metadata?: Record<string, unknown> | null
 }
 
 const quickActions = [
@@ -72,8 +73,8 @@ export function GlobalCommandPalette() {
         const escaped = searchQuery.replace(/[%_,]/g, " ").trim()
         const { data, error } = await supabase
           .from("kmz_collection")
-          .select("id,file_name,region,description,placemarks_count")
-          .or(`file_name.ilike.%${escaped}%,description.ilike.%${escaped}%,region.ilike.%${escaped}%`)
+          .select("id,file_name,region,description,placemarks_count,metadata")
+          .or(`file_name.ilike.%${escaped}%,metadata->>manual_display_name.ilike.%${escaped}%,description.ilike.%${escaped}%,region.ilike.%${escaped}%`)
           .limit(20)
 
         if (error) throw error
@@ -135,7 +136,7 @@ export function GlobalCommandPalette() {
               >
                 <MapPin className="mr-2 h-4 w-4" />
                 <div className="min-w-0">
-                  <div className="truncate text-sm font-medium">{campo.file_name}</div>
+                  <div className="truncate text-sm font-medium">{typeof campo.metadata?.manual_display_name === "string" && campo.metadata.manual_display_name.trim() ? campo.metadata.manual_display_name : campo.file_name}</div>
                   <div className="truncate text-xs text-muted-foreground">{campo.region || "Sin región"}{campo.placemarks_count ? ` · ${campo.placemarks_count} elementos` : ""}</div>
                 </div>
               </CommandItem>
