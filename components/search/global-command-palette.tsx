@@ -103,10 +103,15 @@ export function GlobalCommandPalette() {
 
   return (
     <>
-      <Button variant="ghost" className="h-10 gap-2 px-3" onClick={() => setOpen(true)} aria-label="Buscar campos y abrir funciones">
-        <Search className="h-4 w-4" />
-        <span className="hidden 2xl:inline">Buscar</span>
-        <span className="hidden rounded border px-1.5 py-0.5 text-[10px] text-muted-foreground 2xl:inline">⌘K</span>
+      <Button
+        variant="ghost"
+        className="h-9 gap-2 rounded-none px-3 text-[11px] font-medium text-muted-foreground hover:bg-secondary/50 hover:text-foreground"
+        onClick={() => setOpen(true)}
+        aria-label="Buscar campos y abrir funciones"
+      >
+        <Search className="h-3.5 w-3.5" />
+        <span className="hidden lg:inline">Buscar</span>
+        <span className="hidden border-l border-border/70 pl-2 font-mono text-[9px] text-muted-foreground xl:inline">⌘K</span>
       </Button>
 
       <CommandDialog open={open} onOpenChange={setOpen}>
