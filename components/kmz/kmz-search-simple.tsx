@@ -87,6 +87,7 @@ export default function KMZSearchSimple() {
                 />
                 <Button
                   type="submit"
+                  aria-label="Buscar KMZ"
                   disabled={loading || !searchTerm.trim()}
                   className="absolute right-1 top-1/2 -translate-y-1/2 h-10 w-10 p-0"
                 >
