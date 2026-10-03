@@ -63,6 +63,7 @@ type KmzSearchHit = {
   region: string | null
   rol_numbers: string[] | null
   owner?: string | null
+  ownerEvidence?: string | null
 }
 
 function geometryBadge(record: KmzInventoryRecord) {
@@ -533,7 +534,7 @@ export function CAMPOSFolderViewIntegrated() {
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium">{hit.file_name}</span>
                     <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
-                      {hit.owner ? `${hit.owner} · ` : ""}{hit.region || "Sin región"}{hit.rol_numbers?.[0] ? ` · ROL ${hit.rol_numbers[0]}` : ""}
+                      {hit.owner ? `${hit.owner} · ` : hit.ownerEvidence ? `Evidencia: ${hit.ownerEvidence} · ` : ""}{hit.region || "Sin región"}{hit.rol_numbers?.[0] ? ` · ROL ${hit.rol_numbers[0]}` : ""}
                     </span>
                   </span>
                 </button>
