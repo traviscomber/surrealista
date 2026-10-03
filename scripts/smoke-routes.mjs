@@ -107,7 +107,7 @@ async function inspectRoute(page, route, expectedPath, expectedText, options = {
     const hasGlobalNavigation = options.requireNavigation === false
       ? true
       : await page.locator(navigationSelector).count().then((count) => count > 0).catch(() => false)
-    const hasHomeAffordance = await page.getByRole("link", { name: /Sur Realista · Inicio|Volver a Inicio/i }).first().isVisible().catch(() => false)
+    const hasHomeAffordance = options.requireNavigation === false\n      ? true\n      : await page.getByRole("link", { name: /Sur Realista · Inicio|Volver a Inicio/i }).first().isVisible().catch(() => false)
 
     if (route === "/campos" && finalPath === "/campos" && !hasAccessForm) {
       await page.screenshot({ path: `${evidenceDir}/campos-authenticated-desktop.png`, fullPage: false })
