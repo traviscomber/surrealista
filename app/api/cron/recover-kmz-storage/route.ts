@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminClient } from '@/lib/scrapers/base-scraper'
 import { parseKMZFile } from '@/lib/kmz/kmz-reader'
+import { buildKmlHierarchySummary } from '@/lib/kmz/kmz-hierarchy'
 
 export const maxDuration = 300
 
@@ -38,16 +39,23 @@ export async function GET(req: NextRequest) {
     claimed = true
 
     const probeOnly = job.payload?.probe_only === true
+    const hierarchyOnly = job.payload?.hierarchy_only === true
     const kmzId = String(job.payload?.kmz_id || '')
     const storagePath = String(job.payload?.storage_path || '')
     if (!storagePath) throw new Error('storage_path is required')
     if (!probeOnly && !kmzId) throw new Error('kmz_id is required outside probe mode')
 
-    let collection: { id: string; file_name: string; region: string | null; is_active: boolean } | null = null
+    let collection: {
+      id: string
+      file_name: string
+      region: string | null
+      is_active: boolean
+      metadata: Record<string, unknown> | null
+    } | null = null
     if (!probeOnly) {
       const { data, error: collectionError } = await supabase
         .from('kmz_collection')
-        .select('id,file_name,region,is_active')
+        .select('id,file_name,region,is_active,metadata')
         .eq('id', kmzId)
         .single()
       if (collectionError || !data) throw collectionError || new Error('KMZ not found')
@@ -59,7 +67,9 @@ export async function GET(req: NextRequest) {
         .select('id', { count: 'exact', head: true })
         .eq('kmz_id', kmzId)
       if (countError) throw countError
-      if ((existingCount || 0) > 0) throw new Error(`Safety stop: KMZ already has ${existingCount} placemarks`)
+      if (!hierarchyOnly && (existingCount || 0) > 0) {
+        throw new Error(`Safety stop: KMZ already has ${existingCount} placemarks`)
+      }
     }
 
     const { data: blob, error: downloadError } = await supabase.storage.from('documents').download(storagePath)
@@ -82,6 +92,10 @@ export async function GET(req: NextRequest) {
       { total: 0, polygons: 0, lines: 0, points: 0 },
     )
 
+    const kmlHierarchy =
+      parsed.metadata?.kmlHierarchy ||
+      buildKmlHierarchySummary(parsed.placemarks)
+
     if (probeOnly) {
       const result = {
         probeOnly: true,
@@ -90,11 +104,70 @@ export async function GET(req: NextRequest) {
         counts,
         parsedBounds: parsed.bounds || null,
         sampleNames: parsed.placemarks.slice(0, 10).map((item) => ({ name: item.name, type: item.type })),
+        kmlHierarchy,
       }
       await supabase
         .from('internal_one_shot_jobs')
         .update({ status: 'done', finished_at: new Date().toISOString(), result, error: null })
         .eq('job_key', JOB_KEY)
+      return NextResponse.json({ success: true, jobKey: JOB_KEY, result })
+    }
+
+    if (hierarchyOnly) {
+      const recoveredAt = new Date().toISOString()
+      const metadata = {
+        ...(collection?.metadata || {}),
+        kmlHierarchy,
+        kmlHierarchyRecovery: {
+          source: 'supabase-storage-original-kmz',
+          storagePath,
+          recoveredAt,
+          parserVersion: 1,
+        },
+      }
+
+      const { error: updateError } = await supabase
+        .from('kmz_collection')
+        .update({ metadata })
+        .eq('id', kmzId)
+        .eq('is_active', true)
+
+      if (updateError) throw updateError
+
+      const { error: evidenceError } = await supabase
+        .from('kmz_enrichment_evidence')
+        .upsert(
+          {
+            kmz_id: kmzId,
+            source: 'supabase-storage-original-kmz',
+            source_kind: 'hierarchy_recovery',
+            field_name: 'kml_hierarchy',
+            value_json: kmlHierarchy,
+            confidence: 1,
+            status: 'verified',
+            source_ref: storagePath,
+            observed_at: recoveredAt,
+            metadata: { fileName, parserVersion: 1 },
+            fingerprint: `${kmzId}:${storagePath}:kml_hierarchy:v1`,
+          },
+          { onConflict: 'fingerprint', ignoreDuplicates: true },
+        )
+
+      if (evidenceError) throw evidenceError
+
+      const result = {
+        kmzId,
+        storagePath,
+        fileName,
+        hierarchyOnly: true,
+        kmlHierarchy,
+      }
+
+      await supabase
+        .from('internal_one_shot_jobs')
+        .update({ status: 'done', finished_at: recoveredAt, result, error: null })
+        .eq('job_key', JOB_KEY)
+
       return NextResponse.json({ success: true, jobKey: JOB_KEY, result })
     }
 
