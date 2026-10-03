@@ -154,26 +154,19 @@ export function ClientRepositoryDashboard() {
   }
 
   return (
-    <section className="space-y-6 py-2">
-      <div className="flex flex-col gap-4 border-b border-border pb-5 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="sr-meta">Relaciones comerciales</p>
-          <h2 className="sr-section-title mt-1">Clientes</h2>
-          <p className="mt-2 max-w-2xl text-sm text-muted-foreground">Consulta contactos, estado comercial, presupuesto y actividad reciente desde una vista única.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
-            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-            Actualizar
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => router.push("/clientes/importar")}>
-            <Upload className="h-4 w-4" />
-            Importar
-          </Button>
-        </div>
+    <section className="space-y-6">
+      <div className="flex flex-wrap items-center justify-end gap-2 border-b border-border/70 pb-4">
+        <Button variant="ghost" size="sm" onClick={() => void load()} disabled={loading}>
+          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+          Actualizar
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => router.push("/clientes/importar")}>
+          <Upload className="h-4 w-4" />
+          Importar
+        </Button>
       </div>
 
-      <div className="grid border-y border-border md:grid-cols-4">
+      <div className="grid border-y border-border/70 md:grid-cols-4">
         {[
           ["Total", totalClients || statistics?.total || 0],
           ["Calientes", statistics?.byStatus?.hot || 0],
