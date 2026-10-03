@@ -7,14 +7,12 @@ export const dynamic = "force-dynamic"
 export default function MarketWorkspacePage() {
   return (
     <main className="mx-auto w-full max-w-[1800px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-      <div className="border-b border-border/70 pb-5">
-        <WorkspaceHeading
-          eyebrow="Inteligencia comercial"
-          title="Mercado y comparables"
-          description="Explora el inventario externo activo, filtra por fuente, ubicación y tipo de propiedad, y prepara comparables para una decisión comercial o valorización."
-          outcome="Convierte señales de mercado reales en una lista corta de propiedades comparables y próximos pasos verificables."
-        />
-      </div>
+      <WorkspaceHeading
+        eyebrow="Inteligencia comercial"
+        title="Mercado y comparables"
+        description="Explora el inventario externo activo, filtra por fuente, ubicación y tipo de propiedad, y prepara comparables para una decisión comercial o valorización."
+        outcome="Convierte señales de mercado reales en una lista corta de propiedades comparables y próximos pasos verificables."
+      />
 
       <ScrapedPropertiesDashboard mode="full" />
       <ModuleTasksDock module="mercado" />
