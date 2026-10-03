@@ -3,8 +3,6 @@
 import React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { ArrowLeft } from "lucide-react"
-import { Button } from "@/components/ui/button"
 
 const getPageTitle = (pathname: string): string => {
   const routes: Record<string, string> = {
@@ -36,7 +34,7 @@ const getPageTitle = (pathname: string): string => {
 }
 
 const getBreadcrumbs = (pathname: string): Array<{ label: string; href?: string }> => {
-  const breadcrumbs: Array<{ label: string; href?: string }> = [{ label: "Administración", href: "/admin" }]
+  const breadcrumbs: Array<{ label: string; href?: string }> = [{ label: "Administración", href: "/admin/dashboard" }]
   if (pathname !== "/admin") breadcrumbs.push({ label: getPageTitle(pathname) })
   return breadcrumbs
 }
@@ -48,13 +46,7 @@ export function AdminHeader() {
 
   return (
     <header className="border-b border-border bg-card">
-      <div className="flex min-h-16 items-center gap-4 px-5 py-3 lg:px-8">
-        <Button asChild variant="ghost" size="icon" aria-label="Volver a Inicio">
-          <Link href="/">
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          </Link>
-        </Button>
-
+      <div className="flex min-h-14 items-center px-5 py-3 lg:px-8">
         <div className="min-w-0">
           <div className="mb-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             {breadcrumbs.map((crumb, index) => (
