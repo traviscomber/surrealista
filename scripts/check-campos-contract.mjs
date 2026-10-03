@@ -20,8 +20,6 @@ const contracts = [
     "CROP_KEYS",
   ]],
   ["components/kmz/kmz-owner-edit-modal.tsx", [
-    "original_file_name",
-    "manual_display_name",
     "Archivo fuente KMZ",
     "Propietario",
     "Google Docs",
