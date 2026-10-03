@@ -172,25 +172,35 @@ export async function scrapeIChiloe(opts: {
   const allRaw: RawProperty[] = []
   const errors: string[] = []
 
-  for (const typeSlug of types) {
-    for (let page = 1; page <= pages; page++) {
-      try {
-        const html = await fetchPage(typeSlug, page)
-        if (!html) break // 404 = no more pages
+  const queue = [...types]
+  const workerCount = Math.min(3, queue.length)
 
-        const cards = parsePropertyCards(html, typeSlug)
-        if (cards.length === 0) break // empty page = done
+  async function scrapeTypeWorker() {
+    while (queue.length > 0) {
+      const typeSlug = queue.shift()
+      if (!typeSlug) return
 
-        allRaw.push(...cards.map(cardToRaw))
+      for (let page = 1; page <= pages; page++) {
+        try {
+          const html = await fetchPage(typeSlug, page)
+          if (!html) break // 404 = no more pages
 
-        // Polite delay
-        await new Promise((r) => setTimeout(r, 600 + Math.random() * 400))
-      } catch (err) {
-        errors.push(`ichiloe/${typeSlug}/p${page}: ${(err as Error).message}`)
-        break
+          const cards = parsePropertyCards(html, typeSlug)
+          if (cards.length === 0) break // empty page = done
+
+          allRaw.push(...cards.map(cardToRaw))
+
+          // Keep requests polite while allowing a small amount of bounded parallelism.
+          await new Promise((r) => setTimeout(r, 600 + Math.random() * 400))
+        } catch (err) {
+          errors.push(`ichiloe/${typeSlug}/p${page}: ${(err as Error).message}`)
+          break
+        }
       }
     }
   }
+
+  await Promise.all(Array.from({ length: workerCount }, () => scrapeTypeWorker()))
 
   const normalised = await Promise.all(allRaw.map(normaliseProperty))
   const dbResult = await upsertProperties(normalised)
