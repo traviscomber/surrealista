@@ -193,7 +193,7 @@ export default function KMZSearchSimple() {
                       <CardContent className="pt-4">
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1">
-                            <h3 className="font-semibold">{kmz.file_name}</h3>
+                            <h3 className="font-semibold">{kmz.display_name || kmz.file_name}</h3>
                             <div className="flex gap-2 mt-2 flex-wrap">
                               {kmz.region && <Badge variant="secondary">{kmz.region}</Badge>}
                               {kmz.category && <Badge>{kmz.category}</Badge>}
