@@ -279,6 +279,7 @@ try {
     }
 
     authenticatedPage ??= await context.newPage()
+    await authenticatedPage.goto(`${authenticatedBaseURL}/campos`, { waitUntil: "domcontentloaded", timeout: 30_000 })
 
     const fieldIntelligenceCheck = await authenticatedPage.evaluate(async () => {
       const response = await fetch("/api/kmz/field-intelligence?kmzId=72d17396-ce29-4b8f-bd1c-984801d88e42", {
