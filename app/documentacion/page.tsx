@@ -1,6 +1,7 @@
 import DocumentsManager from "@/components/communications/documents-manager"
 import { ModuleTasksDock } from "@/components/tasks/module-tasks-dock"
 import { WorkspaceHeading } from "@/components/ui/workspace-heading"
+import { ModuleRuntimeStrip } from "@/components/os/module-runtime-strip"
 
 export default function DocumentosPage() {
   return (
@@ -11,6 +12,7 @@ export default function DocumentosPage() {
         description="Centraliza antecedentes, evidencia documental y preparación de informes sin separar la trazabilidad del trabajo pendiente."
         outcome="Cada informe debe poder remontarse a fuentes verificables y cada pendiente documental debe tener responsable."
       />
+      <ModuleRuntimeStrip code="M04" agent="Agente Documental" scope="Evidencia · archivos · informes" />
       <DocumentsManager />
       <ModuleTasksDock module="documentos" />
     </main>
