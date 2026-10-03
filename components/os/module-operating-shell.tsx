@@ -223,10 +223,11 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
                         aria-current={active ? "page" : undefined}
                         onClick={() => setMobileOpen(false)}
                         className={cn(
-                          "flex min-h-10 items-center gap-3 px-2 text-[13px]",
+                          "relative flex min-h-10 items-center gap-3 px-2 text-[13px]",
                           active ? "bg-secondary/80 font-medium text-foreground" : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground",
                         )}
                       >
+                        <span className={cn("absolute inset-y-2 left-0 w-px bg-transparent", active && "bg-primary")} aria-hidden="true" />
                         <Icon className={cn("h-4 w-4", active && "text-primary")} />
                         <span>{item.label}</span>
                       </Link>
