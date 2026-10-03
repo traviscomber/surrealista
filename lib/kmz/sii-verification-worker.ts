@@ -3,6 +3,7 @@ import { getAdminClient } from '@/lib/scrapers/base-scraper'
 import { SiiMapasPublicProvider } from '@/lib/sii/sii-mapas-public-client'
 import { resolveSiiCommuneCode, SII_COMUNA_CODE_SOURCE } from '@/lib/sii/sii-comuna-code-resolver'
 import { parseRolParts } from '@/lib/sii/types'
+import { verifiedSiiRol } from '@/lib/kmz/rol-verification'
 
 type Bounds = { north?: number; south?: number; east?: number; west?: number }
 type Point = { lat: number; lng: number; label: string; source: 'coordinates' | 'bounds' }
@@ -154,11 +155,6 @@ function expandRole(role: string, siiCode: string) {
   if (!parsed) return null
   if (parsed.comuna) return parsed
   return parseRolParts(`${siiCode}-${parsed.manzana}-${parsed.predio}`)
-}
-
-function isVerifiedSiiRol(value: unknown, siiCode: string) {
-  const rol = String(value || '').trim().toUpperCase()
-  return new RegExp(`^${siiCode}-\\d{1,5}-\\d{1,5}(?:-[A-Z])?$`).test(rol) ? rol : ''
 }
 
 function evidenceFingerprint(kmzId: string, rol: string) {
@@ -326,7 +322,7 @@ export async function verifyPendingSiiTerritorialResolutions(
       record &&
       ((returnedCode && returnedCode === siiCode) || normalize(record.comuna) === normalize(commune)),
     )
-    const recoveredRol = verified ? isVerifiedSiiRol(record?.rol, siiCode) : ''
+    const recoveredRol = verified ? verifiedSiiRol(record?.rol, siiCode) || '' : ''
     const status: VerificationStatus = recoveredRol
       ? 'verified'
       : record
