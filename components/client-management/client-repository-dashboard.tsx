@@ -221,7 +221,7 @@ export function ClientRepositoryDashboard() {
                 <TableCell>{formatCurrency(client.budget_max)}</TableCell>
                 <TableCell onClick={(event) => event.stopPropagation()}>
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8" aria-label={`Acciones de ${fullName(client)}`}><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => router.push(`/clientes/${client.id}`)}>Abrir ficha</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => setEmailClient(client)}><Mail className="h-4 w-4" />Enviar correo</DropdownMenuItem>
