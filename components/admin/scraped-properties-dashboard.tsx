@@ -212,16 +212,24 @@ export function ScrapedPropertiesDashboard({
 
   if (error) {
     return (
-      <Card>
-        <CardContent className="flex flex-col items-center gap-4 py-12 text-center">
-          <Database className="h-10 w-10 text-destructive" />
-          <div>
-            <p className="font-medium">No se pudieron cargar las propiedades</p>
-            <p className="text-sm text-muted-foreground">{error.message}</p>
+      <section className="border-y border-border/70 py-6" aria-live="polite">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex min-w-0 items-start gap-3">
+            <Database className="mt-0.5 h-5 w-5 shrink-0 text-destructive" aria-hidden="true" />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold">No se pudieron cargar las propiedades</p>
+              <p className="mt-1 max-w-3xl text-sm leading-6 text-muted-foreground">
+                La vista queda vacía hasta recuperar la fuente; no se muestran registros parciales ni simulados.
+              </p>
+              <p className="mt-1 truncate font-mono text-[10px] text-muted-foreground/80">{error.message}</p>
+            </div>
           </div>
-          <Button variant="outline" onClick={() => mutate()}><RefreshCw className="mr-2 h-4 w-4" />Reintentar</Button>
-        </CardContent>
-      </Card>
+          <Button variant="outline" size="sm" onClick={() => mutate()}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Reintentar
+          </Button>
+        </div>
+      </section>
     )
   }
 
