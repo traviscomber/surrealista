@@ -28,17 +28,18 @@ export function WorkspaceHeading({
             </p>
           ) : null}
           <div className="space-y-2">
-            <h1 className="font-serif text-3xl font-semibold tracking-tight text-foreground md:text-4xl">
+            <h1 className="max-w-4xl text-[2rem] font-medium leading-[1.08] tracking-[-0.035em] text-foreground md:text-[2.4rem]">
               {title}
             </h1>
-            <p className="max-w-2xl text-sm leading-6 text-muted-foreground md:text-base">
+            <p className="max-w-2xl text-[13px] leading-6 text-muted-foreground md:text-sm">
               {description}
             </p>
           </div>
           {outcome ? (
-            <p className="max-w-2xl border-l-2 border-primary/40 pl-3 text-sm leading-6 text-foreground">
-              <span className="font-semibold">Resultado esperado:</span> {outcome}
-            </p>
+            <div className="max-w-2xl border-l border-border pl-4">
+              <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Objetivo operativo</p>
+              <p className="mt-1 text-sm leading-6 text-foreground">{outcome}</p>
+            </div>
           ) : null}
         </div>
         {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
