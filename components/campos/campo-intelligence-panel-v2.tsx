@@ -73,6 +73,16 @@ type ScoreBreakdown = {
   label: string
 }
 
+const ACTIVITY_KEYS = [
+  "activity", "activity_type", "actividad", "actividad_predio", "giro",
+  "land_use", "uso", "uso_actual", "uso_predio", "uso_suelo", "productive_use",
+]
+
+const CROP_KEYS = [
+  "crop", "crops", "cultivo", "cultivos", "especie", "especies",
+  "produccion", "produccion_agricola", "agricultural_use",
+]
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
 }
@@ -226,25 +236,17 @@ export function CampoIntelligencePanelV2({ record, ciren }: { record: KmzInvento
   const water = useMemo(() => nearest(nearby, "water"), [nearby])
   const protectedArea = useMemo(() => nearest(nearby, "protected_area"), [nearby])
 
-  const activityKeys = [
-    "activity", "activity_type", "actividad", "actividad_predio", "giro",
-    "land_use", "uso", "uso_actual", "uso_predio", "uso_suelo", "productive_use",
-  ]
-  const cropKeys = [
-    "crop", "crops", "cultivo", "cultivos", "especie", "especies",
-    "produccion", "produccion_agricola", "agricultural_use",
-  ]
   const activityTags = useMemo(
     () => Array.from(new Set([
-      ...evidenceValues(fieldEvidence, activityKeys),
-      ...metadataTagValues(record.metadata, activityKeys),
+      ...evidenceValues(fieldEvidence, ACTIVITY_KEYS),
+      ...metadataTagValues(record.metadata, ACTIVITY_KEYS),
     ])).slice(0, 6),
     [fieldEvidence, record.metadata],
   )
   const cropTags = useMemo(
     () => Array.from(new Set([
-      ...evidenceValues(fieldEvidence, cropKeys),
-      ...metadataTagValues(record.metadata, cropKeys),
+      ...evidenceValues(fieldEvidence, CROP_KEYS),
+      ...metadataTagValues(record.metadata, CROP_KEYS),
     ])).slice(0, 6),
     [fieldEvidence, record.metadata],
   )
