@@ -62,6 +62,7 @@ type KmzSearchHit = {
   file_name: string
   region: string | null
   rol_numbers: string[] | null
+  owner?: string | null
 }
 
 function geometryBadge(record: KmzInventoryRecord) {
@@ -470,7 +471,7 @@ export function CAMPOSFolderViewIntegrated() {
     const query = search.trim().toLocaleLowerCase("es")
     if (!query) return records
     return records.filter((record) =>
-      [record.file_name, record.region, ...(record.rol_numbers || [])]
+      [fieldDisplayName(record), record.file_name, record.owner, record.region, ...(record.rol_numbers || [])]
         .filter(Boolean)
         .some((value) => String(value).toLocaleLowerCase("es").includes(query)),
     )
@@ -508,7 +509,7 @@ export function CAMPOSFolderViewIntegrated() {
           </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar región, KMZ o ROL" className="pl-9" />
+            <Input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar campo, propietario, región o ROL" className="pl-9" />
           </div>
         </div>
 
@@ -532,12 +533,12 @@ export function CAMPOSFolderViewIntegrated() {
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium">{hit.file_name}</span>
                     <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
-                      {hit.region || "Sin región"}{hit.rol_numbers?.[0] ? ` · ROL ${hit.rol_numbers[0]}` : ""}
+                      {hit.owner ? `${hit.owner} · ` : ""}{hit.region || "Sin región"}{hit.rol_numbers?.[0] ? ` · ROL ${hit.rol_numbers[0]}` : ""}
                     </span>
                   </span>
                 </button>
               )) : (
-                <div className="px-3 py-8 text-center text-sm text-muted-foreground">No encontramos un campo, región o ROL con esa búsqueda.</div>
+                <div className="px-3 py-8 text-center text-sm text-muted-foreground">No encontramos un campo, propietario, región o ROL con esa búsqueda.</div>
               )}
             </div>
           ) : loadingInitial ? (
