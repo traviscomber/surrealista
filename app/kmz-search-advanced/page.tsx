@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Search, Filter, MapPin, FileText, Calendar, Map } from 'lucide-react'
 import { toast } from 'sonner'
+import { WorkspaceHeading } from '@/components/ui/workspace-heading'
 
 interface SearchResult {
   id: string
@@ -68,14 +69,15 @@ export default function KMZSearchAdvanced() {
       const response = await fetch(`/api/kmz/search-advanced?${params}`)
       const data = await response.json()
 
-      if (response.ok) {
-        setResults(data.results || [])
-        setStats(data.stats || { total: 0, locations: 0, kmzFiles: 0 })
-      } else {
-        console.error('[v0] Search error:', data.error)
-      }
+      if (!response.ok) throw new Error(data.error || 'No se pudo completar la búsqueda.')
+      const nextResults = data.results || []
+      const nextStats = data.stats || { total: nextResults.length, locations: 0, kmzFiles: 0 }
+      setResults(nextResults)
+      setStats(nextStats)
+      return Number(nextStats.total || 0)
     } catch (error) {
-      console.error('[v0] Search error:', error)
+      console.error('[kmz-search-advanced] Search error:', error)
+      return null
     } finally {
       setLoading(false)
     }
@@ -90,21 +92,22 @@ export default function KMZSearchAdvanced() {
       return
     }
 
-    await performSearch(filters)
-    toast.success(`Encontrados ${stats.total} resultados`)
+    const total = await performSearch(filters)
+    if (total !== null) toast.success(`Encontrados ${total} resultados`)
+    else toast.error('No se pudo completar la búsqueda.')
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
-      <div className="max-w-6xl mx-auto space-y-6">
-        {/* Header */}
-        <div>
-          <h1 className="text-4xl font-bold text-slate-900">Búsqueda Avanzada de KMZ</h1>
-          <p className="text-slate-600 mt-2">Busca ubicaciones con filtros personalizados</p>
-        </div>
+    <main className="mx-auto w-full max-w-[1500px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+      <WorkspaceHeading
+        eyebrow="Campos · Herramientas"
+        title="Búsqueda avanzada"
+        description="Combina criterios para acotar el inventario KMZ sin salir del contexto operativo de Campos."
+        outcome="Reduce el universo y abre sólo los resultados que necesiten revisión."
+      />
 
         {/* Search and Filters */}
-        <Card className="border-2 border-blue-200">
+        <Card className="border-border/70 shadow-none">
           <CardHeader>
             <CardTitle>Criterios de Búsqueda</CardTitle>
           </CardHeader>
@@ -149,7 +152,7 @@ export default function KMZSearchAdvanced() {
                   Categoría
                 </label>
                 <select
-                  className="w-full px-3 py-2 border border-slate-300 rounded-lg"
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   value={filters.category}
                   onChange={(e) => setFilters({ ...filters, category: e.target.value })}
                 >
@@ -189,7 +192,7 @@ export default function KMZSearchAdvanced() {
         {/* Results Stats */}
         {results.length > 0 && (
           <div className="grid grid-cols-3 gap-4">
-            <Card className="bg-blue-50 border-blue-200">
+            <Card className="border-border/70 bg-card shadow-none">
               <CardContent className="pt-6">
                 <div className="text-center">
                   <p className="text-sm text-slate-600">Total</p>
@@ -197,7 +200,7 @@ export default function KMZSearchAdvanced() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="bg-green-50 border-green-200">
+            <Card className="border-border/70 bg-card shadow-none">
               <CardContent className="pt-6">
                 <div className="text-center">
                   <p className="text-sm text-slate-600">Ubicaciones</p>
@@ -205,7 +208,7 @@ export default function KMZSearchAdvanced() {
                 </div>
               </CardContent>
             </Card>
-            <Card className="bg-purple-50 border-purple-200">
+            <Card className="border-border/70 bg-card shadow-none">
               <CardContent className="pt-6">
                 <div className="text-center">
                   <p className="text-sm text-slate-600">Archivos</p>
@@ -240,11 +243,7 @@ export default function KMZSearchAdvanced() {
           {results.map((result) => (
             <Card
               key={result.id}
-              className={`cursor-pointer hover:shadow-lg transition ${
-                result.type === 'location'
-                  ? 'border-l-4 border-l-green-500'
-                  : 'border-l-4 border-l-blue-500'
-              }`}
+              className="border-border/70 shadow-none transition-colors hover:bg-secondary/35"
             >
               <CardContent className="pt-6">
                 <div className="flex items-start justify-between gap-4">
@@ -298,7 +297,7 @@ export default function KMZSearchAdvanced() {
                   {result.type === 'kmz' && (
                     <Button
                       onClick={() => router.push(`/kmz-map?kmzId=${result.id}`)}
-                      className="bg-blue-600 hover:bg-blue-700 text-white flex-shrink-0"
+                      className="flex-shrink-0"
                     >
                       <Map className="h-4 w-4 mr-2" />
                       Ver en Mapa
@@ -309,7 +308,6 @@ export default function KMZSearchAdvanced() {
             </Card>
           ))}
         </div>
-      </div>
-    </div>
+    </main>
   )
 }
