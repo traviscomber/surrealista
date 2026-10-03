@@ -38,23 +38,12 @@ async function getProperties() {
   }
 }
 
-async function PropertiesInventory() {
+export default async function PropertiesPage() {
   const properties = await getProperties()
-  return <PropertiesClient initialProperties={properties} />
-}
 
-export default function PropertiesPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="container mx-auto space-y-3 px-4 py-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Inventario comercial</p>
-          <h2 className="text-2xl font-semibold tracking-tight">Propiedades disponibles</h2>
-          <p className="text-sm text-muted-foreground">Cargando inventario conectado…</p>
-        </div>
-      }
-    >
-      <PropertiesInventory />
+    <Suspense fallback={<div>Cargando propiedades...</div>}>
+      <PropertiesClient initialProperties={properties} />
     </Suspense>
   )
 }
