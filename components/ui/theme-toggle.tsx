@@ -21,9 +21,9 @@ export function ThemeToggle() {
 
   if (!mounted) {
     return (
-      <Button variant="ghost" size="icon" className="w-9 h-9">
-        <Sun className="w-4 h-4" />
-      </Button>
+      <span aria-hidden="true" className="grid h-9 w-9 place-items-center text-muted-foreground">
+        <Sun className="h-4 w-4" />
+      </span>
     )
   }
 
