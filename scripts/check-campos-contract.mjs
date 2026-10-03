@@ -14,6 +14,7 @@ const contracts = [
     "Propietario operativo",
     "Evidencia de propietario",
     "Documento fuente",
+    "safeExternalUrl",
     "02 · Uso y actividad",
     "Uso SII",
     "04 · Entorno y POIs",
