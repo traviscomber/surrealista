@@ -239,12 +239,10 @@ export default function KMZSearchSimple() {
                             </p>
                           </div>
                           {doc.file_url && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => window.open(doc.file_url, "_blank")}
-                            >
-                              <ExternalLink className="h-4 w-4" />
+                            <Button asChild size="icon" variant="outline">
+                              <a href={doc.file_url} target="_blank" rel="noopener noreferrer" aria-label={`Abrir ${doc.title || doc.file_name}`}>
+                                <ExternalLink className="h-4 w-4" />
+                              </a>
                             </Button>
                           )}
                         </div>
