@@ -10,6 +10,9 @@ const contracts = [
   ]],
   ["components/campos/campo-intelligence-panel-v2.tsx", [
     "01 · Identidad",
+    "Propietario operativo",
+    "Evidencia de propietario",
+    "Documento fuente",
     "02 · Uso y actividad",
     "Uso SII",
     "04 · Entorno y POIs",
