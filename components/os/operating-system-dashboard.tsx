@@ -22,22 +22,22 @@ export function OperatingSystemDashboard({ metrics }: OperatingSystemDashboardPr
   const availableMetrics = metrics.filter((metric) => metric.value !== null)
 
   return (
-    <div className="mx-auto w-full max-w-[1500px] space-y-8 px-4 py-6 sm:px-6 lg:px-8">
-      <section className="grid gap-6 border-b border-border/80 pb-7 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,.75fr)] xl:items-end">
+    <div className="mx-auto w-full max-w-[1480px] space-y-10 px-4 py-7 sm:px-6 lg:px-8">
+      <section className="grid gap-8 border-b border-border/70 pb-8 xl:grid-cols-[minmax(0,1.35fr)_minmax(300px,.65fr)] xl:items-end">
         <div>
           <div className="mb-3 flex items-center gap-2 text-primary">
             <Sparkles className="h-4 w-4" aria-hidden="true" />
-            <span className="text-[11px] font-semibold uppercase tracking-[0.18em]">Inteligencia transversal</span>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.2em]">Sistema operativo</span>
           </div>
-          <h2 className="max-w-4xl text-3xl font-medium leading-tight tracking-[-0.035em] sm:text-4xl">
+          <h2 className="max-w-4xl text-[2rem] font-medium leading-[1.08] tracking-[-0.04em] sm:text-[2.6rem]">
             Todo Sur Realista desde una sola operación.
           </h2>
-          <p className="mt-4 max-w-3xl text-sm leading-6 text-muted-foreground">
+          <p className="mt-4 max-w-2xl text-[13px] leading-6 text-muted-foreground">
             Navega por cinco módulos estables. Tareas y Asistente permanecen disponibles en cualquier sección sin romper el contexto de trabajo.
           </p>
         </div>
 
-        <div className="border-l border-border/80 pl-5">
+        <div className="border-l border-border/70 pl-6">
           <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Flujo operativo</p>
           <div className="mt-3 space-y-2 text-sm leading-6">
             <p><span className="mr-2 font-mono text-[10px] text-muted-foreground">01</span>Entra al módulo donde vive la información.</p>
@@ -53,7 +53,7 @@ export function OperatingSystemDashboard({ metrics }: OperatingSystemDashboardPr
           <h2 id="modulos-heading" className="mt-1 text-xl font-semibold">Cinco módulos operativos</h2>
         </div>
 
-        <div className="grid overflow-hidden border border-border/80 bg-card md:grid-cols-2 xl:grid-cols-5">
+        <div className="border-y border-border/70">
           {SUR_REALISTA_MODULES.map((module, index) => {
             const Icon = module.icon
             return (
@@ -61,20 +61,18 @@ export function OperatingSystemDashboard({ metrics }: OperatingSystemDashboardPr
                 href={module.href}
                 key={module.label}
                 className={cn(
-                  "group min-h-[210px] p-5 transition-colors hover:bg-muted/60",
-                  index < SUR_REALISTA_MODULES.length - 1 && "border-b border-border/80 md:border-r xl:border-b-0",
+                  "group grid min-h-[92px] items-center gap-4 py-4 transition-colors hover:bg-secondary/45 sm:grid-cols-[40px_150px_minmax(0,1fr)_140px_24px] sm:px-3",
+                  index < SUR_REALISTA_MODULES.length - 1 && "border-b border-border/70",
                 )}
               >
-                <div className="flex items-center justify-between">
-                  <Icon className="h-5 w-5 text-primary" aria-hidden="true" />
-                  <span className="font-mono text-[10px] text-muted-foreground">0{index + 1}</span>
+                <span className="font-mono text-[10px] text-muted-foreground">0{index + 1}</span>
+                <div className="flex items-center gap-3">
+                  <Icon className="h-4 w-4 text-primary" aria-hidden="true" />
+                  <h3 className="text-[15px] font-semibold">{module.label}</h3>
                 </div>
-                <h3 className="mt-8 text-lg font-semibold">{module.label}</h3>
-                <p className="mt-2 text-sm leading-6 text-muted-foreground">{module.description}</p>
-                <div className="mt-5 flex items-center justify-between gap-3">
-                  <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-primary">{module.agent}</p>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
-                </div>
+                <p className="text-[13px] leading-5 text-muted-foreground">{module.description}</p>
+                <p className="hidden text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground sm:block">{module.agent}</p>
+                <ChevronRight className="hidden h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 sm:block" aria-hidden="true" />
               </Link>
             )
           })}
@@ -87,14 +85,14 @@ export function OperatingSystemDashboard({ metrics }: OperatingSystemDashboardPr
           <h2 id="indicadores-heading" className="mt-1 text-xl font-semibold">Indicadores canónicos</h2>
         </div>
 
-        <div className="grid overflow-hidden border-y border-border/80 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid overflow-hidden border-y border-border/70 sm:grid-cols-2 xl:grid-cols-5">
           {metrics.map((metric, index) => (
             <Link
               key={metric.label}
               href={metric.href}
               className={cn(
                 "min-h-[128px] px-4 py-5 transition-colors hover:bg-muted/50",
-                index < metrics.length - 1 && "border-b border-border/80 sm:border-r xl:border-b-0",
+                index < metrics.length - 1 && "border-b border-border/70 sm:border-r xl:border-b-0",
               )}
             >
               <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-muted-foreground">{metric.label}</p>
@@ -113,9 +111,9 @@ export function OperatingSystemDashboard({ metrics }: OperatingSystemDashboardPr
         ) : null}
       </section>
 
-      <section aria-labelledby="assistant-heading" className="overflow-hidden border border-border/80 bg-card">
+      <section aria-labelledby="assistant-heading" className="overflow-hidden border border-border/70 bg-card">
         <div className="grid xl:grid-cols-[300px_minmax(0,1fr)]">
-          <div className="border-b border-border/80 p-5 xl:border-b-0 xl:border-r">
+          <div className="border-b border-border/70 p-5 xl:border-b-0 xl:border-r">
             <div className="flex items-center gap-2">
               <Bot className="h-4 w-4 text-primary" aria-hidden="true" />
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">03 · IA transversal</p>
