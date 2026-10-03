@@ -1,9 +1,5 @@
-import Link from "next/link"
-import { ArrowRight, Calculator, Radar, Search } from "lucide-react"
-
 import { ScrapedPropertiesDashboard } from "@/components/admin/scraped-properties-dashboard"
 import { ModuleTasksDock } from "@/components/tasks/module-tasks-dock"
-import { Button } from "@/components/ui/button"
 import { WorkspaceHeading } from "@/components/ui/workspace-heading"
 
 export const dynamic = "force-dynamic"
@@ -11,34 +7,13 @@ export const dynamic = "force-dynamic"
 export default function MarketWorkspacePage() {
   return (
     <main className="mx-auto w-full max-w-[1800px] space-y-6 px-4 py-6 sm:px-6 lg:px-8">
-      <div className="flex flex-col gap-4 border-b border-border pb-5 lg:flex-row lg:items-end lg:justify-between">
+      <div className="border-b border-border/70 pb-5">
         <WorkspaceHeading
           eyebrow="Inteligencia comercial"
           title="Mercado y comparables"
           description="Explora el inventario externo activo, filtra por fuente, ubicación y tipo de propiedad, y prepara comparables para una decisión comercial o valorización."
           outcome="Convierte señales de mercado reales en una lista corta de propiedades comparables y próximos pasos verificables."
         />
-        <div className="flex flex-wrap gap-2 lg:pb-1">
-          <Button asChild variant="outline">
-            <Link href="/mercado/oportunidades">
-              <Radar className="h-4 w-4" aria-hidden="true" />
-              Inteligencia de Oportunidades
-            </Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link href="/prospeccion">
-              <Search className="h-4 w-4" aria-hidden="true" />
-              Prospección
-            </Link>
-          </Button>
-          <Button asChild>
-            <Link href="/cotizador">
-              <Calculator className="h-4 w-4" aria-hidden="true" />
-              Valorización
-              <ArrowRight className="h-4 w-4" aria-hidden="true" />
-            </Link>
-          </Button>
-        </div>
       </div>
 
       <ScrapedPropertiesDashboard mode="full" />
