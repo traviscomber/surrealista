@@ -483,13 +483,22 @@ export function CAMPOSFolderViewIntegrated() {
 
   if (fatalError) {
     return (
-      <div className="flex h-full min-h-[320px] items-center justify-center bg-background px-6 text-center">
-        <div className="max-w-md">
-          <MapPin className="mx-auto mb-4 h-9 w-9 text-muted-foreground" />
-          <h2 className="text-base font-semibold">No se pudo cargar el inventario territorial</h2>
-          <p className="mt-2 text-sm text-muted-foreground">CAMPOS no mostrará datos parciales ni simulados. Reintenta la carga cuando la fuente esté disponible.</p>
-          <Button className="mt-4" variant="outline" onClick={loadSummaries}>Reintentar</Button>
-        </div>
+      <div className="flex h-full min-h-[320px] items-start bg-background px-6 py-10">
+        <section className="mx-auto w-full max-w-3xl border-y border-border/70 py-6" aria-live="polite">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="flex min-w-0 items-start gap-3">
+              <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+              <div>
+                <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">Inventario territorial</p>
+                <h2 className="mt-1 text-base font-semibold">No se pudo cargar la colección de campos</h2>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-muted-foreground">
+                  CAMPOS mantiene la vista vacía antes que mostrar información parcial o simulada. Reintenta cuando la fuente vuelva a estar disponible.
+                </p>
+              </div>
+            </div>
+            <Button size="sm" variant="outline" onClick={loadSummaries}>Reintentar</Button>
+          </div>
+        </section>
       </div>
     )
   }
