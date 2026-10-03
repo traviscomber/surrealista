@@ -243,8 +243,14 @@ export function ScrapedPropertiesDashboard({
           { label: "Precio promedio", value: averageUF ? `UF ${new Intl.NumberFormat("es-CL").format(averageUF)}` : "—", icon: CircleDollarSign },
         ].map((metric, index) => {
           const Icon = metric.icon
+          const divider = [
+            "",
+            "border-t border-border/70 sm:border-l sm:border-t-0",
+            "border-t border-border/70 lg:border-l lg:border-t-0",
+            "border-t border-border/70 sm:border-l lg:border-t-0",
+          ][index]
           return (
-            <div key={metric.label} className={`min-h-[104px] px-4 py-4 ${index > 0 ? "border-t border-border/70 sm:border-l lg:border-t-0" : ""} ${index === 2 ? "lg:border-l" : ""}`}>
+            <div key={metric.label} className={`min-h-[104px] px-4 py-4 ${divider}`}>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Icon className="h-4 w-4 text-primary" aria-hidden="true" />
                 <p className="text-[9px] font-semibold uppercase tracking-[0.16em]">{metric.label}</p>
