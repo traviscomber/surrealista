@@ -58,18 +58,18 @@ export function ModuleTasksDock({
 
   return (
     <>
-      <div className="fixed bottom-5 right-5 z-[80] flex items-center gap-2">
+      <div className="pointer-events-none fixed bottom-5 right-5 z-[80] flex items-center gap-2">
         <Button
           type="button"
           variant="outline"
           onClick={() => setOpen((value) => !value)}
-          className="h-10 gap-2 border-border bg-card shadow-sm"
+          className="pointer-events-auto h-10 gap-2 border-border bg-card shadow-sm"
         >
           <CheckSquare2 className="h-4 w-4" />
           Tareas · {MODULE_LABELS[module]}
           <Badge variant="secondary" className="ml-1 min-w-6 justify-center">{tasks.length}</Badge>
         </Button>
-        <Button type="button" size="icon" onClick={() => setCreateOpen(true)} aria-label="Nueva tarea del módulo">
+        <Button type="button" size="icon" onClick={() => setCreateOpen(true)} aria-label="Nueva tarea del módulo" className="pointer-events-auto">
           <Plus className="h-4 w-4" />
         </Button>
       </div>
