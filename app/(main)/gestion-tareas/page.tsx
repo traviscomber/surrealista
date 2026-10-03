@@ -60,7 +60,7 @@ export default function GestionTareasPage() {
 
       const normalized = (Array.isArray(body.tasks) ? body.tasks : [])
         .map(normalizeTask)
-        .filter((task): task is Task => task !== null)
+        .filter((task: Task | null): task is Task => task !== null)
 
       setTasks(normalized)
       setRefreshTrigger((value) => value + 1)
