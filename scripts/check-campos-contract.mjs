@@ -42,6 +42,7 @@ const contracts = [
     "sameOrigin",
     "manual_display_name",
     "original_file_name",
+    "recordOperatorAudit",
   ]],
 ]
 
