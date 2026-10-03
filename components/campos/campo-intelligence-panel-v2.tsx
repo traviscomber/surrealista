@@ -134,6 +134,16 @@ function evidenceValues(rows: FieldEvidence[], acceptedKeys: string[]) {
   return Array.from(new Set(values.filter((value) => value && value.length <= 80))).slice(0, 6)
 }
 
+function siiDestination(metadata: Record<string, unknown> | null) {
+  if (!metadata) return null
+  const resolution = metadata.sii_point_resolution
+  if (!resolution || typeof resolution !== "object" || Array.isArray(resolution)) return null
+  const record = (resolution as Record<string, unknown>).record
+  if (!record || typeof record !== "object" || Array.isArray(record)) return null
+  const value = (record as Record<string, unknown>).destino
+  return typeof value === "string" && value.trim() ? value.trim() : null
+}
+
 function metadataTagValues(metadata: Record<string, unknown> | null, acceptedKeys: string[]) {
   if (!metadata) return [] as string[]
   const accepted = new Set(acceptedKeys.map(normalizeMetadataKey))
@@ -235,6 +245,7 @@ export function CampoIntelligencePanelV2({ record, ciren }: { record: KmzInvento
   const place = useMemo(() => nearest(nearby, "place"), [nearby])
   const water = useMemo(() => nearest(nearby, "water"), [nearby])
   const protectedArea = useMemo(() => nearest(nearby, "protected_area"), [nearby])
+  const siiUse = useMemo(() => siiDestination(record.metadata), [record.metadata])
 
   const activityTags = useMemo(
     () => Array.from(new Set([
@@ -345,7 +356,8 @@ export function CampoIntelligencePanelV2({ record, ciren }: { record: KmzInvento
         </Evidence>
 
         <Evidence icon={<Sprout className="h-4 w-4" />} title="02 · Uso y actividad">
-          <TagFact label="Actividad" values={activityTags} />
+          <Fact label="Uso SII" value={siiUse || "Sin dato SII"} />
+          <TagFact label="Actividad adicional" values={activityTags} />
           <TagFact label="Cultivo / especie" values={cropTags} />
         </Evidence>
 
