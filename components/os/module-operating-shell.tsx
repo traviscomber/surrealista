@@ -140,11 +140,12 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
                 aria-current={active ? "page" : undefined}
                 title={collapsed ? item.label : undefined}
                 className={cn(
-                  "flex min-h-10 items-center gap-3 px-2.5 text-[13px]",
-                  active ? "bg-accent font-medium text-accent-foreground" : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                  "group relative flex min-h-10 items-center gap-3 px-2.5 text-[13px]",
+                  active ? "bg-secondary/80 font-medium text-foreground" : "text-muted-foreground hover:bg-secondary/50 hover:text-foreground",
                 )}
               >
-                <Icon className={cn("h-4 w-4 shrink-0", active && "text-primary")} aria-hidden="true" />
+                <span className={cn("absolute inset-y-2 left-0 w-px bg-transparent", active && "bg-primary")} aria-hidden="true" />
+                <Icon className={cn("h-4 w-4 shrink-0", active ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} aria-hidden="true" />
                 {!collapsed ? <span>{item.label}</span> : null}
               </Link>
             )
