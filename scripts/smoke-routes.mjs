@@ -255,9 +255,11 @@ try {
       })
 
       await authenticatedPage.waitForFunction(() => {
-        const paths = document.querySelectorAll(".leaflet-overlay-pane path").length
-        const markers = document.querySelectorAll(".leaflet-marker-pane > *, .leaflet-overlay-pane circle").length
-        return paths + markers > 0
+        const map = document.querySelector('[data-map-ready="true"]')
+        if (!map) return false
+        const layerCount = Number(map.getAttribute("data-map-layer-count") || "0")
+        const visibleLayerCount = Number(map.getAttribute("data-map-visible-layer-count") || "0")
+        return layerCount > 0 && visibleLayerCount > 0
       }, null, { timeout: 30_000 })
     }
 
