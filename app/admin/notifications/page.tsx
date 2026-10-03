@@ -2,7 +2,6 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { NotificationList } from "@/components/notifications/notification-list"
-import { AppHeader } from "@/components/layout/app-header"
 import { useNotificationSettings } from "@/lib/hooks/use-notifications"
 import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
@@ -30,8 +29,6 @@ export default function NotificationsPage() {
   }
 
   return (
-    <>
-      <AppHeader />
       <div className="container mx-auto py-8 px-4">
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Notificaciones</h1>
@@ -142,6 +139,5 @@ export default function NotificationsPage() {
           </div>
         </div>
       </div>
-    </>
   )
 }
