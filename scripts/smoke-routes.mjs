@@ -88,6 +88,7 @@ async function inspectRoute(page, route, expectedPath, expectedText, options = {
     const hasFatalUI = /Application error|Internal Server Error|Unhandled Runtime Error|This page could not be found/i.test(body)
     const hasAccessForm = await page.locator("#password").isVisible().catch(() => false)
     const hasExpectedText = expectedText ? expectedText.test(body) : true
+    const hasTaskLoadFailure = route === "/gestion-tareas" && /No se pudieron cargar las tareas/i.test(body)
 
     if (!hasAccessForm && !hasFatalUI && options.requireNavigation !== false) {
       const navigationWaitSelector = options.requireVisibleNavigation === false
@@ -127,9 +128,9 @@ async function inspectRoute(page, route, expectedPath, expectedText, options = {
       await page.screenshot({ path: `${evidenceDir}/tareas-authenticated-desktop.png`, fullPage: false })
     }
 
-    if (!response || status >= 500 || finalPath !== expectedPath || hasFatalUI || hasAccessForm || pageErrors.length > 0 || !hasExpectedText || !hasGlobalNavigation || !hasHomeAffordance) {
-      failures.push({ route, expectedPath, finalPath, status, pageErrors, hasFatalUI, hasAccessForm, hasExpectedText, hasGlobalNavigation, hasHomeAffordance })
-      console.error(`FAIL ${route} status=${status} expected=${expectedPath} final=${finalPath} gate=${hasAccessForm} text=${hasExpectedText} nav=${hasGlobalNavigation} home=${hasHomeAffordance} pageErrors=${pageErrors.length}`)
+    if (!response || status >= 500 || finalPath !== expectedPath || hasFatalUI || hasAccessForm || pageErrors.length > 0 || !hasExpectedText || !hasGlobalNavigation || !hasHomeAffordance || hasTaskLoadFailure) {
+      failures.push({ route, expectedPath, finalPath, status, pageErrors, hasFatalUI, hasAccessForm, hasExpectedText, hasGlobalNavigation, hasHomeAffordance, hasTaskLoadFailure })
+      console.error(`FAIL ${route} status=${status} expected=${expectedPath} final=${finalPath} gate=${hasAccessForm} text=${hasExpectedText} nav=${hasGlobalNavigation} home=${hasHomeAffordance} taskLoadFailure=${hasTaskLoadFailure} pageErrors=${pageErrors.length}`)
     } else {
       console.log(`PASS ${route} status=${status} final=${finalPath}`)
     }
