@@ -113,7 +113,7 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
                   {!collapsed ? (
                     <>
                       <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                      <span className="font-mono text-[9px] tabular-nums text-muted-foreground/70">
+                      <span aria-hidden="true" className="font-mono text-[9px] tabular-nums text-muted-foreground/70">
                         {String(index).padStart(2, "0")}
                       </span>
                     </>
@@ -203,7 +203,7 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
                         <span className={cn("absolute inset-y-2 left-0 w-px bg-transparent", active && "bg-primary")} aria-hidden="true" />
                         <Icon className={cn("h-4 w-4", active && "text-primary")} />
                         <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                        <span className="font-mono text-[9px] text-muted-foreground/70">{String(index).padStart(2, "0")}</span>
+                        <span aria-hidden="true" className="font-mono text-[9px] text-muted-foreground/70">{String(index).padStart(2, "0")}</span>
                       </Link>
                     )
                   })}
