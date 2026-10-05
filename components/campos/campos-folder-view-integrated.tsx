@@ -17,6 +17,15 @@ import {
 } from "@/lib/kmz/kmz-inventory-service"
 import { extractKmzGeometry, isRenderableKmzPolygon, type KmzRenderablePlacemark } from "@/lib/kmz/kmz-geometry-compat"
 
+const REGIONAL_GEOMETRY_BATCH_SIZE = 40
+const REGIONAL_GEOMETRY_FILE_LIMIT = 160
+
+function chunkIds(ids: string[], size = REGIONAL_GEOMETRY_BATCH_SIZE) {
+  const chunks: string[][] = []
+  for (let index = 0; index < ids.length; index += size) chunks.push(ids.slice(index, index + size))
+  return chunks
+}
+
 const STATUS_STYLE: Record<string, { label: string; className: string }> = {
   real_geometry: { label: "Capa KMZ", className: "border-primary/25 bg-primary/8 text-primary" },
   sii_reference: { label: "Centro SII", className: "border-[hsl(var(--sr-water)/0.3)] bg-[hsl(var(--sr-water)/0.1)] text-[hsl(var(--sr-water))]" },
@@ -186,6 +195,71 @@ function cirenNeighborPlacemarks(context: CirenContext | null): KmzRenderablePla
   )
 }
 
+async function loadRegionalGeometryFiles(
+  supabase: ReturnType<typeof createBrowserClient>,
+  records: KmzInventoryRecord[],
+) {
+  const candidates = records
+    .filter((record) => record.geometry_status === "real_geometry" && Number(record.placemarks_count || 0) > 0)
+    .slice(0, REGIONAL_GEOMETRY_FILE_LIMIT)
+
+  if (!candidates.length) return regionalPointFiles(records)
+
+  const candidateIds = candidates.map((record) => String(record.id))
+  const placemarksByKmz = new Map<string, any[]>()
+
+  for (const ids of chunkIds(candidateIds)) {
+    const { data, error } = await supabase
+      .from("kmz_placemarks")
+      .select("kmz_id,name,type,coordinates,description,properties")
+      .in("kmz_id", ids)
+      .limit(5000)
+
+    if (error) {
+      console.warn("[CAMPOS] regional geometry batch failed; keeping point fallback", error)
+      continue
+    }
+
+    for (const row of data || []) {
+      const key = String(row.kmz_id)
+      const current = placemarksByKmz.get(key) || []
+      current.push(row)
+      placemarksByKmz.set(key, current)
+    }
+  }
+
+  return records.map((record) => {
+    const rows = placemarksByKmz.get(String(record.id)) || []
+    const placemarks = rows.flatMap((placemark: any) =>
+      extractKmzGeometry(placemark.coordinates, {
+        name: placemark.name || record.file_name,
+        description: placemark.description || "",
+        declaredType: placemark.type,
+        properties: placemark.properties || {},
+      }),
+    )
+
+    const polygons = placemarks.filter((placemark) => placemark.type === "Polygon" && isRenderableKmzPolygon(placemark.coordinates))
+    if (!polygons.length) return toRegionalPointFile(record)
+
+    return {
+      id: record.id,
+      dbId: record.id,
+      fileName: record.file_name,
+      placemarks: polygons,
+      bounds: record.bounds,
+      metadata: {
+        id: record.id,
+        region: record.region,
+        geometryStatus: "real_geometry",
+        geometryLabel: "Geometría KMZ",
+        rolNumbers: record.rol_numbers || [],
+        regionalPreview: true,
+      },
+    }
+  })
+}
+
 export function CAMPOSFolderViewIntegrated() {
   const supabase = useMemo(() => createBrowserClient(), [])
   const cirenRequestRef = useRef(0)
@@ -253,8 +327,8 @@ export function CAMPOSFolderViewIntegrated() {
 
     try {
       const records = await ensureRegionRecords(region)
-      const pointFiles = regionalPointFiles(records)
-      setKmzFiles(pointFiles)
+      const regionalFiles = await loadRegionalGeometryFiles(supabase, records)
+      setKmzFiles(regionalFiles)
 
       const summary = summaries.find((item) => item.region === region)
       const firstPoint = records.find(
@@ -270,7 +344,7 @@ export function CAMPOSFolderViewIntegrated() {
     } finally {
       setLoadingMap(false)
     }
-  }, [ensureRegionRecords, summaries])
+  }, [ensureRegionRecords, summaries, supabase])
 
   const toggleRegion = useCallback(async (region: string) => {
     const isOpen = openRegions.has(region)
