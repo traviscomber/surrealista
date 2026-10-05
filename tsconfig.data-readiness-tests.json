@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "incremental": false,
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "outDir": ".tmp-data-readiness-tests"
+  },
+  "include": [
+    "lib/intelligence/data-readiness.ts",
+    "tests/data-readiness.test.ts"
+  ]
+}
