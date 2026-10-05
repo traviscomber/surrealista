@@ -31,6 +31,17 @@ function optionalString(value: unknown, max: number) {
   return normalized || null
 }
 
+function optionalStringList(value: unknown, maxItems = 12, maxLength = 80) {
+  if (value === undefined) return undefined
+  if (value === null) return [] as string[]
+  const input = Array.isArray(value) ? value : typeof value === "string" ? value.split(/[,;|\n]/g) : []
+  return Array.from(new Set(input
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim().slice(0, maxLength))
+    .filter(Boolean)))
+    .slice(0, maxItems)
+}
+
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ kmzId: string }> }) {
   if (!sameOrigin(request)) return NextResponse.json({ error: "Origen inválido" }, { status: 403 })
 
@@ -72,6 +83,24 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       const displayName = optionalString(body.displayName, 180)
       if (displayName) metadata.manual_display_name = displayName
       else delete metadata.manual_display_name
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "address")) {
+      const address = optionalString(body.address, 300)
+      if (address) metadata.manual_address = address
+      else delete metadata.manual_address
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "activityTags")) {
+      const activityTags = optionalStringList(body.activityTags)
+      if (activityTags?.length) metadata.manual_activity_tags = activityTags
+      else delete metadata.manual_activity_tags
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, "cropTags")) {
+      const cropTags = optionalStringList(body.cropTags)
+      if (cropTags?.length) metadata.manual_crop_tags = cropTags
+      else delete metadata.manual_crop_tags
     }
 
     const update: Record<string, unknown> = { metadata }
@@ -125,6 +154,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         metadata: {
           editableFields: Object.keys(update).filter((key) => key !== "metadata"),
           aliasChanged: Object.prototype.hasOwnProperty.call(body, "displayName"),
+          addressChanged: Object.prototype.hasOwnProperty.call(body, "address"),
+          activityChanged: Object.prototype.hasOwnProperty.call(body, "activityTags"),
+          cropChanged: Object.prototype.hasOwnProperty.call(body, "cropTags"),
         },
       })
     } catch (auditError) {
