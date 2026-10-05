@@ -18,6 +18,9 @@ interface KMZOwnerEditModalProps {
   currentPicEmail?: string
   currentGoogleDocsLink?: string
   currentDisplayName?: string
+  currentAddress?: string
+  currentActivityTags?: string[]
+  currentCropTags?: string[]
   onSave?: () => void
 }
 
@@ -32,6 +35,9 @@ export function KMZOwnerEditModal({
   currentPicEmail,
   currentGoogleDocsLink,
   currentDisplayName,
+  currentAddress,
+  currentActivityTags,
+  currentCropTags,
   onSave,
 }: KMZOwnerEditModalProps) {
   const [displayName, setDisplayName] = useState('')
@@ -40,6 +46,9 @@ export function KMZOwnerEditModal({
   const [picPhone, setPicPhone] = useState('')
   const [picEmail, setPicEmail] = useState('')
   const [googleDocsLink, setGoogleDocsLink] = useState('')
+  const [address, setAddress] = useState('')
+  const [activityTags, setActivityTags] = useState('')
+  const [cropTags, setCropTags] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -52,18 +61,24 @@ export function KMZOwnerEditModal({
       setPicPhone(currentPicPhone || '')
       setPicEmail(currentPicEmail || '')
       setGoogleDocsLink(currentGoogleDocsLink || '')
+      setAddress(currentAddress || '')
+      setActivityTags((currentActivityTags || []).join(', '))
+      setCropTags((currentCropTags || []).join(', '))
       setError(null)
     }
-  }, [open, currentDisplayName, currentOwner, currentPic, currentPicPhone, currentPicEmail, currentGoogleDocsLink])
+  }, [open, currentDisplayName, currentOwner, currentPic, currentPicPhone, currentPicEmail, currentGoogleDocsLink, currentAddress, currentActivityTags, currentCropTags])
 
   const handleSave = async () => {
     try {
       setSaving(true)
       setError(null)
 
-      const payload: Record<string, string> = {
+      const payload: Record<string, string | string[]> = {
         owner,
         google_docs_link: googleDocsLink,
+        address,
+        activityTags: activityTags.split(/[,;|\n]/g).map((value) => value.trim()).filter(Boolean),
+        cropTags: cropTags.split(/[,;|\n]/g).map((value) => value.trim()).filter(Boolean),
       }
 
       if (currentDisplayName !== undefined || displayName.trim()) payload.displayName = displayName
@@ -159,6 +174,38 @@ export function KMZOwnerEditModal({
               placeholder="contacto@ejemplo.com"
               value={picEmail}
               onChange={(e) => setPicEmail(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="address">Dirección / referencia territorial</Label>
+            <Input
+              id="address"
+              placeholder="Camino, localidad o referencia operativa"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">No reemplaza la geometría del KMZ; agrega una referencia operacional editable.</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="activityTags">Actividad del predio</Label>
+            <Input
+              id="activityTags"
+              placeholder="Agrícola, ganadero, forestal..."
+              value={activityTags}
+              onChange={(e) => setActivityTags(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">Separa múltiples actividades con coma.</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="cropTags">Cultivo / especie</Label>
+            <Input
+              id="cropTags"
+              placeholder="Cerezo, avellano europeo, pradera..."
+              value={cropTags}
+              onChange={(e) => setCropTags(e.target.value)}
             />
           </div>
 
