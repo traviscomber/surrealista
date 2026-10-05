@@ -131,6 +131,11 @@ function asString(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback
 }
 
+function asStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((item): item is string => typeof item === "string" && Boolean(item.trim())).map((item) => item.trim())
+}
+
 function fieldDisplayName(record: KmzInventoryRecord | null) {
   if (!record) return ""
   const metadata = asRecord(record.metadata)
@@ -747,6 +752,9 @@ export function CAMPOSFolderViewIntegrated() {
             currentDisplayName={fieldDisplayName(selectedRecord) !== selectedRecord.file_name ? fieldDisplayName(selectedRecord) : ""}
             currentOwner={selectedRecord.owner ?? undefined}
             currentGoogleDocsLink={selectedRecord.google_docs_link ?? undefined}
+            currentAddress={asString(asRecord(selectedRecord.metadata).manual_address)}
+            currentActivityTags={asStringArray(asRecord(selectedRecord.metadata).manual_activity_tags)}
+            currentCropTags={asStringArray(asRecord(selectedRecord.metadata).manual_crop_tags)}
             onSave={() => void refreshSelectedRecord()}
           />
         ) : null}
