@@ -2,6 +2,7 @@ export type DataAuthority =
   | "canonical"
   | "official"
   | "verified_external"
+  | "external"
   | "derived"
   | "ai_generated"
   | "memory"
