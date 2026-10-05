@@ -6,6 +6,7 @@ import { loadGovernedProspectingMemory } from "@/lib/prospeccion/case-persistenc
 import { normalizeProspectingCriteria } from "@/lib/prospeccion/normalization"
 import { ownerResearchCacheKey, readOwnerResearchCaches } from "@/lib/prospeccion/owner-research-cache"
 import { getSentinelSatelliteEvidence } from "@/lib/prospeccion/sentinel-satellite"
+import { observeProspectingDataReadiness } from "@/lib/prospeccion/data-readiness-observe"
 
 export const runtime = "nodejs"
 export const maxDuration = 30
@@ -299,6 +300,13 @@ export async function GET(request: Request) {
       supabase ? loadGovernedProspectingMemory(supabase) : Promise.resolve({ available: false, memories: [], authority: "non_canonical" as const }),
     ])
     const core = await hydrateOwnerResearch(rawCore)
+    const decisionTime = new Date().toISOString()
+    // This API route is privileged by middleware.ts; signed internal access is verified before the handler runs.
+    const dataReadiness = observeProspectingDataReadiness(core.priorityCases, {
+      authorizationChecked: true,
+      canonicalSelectionChecked: core.groundedEvaluation.state === "pass",
+      decisionTime,
+    })
     const [satelliteLayer, baseOutcome] = await Promise.all([
       enrichPrioritySatellites(core),
       Promise.resolve(deterministicOutcome(core)),
@@ -333,6 +341,7 @@ export async function GET(request: Request) {
       specialistTrace: core.observedSpecialists,
       sourceRefs: core.sourceRefs,
       groundedEvaluation: core.groundedEvaluation,
+      dataReadiness,
       scopeFallback: core.scopeFallback,
       methodology: "prospecting-intelligence-core-v4-owner-opportunity",
       operationalMutationExecuted: core.operationalMutationExecuted,

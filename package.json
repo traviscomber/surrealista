@@ -21,7 +21,8 @@
     "scrape:portalterreno": "node scripts/run-scrapers.mjs --source=portalterreno",
     "test:navigation": "node scripts/check-navigation-contract.mjs",
     "test:campos": "node scripts/check-campos-contract.mjs",
-    "test:kmz-recovery": "node scripts/check-kmz-recovery-contract.mjs && rm -rf .tmp-kmz-tests && tsc -p tsconfig.kmz-tests.json --outDir .tmp-kmz-tests && node --test .tmp-kmz-tests/tests/kmz-recovery.test.js && rm -rf .tmp-kmz-tests"
+    "test:kmz-recovery": "node scripts/check-kmz-recovery-contract.mjs && rm -rf .tmp-kmz-tests && tsc -p tsconfig.kmz-tests.json --outDir .tmp-kmz-tests && node --test .tmp-kmz-tests/tests/kmz-recovery.test.js && rm -rf .tmp-kmz-tests",
+    "test:data-readiness": "rm -rf .tmp-data-readiness-tests && tsc -p tsconfig.data-readiness-tests.json && node --test .tmp-data-readiness-tests/tests/data-readiness.test.js && rm -rf .tmp-data-readiness-tests"
   },
   "dependencies": {
     "@ai-sdk/openai": "latest",
