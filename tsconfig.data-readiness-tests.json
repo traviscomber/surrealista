@@ -9,6 +9,8 @@
   },
   "include": [
     "lib/intelligence/data-readiness.ts",
-    "tests/data-readiness.test.ts"
+    "tests/data-readiness.test.ts",
+    "lib/prospeccion/data-readiness-observe.ts",
+    "tests/prospecting-data-readiness-observe.test.ts"
   ]
 }
