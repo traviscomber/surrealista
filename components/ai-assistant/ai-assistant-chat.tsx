@@ -48,6 +48,13 @@ const initialMessage: Message = {
 export function AIAssistantChat() {
   const supabase = useMemo(() => createBrowserClient(), [])
   const pathname = usePathname()
+  const [entity, setEntity] = useState<{ module: string; entityId: string; entityLabel: string } | null>(null)
+  useEffect(() => {
+    const onEntity = (event: Event) => setEntity((event as CustomEvent).detail || null)
+    window.addEventListener("sr:assistant-entity", onEntity)
+    return () => window.removeEventListener("sr:assistant-entity", onEntity)
+  }, [])
+  useEffect(() => { setEntity(null) }, [pathname])
   const [messages, setMessages] = useState<Message[]>([initialMessage])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -75,7 +82,7 @@ export function AIAssistantChat() {
       const response = await fetch("/api/ai-assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMessage, context: { pathname } }),
+        body: JSON.stringify({ message: userMessage, context: { pathname, entityId: entity?.module === "campos" && pathname.startsWith("/campos") ? entity.entityId : null } }),
       })
 
       if (!response.ok) throw new Error(`Assistant request failed with ${response.status}`)
@@ -191,7 +198,7 @@ export function AIAssistantChat() {
           </div>
           <div className="min-w-0">
             <h2 className="sr-panel-title truncate">MI Toro</h2>
-            <p className="sr-meta mt-0.5 truncate">Contexto: {pathname === "/" ? "Inicio" : pathname.split("/").filter(Boolean)[0]} · Fuentes verificables</p>
+            <p className="sr-meta mt-0.5 truncate">Contexto: {entity && pathname.startsWith("/campos") ? entity.entityLabel : pathname === "/" ? "Inicio" : pathname.split("/").filter(Boolean)[0]} · Fuentes verificables</p>
           </div>
         </div>
         <Button variant="ghost" size="sm" onClick={() => void handleSendMessage("Explica qué fuentes puedes consultar y cuáles son tus límites.")}>
