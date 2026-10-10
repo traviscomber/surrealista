@@ -18,7 +18,7 @@ import {
 import { extractKmzGeometry, isRenderableKmzPolygon, type KmzRenderablePlacemark } from "@/lib/kmz/kmz-geometry-compat"
 
 const REGIONAL_GEOMETRY_BATCH_SIZE = 40
-const REGIONAL_GEOMETRY_FILE_LIMIT = 400
+const REGIONAL_GEOMETRY_PAGE_SIZE = 1000
 
 function chunkIds(ids: string[], size = REGIONAL_GEOMETRY_BATCH_SIZE) {
   const chunks: string[][] = []
@@ -205,8 +205,6 @@ async function loadRegionalGeometryFiles(
   records: KmzInventoryRecord[],
 ) {
   const candidates = records
-    .filter((record) => record.geometry_status === "real_geometry" || Number(record.placemarks_count || 0) > 0)
-    .slice(0, REGIONAL_GEOMETRY_FILE_LIMIT)
 
   if (!candidates.length) return regionalPointFiles(records)
 
@@ -214,22 +212,29 @@ async function loadRegionalGeometryFiles(
   const placemarksByKmz = new Map<string, any[]>()
 
   for (const ids of chunkIds(candidateIds)) {
-    const { data, error } = await supabase
-      .from("kmz_placemarks")
-      .select("kmz_id,name,type,coordinates,description,properties")
-      .in("kmz_id", ids)
-      .limit(5000)
+    let offset = 0
+    while (true) {
+      const { data, error } = await supabase
+        .from("kmz_placemarks")
+        .select("kmz_id,name,type,coordinates,description,properties")
+        .in("kmz_id", ids)
+        .order("id", { ascending: true })
+        .range(offset, offset + REGIONAL_GEOMETRY_PAGE_SIZE - 1)
 
-    if (error) {
-      console.warn("[CAMPOS] regional geometry batch failed; keeping point fallback", error)
-      continue
-    }
+      if (error) {
+        // Do not present a partial map as complete when a page fails.
+        throw new Error(`No se pudieron cargar todas las geometrías de la región: ${error.message}`)
+      }
 
-    for (const row of data || []) {
-      const key = String(row.kmz_id)
-      const current = placemarksByKmz.get(key) || []
-      current.push(row)
-      placemarksByKmz.set(key, current)
+      for (const row of data || []) {
+        const key = String(row.kmz_id)
+        const current = placemarksByKmz.get(key) || []
+        current.push(row)
+        placemarksByKmz.set(key, current)
+      }
+
+      if (!data || data.length < REGIONAL_GEOMETRY_PAGE_SIZE) break
+      offset += REGIONAL_GEOMETRY_PAGE_SIZE
     }
   }
 
