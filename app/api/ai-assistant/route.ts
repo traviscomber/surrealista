@@ -93,6 +93,7 @@ export async function POST(request: NextRequest) {
     if (contextModule && plan.intent === "general") plan.domains = [contextModule]
     else if (contextModule && !plan.domains.includes(contextModule)) plan.domains = [...plan.domains, contextModule]
     const evidence = await collectSREvidence(supabase, plan, message)
+    let verifiedFieldId: string | null = null
     // Resolve selection on the server: client-supplied IDs are never treated as evidence.
     if (contextModule === "campos" && contextId) {
       const { data: field, error: fieldError } = await supabase
@@ -101,6 +102,7 @@ export async function POST(request: NextRequest) {
         .eq("id", contextId)
         .eq("is_active", true)
         .maybeSingle()
+      if (field && !fieldError) verifiedFieldId = field.id
       evidence.unshift({
         source: "selected_kmz",
         domain: "campos",
@@ -164,7 +166,7 @@ El modo de ejecución es ${plan.mode}. Dominios: ${plan.domains.join(", ")}. Con
           },
           {
             role: "user",
-            content: JSON.stringify({ query: message, plan, context: { module: contextModule || null, entityId: contextId }, evidence: groundedContext }),
+            content: JSON.stringify({ query: message, plan, context: { module: contextModule || null, entityId: verifiedFieldId }, evidence: groundedContext }),
           },
         ],
       })
@@ -174,6 +176,11 @@ El modo de ejecución es ${plan.mode}. Dominios: ${plan.domains.join(", ")}. Con
         const parsed = JSON.parse(raw)
         if (typeof parsed.answer === "string" && parsed.answer.trim()) responseText = parsed.answer.trim()
         taskDraft = validTaskDraft(parsed.taskDraft)
+        if (taskDraft) {
+          // Only attach a canonical field that was verified server-side.
+          if (taskDraft.module === "campos") taskDraft.relatedId = verifiedFieldId
+          else taskDraft.relatedId = null
+        }
       } catch (error) {
         console.warn("[sur-realista-os] invalid synthesis json", error)
       }
