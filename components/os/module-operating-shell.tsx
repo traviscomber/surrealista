@@ -8,9 +8,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Menu,
+  Bot,
 } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { AIAssistantChat } from "@/components/ai-assistant/ai-assistant-chat"
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import {
   SUR_REALISTA_HOME,
@@ -40,6 +42,7 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [assistantOpen, setAssistantOpen] = useState(false)
 
   useEffect(() => {
     setCollapsed(window.localStorage.getItem("sr-os-nav-collapsed") === "1")
@@ -207,6 +210,20 @@ export function ModuleOperatingShell({ children }: { children: React.ReactNode }
             </Link>
           </div>
 
+          <div className="flex items-center gap-2">
+            <Sheet open={assistantOpen} onOpenChange={setAssistantOpen}>
+              <SheetTrigger asChild>
+                <button type="button" className="flex min-h-10 items-center gap-2 rounded-md border border-border/70 px-3 text-xs font-medium hover:bg-muted" aria-label="Abrir asistente contextual">
+                  <Bot className="h-4 w-4" aria-hidden="true" />
+                  <span className="hidden sm:inline">Asistente contextual</span>
+                </button>
+              </SheetTrigger>
+              <SheetContent side="right" className="flex h-full w-full flex-col overflow-hidden p-0 sm:max-w-[480px]">
+                <SheetTitle className="sr-only">Asistente contextual</SheetTitle>
+                <div className="min-h-0 flex-1 pt-12"><AIAssistantChat /></div>
+              </SheetContent>
+            </Sheet>
+          </div>
           <div className="hidden items-center gap-1 sm:flex">
             {SUR_REALISTA_UTILITIES.filter((item) => item.label === "Tareas" || item.label === "Asistente").map((item) => {
               const Icon = item.icon
