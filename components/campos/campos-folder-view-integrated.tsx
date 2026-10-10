@@ -289,6 +289,7 @@ export function CAMPOSFolderViewIntegrated() {
   const [loadingRegions, setLoadingRegions] = useState<Set<string>>(new Set())
   const [loadingInitial, setLoadingInitial] = useState(true)
   const [loadingMap, setLoadingMap] = useState(false)
+  const [mapError, setMapError] = useState<string | null>(null)
   const [, setLoadingCiren] = useState(false)
   const [cirenContext, setCirenContext] = useState<CirenContext | null>(null)
   const [, setCirenError] = useState(false)
@@ -334,6 +335,7 @@ export function CAMPOSFolderViewIntegrated() {
     setSelectedRecord(null)
     setSelectedLayer(null)
     setLoadingMap(true)
+    setMapError(null)
 
     try {
       const records = await ensureRegionRecords(region)
@@ -351,6 +353,7 @@ export function CAMPOSFolderViewIntegrated() {
     } catch (error) {
       console.error("[CAMPOS] region inventory failed", error)
       setKmzFiles([])
+      setMapError(error instanceof Error ? error.message : "No fue posible cargar la región completa")
     } finally {
       setLoadingMap(false)
     }
