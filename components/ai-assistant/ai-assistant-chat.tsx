@@ -317,6 +317,13 @@ export function AIAssistantChat() {
       </div>
 
       <footer className="border-t border-border bg-card px-5 py-4">
+        {entity && pathname.startsWith("/campos") ? (
+          <div className="mb-3 flex flex-wrap gap-2" aria-label="Acciones rápidas del predio">
+            <Button type="button" size="sm" variant="outline" disabled={isLoading} onClick={() => void handleSendMessage("Resume la ficha de este predio usando solo información verificada y señala lo que falta.")}>Resumir ficha</Button>
+            <Button type="button" size="sm" variant="outline" disabled={isLoading} onClick={() => void handleSendMessage("Revisa el predio seleccionado y prepara una tarea para verificar los antecedentes faltantes. No la crees sin mi confirmación.")}>Preparar tarea</Button>
+            <Button type="button" size="sm" variant="outline" disabled={isLoading} onClick={() => void handleSendMessage("¿Hay un enlace de Google Docs asociado a este predio? Indica si está registrado, sin inventar un vínculo.")}>Google Docs</Button>
+          </div>
+        ) : null}
         <div className="flex items-end gap-2">
           <Textarea
             value={input}
