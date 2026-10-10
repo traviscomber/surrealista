@@ -190,7 +190,7 @@ export function AIAssistantChat() {
             <Bot className="h-4 w-4" aria-hidden="true" />
           </div>
           <div className="min-w-0">
-            <h2 className="sr-panel-title truncate">Asistente de análisis</h2>
+            <h2 className="sr-panel-title truncate">MI Toro</h2>
             <p className="sr-meta mt-0.5 truncate">Contexto: {pathname === "/" ? "Inicio" : pathname.split("/").filter(Boolean)[0]} · Fuentes verificables</p>
           </div>
         </div>
