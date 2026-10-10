@@ -78,11 +78,13 @@ type ScoreBreakdown = {
 const ACTIVITY_KEYS = [
   "activity", "activity_type", "actividad", "actividad_predio", "giro",
   "land_use", "uso", "uso_actual", "uso_predio", "uso_suelo", "productive_use",
+  "manual_activity_tags",
 ]
 
 const CROP_KEYS = [
   "crop", "crops", "cultivo", "cultivos", "especie", "especies",
   "produccion", "produccion_agricola", "agricultural_use",
+  "manual_crop_tags",
 ]
 
 function clamp(value: number, min: number, max: number) {
@@ -385,6 +387,31 @@ export function CampoIntelligencePanelV2({ record, ciren }: { record: KmzInvento
       ? `Referencia complementaria: ${ciren.neighborCount} predios cercanos`
       : null
 
+  const metadata = record.metadata && typeof record.metadata === "object" && !Array.isArray(record.metadata)
+    ? record.metadata as Record<string, unknown>
+    : {}
+  const operationalAddress = typeof metadata.manual_address === "string" && metadata.manual_address.trim()
+    ? metadata.manual_address.trim()
+    : null
+  const freshestFieldEvidence = fieldEvidence
+    .map((row) => row.observed_at)
+    .filter((value): value is string => Boolean(value))
+    .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] || null
+  const freshestPublicMetric = publicMetrics
+    .map((row) => row.scraped_at)
+    .filter((value): value is string => Boolean(value))
+    .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] || null
+  const coverage = [
+    ["Geometría", record.geometry_status === "real_geometry"],
+    ["ROL", Boolean(record.rol_numbers?.length)],
+    ["Propietario", Boolean(record.owner || ownerSignal)],
+    ["Contacto", Boolean(contact?.pic || contact?.pic_phone || contact?.pic_email)],
+    ["Actividad", Boolean(siiUse || activityTags.length || cropTags.length)],
+    ["POIs", Boolean(road || place || water || protectedArea)],
+    ["Documentos", Boolean(record.google_docs_link || kmlHierarchy?.hasHierarchy)],
+    ["Mercado", Boolean(marketEvidence.maxSample || publicMetrics.length)],
+  ] as const
+
   return (
     <div className="mt-4 border-t border-border/70 pt-4">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -442,6 +469,7 @@ export function CampoIntelligencePanelV2({ record, ciren }: { record: KmzInvento
           <Fact label="Región" value={record.region} />
           <Fact label="Geometría" value={record.geometry_label || record.geometry_status} />
           <Fact label="Ubicación" value={Number.isFinite(Number(record.latitude)) && Number.isFinite(Number(record.longitude)) ? `${Number(record.latitude).toFixed(5)}, ${Number(record.longitude).toFixed(5)}` : "Sin coordenadas"} />
+          <Fact label="Dirección operativa" value={operationalAddress || "No informada"} />
           {cirenSummary ? <Fact label="CIREN" value={cirenSummary} /> : null}
         </Evidence>
 
@@ -482,10 +510,32 @@ export function CampoIntelligencePanelV2({ record, ciren }: { record: KmzInvento
         </Evidence>
       </div>
 
+      <div className="mt-3 rounded-lg border border-border/70 bg-secondary/20 p-3">
+        <div className="mb-2 flex items-center gap-2 text-xs font-medium">
+          <ShieldCheck className="h-4 w-4 text-primary" />
+          <span>07 · Cobertura y frescura</span>
+        </div>
+        <div className="grid gap-1.5 sm:grid-cols-2">
+          {coverage.map(([label, available]) => (
+            <div key={label} className="flex items-center justify-between gap-3 text-[11px]">
+              <span className="text-muted-foreground">{label}</span>
+              <Badge variant="outline" className={available ? "border-emerald-600/25 bg-emerald-600/8 text-emerald-700 dark:text-emerald-300" : "border-amber-600/25 bg-amber-600/8 text-amber-700 dark:text-amber-300"}>
+                {available ? "Disponible" : "Pendiente"}
+              </Badge>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 border-t border-border/60 pt-2">
+          <Fact label="Evidencia de campo" value={freshestFieldEvidence ? new Date(freshestFieldEvidence).toLocaleDateString("es-CL") : "Sin fecha"} />
+          <Fact label="Contacto" value={contact?.updated_at ? new Date(contact.updated_at).toLocaleDateString("es-CL") : "Sin fecha"} />
+          <Fact label="Mercado" value={marketEvidence.freshest?.computed_at ? new Date(marketEvidence.freshest.computed_at).toLocaleDateString("es-CL") : freshestPublicMetric ? new Date(freshestPublicMetric).toLocaleDateString("es-CL") : "Sin fecha"} />
+        </div>
+      </div>
+
       <div className="mt-3 flex items-start gap-3 rounded-lg border border-border/70 bg-secondary/25 px-4 py-3">
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
         <div className="min-w-0">
-          <p className="text-xs font-medium">07 · Siguiente acción</p>
+          <p className="text-xs font-medium">08 · Siguiente acción</p>
           <p className="mt-1 text-xs text-muted-foreground">{nextAction}</p>
           {failed ? <p className="mt-1 text-[11px] text-amber-700 dark:text-amber-300">Parte de la evidencia complementaria no estuvo disponible; el score se calculó solo con datos recuperados.</p> : null}
         </div>
