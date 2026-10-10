@@ -18,7 +18,7 @@ import {
 import { extractKmzGeometry, isRenderableKmzPolygon, type KmzRenderablePlacemark } from "@/lib/kmz/kmz-geometry-compat"
 
 const REGIONAL_GEOMETRY_BATCH_SIZE = 40
-const REGIONAL_GEOMETRY_FILE_LIMIT = 160
+const REGIONAL_GEOMETRY_FILE_LIMIT = 400
 
 function chunkIds(ids: string[], size = REGIONAL_GEOMETRY_BATCH_SIZE) {
   const chunks: string[][] = []
@@ -205,7 +205,7 @@ async function loadRegionalGeometryFiles(
   records: KmzInventoryRecord[],
 ) {
   const candidates = records
-    .filter((record) => record.geometry_status === "real_geometry" && Number(record.placemarks_count || 0) > 0)
+    .filter((record) => record.geometry_status === "real_geometry" || Number(record.placemarks_count || 0) > 0)
     .slice(0, REGIONAL_GEOMETRY_FILE_LIMIT)
 
   if (!candidates.length) return regionalPointFiles(records)
