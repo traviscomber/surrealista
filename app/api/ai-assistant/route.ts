@@ -1,3 +1,4 @@
+import { INTERNAL_ACCESS_COOKIE, verifyInternalAccessToken } from "@/lib/auth/internal-access"
 import { NextRequest, NextResponse } from "next/server"
 import OpenAI from "openai"
 import { createClient } from "@supabase/supabase-js"
@@ -64,7 +65,13 @@ function validTaskDraft(value: unknown): TaskDraft | null {
 
 export async function POST(request: NextRequest) {
   try {
+    const authorized = await verifyInternalAccessToken(request.cookies.get(INTERNAL_ACCESS_COOKIE)?.value)
+    if (!authorized) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
     const body = await request.json().catch(() => ({}))
+    const contextPath = typeof body?.context?.pathname === "string" ? body.context.pathname.slice(0, 160) : ""
+    const allowedModules = ["campos", "clientes", "multimedia", "documentos", "mercado"] as const
+    const contextModule = allowedModules.find((module) => contextPath === `/${module}` || contextPath.startsWith(`/${module}/`))
+    const contextId = typeof body?.context?.entityId === "string" && /^[0-9a-f-]{36}$/i.test(body.context.entityId) ? body.context.entityId : null
     const message = typeof body?.message === "string" ? body.message.trim() : ""
 
     if (!message) return NextResponse.json({ error: "Message is required" }, { status: 400 })
@@ -83,6 +90,8 @@ export async function POST(request: NextRequest) {
     })
 
     const plan = buildSRPlan(message)
+    if (contextModule && plan.intent === "general") plan.domains = [contextModule]
+    else if (contextModule && !plan.domains.includes(contextModule)) plan.domains = [...plan.domains, contextModule]
     const evidence = await collectSREvidence(supabase, plan, message)
     const summary = evidenceSummary(evidence)
     const groundedContext = compactEvidence(evidence)
@@ -136,11 +145,11 @@ REGLAS DE TAREAS:
 - Si no hay prioridad explícita, usa medium.
 - El texto answer debe indicar claramente que la tarea está preparada y espera confirmación.
 
-El modo de ejecución es ${plan.mode}. Dominios: ${plan.domains.join(", ")}.`,
+El modo de ejecución es ${plan.mode}. Dominios: ${plan.domains.join(", ")}. Contexto de sección: ${contextModule || "inicio"}. El ID seleccionado es solo contexto, no autorización.`,
           },
           {
             role: "user",
-            content: JSON.stringify({ query: message, plan, evidence: groundedContext }),
+            content: JSON.stringify({ query: message, plan, context: { module: contextModule || null, entityId: contextId }, evidence: groundedContext }),
           },
         ],
       })
