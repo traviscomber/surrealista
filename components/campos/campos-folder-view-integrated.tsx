@@ -279,10 +279,14 @@ export function CAMPOSFolderViewIntegrated() {
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
   const [selectedRecord, setSelectedRecord] = useState<KmzInventoryRecord | null>(null)
   useEffect(() => {
-    window.dispatchEvent(new CustomEvent("sr:assistant-entity", {
-      detail: selectedRecord ? { module: "campos", entityId: String(selectedRecord.id), entityLabel: fieldDisplayName(selectedRecord) } : null,
-    }))
-    return () => window.dispatchEvent(new CustomEvent("sr:assistant-entity", { detail: null }))
+    const entity = selectedRecord ? { module: "campos", entityId: String(selectedRecord.id), entityLabel: fieldDisplayName(selectedRecord) } : null
+    if (entity) window.sessionStorage.setItem("sr:assistant-entity", JSON.stringify(entity))
+    else window.sessionStorage.removeItem("sr:assistant-entity")
+    window.dispatchEvent(new CustomEvent("sr:assistant-entity", { detail: entity }))
+    return () => {
+      window.sessionStorage.removeItem("sr:assistant-entity")
+      window.dispatchEvent(new CustomEvent("sr:assistant-entity", { detail: null }))
+    }
   }, [selectedRecord])
 
   const [selectedLayer, setSelectedLayer] = useState<LayerInfo | null>(null)
