@@ -25,7 +25,7 @@ export function OperatingSystemDashboard({ metrics }: Props) {
       <header className="space-y-2 border-b border-border/70 pb-6">
         <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">Sur Realista / Operación</p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Nave de comandos</h1>
-        <p className="max-w-xl text-sm text-muted-foreground">Juan Navarro · Elige qué necesitas hacer.</p>
+        <p className="max-w-xl text-sm text-muted-foreground">Elige qué necesitas hacer.</p>
       </header>
 
       <section aria-labelledby="acciones-heading" className="space-y-4">
