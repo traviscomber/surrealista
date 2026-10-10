@@ -322,6 +322,7 @@ export function AIAssistantChat() {
             <Button type="button" size="sm" variant="outline" disabled={isLoading} onClick={() => void handleSendMessage("Resume la ficha de este predio usando solo información verificada y señala lo que falta.")}>Resumir ficha</Button>
             <Button type="button" size="sm" variant="outline" disabled={isLoading} onClick={() => void handleSendMessage("Revisa el predio seleccionado y prepara una tarea para verificar los antecedentes faltantes. No la crees sin mi confirmación.")}>Preparar tarea</Button>
             <Button type="button" size="sm" variant="outline" disabled={isLoading} onClick={() => void handleSendMessage("¿Hay un enlace de Google Docs asociado a este predio? Indica si está registrado, sin inventar un vínculo.")}>Google Docs</Button>
+            <Button type="button" size="sm" variant="outline" disabled={isLoading} onClick={() => void handleSendMessage("Prepara una tarea de visita a este predio para registrar observaciones, fotografías y compromisos. Asóciala al predio seleccionado. No inventes fecha ni responsable y espera mi confirmación.")}>Preparar visita</Button>
           </div>
         ) : null}
         <div className="flex items-end gap-2">
