@@ -278,6 +278,13 @@ export function CAMPOSFolderViewIntegrated() {
   const [openRegions, setOpenRegions] = useState<Set<string>>(new Set())
   const [selectedRegion, setSelectedRegion] = useState<string | null>(null)
   const [selectedRecord, setSelectedRecord] = useState<KmzInventoryRecord | null>(null)
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("sr:assistant-entity", {
+      detail: selectedRecord ? { module: "campos", entityId: String(selectedRecord.id), entityLabel: fieldDisplayName(selectedRecord) } : null,
+    }))
+    return () => window.dispatchEvent(new CustomEvent("sr:assistant-entity", { detail: null }))
+  }, [selectedRecord])
+
   const [selectedLayer, setSelectedLayer] = useState<LayerInfo | null>(null)
   const [kmzFiles, setKmzFiles] = useState<any[]>([])
   const [mapCenter, setMapCenter] = useState<{ lat: number; lng: number } | null>(null)
