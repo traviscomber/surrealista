@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
+import { usePathname } from "next/navigation"
 import { Bot, CheckSquare2, Database, ExternalLink, HelpCircle, Send, User } from "lucide-react"
 import { v4 as uuidv4 } from "uuid"
 
@@ -46,6 +47,7 @@ const initialMessage: Message = {
 
 export function AIAssistantChat() {
   const supabase = useMemo(() => createBrowserClient(), [])
+  const pathname = usePathname()
   const [messages, setMessages] = useState<Message[]>([initialMessage])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -73,7 +75,7 @@ export function AIAssistantChat() {
       const response = await fetch("/api/ai-assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMessage }),
+        body: JSON.stringify({ message: userMessage, context: { pathname } }),
       })
 
       if (!response.ok) throw new Error(`Assistant request failed with ${response.status}`)
@@ -189,7 +191,7 @@ export function AIAssistantChat() {
           </div>
           <div className="min-w-0">
             <h2 className="sr-panel-title truncate">Asistente de análisis</h2>
-            <p className="sr-meta mt-0.5 truncate">Consulta las fuentes conectadas a la plataforma</p>
+            <p className="sr-meta mt-0.5 truncate">Contexto: {pathname === "/" ? "Inicio" : pathname.split("/").filter(Boolean)[0]} · Fuentes verificables</p>
           </div>
         </div>
         <Button variant="ghost" size="sm" onClick={() => void handleSendMessage("Explica qué fuentes puedes consultar y cuáles son tus límites.")}>
