@@ -93,6 +93,21 @@ export async function POST(request: NextRequest) {
     if (contextModule && plan.intent === "general") plan.domains = [contextModule]
     else if (contextModule && !plan.domains.includes(contextModule)) plan.domains = [...plan.domains, contextModule]
     const evidence = await collectSREvidence(supabase, plan, message)
+    // Resolve selection on the server: client-supplied IDs are never treated as evidence.
+    if (contextModule === "campos" && contextId) {
+      const { data: field, error: fieldError } = await supabase
+        .from("kmz_collection")
+        .select("id,file_name,region,owner,rol_numbers,placemarks_count,google_docs_link,updated_at")
+        .eq("id", contextId)
+        .eq("is_active", true)
+        .maybeSingle()
+      evidence.unshift({
+        source: "selected_kmz",
+        domain: "campos",
+        records: field && !fieldError ? [field] : [],
+        ...(fieldError ? { error: "No fue posible consultar el predio seleccionado" } : {}),
+      })
+    }
     const summary = evidenceSummary(evidence)
     const groundedContext = compactEvidence(evidence)
 
