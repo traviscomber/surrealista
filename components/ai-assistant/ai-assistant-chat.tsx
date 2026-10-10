@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
+import { usePathname } from "next/navigation"
 import { Bot, CheckSquare2, Database, ExternalLink, HelpCircle, Send, User } from "lucide-react"
 import { v4 as uuidv4 } from "uuid"
 
@@ -46,6 +47,22 @@ const initialMessage: Message = {
 
 export function AIAssistantChat() {
   const supabase = useMemo(() => createBrowserClient(), [])
+  const pathname = usePathname()
+  const [entity, setEntity] = useState<{ module: string; entityId: string; entityLabel: string } | null>(null)
+  useEffect(() => {
+    const onEntity = (event: Event) => setEntity((event as CustomEvent).detail || null)
+    if (pathname.startsWith("/campos")) {
+      try {
+        const stored = window.sessionStorage.getItem("sr:assistant-entity")
+        if (stored) {
+          const parsed = JSON.parse(stored)
+          if (parsed?.module === "campos" && typeof parsed.entityId === "string") setEntity(parsed)
+        }
+      } catch { /* Invalid context is ignored. */ }
+    }
+    window.addEventListener("sr:assistant-entity", onEntity)
+    return () => window.removeEventListener("sr:assistant-entity", onEntity)
+  }, [pathname])
   const [messages, setMessages] = useState<Message[]>([initialMessage])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
@@ -73,7 +90,7 @@ export function AIAssistantChat() {
       const response = await fetch("/api/ai-assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMessage }),
+        body: JSON.stringify({ message: userMessage, context: { pathname, entityId: entity?.module === "campos" && pathname.startsWith("/campos") ? entity.entityId : null } }),
       })
 
       if (!response.ok) throw new Error(`Assistant request failed with ${response.status}`)
@@ -188,8 +205,8 @@ export function AIAssistantChat() {
             <Bot className="h-4 w-4" aria-hidden="true" />
           </div>
           <div className="min-w-0">
-            <h2 className="sr-panel-title truncate">Asistente de análisis</h2>
-            <p className="sr-meta mt-0.5 truncate">Consulta las fuentes conectadas a la plataforma</p>
+            <h2 className="sr-panel-title truncate">MI Toro</h2>
+            <p className="sr-meta mt-0.5 truncate">Contexto: {entity && pathname.startsWith("/campos") ? entity.entityLabel : pathname === "/" ? "Inicio" : pathname.split("/").filter(Boolean)[0]} · Fuentes verificables</p>
           </div>
         </div>
         <Button variant="ghost" size="sm" onClick={() => void handleSendMessage("Explica qué fuentes puedes consultar y cuáles son tus límites.")}>
@@ -300,6 +317,14 @@ export function AIAssistantChat() {
       </div>
 
       <footer className="border-t border-border bg-card px-5 py-4">
+        {entity && pathname.startsWith("/campos") ? (
+          <div className="mb-3 flex flex-wrap gap-2" aria-label="Acciones rápidas del predio">
+            <Button type="button" size="sm" variant="outline" disabled={isLoading} onClick={() => void handleSendMessage("Resume la ficha de este predio usando solo información verificada y señala lo que falta.")}>Resumir ficha</Button>
+            <Button type="button" size="sm" variant="outline" disabled={isLoading} onClick={() => void handleSendMessage("Revisa el predio seleccionado y prepara una tarea para verificar los antecedentes faltantes. No la crees sin mi confirmación.")}>Preparar tarea</Button>
+            <Button type="button" size="sm" variant="outline" disabled={isLoading} onClick={() => void handleSendMessage("¿Hay un enlace de Google Docs asociado a este predio? Indica si está registrado, sin inventar un vínculo.")}>Google Docs</Button>
+            <Button type="button" size="sm" variant="outline" disabled={isLoading} onClick={() => void handleSendMessage("Prepara una tarea de visita a este predio para registrar observaciones, fotografías y compromisos. Asóciala al predio seleccionado. No inventes fecha ni responsable y espera mi confirmación.")}>Preparar visita</Button>
+          </div>
+        ) : null}
         <div className="flex items-end gap-2">
           <Textarea
             value={input}

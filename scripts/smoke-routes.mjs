@@ -7,7 +7,7 @@ let authenticatedBaseURL = baseURL
 const signingSecret = process.env.SMOKE_SIGNING_SECRET
 const smokePassword = process.env.SMOKE_PASSWORD
 const operationalRoutes = [
-  { route: "/", expectedText: /Cinco módulos operativos|Todo Sur Realista/i },
+  { route: "/", expectedText: /Cinco módulos operativos|Todo Sur Realista|Nave de comandos/i },
   { route: "/campos", expectedText: /CAMPOS|Colección de campos/i },
   { route: "/prospeccion", expectedText: /Prospección inteligente|Poner más campos sobre la mesa/i },
   { route: "/prospeccion/demanda-mercado", expectedText: /Demanda detectada en mercado|Inteligencia competitiva/i },
