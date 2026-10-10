@@ -701,6 +701,11 @@ export function CAMPOSFolderViewIntegrated() {
           {loadingMap ? (
             <div className="absolute inset-0 z-20 flex items-center justify-center bg-background/75"><Loader2 className="h-7 w-7 animate-spin text-primary" /></div>
           ) : null}
+          {mapError ? (
+            <div role="alert" className="absolute inset-x-4 top-4 z-30 rounded-md border border-destructive/40 bg-background p-3 text-sm text-destructive">
+              No se pudo cargar la geometría completa: {mapError}
+            </div>
+          ) : null}
           {kmzFiles.length > 0 && mapCenter ? (
             <KMZMapDisplay
               kmzFiles={kmzFiles}
