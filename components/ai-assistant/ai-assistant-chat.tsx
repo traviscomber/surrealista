@@ -51,10 +51,18 @@ export function AIAssistantChat() {
   const [entity, setEntity] = useState<{ module: string; entityId: string; entityLabel: string } | null>(null)
   useEffect(() => {
     const onEntity = (event: Event) => setEntity((event as CustomEvent).detail || null)
+    if (pathname.startsWith("/campos")) {
+      try {
+        const stored = window.sessionStorage.getItem("sr:assistant-entity")
+        if (stored) {
+          const parsed = JSON.parse(stored)
+          if (parsed?.module === "campos" && typeof parsed.entityId === "string") setEntity(parsed)
+        }
+      } catch { /* Invalid context is ignored. */ }
+    }
     window.addEventListener("sr:assistant-entity", onEntity)
     return () => window.removeEventListener("sr:assistant-entity", onEntity)
-  }, [])
-  useEffect(() => { setEntity(null) }, [pathname])
+  }, [pathname])
   const [messages, setMessages] = useState<Message[]>([initialMessage])
   const [input, setInput] = useState("")
   const [isLoading, setIsLoading] = useState(false)
